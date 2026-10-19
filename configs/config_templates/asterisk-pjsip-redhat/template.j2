@@ -1,0 +1,115 @@
+; ============================================================================
+; Asterisk PJSIP / PJProject Configuration Template
+; ============================================================================
+; This file configures common PJProject options and log level mappings for
+; Asterisk.
+;
+; Section 'startup':
+;   The name of this section MUST remain 'startup' for the configuration to
+;   be applied by Asterisk's PJProject module.
+;
+; Section 'log_mappings':
+;   The name of this section MUST remain 'log_mappings' for the configuration
+;   to be applied. It maps internal PJProject log levels to Asterisk log
+;   priorities.
+; ============================================================================
+
+;[startup]
+
+; --------------------------------------------------------------------------
+; cache_pools
+; --------------------------------------------------------------------------
+; Cache pjproject memory pools for performance. Set to 'no' for debugging
+; with valgrind. When enabled (yes), pools are cached to improve allocation
+; speed. Disabling this helps track down pool content mismanagement when
+; using valgrind or MALLOC_DEBUG, as it prevents the cache from hiding use-
+; after-free errors.
+; Default: yes
+{% if cache_pools is defined and cache_pools is not none and (cache_pools is number or cache_pools is boolean or cache_pools | length > 0) %}cache_pools = {{ cache_pools | default('yes') }}{% else %};cache_pools = yes   ; Cache pjproject memory pools for performance{% endif %}
+
+; --------------------------------------------------------------------------
+; log_level
+; --------------------------------------------------------------------------
+; Initial maximum pjproject logging level to log.
+; Valid values: 0-6 (numeric) or 'default'.
+;
+; Note: This option is needed very early in the startup process, so it can
+;       only be read from config files because the modules for other methods
+;       have not been loaded yet.
+; Default: default
+{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}log_level = {{ log_level | default('default') }}{% else %};log_level=default   ; Initial maximum pjproject logging level to log{% endif %}
+
+; Required type declaration for the startup section.
+; Must be of type startup.
+{% if type is defined and type is not none and type != '' %}type = {{ type }}{% else %};type=               ; Must be of type startup (default: ""){% endif %}
+
+;============================================================================
+; [log_mappings]
+;============================================================================
+;  SYNOPSIS: Provides pjproject to Asterisk log level mappings.
+;
+; NOTES:
+;   The name of this section MUST remain 'log_mappings'.
+;   Defaults only apply if this file or the 'log_mappings' object is not
+;   found. If the object is found but an entry is omitted, nothing will be
+;   logged for that level.
+;
+; PJProject Log Level Meanings:
+;  - 0: fatal error
+;  - 1: error
+;  - 2: warning
+;  - 3: info
+;  - 4: debug
+;  - 5: trace
+;  - 6: more detailed trace
+;
+; WARNING:
+;   Setting the pjproject debug level to 4 (debug) or above may result in
+;   raw packets being logged. Enable this only during active debugging to
+;   avoid potential security issues due to logging injection.
+
+; --------------------------------------------------------------------------
+; asterisk_error
+; --------------------------------------------------------------------------
+; A comma separated list of pjproject log levels to map to Asterisk errors.
+; (default: "0,1")
+{% if asterisk_error is defined and asterisk_error is not none and (asterisk_error is number or asterisk_error is boolean or asterisk_error | length > 0) %}asterisk_error = {{ asterisk_error | default('0,1') }}{% else %};asterisk_error =    ; A comma separated list of pjproject log levels to map to{% endif %}
+
+; --------------------------------------------------------------------------
+; asterisk_warning
+; --------------------------------------------------------------------------
+; A comma separated list of pjproject log levels to map to Asterisk warnings.
+; (default: "2")
+{% if asterisk_warning is defined and asterisk_warning is not none and (asterisk_warning is number or asterisk_warning is boolean or asterisk_warning | length > 0) %}asterisk_warning = {{ asterisk_warning | default('2') }}{% else %};asterisk_warning =  ; A comma separated list of pjproject log levels to map to{% endif %}
+
+; --------------------------------------------------------------------------
+; asterisk_notice
+; --------------------------------------------------------------------------
+; A comma separated list of pjproject log levels to map to Asterisk notices.
+; (default: "")
+{% if asterisk_notice is defined and asterisk_notice is not none and (asterisk_notice is number or asterisk_notice is boolean or asterisk_notice | length > 0) %}asterisk_notice = {{ asterisk_notice | default('') }}{% else %};asterisk_notice =   ; A comma separated list of pjproject log levels to map to{% endif %}
+
+; --------------------------------------------------------------------------
+; asterisk_verbose
+; --------------------------------------------------------------------------
+; A comma separated list of pjproject log levels to map to Asterisk verbose.
+; (default: "")
+{% if asterisk_verbose is defined and asterisk_verbose is not none and (asterisk_verbose is number or asterisk_verbose is boolean or asterisk_verbose | length > 0) %}asterisk_verbose = {{ asterisk_verbose | default('') }}{% else %};asterisk_verbose =  ; A comma separated list of pjproject log levels to map to{% endif %}
+
+; --------------------------------------------------------------------------
+; asterisk_debug
+; --------------------------------------------------------------------------
+; A comma separated list of pjproject log levels to map to Asterisk debug.
+; (default: "3,4")
+{% if asterisk_debug is defined and asterisk_debug is not none and (asterisk_debug is number or asterisk_debug is boolean or asterisk_debug | length > 0) %}asterisk_debug = {{ asterisk_debug | default('3,4') }}{% else %};asterisk_debug =    ; A comma separated list of pjproject log levels to map to{% endif %}
+
+; --------------------------------------------------------------------------
+; asterisk_trace
+; --------------------------------------------------------------------------
+; A comma separated list of pjproject log levels to map to Asterisk trace.
+; (default: "5,6")
+{% if asterisk_trace is defined and asterisk_trace is not none and (asterisk_trace is number or asterisk_trace is boolean or asterisk_trace | length > 0) %}asterisk_trace = {{ asterisk_trace | default('5,6') }}{% else %};asterisk_trace =    ; A comma separated list of pjproject log levels to map to{% endif %}
+
+; Required type declaration for the log_mappings section.
+; Must be of type log_mappings.
+{% if type_log_mappings is defined and type_log_mappings is not none and type_log_mappings != '' %}type = {{ type_log_mappings }}{% else %};type=               ; Must be of type startup (default: ""){% endif %}

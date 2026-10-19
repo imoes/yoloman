@@ -1,55 +1,79 @@
-{# ============================================================================ #}
-{# mptcpd.conf — MPTCP daemon global configuration                             #}
-{#                                                                              #}
-{# This template is self-documenting: every directive is preceded by a comment  #}
-{# that restates its schema description. All variables use safe defaults to     #}
-{# prevent render errors when a field is omitted.                               #}
-{# ============================================================================ #}
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Copyright (c) 2018-2019, 2021-2022, Intel Corporation
 
-{# Logging verbosity (debug, info, warn, error, critical). Default is warn if not specified. #}
-log_level: {{ log_level | default('warn') }}
+# ------------------------------------------------------------------
+#                     mptcpd Configuration File
+# ------------------------------------------------------------------
 
-{# Path to the log file #}
-log_file: {{ log_file | default('/var/log/mptcpd/mptcpd.log') }}
+[core]
+# -------------------------
+# Default logging mechanism
+# -------------------------
+#   stderr  - standard unbuffered I/O stream
+#   syslog  - POSIX based system logger
+#   journal - systemd Journal
+#   null    - disable logging
+log={{ log | default('stderr') }}
 
-{# Path to the PID file #}
-pid_file: {{ pid_file | default('/run/mptcpd/mptcpd.pid') }}
+# ----------------
+# Plugin directory
+# ----------------
+plugin-dir={{ plugin_dir | default('/usr/lib/x86_64-linux-gnu/mptcpd') }}
 
-{# Directory for runtime files (e.g., Unix sockets) #}
-run_dir: {{ run_dir | default('/run/mptcpd') }}
+# -------------------
+# Path manager plugin
+# ---------------------
+# The plugin found with the most favorable (lowest) priority will be
+# used if one is not specified.
+path-manager={{ path_manager | default('addr_adv') }}
 
-{# List of network interface names allowed to carry MPTCP subflows (leave empty to allow all) #}
-{% if (allowed_interfaces | default([]) | length) > 0 %}
-allowed_interfaces:
-{% for iface in allowed_interfaces %}
-  - {{ iface }}
-{% endfor %}
-{% endif %}
+# --------------------------
+# Address announcement flags
+# --------------------------
+# A comma separated list containing one or more of the flags:
+#
+#   subflow
+#   signal    (do not use with the "fullmesh" flag)
+#   backup
+#   fullmesh  (do not use with the "signal" flag)
+#
+# Plugins that deal with the in-kernel path manager may use these
+# flags when advertising addresses.
+#
+# See the ip-mptcp(8) man page for details.
+#
+# addr-flags=subflow
 
-{# List of network interface names explicitly disallowed for MPTCP subflows #}
-{% if (blocked_interfaces | default([]) | length) > 0 %}
-blocked_interfaces:
-{% for iface in blocked_interfaces %}
-  - {{ iface }}
-{% endfor %}
-{% endif %}
+# --------------------------
+# Address notification flags
+# --------------------------
+# A comma separated list containing one or more of the flags:
+#
+#   existing
+#     Notify plugins of the addresses that exist at mptcpd start
+#
+#   skip_link_local
+#     Ignore (do not notify) [ipv6] link local address updates
+#
+#   skip_loopback
+#     Ignore (do not notify) host (loopback) address updates
+#
+#   check_route
+#     Notify address only if a default route is available from such
+#     address and the related device. If the route check fails, it
+#     will be re-done after a little timeout, to allow e.g. DHCP to
+#     configure the host properly. Complex policy routing
+#     configuration may confuse or circumvent this check.
+#
+# These flags determine whether mptpcd plugins will be notified when
+# related addresses are updated.
+#
+# notify-flags=existing,skip_link_local,skip_loopback,check_route
 
-{# Static endpoint definitions (override auto-detected addresses) #}
-{% if (endpoints | default([]) | length) > 0 %}
-endpoints:
-{% for ep in endpoints %}
-  - address: {{ ep.address }}
-{% if ep.port is defined %}
-    port: {{ ep.port }}
-{% endif %}
-{% if ep.interface is defined %}
-    interface: {{ ep.interface }}
-{% endif %}
-{% if ep.priority is defined %}
-    priority: {{ ep.priority }}
-{% endif %}
-{% if ep.backup is defined %}
-    backup: {{ ep.backup | lower }}
-{% endif %}
-{% endfor %}
-{% endif %}
+# --------------------------
+# Plugins to load
+# --------------------------
+# A comma separated list containing one or more plugins to load.
+#
+# load-plugins=addr_adv,sspi

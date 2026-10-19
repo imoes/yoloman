@@ -1,99 +1,125 @@
-# ==============================================================================
-# Collectd Configuration Template
-# ==============================================================================
-# This template generates the main configuration file for collectd,
-# a system statistics collection daemon. It handles plugin loading,
-# specific plugin configurations, logging, and inclusion of external fragments.
-# ==============================================================================
+# Config file for collectd(1).
+#
+# Self-documenting Jinja2 template for Ansible.
+# Generated from schema: collectd.conf
+#
+# Some plugins need additional configuration and are disabled by default.
+# Please read collectd.conf(5) for details.
+#
+# You should also read /usr/share/doc/collectd-core/README.Debian.plugins
+# before enabling any more plugins.
 
-# ------------------------------------------------------------------------------
-# Logging Configuration
-# ------------------------------------------------------------------------------
+##############################################################################
+# Global                                                                     #
+#----------------------------------------------------------------------------#
+# Global settings for the daemon.                                            #
+##############################################################################
 
-# Path to collectd's log file.
-# Default: /var/log/collectd.log
-Logfile "{{ logfile | default('/var/log/collectd.log') }}"
+# FQDNLookup: Enable or disable FQDN hostname resolution.
+# Disable if DNS is unreliable or containers lack DNS.
+FQDNLookup {{ (fqdn_lookup | default('true')) }}
 
-# Log verbosity level.
-# Valid levels: debug, notice, warning, error.
-# Use 'debug' for troubleshooting issues.
-# Default: info
-LogLevel "{{ log_level | default('info') }}"
+# Hostname "localhost"
+# BaseDir "/var/lib/collectd"
+# PluginDir "/usr/lib/collectd"
+# TypesDB "/usr/share/collectd/types.db" "/etc/collectd/my_types.db"
 
-# ------------------------------------------------------------------------------
-# Hostname Resolution
-# ------------------------------------------------------------------------------
+#----------------------------------------------------------------------------#
+# When enabled, plugins are loaded automatically with the default options    #
+# when an appropriate <Plugin ...> block is encountered.                     #
+# Disabled by default.                                                       #
+#----------------------------------------------------------------------------#
+#AutoLoadPlugin false
 
-# Enable or disable FQDN (Fully Qualified Domain Name) hostname resolution.
-# Disable this if DNS is unreliable or if running in containers without DNS.
-# Default: true
-FQDNLookup {{ fqdn_lookup | default(true) | lower }}
+#----------------------------------------------------------------------------#
+# When enabled, internal statistics are collected, using "collectd" as the   #
+# plugin name.                                                               #
+# Disabled by default.                                                       #
+#----------------------------------------------------------------------------#
+#CollectInternalStats false
 
-# ------------------------------------------------------------------------------
-# Plugin Loading
-# ------------------------------------------------------------------------------
+#----------------------------------------------------------------------------#
+# Interval at which to query values. This may be overwritten on a per-plugin #
+# base by using the 'Interval' option of the LoadPlugin block:               #
+#   <LoadPlugin foo>                                                         #
+#       Interval 60                                                          #
+#   </LoadPlugin>                                                            #
+#----------------------------------------------------------------------------#
+#Interval 10
 
-# List of core collectd plugins to load.
-# Each plugin specified here must be present in the system's plugin directory.
-# Common plugins: cpu, load, memory, interface, disk, network, etc.
-# Default: ['cpu', 'load', 'memory', 'interface', 'disk']
-{% for plugin in plugins | default(['cpu', 'load', 'memory', 'interface', 'disk']) %}
-LoadPlugin "{{ plugin }}"
+#MaxReadInterval 86400
+#Timeout         2
+#ReadThreads     5
+#WriteThreads    5
+
+# Limit the size of the write queue. Default is no limit. Setting up a limit
+# is recommended for servers handling a high volume of traffic.
+#WriteQueueLimitHigh 1000000
+#WriteQueueLimitLow   800000
+
+##############################################################################
+# Logging                                                                    #
+#----------------------------------------------------------------------------#
+# Plugins which provide logging functions should be loaded first, so log     #
+# messages generated when loading or configuring other plugins can be        #
+# accessed.                                                                  #
+##############################################################################
+
+# Load the syslog plugin first for internal logging.
+LoadPlugin syslog
+
+<Plugin syslog>
+	# LogLevel: Log verbosity level. Use 'debug' for troubleshooting.
+	LogLevel {{ (log_level | default('info')) }}
+</Plugin>
+
+##############################################################################
+# LoadPlugin section                                                         #
+#----------------------------------------------------------------------------#
+# Specify what features to activate.                                         #
+##############################################################################
+
+# List of core collectd plugins to load. Each plugin must be present in the plugin directory.
+{% for plugin in (plugins | default(['battery', 'cpu', 'df', 'disk', 'entropy', 'interface', 'irq', 'load', 'memory', 'processes', 'rrdtool', 'swap', 'users'])) %}
+LoadPlugin {{ plugin }}
 {% endfor %}
 
-# ------------------------------------------------------------------------------
-# Plugin-Specific Configurations
-# ------------------------------------------------------------------------------
+##############################################################################
+# Plugin configuration                                                       #
+#----------------------------------------------------------------------------#
+# In this section configuration stubs for each plugin are provided. A desc-  #
+# ription of those options is available in the collectd.conf(5) manual page. #
+##############################################################################
 
-# List of plugin-specific configuration blocks.
-# Each element defines a plugin with its options.
-# Default: [] (empty list)
-{% for config_block in plugin_configs | default([]) %}
-{#
-  Generate a <Plugin "name"> block if a name is provided.
-  config_block is expected to be a mapping with 'name' and 'options'.
-#}
-{% if config_block.name is defined %}<Plugin "{{ config_block.name }}">
-{% endif %}
+<Plugin df>
+	FSType rootfs
+	FSType sysfs
+	FSType proc
+	FSType devtmpfs
+	FSType devpts
+	FSType tmpfs
+	FSType fusectl
+	FSType cgroup
+	IgnoreSelected true
+</Plugin>
 
-{#
-  Iterate over the options for this plugin.
-  Note: config_block.options is expected to be a mapping (dict).
-  We use | dict2items to safely iterate in Jinja2 without Python method calls.
-#}
-{% for key, value in (config_block.options | default({})) | dict2items %}
-{# Print optional comment associated with this key if available #}
-{% if config_block.comments is mapping and config_block.comments[key] is defined %}
-  {# {{ config_block.comments[key] }} #}
-{% endif %}
+<Plugin rrdtool>
+	DataDir "/var/lib/collectd/rrd"
+</Plugin>
 
-{#
-  Handle different value types:
-  - If the type is 'list', iterate items.
-  - Otherwise, emit key-value pair directly.
-#}
-{% if config_block.types is mapping and config_block.types[key] == 'list' %}
-  {# List handling: emit each item on its own line indented #}
-  {% for item in value %}  {{ key }} {{ item }}
-  {% endfor %}
-{% else %}
-  {# Scalar handling: emit key value #}
-  {{ key }} {{ value }}
-{% endif %}
+# List of plugin-specific configuration blocks. Each element defines a plugin with its options.
+{% for plugin_config in (plugin_configs | default([{'name': 'syslog', 'options': {'LogLevel': 'info'}, 'comments': {}, 'types': {}}])) %}
+# {{ plugin_config.name }} Plugin Configuration
+<Plugin "{{ plugin_config.name }}">
+{% for item in (plugin_config.options | default({}) | dict2items) %}
+	{{ item.key }} {{ item.value }}
+{% endfor %}
+</Plugin>
+
 {% endfor %}
 
-{% if config_block.name is defined %}</Plugin>
-{% endif %}
-{% endfor %}
-
-# ------------------------------------------------------------------------------
-# Include Fragments
-# ------------------------------------------------------------------------------
-
-# List of file paths to include as additional configuration fragments.
-# Useful for modular configuration (e.g., /etc/collectd/collectd.conf.d/*.conf).
-# Default: [] (empty list)
-{% for fragment in include_fragments | default([]) %}
-# Include additional configuration file: {{ fragment }}
-Include "{{ fragment }}"
+# List of file paths to include as additional configuration fragments (e.g., /etc/collectd/collectd.conf.d/*.conf).
+{% for include_fragment in (include_fragments | default(['/etc/collectd/collectd.conf.d'])) %}
+<Include "{{ include_fragment }}">
+</Include>
 {% endfor %}

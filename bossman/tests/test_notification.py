@@ -270,7 +270,7 @@ async def test_a_down_host_pages_once_not_once_per_service(db_session):
 
     This is what makes L1 usable. Once an aged-out reading correctly becomes UNKNOWN, a
     single dead host would otherwise fire one notification per service it carries; on
-    vpp0221 that is 26 pages for one event. The other services keep their honest state,
+    pve1 that is 26 pages for one event. The other services keep their honest state,
     they just do not page while the cause is already paging.
     """
     from bossman.services.monitoring import HOST_ALIVE_SERVICE

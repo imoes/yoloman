@@ -262,7 +262,7 @@ func TestExcludeDRBDDevicesDropsOnlyTheDRBDLayer(t *testing.T) {
 			t.Errorf("devices[%d] = %q, want %q", i, d, want[i])
 		}
 	}
-	// The zvol keeps its vm label: on vpp0222/0223 that is what makes dropping DRBD lossless.
+	// The zvol keeps its vm label: on pve2/0223 that is what makes dropping DRBD lossless.
 	for _, p := range got {
 		if p.Labels["device"] == "zd16" && p.Labels["vm"] != "221106" {
 			t.Error("the zvol lost its vm label — then switching DRBD off WOULD lose attribution")
@@ -281,7 +281,7 @@ func TestExcludeDRBDDevicesDropsOnlyTheDRBDLayer(t *testing.T) {
 }
 
 func TestDRBDDevicesDefaultsToOnSoNoHostSilentlyLosesItsOnlyGuestView(t *testing.T) {
-	// vpp0221 has nine DRBD devices and zero zvols; an off-by-default flag would blind it.
+	// pve1 has nine DRBD devices and zero zvols; an off-by-default flag would blind it.
 	if !config.Default().Collect.DRBDDevices {
 		t.Error("collect.drbd_devices must default to true")
 	}

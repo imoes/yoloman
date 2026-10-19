@@ -1,0 +1,60 @@
+# Configuration file for dleyna-renderer
+#
+# This template is self-documenting. All settings are derived from the Ansible
+# variables defined in the role's schema. Defaults are applied inline to ensure
+# idempotent and safe rendering even if variables are missing.
+
+[general]
+
+# Whether the service always stays in memory running or quits when the last client disconnects.
+# Values: 'true' or 'false'
+# Default: 'false'
+never-quit={{ never_quit | default('false') }}
+
+# IPC connector name used for communication.
+# Common values: 'dbus'
+# Default: 'dbus'
+connector-name={{ connector_name | default('dbus') }}
+
+# Source port for SSDP messages
+# Port for Push host fileserver
+# If unset, a random available port will be used.
+
+# Log configuration options
+[log]
+
+# Define the logging output method.
+# 0 = Syslog
+# 1 = GLib
+# 2 = File
+# Default: '0'
+log-type={{ log_type | default('0') }}
+
+# Comma-separated list of logging level.
+# Log levels are: 1=critical, 2=error, 3=warning, 4=message, 5=info, 6=debug
+#
+# Allowed values for log-levels are:
+# 0 = disabled
+# 7 = default (=1,2,5)
+# 8 = all (=1,2,3,4,5,6)
+# 1,..,6 = a comma separated list of log level
+#
+# IMPORTANT: This log level is a subset of the log level defined at compile time.
+# You can't enable levels disabled at compile time.
+# level=8 means all level flags defined at compile time.
+# Default: '7'
+log-level={{ log_level | default('7') }}
+
+
+# Network filtering
+[netf]
+
+# Enable or disable network filtering.
+# Values: 'true' or 'false'
+# Default: 'false'
+netf-enabled={{ netf_enabled | default('false') }}
+
+# Comma-separated list of interface name, SSID or IP address.
+# If netf is enabled but the list is empty, it behaves as disabled.
+# Default: [] (empty list)
+netf-list={{ netf_list | default([]) | join(',') }}

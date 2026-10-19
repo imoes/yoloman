@@ -8,7 +8,7 @@
 ################################## NETWORK #####################################
 
 # IP addresses Redis will bind to
-bind {{ bind | default('127.0.0.1 ::1') }}
+bind {{ bind | default('127.0.0.1 -::1') }}
 
 # Accept connections on the specified port, default is 6379 (IANA #815344).
 # If port 0 is specified Redis will not listen on a TCP socket.
@@ -26,7 +26,7 @@ supervised {{ supervised | default('systemd') }}
 
 # If a pid file is specified, Redis writes it where specified at startup
 # and removes it at exit.
-pidfile {{ pidfile | default('/var/run/redis/redis-server.pid') }}
+pidfile {{ pidfile | default('/run/redis/redis-server.pid') }}
 
 # Specify the server verbosity level.
 # This can be one of:
@@ -45,6 +45,10 @@ logfile {{ logfile | default('/var/log/redis/redis-server.log') }}
 # a different one on a per-connection basis using SELECT <dbid> where
 # dbid is a number between 0 and 'databases'-1
 databases {{ databases | default(16) }}
+
+# The working directory: the RDB snapshot and the append-only directory are written here. Without it redis
+# uses its cwd — / under systemd, read-only (ProtectSystem): "Can't open or create append-only dir".
+dir {{ dir | default('/var/lib/redis') }}
 
 ################################ SNAPSHOTTING  ################################
 
@@ -68,8 +72,12 @@ databases {{ databases | default(16) }}
 # You can set these explicitly by uncommenting the following line.
 #
 # save 3600 1 300 100 60 10000
-save {{ save_rules | default([[900, 1], [300, 10]]) | join(' ') }}
-
+{# One `save` line per [seconds, changes] pair: Redis 6.2 (EL9) takes exactly one pair per line, and a list
+   joined as text rendered "save [900, 1] [300, 10]" — "Invalid save parameters" on both families. An empty
+   list writes save "" (snapshots off). #}
+{% for rule in save_rules | default([[900, 1], [300, 10]]) %}save {{ rule | join(' ') if rule is not string else rule }}
+{% else %}save ""
+{% endfor %}
 ################################# SECURITY ###################################
 
 # Warning: since Redis is pretty fast, an outside user can try up to
@@ -78,8 +86,9 @@ save {{ save_rules | default([[900, 1], [300, 10]]) | join(' ') }}
 #
 # The requirepass is not compatible with aclfile option and the ACL LOAD
 # command, these will cause requirepass to be ignored.
-requirepass {{ requirepass | default('') }}
-
+{% if requirepass | default('') %}requirepass {{ requirepass }}
+{% else %}# requirepass foobared
+{% endif %}
 ############################## MEMORY MANAGEMENT ################################
 
 # Set a memory usage limit to the specified amount of bytes.
@@ -89,7 +98,7 @@ requirepass {{ requirepass | default('') }}
 # By default Redis shows an ASCII art logo only when started to log to the
 # standard output and if the standard output is a TTY and syslog logging is
 # disabled.
-maxmemory {{ maxmemory | default('256mb') }}
+{% if maxmemory is defined and maxmemory is not none and (maxmemory is number or maxmemory is boolean or maxmemory | length > 0) %}maxmemory {{ maxmemory | default('256mb') }}{% else %}# maxmemory <bytes>{% endif %}
 
 # MAXMEMORY POLICY: how Redis will select what to remove when maxmemory
 # is reached. You can select one from the following behaviors:
@@ -105,12 +114,12 @@ maxmemory {{ maxmemory | default('256mb') }}
 #
 # LRU means Least Recently Used
 # LFU means Least Frequently Used
-maxmemory-policy {{ maxmemory_policy | default('allkeys-lru') }}
+{% if maxmemory_policy is defined and maxmemory_policy is not none and (maxmemory_policy is number or maxmemory_policy is boolean or maxmemory_policy | length > 0) %}maxmemory-policy {{ maxmemory_policy | default('allkeys-lru') }}{% else %}# maxmemory-policy noeviction{% endif %}
 
 ############################# PERSISTENCE ######################################
 
 # Enable AOF persistence ('yes'/'no')
-appendonly {{ appendonly | default('yes') }}
+appendonly {{ appendonly | default('no') }}
 
 # Filename for AOF log
 appendfilename "{{ appendfilename | default('appendonly.aof') }}"

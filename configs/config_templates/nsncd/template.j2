@@ -1,26 +1,53 @@
 # nsncd configuration template
-# Managed by Ansible. Do not edit manually.
+#
+# nsncd (Name Service Cache Daemon) is a lightweight caching daemon for the Name Service Switch (NSS).
+# It caches NSS queries (passwd, group, hosts, etc.) to reduce latency and load on name services.
 
+# ==============================================================================
+# Performance Tuning
+# ==============================================================================
+
+# NSNCD_WORKER_COUNT
 # Number of worker threads nsncd will spawn to process requests.
-NSNCD_WORKER_COUNT={{ NSNCD_WORKER_COUNT | default(8) }}
+# Default is 8. Adjust based on CPU cores and expected concurrency.
+{% if NSNCD_WORKER_COUNT is defined and NSNCD_WORKER_COUNT is not none and (NSNCD_WORKER_COUNT is number or NSNCD_WORKER_COUNT is boolean or NSNCD_WORKER_COUNT | length > 0) %}NSNCD_WORKER_COUNT={{ NSNCD_WORKER_COUNT | default('8') }}{% else %}#NSNCD_WORKER_COUNT=8{% endif %}
 
+# NSNCD_HANDOFF_TIMEOUT
 # Number of seconds nsncd will wait for a worker thread to become available.
-NSNCD_HANDOFF_TIMEOUT={{ NSNCD_HANDOFF_TIMEOUT | default(3) }}
+# If a request waits longer than this, it may be dropped or handled synchronously depending on build flags.
+# Default is 3 seconds.
+{% if NSNCD_HANDOFF_TIMEOUT is defined and NSNCD_HANDOFF_TIMEOUT is not none and (NSNCD_HANDOFF_TIMEOUT is number or NSNCD_HANDOFF_TIMEOUT is boolean or NSNCD_HANDOFF_TIMEOUT | length > 0) %}NSNCD_HANDOFF_TIMEOUT={{ NSNCD_HANDOFF_TIMEOUT | default('3') }}{% else %}#NSNCD_HANDOFF_TIMEOUT=3{% endif %}
+
+# ==============================================================================
+# Database Ignore Flags
+# ==============================================================================
 
 # If set to "true", nsncd will not respond to requests for the group database.
-NSNCD_IGNORE_GROUP={{ NSNCD_IGNORE_GROUP | default('false') }}
+# This disables caching for group lookups (getgrnam, getgrgid, etc.).
+# Default is 'false' (caching is enabled).
+{% if NSNCD_IGNORE_GROUP is defined and NSNCD_IGNORE_GROUP is not none and (NSNCD_IGNORE_GROUP is number or NSNCD_IGNORE_GROUP is boolean or NSNCD_IGNORE_GROUP | length > 0) %}NSNCD_IGNORE_GROUP={{ NSNCD_IGNORE_GROUP | default('false') }}{% else %}#NSNCD_IGNORE_GROUP=false{% endif %}
 
 # If set to "true", nsncd will not respond to requests for the hosts database.
-NSNCD_IGNORE_HOSTS={{ NSNCD_IGNORE_HOSTS | default('false') }}
+# This disables caching for host lookups (gethostbyname, gethostbyaddr, etc.).
+# Default is 'false' (caching is enabled).
+{% if NSNCD_IGNORE_HOSTS is defined and NSNCD_IGNORE_HOSTS is not none and (NSNCD_IGNORE_HOSTS is number or NSNCD_IGNORE_HOSTS is boolean or NSNCD_IGNORE_HOSTS | length > 0) %}NSNCD_IGNORE_HOSTS={{ NSNCD_IGNORE_HOSTS | default('false') }}{% else %}#NSNCD_IGNORE_HOSTS=false{% endif %}
 
 # If set to "true", nsncd will not respond to requests for the initgroups database.
-NSNCD_IGNORE_INITGROUPS={{ NSNCD_IGNORE_INITGROUPS | default('false') }}
+# This disables caching for initgroups lookups (used during login/setuid).
+# Default is 'false' (caching is enabled).
+{% if NSNCD_IGNORE_INITGROUPS is defined and NSNCD_IGNORE_INITGROUPS is not none and (NSNCD_IGNORE_INITGROUPS is number or NSNCD_IGNORE_INITGROUPS is boolean or NSNCD_IGNORE_INITGROUPS | length > 0) %}NSNCD_IGNORE_INITGROUPS={{ NSNCD_IGNORE_INITGROUPS | default('false') }}{% else %}#NSNCD_IGNORE_INITGROUPS=false{% endif %}
 
 # If set to "true", nsncd will not respond to requests for the netgroup database.
-NSNCD_IGNORE_NETGROUP={{ NSNCD_IGNORE_NETGROUP | default('false') }}
+# This disables caching for netgroup lookups (getnetgrent).
+# Default is 'false' (caching is enabled).
+{% if NSNCD_IGNORE_NETGROUP is defined and NSNCD_IGNORE_NETGROUP is not none and (NSNCD_IGNORE_NETGROUP is number or NSNCD_IGNORE_NETGROUP is boolean or NSNCD_IGNORE_NETGROUP | length > 0) %}NSNCD_IGNORE_NETGROUP={{ NSNCD_IGNORE_NETGROUP | default('false') }}{% else %}#NSNCD_IGNORE_NETGROUP=false{% endif %}
 
 # If set to "true", nsncd will not respond to requests for the passwd database.
-NSNCD_IGNORE_PASSWD={{ NSNCD_IGNORE_PASSWD | default('false') }}
+# This disables caching for user lookups (getpwnam, getpwuid, etc.).
+# Default is 'false' (caching is enabled).
+{% if NSNCD_IGNORE_PASSWD is defined and NSNCD_IGNORE_PASSWD is not none and (NSNCD_IGNORE_PASSWD is number or NSNCD_IGNORE_PASSWD is boolean or NSNCD_IGNORE_PASSWD | length > 0) %}NSNCD_IGNORE_PASSWD={{ NSNCD_IGNORE_PASSWD | default('false') }}{% else %}#NSNCD_IGNORE_PASSWD=false{% endif %}
 
 # If set to "true", nsncd will not respond to requests for the services database.
-NSNCD_IGNORE_SERVICES={{ NSNCD_IGNORE_SERVICES | default('false') }}
+# This disables caching for service lookups (getservbyname, getservbyport).
+# Default is 'false' (caching is enabled).
+{% if NSNCD_IGNORE_SERVICES is defined and NSNCD_IGNORE_SERVICES is not none and (NSNCD_IGNORE_SERVICES is number or NSNCD_IGNORE_SERVICES is boolean or NSNCD_IGNORE_SERVICES | length > 0) %}NSNCD_IGNORE_SERVICES={{ NSNCD_IGNORE_SERVICES | default('false') }}{% else %}#NSNCD_IGNORE_SERVICES=false{% endif %}

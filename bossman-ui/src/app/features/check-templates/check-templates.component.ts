@@ -20,6 +20,7 @@ import {
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroup } from '../../core/models/host-group.model';
 import { HostGroupService } from '../../core/services/host-group.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** The comparison operators the API accepts (`_COMPARISONS` in api/templates.py),
  * with the symbol a human reads. The list is the API's, not a second opinion. */
@@ -68,7 +69,7 @@ function emptyRule(): CheckTemplateRule {
 @Component({
   selector: 'app-check-templates',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatIconModule, MatButtonModule, MatCheckboxModule,
   ],
@@ -230,7 +231,7 @@ function emptyRule(): CheckTemplateRule {
                     </mat-select>
                   </mat-form-field>
                   <div class="bm-inline-actions">
-                    <button mat-flat-button [disabled]="!ruleComplete()" (click)="commitRule()">Add</button>
+                    <button mat-flat-button [bmBlocked]="!ruleComplete() ? 'Enter service, metric and a warn or crit threshold' : ''" (click)="commitRule()">Add</button>
                     <button mat-button (click)="addingRule.set(false)">Cancel</button>
                   </div>
                   @if (!ruleComplete()) {
@@ -262,7 +263,7 @@ function emptyRule(): CheckTemplateRule {
               </p>
 
               <div class="bm-save-row">
-                <button mat-flat-button [disabled]="!d.name.trim() || saving()" (click)="save()">
+                <button mat-flat-button [disabled]="saving()" [bmBlocked]="!d.name.trim() ? 'Name the template first' : ''" (click)="save()">
                   <mat-icon>save</mat-icon> {{ isNew() ? 'Create' : 'Save' }}
                 </button>
                 <button mat-button (click)="cancelDraft()">Cancel</button>
@@ -319,7 +320,7 @@ function emptyRule(): CheckTemplateRule {
                       </mat-select>
                     </mat-form-field>
                     <div class="bm-inline-actions">
-                      <button mat-flat-button [disabled]="!linkGroup()" (click)="commitLink()">Link</button>
+                      <button mat-flat-button [bmBlocked]="!linkGroup() ? 'Pick a host group first' : ''" (click)="commitLink()">Link</button>
                       <button mat-button (click)="linking.set(false)">Cancel</button>
                     </div>
                     @if (!linkableGroups().length) {
@@ -369,8 +370,8 @@ function emptyRule(): CheckTemplateRule {
       .bm-hint { font-size: 12px; font-weight: 400; opacity: 0.6; }
       .bm-full { flex-basis: 100%; margin: 0; }
       .bm-table { width: 100%; border-collapse: collapse; }
-      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: 3px 12px 3px 0; }
-      .bm-table td { padding: 5px 12px 5px 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13.5px; }
+      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; }
+      .bm-table td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
       .bm-mono { font-family: monospace; }
       .bm-num { white-space: nowrap; }
       .bm-dim { opacity: 0.6; }

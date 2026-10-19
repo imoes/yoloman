@@ -1,28 +1,36 @@
-# ==============================================================================
-# restic-rest-server Configuration Template
-# ==============================================================================
-# This template configures the restic-rest-server instance.
-# It generates a configuration file compatible with restic-rest-server >= 0.11.0.
+# ============================================================================
+# restic-rest-server Configuration
+# ============================================================================
+# This template generates the configuration for the restic REST server.
+# It controls the network binding, backup storage location, and authentication
+# credentials file path.
 #
-# Self-documenting: every variable reference includes its default value from the
-# schema to ensure the config renders correctly even if the variable is undefined
-# in the Ansible play/role invocation.
-# ==============================================================================
+# See also: /etc/default/restic-rest-server for CLI flags (e.g., --no-auth).
+# ============================================================================
 
 # --------------------------------------------------------------------------
-# Listen Address
+# listen_address
 # --------------------------------------------------------------------------
-# TCP or UNIX listen address for the restic-rest-server. Example: ':8000' for TCP or 'unix:/run/restic-rest-server' for Unix socket.
-LISTEN = {{ listen_address | default(':8000') }}
+# TCP or UNIX listen address for the restic-rest-server.
+# Examples:
+#   ':8000'       - Listen on all interfaces on port 8000.
+#   'unix:/run/restic-rest-server' - Listen on a Unix domain socket.
+#
+listen_address: {{ (listen_address | default(':8000')) | string }}
 
 # --------------------------------------------------------------------------
-# Backup Directory
+# backup_dir
 # --------------------------------------------------------------------------
 # Directory to store backups. The server will not start unless this is defined.
-BACKUP_DIR = {{ backup_dir | default('/srv/backups/') }}
+# Ensure this directory exists and has appropriate permissions for the service user.
+#
+backup_dir: {{ (backup_dir | default('/srv/backups/')) | string }}
 
 # --------------------------------------------------------------------------
-# Authentication
+# htpasswd_file
 # --------------------------------------------------------------------------
 # Path to the htpasswd file for basic authentication.
-ARGS = "--htpasswd-file {{ htpasswd_file | default('/etc/restic-rest-server/users.htpasswd') }}"
+# This file must be created using the `htpasswd` utility (e.g., from apache2-utils).
+# Only bcrypt (-B) and SHA (-s) encryption methods are supported by the server.
+#
+htpasswd_file: {{ (htpasswd_file | default('/etc/restic-rest-server/users.htpasswd')) | string }}

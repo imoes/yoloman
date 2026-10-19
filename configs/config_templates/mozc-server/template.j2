@@ -4,6 +4,7 @@
 
 # Requires apparmor 2.9
 
-# mozc_socket_prefix: The prefix for the mozc Unix socket path. Usually 'tmp' or a specific directory name.
-# This rule allows mozc to bind and listen on Unix domain sockets matching the pattern <prefix>.mozc.*
-unix (bind, listen) type=stream addr="@{{ mozc_socket_prefix | default('tmp') }}.mozc.*",
+# Controls the Unix socket path prefix for Mozc input method communication.
+# Defines the directory where the Mozc socket files are created (e.g., @/tmp/.mozc.*).
+# Default: tmp
+  unix (bind, listen) type=stream addr="@{% raw %}{{{% endraw %} mozc_socket_prefix | default('tmp') | trim | replace('.', '\\.') }}{% raw %}}{% endraw %}/.mozc.*",

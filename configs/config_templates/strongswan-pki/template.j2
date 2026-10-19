@@ -1,24 +1,49 @@
+# ==============================================================================
+# StrongSwan PKI Tool Configuration
+# ==============================================================================
+# This template configures the `strongswan pki` tool, specifically the SCEP
+# (Simple Certificate Enrollment Protocol) subsystem.
+#
+# The variables map directly to the schema fields provided by the Ansible role.
+# All variables use `default(None)` to ensure safe rendering even if undefined.
+# ==============================================================================
+
 pki {
 
+    # Plugins to load in the pki tool.
     # Comma-separated list of plugins to load in the pki tool.
-    # Default: none (empty list).
-    load = {{ pki_plugins | default([]) | join(', ') }}
+{% if pki_plugins | default(None) is not none %}
+    load = {{ pki_plugins | default(None) | join(', ') }}
+{% else %}
+    # load =
+{% endif %}
 
     scep {
 
         # Source IP address to bind for HTTP operations.
-        # Default: '' (empty, lets the system choose).
-        http_bind = {{ pki_scep_http_bind | default('') }}
+        # Source IP address to bind for HTTP operations.
+{% if pki_scep_http_bind | default(None) is not none %}
+        http_bind = {{ pki_scep_http_bind | default(None) }}
+{% else %}
+        # http_bind =
+{% endif %}
 
         # Timeout for HTTP operations.
-        # Default: 30s.
-        http_timeout = {{ pki_scep_http_timeout | default('30s') }}
+        # Timeout for HTTP operations.
+{% if pki_scep_http_timeout | default(None) is not none %}
+        http_timeout = {{ pki_scep_http_timeout | default(None) }}
+{% else %}
+        # http_timeout = 30s
+{% endif %}
 
         # Whether to allow renewal via PKCSReq instead of RenewalReq.
         # Some SCEP servers (e.g. openxpki) are incorrectly doing certificate
         # renewal via messageType PKCSReq (19) instead of RenewalReq (17).
-        # Default: no.
-        renewal_via_pkcs_req = {{ pki_scep_renewal_via_pkcs_req | default('no') }}
+{% if pki_scep_renewal_via_pkcs_req | default(None) is not none %}
+        renewal_via_pkcs_req = {{ pki_scep_renewal_via_pkcs_req | default(None) }}
+{% else %}
+        # renewal_via_pkcs_req = no
+{% endif %}
 
     }
 

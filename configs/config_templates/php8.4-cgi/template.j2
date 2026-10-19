@@ -1,0 +1,40 @@
+# This file replaces old system MIME types and sets them only in the
+# Apache webserver
+
+# Using (?:pattern) instead of (pattern) is a small optimization that
+# avoid capturing the matching pattern (as $1) which isn't used here
+
+# application/x-httpd-php                        phtml php
+<FilesMatch ".+\.ph(?:ar|p|tml)$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# application/x-httpd-php-source                 phps
+<FilesMatch ".+\.phps$">
+    SetHandler application/x-httpd-php-source
+    # Deny access to raw php sources by default
+    # To re-enable it's recommended to enable access to the files
+    # only in specific virtual host or directory
+    Require all denied
+</FilesMatch>
+
+# Deny access to files without filename (e.g. '.php')
+<FilesMatch "^\.ph(?:ar|p|ps|tml)$">
+    Require all denied
+</FilesMatch>
+
+# To enable PHP CGI site-wide, just uncomment following lines, however
+# as a security measure, it's recommended to enable PHP just in the
+# specific virtual servers or just specific directories
+
+{# cgi_bin_dir: The directory where CGI scripts are stored. Defaults to /usr/lib/cgi-bin #}
+{% set cgi_bin_dir = cgi_bin_dir | default('/usr/lib/cgi-bin') %}
+ScriptAlias /cgi-bin/ {{ cgi_bin_dir }}
+
+{# php_version: The PHP major.minor version number used in the CGI binary path. #}
+{# Note: If php_version is empty, the Action directive is commented out to prevent Apache errors #}
+{% if php_version is defined and php_version != '' %}
+Action application/x-httpd-php /cgi-bin/php{{ php_version }}
+{% else %}
+#Action application/x-httpd-php /cgi-bin/php8.4
+{% endif %}

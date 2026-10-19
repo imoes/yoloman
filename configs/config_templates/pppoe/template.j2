@@ -1,0 +1,125 @@
+# ============================================================================
+# PPPoE (PPP over Ethernet) Configuration Template
+# ============================================================================
+# This template generates the /etc/ppp/options.pppoe configuration file for
+# establishing a DSL connection via PPPoE.
+#
+# Self-documenting: Every directive is preceded by a comment explaining its
+# purpose and source variable.
+# ============================================================================
+
+##
+# Section 1: Connection Parameters
+# ============================================================================
+
+# --- Authentication ---
+# Description: The DSL username provided by the ISP.
+# Variable: pppoe_user
+{% if pppoe_user | default('') | length > 0 %}
+# AUTHENTICATION
+# The username provided by the ISP for PPPoE authentication.
+# Must have a matching entry in /etc/ppp/pap-secrets or chap-secrets.
+user {{ pppoe_user | default('') }}
+{% else %}
+# AUTHENTICATION
+# The username provided by the ISP for PPPoE authentication.
+# Default is empty; uncomment and replace with your ISP-provided username.
+#user myusername@myprovider.net
+{% endif %}
+
+# --- PPPoE Client Invocation ---
+# Description: The network interface used for the PPPoE connection.
+# Variable: pppoe_iface
+# Description: The timeout value for the pppoe program (-T option).
+# Variable: pppoe_timeout
+# Description: The MTU size for the standard pppoe configuration (-m option).
+# Variable: pppoe_mtu
+#
+# Note: The pppoe program is invoked via 'pty' to tunnel the PPP session over Ethernet.
+pty "/usr/sbin/pppoe -I {{ pppoe_iface | default('eth0') }} -T {{ pppoe_timeout | default(80) }} -m {{ pppoe_mtu | default('1452') }}"
+
+# --- Fallback MTU Configuration ---
+# Description: The conservative MTU size for fallback configurations (-m option).
+# Variable: pppoe_mtu_conservative
+#
+# Note: Use this if the standard MTU causes fragmentation or connection issues.
+# pty "/usr/sbin/pppoe -I {{ pppoe_iface | default('eth0') }} -T {{ pppoe_timeout | default(80) }} -m {{ pppoe_mtu_conservative | default(1412) }}"
+
+# --- Simplified PPPoE Invocation ---
+# Note: If the computer is not acting as a gateway, the -m (MTU) argument can be omitted
+# for a slight performance gain, relying on default PPPoE MTU calculations.
+# pty "/usr/sbin/pppoe -I {{ pppoe_iface | default('eth0') }} -T {{ pppoe_timeout | default(80) }}"
+
+
+##
+# Section 2: IP Routing and DNS
+# ============================================================================
+
+# Description: Assumes that the IP address is allocated dynamically by the ISP.
+noipdefault
+
+# Description: Try to get the name server addresses from the ISP (via DNS requests).
+usepeerdns
+
+# Description: Use this connection as the default route for all traffic.
+# Comment out if you have specific static routes or a different default gateway.
+defaultroute
+
+
+##
+# Section 3: Demand Dialing (Idle Disconnect)
+# ============================================================================
+
+# Description: Enable demand-dialing. The connection stays up only while there is traffic.
+# Uncomment the line below to activate demand mode.
+#demand
+
+# Description: Idle time in seconds before disconnecting when demand-dialing is used.
+# Variable: pppoe_idle_timeout
+{% if pppoe_idle_timeout | default('') | length > 0 %}
+# IDLE TIMEOUT
+# Disconnect after {{ pppoe_idle_timeout | default('') }} seconds of inactivity.
+idle {{ pppoe_idle_timeout | default('') }}
+{% else %}
+# IDLE TIMEOUT
+# Default idle timeout is commented out. Uncomment and set seconds (e.g., 300).
+#idle 300
+{% endif %}
+
+
+##
+# Section 4: Advanced Options & Security
+# ============================================================================
+
+# Description: Hide the password from process listings and logs.
+hide-password
+
+# Description: Interval in seconds between LCP echo requests to check link health.
+# Variable: pppoe_lcp_interval
+lcp-echo-interval {{ pppoe_lcp_interval | default('20') }}
+
+# Description: Number of missed LCP echo requests before considering the connection down.
+# Variable: pppoe_lcp_failure
+lcp-echo-failure {{ pppoe_lcp_failure | default('3') }}
+
+# Description: Override any connect script that may have been set in /etc/ppp/options.
+# Using /bin/true indicates that pppoe handles the connection establishment.
+connect /bin/true
+
+# Description: Do not authenticate the peer (ISP). Required for most DSL providers.
+noauth
+
+# Description: Persist the connection; try to reconnect if it drops.
+persist
+
+# Description: The PPP MTU option value.
+# Variable: pppoe_mtu_option
+mtu {{ pppoe_mtu_option | default('1492') }}
+
+# Description: RFC 2516 Compliance
+# Address-and-Control-Field-Compression (ACFC) MUST NOT be requested.
+noaccomp
+
+# Description: RFC 2516 Compliance
+# Asynchronous-Control-Character-Map (ACCM) MUST NOT be requested.
+default-asyncmap

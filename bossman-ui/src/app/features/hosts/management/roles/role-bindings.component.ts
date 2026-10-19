@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, input, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { OrchestrationService } from '../../../../core/services/orchestration.service';
@@ -20,7 +21,7 @@ import { ResourceNodeComponent } from '../../../../shared/resource-node/resource
 @Component({
   selector: 'app-role-bindings',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, ResourceNodeComponent],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent],
   template: `
     <div class="bm-rb-head">
       <h3>Role bindings</h3>
@@ -33,8 +34,8 @@ import { ResourceNodeComponent } from '../../../../shared/resource-node/resource
       <span>Role convergence needs the host's <strong>write gate</strong> open. A freshly provisioned host is
         read-only until you enable writes.</span>
       <span class="bm-rb-spacer"></span>
-      <button mat-stroked-button [disabled]="writeBusy()" (click)="setWrite(true)">Enable writes</button>
-      <button mat-stroked-button [disabled]="writeBusy()" (click)="setWrite(false)">Set read-only</button>
+      <span class="bm-why" [attr.title]="writeBusy() ? 'Working… the agent restarts to apply the change' : null"><button mat-stroked-button [disabled]="writeBusy()" (click)="setWrite(true)">Enable writes</button></span>
+      <span class="bm-why" [attr.title]="writeBusy() ? 'Working… the agent restarts to apply the change' : null"><button mat-stroked-button [disabled]="writeBusy()" (click)="setWrite(false)">Set read-only</button></span>
     </div>
     @if (writeMsg()) { <p class="bm-ok">{{ writeMsg() }}</p> }
     @if (writeErr()) { <p class="bm-err">{{ writeErr() }}</p> }
@@ -45,9 +46,17 @@ import { ResourceNodeComponent } from '../../../../shared/resource-node/resource
       <p class="bm-dim">No roles defined yet. Author a role (Ansible task syntax under a <code>role:</code> key) and compile it via the Workflow designer / <code>POST /runbooks/role/compile</code>.</p>
     }
 
+    @if (roles().length) {
+      <label class="bm-rb-filter">Filter roles
+        <input type="search" [ngModel]="filter()" (ngModelChange)="filter.set($event)" placeholder="name contains…" />
+        <span class="bm-dim">{{ shown().length }} of {{ roles().length }}</span>
+      </label>
+    }
     <div class="bm-rb-list">
-      @for (r of roles(); track r.id) {
+      @for (r of shown(); track r.id) {
         <app-resource-node [agentId]="agentId()" kind="role" [name]="r.name" />
+      } @empty {
+        @if (roles().length) { <p class="bm-dim">No role matches “{{ filter() }}”.</p> }
       }
     </div>
   `,
@@ -60,6 +69,8 @@ import { ResourceNodeComponent } from '../../../../shared/resource-node/resource
       border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; font-size: 13px; }
     .bm-rb-write mat-icon { font-size: 18px; width: 18px; height: 18px; opacity: 0.7; }
     .bm-rb-spacer { flex: 1; }
+    .bm-rb-filter { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }
+    .bm-rb-filter input { padding: 6px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; min-width: 220px; }
     .bm-rb-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
   `],
 })
@@ -71,6 +82,12 @@ export class RoleBindingsComponent implements OnInit {
   loading = signal(true);
   err = signal('');
   roles = signal<{ id: string; name: string }[]>([]);
+  /** Narrow the list by name — a fleet has ~100 catalog roles, and each node reads its own state. */
+  filter = signal('');
+  shown = computed(() => {
+    const q = this.filter().trim().toLowerCase();
+    return q ? this.roles().filter((r) => r.name.toLowerCase().includes(q)) : this.roles();
+  });
 
   writeBusy = signal(false);
   writeMsg = signal('');

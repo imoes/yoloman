@@ -1,0 +1,146 @@
+# OpenSCAP Shell Completion Script Configuration
+# This template generates the completion script for the `oscap` command.
+# It configures available commands, options, and file extension hints based on the provided schema variables.
+
+# check for non-parametric options
+# returns number of params
+function _oscap_noarg {
+    case "$1" in
+      --definitions|--syschar|--results|--skip-schematron|-f|--force|-q|--quiet|--oval-results) return 0 ;;
+      --version|--help|-V|-h) return 256 ;; # stop cmdline processing
+      *) return 1 ;;
+    esac
+}
+
+function _oscap {
+
+	# commands for individual modules
+    # Defines the valid subcommands for each oscap module namespace.
+    # Populated from schema fields: cmds_oscap, cmds_oscap_oval, etc.
+    local -A cmds=()
+    # cmds_oscap: Space-separated list of top-level commands for oscap.
+    cmds[oscap]="{{ cmds_oscap | default('info oval xccdf ds cpe cvss cve') }}"
+    # cmds_oscap_oval: Space-separated list of subcommands for oscap:oval.
+    cmds[oscap:oval]="{{ cmds_oscap_oval | default('collect eval analyse validate generate') }}"
+    # cmds_oscap_oval_generate: Space-separated list of subcommands for oscap:oval:generate.
+    cmds[oscap:oval:generate]="{{ cmds_oscap_oval_generate | default('report') }}"
+    # cmds_oscap_cvss: Space-separated list of subcommands for oscap:cvss.
+    cmds[oscap:cvss]="{{ cmds_oscap_cvss | default('score describe') }}"
+    # cmds_oscap_xccdf: Space-separated list of subcommands for oscap:xccdf.
+    cmds[oscap:xccdf]="{{ cmds_oscap_xccdf | default('eval remediate resolve validate export-oval-variables generate') }}"
+    # cmds_oscap_xccdf_generate: Space-separated list of subcommands for oscap:xccdf:generate.
+    cmds[oscap:xccdf:generate]="{{ cmds_oscap_xccdf_generate | default('report guide fix custom') }}"
+    # cmds_oscap_ds: Space-separated list of subcommands for oscap:ds.
+    cmds[oscap:ds]="{{ cmds_oscap_ds | default('sds-add sds-compose sds-split sds-validate rds-create rds-split rds-validate') }}"
+    # cmds_oscap_cpe: Space-separated list of subcommands for oscap:cpe.
+    cmds[oscap:cpe]="{{ cmds_oscap_cpe | default('check match validate') }}"
+    # cmds_oscap_cve: Space-separated list of subcommands for oscap:cve.
+    cmds[oscap:cve]="{{ cmds_oscap_cve | default('validate find') }}"
+
+    # command options
+    # Defines valid command-line flags/options for each oscap module/subcommand.
+    # Populated from schema fields: opts_oscap, opts_oscap_oval_validate, etc.
+    local -A opts=()
+	# opts_oscap: Space-separated list of options for oscap.
+	opts[oscap]="{{ opts_oscap | default('--version --quiet --help -V -q -h') }}"
+    # opts_oscap_oval_validate: Space-separated list of options for oscap:oval:validate.
+	opts[oscap:oval:validate]="{{ opts_oscap_oval_validate | default('--version --definitions --variables --syschar --results --directives --skip-schematron') }}"
+    # opts_oscap_oval_eval: Space-separated list of options for oscap:oval:eval.
+	opts[oscap:oval:eval]="{{ opts_oscap_oval_eval | default('--datastream-id --oval-id --id --variables --directives --without-syschar --results --report --skip-valid --skip-validation --fetch-remote-resources --local-files --verbose --verbose-log-file') }}"
+    # opts_oscap_oval_analyse: Space-separated list of options for oscap:oval:analyse.
+	opts[oscap:oval:analyse]="{{ opts_oscap_oval_analyse | default('--variables --directives --verbose --verbose-log-file --skip-valid --skip-validation') }}"
+    # opts_oscap_oval_collect: Space-separated list of options for oscap:oval:collect.
+	opts[oscap:oval:collect]="{{ opts_oscap_oval_collect | default('--id --syschar --skip-valid --skip-validation --variables --verbose --verbose-log-file') }}"
+    # opts_oscap_oval_generate_report: Space-separated list of options for oscap:oval:generate:report.
+	opts[oscap:oval:generate:report]="{{ opts_oscap_oval_generate_report | default('-o --output') }}"
+    # opts_oscap_xccdf_eval: Space-separated list of options for oscap:xccdf:eval.
+	opts[oscap:xccdf:eval]="{{ opts_oscap_xccdf_eval | default('--benchmark-id --check-engine-results --cpe --datastream-id --enforce-signature --export-variables --fetch-remote-resources --local-files --oval-results --profile --progress --progress-full --remediate --report --results --results-arf --rule --skip-rule --skip-valid --skip-validation --skip-signature-validation --stig-viewer --tailoring-file --tailoring-id --thin-results --verbose --verbose-log-file --without-syschar --xccdf-id') }}"
+    # opts_oscap_xccdf_validate: Space-separated list of options for oscap:xccdf:validate.
+	opts[oscap:xccdf:validate]="{{ opts_oscap_xccdf_validate | default('--skip-schematron') }}"
+    # opts_oscap_xccdf_export_oval_variables: Space-separated list of options for oscap:xccdf:export-oval-variables.
+	opts[oscap:xccdf:export-oval-variables]="{{ opts_oscap_xccdf_export_oval_variables | default('--datastream-id --xccdf-id --profile --skip-valid --skip-validation --fetch-remote-resources --local-files --cpe') }}"
+    # opts_oscap_xccdf_remediate: Space-separated list of options for oscap:xccdf:remediate.
+	opts[oscap:xccdf:remediate]="{{ opts_oscap_xccdf_remediate | default('--result-id --skip-valid --skip-validation --fetch-remote-resources --local-files --results --results-arf --report --oval-results --export-variables --cpe --check-engine-results --progress --progress-full') }}"
+    # opts_oscap_xccdf_resolve: Space-separated list of options for oscap:xccdf:resolve.
+	opts[oscap:xccdf:resolve]="{{ opts_oscap_xccdf_resolve | default('-o --output -f --force') }}"
+    # opts_oscap_xccdf_generate: Space-separated list of options for oscap:xccdf:generate.
+	opts[oscap:xccdf:generate]="{{ opts_oscap_xccdf_generate | default('--profile') }}"
+    # opts_oscap_xccdf_generate_report: Space-separated list of options for oscap:xccdf:generate:report.
+	opts[oscap:xccdf:generate:report]="{{ opts_oscap_xccdf_generate_report | default('-o --output --result-id --profile --oval-template --sce-template') }}"
+    # opts_oscap_xccdf_generate_guide: Space-separated list of options for oscap:xccdf:generate:guide.
+	opts[oscap:xccdf:generate:guide]="{{ opts_oscap_xccdf_generate_guide | default('-o --output --hide-profile-info --profile --benchmark-id --xccdf-id --tailoring-file --tailoring-id --skip-signature-validation --enforce-signature') }}"
+    # opts_oscap_xccdf_generate_fix: Space-separated list of options for oscap:xccdf:generate:fix.
+	opts[oscap:xccdf:generate:fix]="{{ opts_oscap_xccdf_generate_fix | default('-o --output --template --profile --result-id --profile --fix-type --xccdf-id --benchmark-id --tailoring-file --tailoring-id --skip-signature-validation --enforce-signature') }}"
+    # opts_oscap_xccdf_generate_custom: Space-separated list of options for oscap:xccdf:generate:custom.
+	opts[oscap:xccdf:generate:custom]="{{ opts_oscap_xccdf_generate_custom | default('-o --output --stylesheet') }}"
+    # opts_oscap_ds_sds_add: Space-separated list of options for oscap:ds:sds-add.
+	opts[oscap:ds:sds-add]="{{ opts_oscap_ds_sds_add | default('--datastream-id --skip-valid --skip-validation') }}"
+    # opts_oscap_ds_sds_compose: Space-separated list of options for oscap:ds:sds-compose.
+	opts[oscap:ds:sds-compose]="{{ opts_oscap_ds_sds_compose | default('--skip-valid --skip-validation') }}"
+    # opts_oscap_ds_sds_split: Space-separated list of options for oscap:ds:sds-split.
+	opts[oscap:ds:sds-split]="{{ opts_oscap_ds_sds_split | default('--datastream-id --xccdf-id --skip-valid --skip-validation --fetch-remote-resources --local-files') }}"
+    # opts_oscap_ds_rds_create: Space-separated list of options for oscap:ds:rds-create.
+	opts[oscap:ds:rds-create]="{{ opts_oscap_ds_rds_create | default('--skip-valid --skip-validation') }}"
+    # opts_oscap_ds_rds_split: Space-separated list of options for oscap:ds:rds-split.
+	opts[oscap:ds:rds-split]="{{ opts_oscap_ds_rds_split | default('--report-id --skip-valid --skip-validation') }}"
+    # opts_oscap_cvss_score: Space-separated list of options for oscap:cvss:score.
+	opts[oscap:cvss:score]="{{ opts_oscap_cvss_score | default('') }}"
+    # opts_oscap_cvss_describe: Space-separated list of options for oscap:cvss:describe.
+	opts[oscap:cvss:describe]="{{ opts_oscap_cvss_describe | default('') }}"
+    # opts_oscap_info: Space-separated list of options for oscap:info.
+	opts[oscap:info]="{{ opts_oscap_info | default('--fetch-remote-resources --local-files --profile --profiles') }}"
+
+    # local variables
+	local std cmd i prev
+	local c=1
+	local cur="`_get_cword`"
+	local prog="${COMP_WORDS[0]}"
+    # modpath_default: Default module path prefix for oscap completion.
+    local modpath='{{ modpath_default | default("oscap") }}'
+	_split_longopt || prev="${COMP_WORDS[$COMP_CWORD-1]}"
+
+    # get module path
+	while [ $c -lt $COMP_CWORD ]; do
+		i="${COMP_WORDS[c]}"
+		case "$i" in
+			# TODO handle generic switches
+			-*) _oscap_noarg "$i"; c=$((c + $?)) ;;
+			*) modpath="$modpath:$i" ;;
+		esac
+		c=$((c + 1))
+	done
+
+	if [ "x${prev:0:1}" == "x-" ] && ! _oscap_noarg "$prev"; then
+		# an option argument
+
+        local cmd=${modpath##*:}
+
+		case "$prev" in
+			--AV|--AC|--AU|--CI|--II|--AI|--EX|--RL|--RC|--CD|--TD|--CR|--IR|--AR)
+				COMPREPLY=( $(compgen -W "`$prog cvss $cmd -h | sed -r -n -e "s:^\s+$prev=\[(.+)\].+$:\1:gp" | tr '|' ' '`" -- ${cur}) ) ;;
+			# filedir_results_output_template_oval_template: File extensions for --results, -o/--output, --template, --oval-template.
+            --results|-o|--output|--template|--oval-template) _filedir '{{ filedir_results_output_template_oval_template | default("xml.bz2|xml") }}' ;;
+            # filedir_report: File extensions for --report.
+            --report) _filedir '{{ filedir_report | default("html") }}' ;;
+		esac
+
+	elif [ "x${cur:0:1}" == "x-" ] || [ "${modpath:0:11}" == 'oscap:cvss:' ]; then
+		# an option
+		COMPREPLY=( $(compgen -W "${opts[$modpath]}" -- ${cur}) )
+    elif [ "x${cmds[$modpath]}" != 'x' ]; then
+        # a submodule
+		COMPREPLY=( $(compgen -W "${cmds[$modpath]}" -- ${cur}) )
+	else
+		# a positional argument
+
+		case "$modpath" in
+			oscap:cvss:*) ;; # no positional args for cvss
+			# filedir_positional: File extensions for positional arguments.
+			*) _filedir '{{ filedir_positional | default("xml.bz2|xml") }}' ;;
+		esac
+
+	fi
+
+}
+
+[ "${BASH_VERSINFO[0]}" -ge '4' ] && complete -F _oscap -o filenames oscap

@@ -1,18 +1,16 @@
-# Configuration for cryptsetup suspend/resume behavior.
-# This file is sourced by /usr/share/cryptsetup/cryptsetup-functions or similar scripts.
-# It MUST be writable only by root for security reasons.
+# Configuration for cryptsetup-suspend
+# This file is sourced by initramfs tools to control behavior during
+# system suspend and resume cycles.
 
-# Whether to automatically unlock user sessions (e.g., LUKS-bound keyrings)
-# after the system resumes from suspend.
-# Schema: UNLOCK_SESSIONS (string, default='false')
-# Accepted values: 'true' or 'false'
-UNLOCK_SESSIONS="{{ UNLOCK_SESSIONS | default('false') }}"
+# UNLOCK_SESSIONS (default: 'false')
+# Whether to automatically unlock user sessions after resume from suspend.
+# When enabled, tools like unlock-keyring or similar mechanisms attempt to
+# unlock encrypted user directories automatically.
+{% if UNLOCK_SESSIONS is defined and UNLOCK_SESSIONS is not none and (UNLOCK_SESSIONS is number or UNLOCK_SESSIONS is boolean or UNLOCK_SESSIONS | length > 0) %}UNLOCK_SESSIONS="{{ UNLOCK_SESSIONS | default('false') }}"{% else %}# UNLOCK_SESSIONS="false"{% endif %}
 
-# Whether to keep the unpacked initramfs image in RAM after the system boots.
-# This accelerates suspension/resume cycles because the encrypted volume header
-# does not need to be read from disk again.
-# Note: This setting is ignored when the default initramfs image is newer than
-# the cached/unpacked image in RAM.
-# Schema: KEEP_INITRAMFS (string, default='false')
-# Accepted values: 'true' or 'false'
-KEEP_INITRAMFS="{{ KEEP_INITRAMFS | default('false') }}"
+# KEEP_INITRAMFS (default: 'false')
+# Whether to keep unpacked initramfs in RAM to accelerate suspension.
+# This setting is ignored when the default initramfs image is newer than the
+# cached/unpacked image. Enabling this can speed up resume times but consumes
+# more RAM.
+{% if KEEP_INITRAMFS is defined and KEEP_INITRAMFS is not none and (KEEP_INITRAMFS is number or KEEP_INITRAMFS is boolean or KEEP_INITRAMFS | length > 0) %}KEEP_INITRAMFS="{{ KEEP_INITRAMFS | default('false') }}"{% else %}# KEEP_INITRAMFS="false"{% endif %}

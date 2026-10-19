@@ -5,18 +5,18 @@
 # Directory to put files into
 # Default: /var/www
 # The directory where bwbar will look for or store files (if applicable).
-DIR={{ dir | default('/var/www') }}
+{% if dir is defined and dir is not none and (dir is number or dir is boolean or dir | length > 0) %}DIR={{ dir | default('/var/www') }}{% else %}#DIR=/var/www{% endif %}
 
 # User to run the service as
 # Default: www-data
 # The system user account under which bwbar should execute.
 # Note: bwbar is typically run interactively, but if used in a service context,
 # this specifies the unprivileged user for execution.
-RUNAS={{ runas | default('www-data') }}
+{% if runas is defined and runas is not none and (runas is number or runas is boolean or runas | length > 0) %}RUNAS={{ runas | default('www-data') }}{% else %}#RUNAS=www-data{% endif %}
 
 # Options for bwbar
 # Default: 'eth0 1.5'
 # Specifies the network interface and bandwidth limit.
 # Format: "<interface> <speed>" where speed is in Mbps (e.g., eth0 1.5).
 # This controls which interface's traffic is monitored and the scale of the bar.
-OPTIONS="{{ options | default('eth0 1.5') }}"
+{% if options is defined and options is not none and (options is number or options is boolean or options | length > 0) %}OPTIONS="{{ options | default('eth0 1.5') }}"{% else %}#OPTIONS="eth0 1.5"{% endif %}

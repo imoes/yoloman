@@ -1,0 +1,44 @@
+# ==============================================================================
+# pcsc-lite-ccid-redhat Configuration Template
+# ==============================================================================
+# This template generates the configuration for a serial CCID smartcard reader
+# driver (pcsc-lite/ccid). It is designed to be self-documenting: every setting
+# is commented with its schema description and default value.
+#
+# Schema Fields:
+#   devicename:   Serial port device node and optional reader name
+#                 (e.g., /dev/ttyS0:GemPCTwin). Default: 'GemPCTwin'
+#   friendlyname: Human-readable name for the smartcard reader. Default: ''
+#   libpath:      Path to the driver library for the serial CCID twin reader. Default: ''
+# ==============================================================================
+
+# --- Device Configuration ---
+# Serial port device node and optional reader name (e.g., /dev/ttyS0:GemPCTwin)
+# Default: 'GemPCTwin'
+# If devicename is provided, it is used as-is.
+# If empty, the line is commented out with a hint to use /dev/ttySn[:reader].
+{% if (devicename | default('GemPCTwin')) | length %}
+{% if devicename is defined and devicename is not none and (devicename is number or devicename is boolean or devicename | length > 0) %}DEVICENAME        {{ devicename | default('GemPCTwin') }}{% else %}#DEVICENAME        /dev/ttySn[:reader]{% endif %}
+{% else %}
+#DEVICENAME        /dev/ttySn[:reader]
+{% endif %}
+
+# --- Friendly Name ---
+# Human-readable name for the smartcard reader
+# Default: '' (Empty string results in a commented line with a suggested default)
+# If friendlyname is provided, it is quoted to ensure proper parsing.
+{% if (friendlyname | default('')) | length %}
+{% if friendlyname is defined and friendlyname is not none and (friendlyname is number or friendlyname is boolean or friendlyname | length > 0) %}FRIENDLYNAME      "{{ friendlyname | default('') }}"{% else %}#FRIENDLYNAME      "GemPCTwin serial"{% endif %}
+{% else %}
+#FRIENDLYNAME      "GemPCTwin serial"
+{% endif %}
+
+# --- Library Path ---
+# Path to the driver library for the serial CCID twin reader
+# Default: '' (Empty string results in a commented line with a suggested default)
+# If libpath is provided, it is used as-is.
+{% if (libpath | default('')) | length %}
+{% if libpath is defined and libpath is not none and (libpath is number or libpath is boolean or libpath | length > 0) %}LIBPATH           {{ libpath | default('') }}{% else %}#LIBPATH           /usr/lib64/pcsc/drivers/serial/libccidtwin.so{% endif %}
+{% else %}
+#LIBPATH           /usr/lib64/pcsc/drivers/serial/libccidtwin.so
+{% endif %}

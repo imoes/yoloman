@@ -1,0 +1,33 @@
+# APCu Control Panel - Apache Configuration
+# This template configures an Apache VirtualHost or Directory block to serve the APCu PHP
+# extension's control panel interface. It uses `Alias` to map a URL path to the filesystem
+# location of the panel's HTML/PHP assets and restricts access to local connections for security.
+
+{# APCu Panel Alias Directive #}
+{# Maps the URL path where the APCu panel is accessed to the local filesystem directory #}
+Alias {{ apcu_panel_alias_path | default('/apcu-panel') }} {{ apcu_panel_document_root | default('/usr/share/apcu-panel') }}
+
+{# Directory Block: Restrict access to the panel's filesystem root #}
+{# Ensures that only authorized users (default: localhost) can interact with the panel #}
+<Directory {{ apcu_panel_document_root | default('/usr/share/apcu-panel') }}>
+
+    {# Apache 2.4 Access Control #}
+    {# Uses the modern mod_authz_core module for access restrictions #}
+    <IfModule mod_authz_core.c>
+        # Apache 2.4
+        # Restrict access to local connections only for security reasons.
+        Require local
+    </IfModule>
+
+    {# Apache 2.2 Legacy Access Control #}
+    {# Fallback for older Apache versions that do not have mod_authz_core #}
+    <IfModule !mod_authz_core.c>
+        # Apache 2.2
+        # Legacy access control syntax.
+        Order Deny,Allow
+        Deny from All
+        Allow from 127.0.0.1
+        Allow from ::1
+    </IfModule>
+
+</Directory>

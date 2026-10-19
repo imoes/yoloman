@@ -14,6 +14,8 @@ export interface ResourceNodeDescriptor {
 export const RESOURCE_NODES: Record<string, ResourceNodeDescriptor> = {
   docker: { kind: 'docker', label: 'Docker container', icon: 'inventory_2' },
   helm: { kind: 'helm', label: 'Helm release', icon: 'hub' },
+  // one Kubernetes object (Deployment, Service, ConfigMap, …) in a registered cluster, reached through its access host.
+  k8s: { kind: 'k8s', label: 'Kubernetes object', icon: 'deployed_code' },
   // config delegates its generations to the agent state store (host-scoped).
   config: { kind: 'config', label: 'Config file', icon: 'description' },
   // role = an OrchestrationPlan bound to this host; verbs are the BINDING

@@ -1,94 +1,59 @@
 #       C o m m a n d s
 
-# Path to Ghostscript executable.
-# Used by colplot to process PostScript/PDF graphics.
+# Actually these are not config parameters that control where/how
+# plots are generated but really the contant locations of where
+# system commands are located.  There should not need to be modified
+# with the exception being GS when running on a PC.  The other
+# commands only apply to Linux as the PC equivalents of the rest either
+# don't change are are not used.
 GS=      {{ GS | default('/usr/bin/gs') }}
-
-# Path to cp (copy) command.
-# Standard Unix copy utility.
 CP=      {{ CP | default('/bin/cp') }}
-
-# Path to gzip command.
-# Compression utility used for plot archives or logs.
 GZIP=    {{ GZIP | default('/bin/gzip') }}
-
-# Path to mail command.
-# Used to send plot reports or notifications via email.
 MAIL=    {{ MAIL | default('/bin/mail') }}
-
-# Path to rm (remove) command.
-# Standard Unix remove utility, used for cleaning up old plots.
 RM=      {{ RM | default('/bin/rm') }}
-
-# Path to tar command.
-# Archiving utility for bundling plot files.
 TAR=     {{ TAR | default('/bin/tar') }}
-
-# Path to uuencode command.
-# Encoding utility for attaching binary data to emails.
 UUENCODE={{ UUENCODE | default('/usr/bin/uuencode') }}
 
 #       D i r e c t o r i e s
 
-# Directory where plot files are stored.
+HelpDir  {{ help_dir | default('=') }}
 PlotDir  = {{ PlotDir | default('/var/log/collectl') }}
 
 #	g n u p l o t
 
-# Colon-separated list of paths to search for the gnuplot executable.
-# Used to locate the gnuplot binary during runtime.
+# This names the path to gnuplot and in the case of a PC, the version as well.
+# The defaults are those for most versions of linux and since the linux is 
+# smart enough to tell you its version, at most you may only need to change 
+# the value of GnuPlot and then only if you install it in a non-standard 
+# location.  As for windows, you WILL need to specify both.
 GnuPlot= {{ GnuPlot | default('/usr/bin/gnuplot:/usr/local/bin/gnuplot') }}
-
-# Default gnuplot version string.
-# Primarily used on Windows systems or for version-specific rendering hints.
 GnuVersion={{ GnuVersion | default('3.7') }}
 
 #    P l o t    D e f a u l t s
 
-# Default line type 1 for gnuplot styling.
-lt1={{ lt1 | default(8) }}
-
-# Default line type 2 for gnuplot styling.
-lt2={{ lt2 | default(3) }}
-
-# Default line type 3 for gnuplot styling.
-lt3={{ lt3 | default(1) }}
-
-# Default line type 4 for gnuplot styling.
-lt4={{ lt4 | default(2) }}
-
-# Default line type 5 for gnuplot styling.
-lt5={{ lt5 | default(-1) }}
-
-# Default line type 6 for gnuplot styling.
-lt6={{ lt6 | default(5) }}
-
-# Default line type 7 for gnuplot styling.
-lt7={{ lt7 | default(16) }}
-
-# Default line type 8 for gnuplot styling.
-lt8={{ lt8 | default(14) }}
-
-# Default line type 9 for gnuplot styling.
-lt9={{ lt9 | default(4) }}
-
-# Default line type 10 for gnuplot styling.
-lt10={{ lt10 | default(6) }}
-
-# Default line type 11 for gnuplot styling.
-lt11={{ lt11 | default(7) }}
-
-# Default line type 12 for gnuplot styling.
-lt12={{ lt12 | default(9) }}
-
-# Default line type 13 for gnuplot styling.
-lt13={{ lt13 | default(10) }}
-
-# Default line type 14 for gnuplot styling.
-lt14={{ lt14 | default(11) }}
-
-# Default line type 15 for gnuplot styling.
-lt15={{ lt15 | default(12) }}
-
-# Default line type 16 for gnuplot styling.
-lt16={{ lt16 | default(13) }}
+{% if http_width is defined and http_width is not none and (http_width is number or http_width is boolean or http_width | length > 0) %}httpWidth =  {{ http_width }}
+{% else %}#httpWidth =  1.2
+{% endif %}{% if http_height is defined and http_height is not none and (http_height is number or http_height is boolean or http_height | length > 0) %}httpHeight = {{ http_height }}
+{% else %}#httpHeight = 0.3
+{% endif %}{% if term_width is defined and term_width is not none and (term_width is number or term_width is boolean or term_width | length > 0) %}termWidth =  {{ term_width }}
+{% else %}#termWidth =  1
+{% endif %}{% if term_height is defined and term_height is not none and (term_height is number or term_height is boolean or term_height | length > 0) %}termHeight = {{ term_height }}
+{% else %}#termHeight = 0.2
+{% endif %}
+# default line types.  to get full list in gnuplit type 'test' command
+lt1={{ lt1 | default('8') }}
+lt2={{ lt2 | default('3') }}
+lt3={{ lt3 | default('1') }}
+lt4={{ lt4 | default('2') }}
+lt5={{ lt5 | default('-1') }}
+lt6={{ lt6 | default('5') }}
+lt7={{ lt7 | default('16') }}
+lt8={{ lt8 | default('14') }}
+lt9={{ lt9 | default('4') }}
+lt10={{ lt10 | default('6') }}
+lt11={{ lt11 | default('7') }}
+lt12={{ lt12 | default('9') }}
+lt13={{ lt13 | default('10') }}
+lt14={{ lt14 | default('11') }}
+lt15={{ lt15 | default('12') }}
+lt16={{ lt16 | default('13') }}

@@ -292,7 +292,7 @@ interface AppliedPolicy {
         padding: 10px 12px 2px; margin-top: 6px; border-top: 1px solid var(--mat-sys-outline-variant);
       }
       .bm-drag-hint { margin-left: auto; font-size: 11px; opacity: 0; transition: opacity 0.15s; padding-left: 12px; }
-      .bm-host:hover .bm-drag-hint, .bm-group .bm-drag-hint { opacity: 0.5; }
+      .bm-host:hover .bm-drag-hint, .bm-group .bm-drag-hint { opacity: 0.62; }
       .bm-empty { opacity: 0.7; padding: 4px 0; }
       .bm-dim { opacity: 0.6; }
       .bm-kv { border-collapse: collapse; margin: 8px 0; }

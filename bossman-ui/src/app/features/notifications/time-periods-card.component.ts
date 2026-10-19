@@ -9,6 +9,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TimePeriod, TimePeriodInput, TimePeriodUsage } from '../../core/models/notification.model';
 import { NotificationService } from '../../core/services/notification.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Weekday = (typeof WEEKDAYS)[number];
@@ -42,7 +43,7 @@ function emptyDraft(): TimePeriodInput {
 @Component({
   selector: 'app-time-periods-card',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatCheckboxModule],
+  imports: [BlockedReasonDirective, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule, MatCheckboxModule],
   template: `
     <mat-card>
       <mat-card-header>
@@ -71,7 +72,7 @@ function emptyDraft(): TimePeriodInput {
                 <td class="bm-dim">{{ daySummary(p) }}</td>
                 <td class="bm-dim">{{ usageSummary(p.id) }}</td>
                 <td class="bm-right">
-                  <button mat-icon-button [disabled]="p.is_builtin"
+                  <button mat-icon-button [bmBlocked]="p.is_builtin ? 'A built-in window cannot be deleted' : ''"
                           [title]="p.is_builtin ? 'A built-in window cannot be deleted' : 'Delete'"
                           (click)="remove(p); $event.stopPropagation()">
                     <mat-icon>delete</mat-icon>
@@ -199,11 +200,10 @@ function emptyDraft(): TimePeriodInput {
             }
 
             <div class="bm-actions">
-              <button mat-flat-button [disabled]="!canSave()" (click)="save()">
+              <button mat-flat-button [disabled]="saving()" [bmBlocked]="blocker()" (click)="save()">
                 <mat-icon>save</mat-icon> {{ editingId() ? 'Save' : 'Create' }}
               </button>
               <button mat-button (click)="cancel()">Cancel</button>
-              @if (blocker(); as b) { <span class="bm-dim">{{ b }}</span> }
             </div>
           </div>
         } @else {
@@ -219,8 +219,8 @@ function emptyDraft(): TimePeriodInput {
       .bm-dim { opacity: 0.6; }
       .bm-right { text-align: right; }
       .bm-tbl { width: 100%; border-collapse: collapse; }
-      .bm-tbl th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: 3px 12px 3px 0; }
-      .bm-tbl td { padding: 5px 12px 5px 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13.5px; }
+      .bm-tbl th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; }
+      .bm-tbl td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
       .bm-row { cursor: pointer; }
       .bm-row:hover td { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
       .bm-sel td { background: color-mix(in srgb, var(--bm-green) 12%, transparent); }

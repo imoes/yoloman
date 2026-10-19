@@ -1,0 +1,66 @@
+# -*- shell-script -*-
+# ==============================================================================
+# IPA Client Bash Completion Configuration
+# ==============================================================================
+# This Jinja2 template generates a bash programmable completion script for the
+# `ipa` command-line tool provided by the FreeIPA client package.
+#
+# It enables tab-completion for IPA commands and subcommands, allowing users
+# to quickly discover available management operations within a FreeIPA domain.
+#
+# Usage:
+#   1. Source this file in your ~/.bashrc or ~/.bash_profile.
+#   2. Or, place it in /etc/bash_completion.d/ for system-wide availability.
+#
+# Prerequisites:
+#   - Bash 2.05a or newer
+#   - Bash options 'extglob' and 'progcomp' must be enabled.
+#     Run `shopt -s extglob progcomp` to enable them in the current session.
+# ==============================================================================
+
+# Function: _ipa_commands
+# Description: Retrieves the list of valid IPA subcommands by parsing the
+#              output of 'ipa help commands'. It filters the output to return
+#              only alphanumeric command names.
+#
+# Note: The original script used a regex replacement `s/^([-[:alnum:]]*).*/\1/`
+# which is non-standard. The standard `ipa` output format is used here for
+# reliability.
+_ipa_commands()
+{
+    # Retrieve command list from IPA CLI
+    # 2>/dev/null suppresses potential error messages during non-interactive checks
+    ipa help commands 2>/dev/null | sed -n 's/^[-[:alnum:]]*//p' | grep '^[[:alnum:]]'
+}
+
+# Function: _ipa
+# Description: The main completion function attached to the `ipa` command.
+#              It handles completion logic based on the current word position
+#              in the command line history.
+_ipa()
+{
+    # Current word being completed
+    cur=${COMP_WORDS[COMP_CWORD]}
+    # Previous word (the command or option preceding the current word)
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+
+    # Case 1: User is typing the first word after 'ipa'.
+    # Complete with the list of top-level IPA commands.
+    if [ ${COMP_CWORD} -eq 1 ]; then
+        COMPREPLY=( $( compgen -W "$(_ipa_commands)" -- "$cur" ) )
+    # Case 2: User is typing the second word.
+    # Special handling for the 'help' command to allow completing subcommands.
+    elif [ ${COMP_CWORD} -eq 2 ]; then
+        case "$prev" in
+        help)
+            # When completing 'help', allow both commands and the word 'commands' itself
+            COMPREPLY=( $( compgen -W "$(_ipa_commands) commands" -- "$cur" ) )
+            ;;
+        esac
+    fi
+}
+
+# Register the completion function for the 'ipa' command.
+# -F _ipa      : Use the function _ipa for completion
+# -o default   : Enable default completion if our function doesn't match
+complete -F _ipa -o default ipa

@@ -1,0 +1,80 @@
+# proxychains.conf
+# Configuration file for ProxyChains (HTTP, SOCKS4, SOCKS5 tunneling proxifier with DNS).
+# This template is self-documenting: every setting is commented with its schema description
+# and uses safe default values to prevent configuration errors.
+
+# -----------------------------------------------------------------------------
+# Proxy Chain Behavior
+# -----------------------------------------------------------------------------
+
+# Chain mode selection (e.g., strict_chain, dynamic_chain). Must be uncommented.
+# Only one option should be uncommented at a time; otherwise, the last appearing
+# uncommented option will be accepted by the proxychains library.
+#
+# Options available:
+#   dynamic_chain     - Each connection done via chained proxies in order.
+#                       At least one proxy must be online. Dead proxies are skipped.
+#   strict_chain      - Each connection done via chained proxies in order.
+#                       All proxies must be online. EINTR is returned if a proxy fails.
+#   random_chain      - Each connection done via a random proxy (or chain) from the list.
+#                       Good for testing IDS evasion.
+{# The variable contains the keyword to uncomment. We print it directly. #}
+{{ proxy_chain_mode | default('strict_chain') }}
+
+# Make sense only if random_chain
+#chain_len = 2
+# Note: chain_len is not exposed in the schema, so it remains commented out or
+# can be added manually if needed.
+
+# Quiet mode (no output from library)
+#quiet_mode
+
+# -----------------------------------------------------------------------------
+# DNS Resolution
+# -----------------------------------------------------------------------------
+
+# Enable proxy DNS resolution.
+# When enabled, DNS requests are sent through the proxy chain to prevent DNS leaks.
+# Options: proxy_dns (enabled) or #proxy_dns (disabled)
+{{ proxy_dns | default('proxy_dns') }}
+
+# -----------------------------------------------------------------------------
+# Timeouts
+# -----------------------------------------------------------------------------
+
+# Some timeouts in milliseconds.
+
+# TCP read timeout in milliseconds.
+# The time allowed for reading data from the proxy connection.
+tcp_read_time_out {{ tcp_read_time_out | default('15000') }}
+
+# TCP connect timeout in milliseconds.
+# The time allowed for establishing a connection to the proxy.
+tcp_connect_time_out {{ tcp_connect_time_out | default('8000') }}
+
+# -----------------------------------------------------------------------------
+# ProxyList Configuration
+# -----------------------------------------------------------------------------
+
+# ProxyList format:
+#       type  host  port [user pass]
+#       (values separated by 'tab' or 'blank')
+#
+# Example entries:
+#       socks5  192.168.67.78  1080  lamer  secret
+#       http    192.168.89.3   8080  justu  hidden
+#       socks4  192.168.1.49   1080
+#       http    192.168.39.93  8080
+#
+# Supported proxy types: http, socks4, socks5
+# Auth types supported: "basic"-http, "user/pass"-socks
+
+[ProxyList]
+# add proxy here ...
+# meanwile
+# defaults set to "tor" configuration.
+
+# Default proxy settings.
+# These provide a fallback default proxy entry (often configured as Tor on localhost).
+# Format: <proxy_type> <proxy_host> <proxy_port>
+{{ proxy_type | default('socks4') }} 	{{ proxy_host | default('127.0.0.1') }} {{ proxy_port | default(9050) }}

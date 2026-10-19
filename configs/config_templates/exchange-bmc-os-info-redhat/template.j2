@@ -1,0 +1,13 @@
+# Path to the file containing BMC environment variables.
+# This file is sourced to export BMC connectivity information
+# (URL, IP) into the current environment for scripts/tools.
+BMC_INFO="{{ bmc_info_path | default('/var/run/bmc-info') }}"
+
+# Load BMC environment variables if running as root and the info file exists.
+if [ "$(id -u)" = "0" ]; then
+	[ -f ${BMC_INFO} ] && . ${BMC_INFO} && \
+		export "${BMC_URL}" "${BMC_IPv4}" >/dev/null 2>&>1
+fi
+
+# Clean up the helper variable to avoid polluting the environment.
+unset BMC_INFO

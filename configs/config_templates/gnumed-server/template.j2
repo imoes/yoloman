@@ -1,59 +1,101 @@
-#!/bin/sh
-# GNUmed Server Backup Script Configuration
+#------------------------------------------------------------
 #
-# This script performs automated backups for the GNUmed medical practice management system.
-# It executes three distinct phases:
-# 1. Plain data dump (optional, currently commented out).
-# 2. Full database backup (schema + data).
-# 3. Compression and cryptographic signing of the backup archive.
+# GNUmed Server Backup Configuration
 #
-# Each phase is controlled by a variable pointing to the specific utility script.
-# Ensure these scripts are executable and present on the target system.
+# This is a shell fragment sourced by backup shell scripts.
+# Copy this file to /etc/gnumed/gnumed-backup.conf and
+# configure appropriately.
+#
+# If the PostgreSQL users $GM_DBO and/or "postgres" need a
+# password you will have to configure that using a .pgpass
+# file (see the PG manual for how to do that):
+#
+# http://www.postgresql.org/docs/current/static/libpq-pgpass.html
+#------------------------------------------------------------
 
-# ==============================================================================
-# Phase 1: Plain Data Backup (Optional)
-#
+#------------------------------------------------------------
+# the following need to be changed in most if not all cases
+#------------------------------------------------------------
+
+# options for *taking* backups:
+
+# Logical/business-level owner of the GNUmed database instance.
+# No spaces allowed; use underscores instead (e.g. "ACME_GP_Offices").
+INSTANCE_OWNER="{{ instance_owner | default('GNUmed_Team') }}"
+
+# Directory where local backups are stored.
+BACKUP_DIR="{{ backup_dir | default('/var/lib/gnumed/server/backups') }}"
+
+# Name of the PostgreSQL database to backup.
+GM_DATABASE="{{ gm_database | default('gnumed_v22') }}"
+
+# User/group the backup file is eventually owned by.
+# Derived from the invoking user context.
+BACKUP_OWNER="$USER:$USER"
+
+
+# options for *offsiting* backups:
+
+# Host reachable via rsync (e.g., via SSH keys) for offsite backups.
+# Must be set to a host you can reach without manual password entry.
+OFFSITE_BACKUP_HOST="{{ offsite_backup_host | default('need to set this') }}"
+
+# Remote directory on OFFSITE_BACKUP_HOST where backups are stored.
+OFFSITE_BACKUP_DIR="{{ offsite_backup_dir | default('need to set this') }}"
+
+# Maximum bandwidth in KBytes/second for rsync.
+# Empty for full speed.
+MAX_OFFSITING_BANDWIDTH="{{ max_offsiting_bandwidth | default('') }}"
+
+# Method to determine file transfers:
+# yes - Compare files by CRC (safer, higher CPU load)
+# no  - Compare files by timestamp and size (cheaper, may result in redundant transfers)
+# Default is "yes" to ensure data integrity.
+OFFSITE_BY_CRC="{{ offsite_by_crc | default('yes') }}"
+
+#------------------------------------------------------------
+# those need to be changed less likely:
+#------------------------------------------------------------
+
+# PostgreSQL user to dump the database as.
+# Usually "gm-dbo".
+GM_DBO="{{ gm_dbo | default('gm-dbo') }}"
+
+# PostgreSQL server port.
+GM_PORT="{{ gm_port | default('5432') }}"
+
+# Remote host to dump from.
+# Empty for local.
+GM_HOST="{{ gm_host | default('') }}"
+
+# File permissions mask for backup files (e.g., 0600).
+BACKUP_MASK="{{ backup_mask | default('0600') }}"
+
+# Whether to verify the TAR archive.
+# Empty means do not verify. Verification may be time-consuming.
+VERIFY_TAR="{{ verify_tar | default('') }}"
+
+# bzip2 compression level (1-9).
+# See: man bzip2
+COMPRESSION_LEVEL="{{ compression_level | default('9') }}"
+
+# Email address receiving signed replies from the GNotary server.
+# Used for digitally signed replies notarizing the hash of the backup.
+SIG_RECEIVER="{{ sig_receiver | default('$USER@localhost') }}"
+
+# Email address of the GNotary server.
+# Hashes will be signed by this server.
+GNOTARY_SERVER="{{ gnotary_server | default('gnotary@gnotary.de') }}"
+
+# GNotary TAN for signing.
+# Empty disables notarizing. "free" works but is intended mainly for testing.
+GNOTARY_TAN="{{ gnotary_tan | default('free') }}"
+
 # Path to the GNUmed database data backup script.
-# This script typically exports raw table data without DDL (table structures,
-# constraints, indexes). It is useful for quick data recovery but not for
-# full system restoration.
-#
-# Current status: Commented out. Enable by uncommenting the if-block below.
-# ==============================================================================
-DATA='{{ data_path | default("/usr/sbin/gm-backup_data") }}'
+DATA_PATH="{{ data_path | default('/usr/sbin/gm-backup_data') }}"
 
-# This script only saves plain data without table structure etc.
-# Normally you want to store the whole database
-# DATA={{ data_path | default("/usr/sbin/gm-backup_data") }}
-
-# Uncomment the block below to enable plain data backups:
-# if [ -x "$DATA" ] ; then
-#     "$DATA"
-# fi
-
-# ==============================================================================
-# Phase 2: Full Database Backup
-#
 # Path to the GNUmed database backup script.
-# This script performs a comprehensive backup including both data and schema
-# (table structures, functions, triggers). This is the primary backup mechanism
-# required for restoring the GNUmed application state.
-# ==============================================================================
-DATABASE='{{ database_path | default("/usr/sbin/gm-backup") }}'
+DATABASE_PATH="{{ database_path | default('/usr/sbin/gm-backup') }}"
 
-if [ -x "$DATABASE" ] ; then
-    "$DATABASE"
-fi
-
-# ==============================================================================
-# Phase 3: Backup Archival and Signing
-#
 # Path to the GNUmed backup compression and signing script.
-# This script takes the output from the previous phases, compresses them (e.g.,
-# via gzip) and applies a GPG signature to ensure integrity and authenticity.
-# ==============================================================================
-ZIPSIGN='{{ zipsign_path | default("/usr/sbin/gm-zip+sign_backups") }}'
-
-if [ -x "$ZIPSIGN" ] ; then
-    "$ZIPSIGN"
-fi
+ZIPSIGN_PATH="{{ zipsign_path | default('/usr/sbin/gm-zip+sign_backups') }}"

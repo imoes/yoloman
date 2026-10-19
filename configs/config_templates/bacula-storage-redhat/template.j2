@@ -1,0 +1,257 @@
+# ==============================================================================
+# Bacula Storage Daemon Configuration Template
+# ==============================================================================
+#
+# This template generates the configuration file for the Bacula Storage Daemon.
+# It defines the daemon's identity, network listening port, working directories,
+# and the devices (file storage or tape autochangers) it manages.
+#
+# Key Responsibilities:
+# 1. Defines the Storage Daemon resource with its name and global limits.
+# 2. Authorizes the Director (bacula-dir) and Monitor (bacula-mon) to communicate
+#    with this daemon using secure passwords.
+# 3. Configures Virtual Autochangers and physical Devices for storing backup data.
+#
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Storage Daemon Definition
+# Defines the identity and resource limits for the Storage Daemon itself.
+# -----------------------------------------------------------------------------
+Storage {
+    # Name of the Storage Daemon
+    Name = {{ sd_name | default('bacula-sd') }}
+
+    # Port the Storage Daemon listens on for connections from the Director
+    SDPort = {{ sd_port | default('9103') }}
+
+    # Working directory for the Storage Daemon (spool data)
+    # This is where temporary backup data is stored before being written to tape or disk.
+    WorkingDirectory = "{{ sd_working_directory | default('/var/spool/bacula') }}"
+
+    # Directory for the PID file
+    # The directory where the process ID file is created.
+    Pid Directory = "{{ sd_pid_directory | default('/var/run') }}"
+
+    # Directory for plugins (e.g., file backend, tape backend)
+    # Bacula loads storage plugins from this directory.
+    Plugin Directory = "{{ sd_plugin_directory | default('/usr/lib64/bacula') }}"
+
+    # Maximum concurrent jobs allowed for the Storage Daemon globally
+    # Limits the number of jobs this daemon can process simultaneously.
+    Maximum Concurrent Jobs = {{ sd_max_concurrent_jobs | default(20) }}
+}
+
+# -----------------------------------------------------------------------------
+# Director Authorization
+# Permits specific Directors to contact this Storage Daemon.
+# -----------------------------------------------------------------------------
+
+# Director permitted to contact the Storage daemon (Full Control)
+# This block authorizes the main Bacula Director to manage this storage daemon.
+Director {
+    # Name of the Director permitted to contact the Storage daemon
+    Name = {{ director_name | default('bacula-dir') }}
+
+    # Password for the Director to contact the Storage daemon
+    # This password must match the one defined in bacula-dir.conf.
+    Password = "{{ sd_password | default('@@SD_PASSWORD@@') }}"
+}
+
+# Restricted Director, used by tray-monitor to get the status of the
+# storage daemon. Has limited commands (e.g., status, list jobs).
+Director {
+    # Name of the Restricted Director (Monitor)
+    Name = {{ monitor_name | default('bacula-mon') }}
+
+    # Password for the Restricted Director (Monitor)
+    # This password must match the one defined in bacula-dir.conf.
+    Password = "{{ mon_sd_password | default('@@MON_SD_PASSWORD@@') }}"
+
+    # Enable monitor mode for this director entry
+    # Restricts this director to read-only operations.
+    Monitor = yes
+}
+
+# -----------------------------------------------------------------------------
+# Device Definitions
+# Defines storage devices and virtual autochangers.
+# Bacula organizes devices into autochangers to manage media movement.
+# The Director's bacula-dir.conf must have corresponding definitions.
+# -----------------------------------------------------------------------------
+
+# First Virtual Autochanger
+# Groups multiple physical devices together to simulate a tape library.
+Autochanger {
+    # Name of the first virtual autochanger
+    Name = {{ autochanger1_name | default('FileChgr1') }}
+
+    # List of devices belonging to this autochanger
+    # Devices are comma-separated.
+    Device = {{ autochanger1_devices | default('FileChgr1-Dev1') }}, {{ autochanger1_device2 | default('FileChgr1-Dev2') }}
+
+    # Changer command (empty for file-based storage)
+    # Not used for file-based autochangers.
+    Changer Command = ""
+
+    # Changer device (empty/null for file-based storage)
+    # Not used for file-based autochangers.
+    Changer Device = /dev/null
+}
+
+# First Device in Autochanger 1
+Device {
+    # Name of the first device
+    Name = {{ device1_name | default('FileChgr1-Dev1') }}
+
+    # Media type for the first device
+    # Used by Bacula to identify the type of media (e.g., File1, LTO-8).
+    Media Type = {{ device1_media_type | default('File1') }}
+
+    # Archive device path for the first device (actual storage location)
+    # The directory or file where backup data is written.
+    Archive Device = {{ device1_archive_device | default('/tmp') }}
+
+    # Let Bacula label unlabeled media
+    # Automatically prompts for a new volume if none is mounted.
+    LabelMedia = yes;
+
+    # Random access mode (Yes for files, No for tapes)
+    # Set to Yes for disk-based storage.
+    Random Access = Yes;
+
+    # Automatically mount media when device is opened
+    AutomaticMount = yes;
+
+    # Indicates if media is removable (No for fixed file paths)
+    RemovableMedia = no;
+
+    # Keep device open always (No for file storage)
+    # Keeps the device handle open to avoid repeated open/close overhead.
+    AlwaysOpen = no;
+
+    # Maximum concurrent jobs for this specific device
+    # Limits how many jobs can write to this specific device at once.
+    Maximum Concurrent Jobs = {{ device1_max_concurrent_jobs | default(5) }}
+}
+
+# Second Device in Autochanger 1
+Device {
+    # Name of the second device
+    Name = {{ device2_name | default('FileChgr1-Dev2') }}
+
+    # Media type for the second device
+    Media Type = {{ device2_media_type | default('File1') }}
+
+    # Archive device path for the second device
+    Archive Device = {{ device2_archive_device | default('/tmp') }}
+
+    # Let Bacula label unlabeled media
+    LabelMedia = yes;
+
+    # Random access mode
+    Random Access = Yes;
+
+    # Automatically mount media
+    AutomaticMount = yes;
+
+    # Indicates if media is removable
+    RemovableMedia = no;
+
+    # Keep device open always
+    AlwaysOpen = no;
+
+    # Maximum concurrent jobs for this specific device
+    Maximum Concurrent Jobs = {{ device2_max_concurrent_jobs | default(5) }}
+}
+
+# Second Virtual Autochanger
+# Groups a second set of physical devices.
+Autochanger {
+    # Name of the second virtual autochanger
+    Name = {{ autochanger2_name | default('FileChgr2') }}
+
+    # List of devices belonging to this autochanger
+    Device = {{ autochanger2_devices | default('FileChgr2-Dev1') }}, {{ autochanger2_device2 | default('FileChgr2-Dev2') }}
+
+    # Changer command (empty for file-based storage)
+    Changer Command = ""
+
+    # Changer device (empty/null for file-based storage)
+    Changer Device = /dev/null
+}
+
+# Third Device (First in Autochanger 2)
+Device {
+    # Name of the third device
+    Name = {{ device3_name | default('FileChgr2-Dev1') }}
+
+    # Media type for the third device
+    Media Type = {{ device3_media_type | default('File2') }}
+
+    # Archive device path for the third device
+    Archive Device = {{ device3_archive_device | default('/tmp') }}
+
+    # Let Bacula label unlabeled media
+    LabelMedia = yes;
+
+    # Random access mode
+    Random Access = Yes;
+
+    # Automatically mount media
+    AutomaticMount = yes;
+
+    # Indicates if media is removable
+    RemovableMedia = no;
+
+    # Keep device open always
+    AlwaysOpen = no;
+
+    # Maximum concurrent jobs for this specific device
+    Maximum Concurrent Jobs = {{ device3_max_concurrent_jobs | default(5) }}
+}
+
+# Fourth Device (Second in Autochanger 2)
+Device {
+    # Name of the fourth device
+    Name = {{ device4_name | default('FileChgr2-Dev2') }}
+
+    # Media type for the fourth device
+    Media Type = {{ device4_media_type | default('File2') }}
+
+    # Archive device path for the fourth device
+    Archive Device = {{ device4_archive_device | default('/tmp') }}
+
+    # Let Bacula label unlabeled media
+    LabelMedia = yes;
+
+    # Random access mode
+    Random Access = Yes;
+
+    # Automatically mount media
+    AutomaticMount = yes;
+
+    # Indicates if media is removable
+    RemovableMedia = no;
+
+    # Keep device open always
+    AlwaysOpen = no;
+
+    # Maximum concurrent jobs for this specific device
+    Maximum Concurrent Jobs = {{ device4_max_concurrent_jobs | default(5) }}
+}
+
+# -----------------------------------------------------------------------------
+# Messages
+# Defines where status and alert messages are sent.
+# -----------------------------------------------------------------------------
+
+Messages {
+    # Name of the message resource
+    Name = Standard
+
+    # Send all messages to the Director 'bacula-dir'
+    # Note: The director name here must match the Director definition in bacula-dir.conf
+    # This line tells the Storage Daemon to send its status updates to the specified Director.
+    director = bacula-dir = all
+}

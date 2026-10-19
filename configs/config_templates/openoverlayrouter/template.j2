@@ -1,60 +1,33 @@
-###############################################################################
-# Open Overlay Router (OOR) / LISPmob Configuration Template
-#
-# This template generates the configuration file for Open Overlay Router.
-# The configuration is structured by sections corresponding to the device's
-# operating mode (xTR, RTR, MN, MS).
-#
-# Variables are drawn from the Ansible playbook role variables. All variables
-# use the |default() filter to ensure safe rendering even if the variable
-# is undefined in the playbook.
-###############################################################################
-
 ################################################
 #
 # General configuration
 #
-# debug: Debug level [0..3]. Higher values produce more verbose logs.
-# map_request_retries: Additional Map-Requests to send per map cache miss.
-# log_file: Log file path when running in daemon mode.
-#
-# NOTE: If log_file is empty, messages are written to syslog.
-################################################
 
-# Debug level [0..3]
-debug                  = {{ debug | default(0) }}
+# Debug level [0..3]. Higher values produce more verbose logs.
+debug                  = {{ debug | default('0') }}
 
-# Additional Map-Requests to send per map cache miss
-map-request-retries    = {{ map_request_retries | default(2) }}
+# Additional Map-Requests to send per map cache miss.
+map-request-retries    = {{ map_request_retries | default('2') }}
 
-# Specifies log file used in daemon mode.
+# Log file path when running in daemon mode.
 log-file               = {{ log_file | default('/var/log/oor.log') }}
- 
-################################################
-#
-# Device Operating Mode
-#
-# operating_mode: Defines the LISP device type.
-# Values: xTR (Translator), RTR (Router), MN (Mobile Node), MS (Map Server).
-################################################
 
-# Define the type of LISP device LISPmob will operate as 
+# Define the type of LISP device LISPmob will operate as.
+# operating-mode can be any of: xTR, RTR, MN, MS.
 operating-mode         = {{ operating_mode | default('xTR') }}
 
-# For the rest of this file you can delete the sections that does not apply to 
-# the LISP device selected in operating_mode
+# For the rest of this file you can delete the sections that does not apply to
+# the LISP device selected in operating-mode.
 
 
 ################################################
 #
-# MS (Map Server) configuration
-#
-# Applies when operating_mode is 'MS'.
-################################################
+# MS configuration
+# MS mode requires specific settings for Map Server registration.
 
-# Control messages are received and generated through this interface.
-# Only one interface is supported. Required for MS operating mode.
-control-iface = {{ control_iface | default('') }}
+# Interface for control messages (MS mode). Required for MS operating mode.
+# Only one interface is supported.
+control-iface          = {{ control_iface | default('<iface name>FIXME') }}
 
 # Define an allowed lisp-site to be registered into the Map Server. Several
 # lisp-site can be defined.
@@ -63,14 +36,13 @@ control-iface = {{ control_iface | default('') }}
 #   key: Password to authenticate the received Map-Registers
 #   iid: Instance ID associated with the lisp site [0-16777215]
 #   accept-more-specifics [true/false]: Accept more specific prefixes
-#     with same authentication information 
-
+#     with same authentication information
 lisp-site {
-    eid-prefix            = {{ ms_eid_prefix | default('') }}
+    eid-prefix            = {{ ms_eid_prefix | default('<prefix>FIXME') }}
     key-type              = 1
-    key                   = {{ ms_key | default('') }}
+    key                   = {{ ms_key | default('<string>FIXME') }}
     iid                   = 0
-    accept-more-specifics = {{ ms_accept_more_specifics | default(True) | lower }}
+    accept-more-specifics = {{ ms_accept_more_specifics | default('<bool>FIXME') }}
 }
 
 # Define a static registered mapping. New Map-Registers overwrites
@@ -85,14 +57,13 @@ lisp-site {
 #     policy announcements and outgoing traffic policy management
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
 #     indicates how to balance unicast traffic between them
-
 ms-static-registered-site {
     eid-prefix          = {{ ms_static_eid_prefix | default('') }}
     iid                 = 0
-     rloc-address {
-        address         = {{ ms_static_rloc_address | default('') }}
-        priority        = {{ ms_static_rloc_priority | default(0) }}
-        weight          = {{ ms_static_rloc_weight | default(0) }}
+    rloc-address {
+        address         = {{ ms_static_rloc_address | default('<string>FIXME') }}
+        priority        = {{ ms_static_rloc_priority | default('<int>FIXME') }}
+        weight          = {{ ms_static_rloc_weight | default('<int>FIXME') }}
     }
 }
 
@@ -102,11 +73,8 @@ ms-static-registered-site {
 # Common for xTR, RTR & MN
 #
 
-# encapsulation: Encapsulation that will use OOR in the data plane.
-# Values: LISP or VXLAN-GPE. LISP is selected by default.
-
-encapsulation          = {{ encapsulation | default('LISP') }}
-
+# Encapsulation type for data plane: 'LISP' or 'VXLAN-GPE'.
+encapsulation          = {{ encapsulation | default('<LISP/VXLAN-GPE>FIXME') }}
 
 # RLOC probing configuration
 #   rloc-probe-interval: interval at which periodic RLOC probes are sent
@@ -115,20 +83,18 @@ encapsulation          = {{ encapsulation | default('LISP') }}
 #     status down. [0..5]
 #   rloc-probe-retries-interval: interval at which RLOC probes retries are
 #     sent (seconds) [1..rloc-probe-interval]
-
 rloc-probing {
-    rloc-probe-interval             = {{ rloc_probe_interval | default(30) }}
-    rloc-probe-retries              = {{ rloc_probe_retries | default(2) }}
-    rloc-probe-retries-interval     = {{ rloc_probe_retries_interval | default(5) }}
+    rloc-probe-interval             = {{ rloc_probe_interval | default('30') }}
+    rloc-probe-retries              = {{ rloc_probe_retries | default('2') }}
+    rloc-probe-retries-interval     = {{ rloc_probe_retries_interval | default('5') }}
 }
 
 # Encapsulated Map-Requests are sent to this Map-Resolver.
-# You can define several Map-Resolvers, separated by comma. Encapsulated 
+# You can define several Map-Resolvers, separated by comma. Encapsulated
 # Map-Request messages will be sent to only one.
-#   address: IPv4 or IPv6 address of the map-resolver  
-
+#   address: IPv4 or IPv6 address of the map-resolver
 map-resolver        = {
-	{{ map_resolver_address | default('') }}
+    {{ map_resolver_address | default('') }}
 }
 
 # Static Map Entry of the Map Cache. Several eid-prefix can be defined.
@@ -143,55 +109,46 @@ map-resolver        = {
 #     policy announcements and outgoing traffic policy management.
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
 #     indicates how to balance unicast traffic between them.
-
 static-map-cache {
     eid-prefix          = {{ static_map_eid_prefix | default('') }}
     iid                 = 0
     rloc-address {
-        address         = {{ static_map_rloc_address | default('') }}
-        priority        = {{ static_map_rloc_priority | default(0) }}
-        weight          = {{ static_map_rloc_weight | default(0) }}
+        address         = {{ static_map_rloc_address | default('<string>FIXME') }}
+        priority        = {{ static_map_rloc_priority | default('<int>FIXME') }}
+        weight          = {{ static_map_rloc_weight | default('<int>FIXME') }}
     }
 }
 
 ###############################################
 #
 # RTR configuration
-#
-# Applies when operating_mode is 'RTR'.
-#
+# RTR mode requires specific settings for outgoing interface management.
 
 # List of interfaces to be used as outgoing interfaces for the packets sent
-# by the RTR. Several rtr-ifaces can be defined. 
-#   iface: interface containing the RLOCs to be used for outgoing traffic 
-#   ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6 
+# by the RTR. Several rtr-ifaces can be defined.
+#   iface: interface containing the RLOCs to be used for outgoing traffic
+#   ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6
 #     address of the interface
 #   priority [0-255]: Priority for the RLOC of the interface. Locators
 #     with lower values are more preferable. This is used for outgoing
 #     traffic policy management.
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
 #     indicates how to balance unicast traffic between them.
-
 rtr-ifaces {
     rtr-iface {
-        iface           = {{ rtr_iface_name | default('') }}
-        ip_version      = {{ rtr_iface_ip_version | default(4) }}
-        priority        = {{ rtr_iface_priority | default(0) }}
-        weight          = {{ rtr_iface_weight | default(0) }}
+        iface           = {{ rtr_iface_name | default('<iface-name>FIXME') }}
+        ip_version      = {{ rtr_iface_ip_version | default('<4/6>FIXME') }}
+        priority        = {{ rtr_iface_priority | default('<int>FIXME') }}
+        weight          = {{ rtr_iface_weight | default('<int>FIXME') }}
     }
 }
 
 ###############################################
 #
 # xTR & MN configuration
-#
-# Applies when operating_mode is 'xTR' or 'MN'.
-#
+# xTR and MN modes require settings for encapsulation and map servers.
 
-# NAT Traversal configuration. 
-#   nat_traversal_support: check if the node is behind NAT.
-# Values: on or off. Required for xTR/MN if behind NAT.
-
+# NAT Traversal support: 'on' or 'off'.
 nat_traversal_support  = {{ nat_traversal_support | default('off') }}
 
 # Map-Registers are sent to this Map-Server.
@@ -201,12 +158,11 @@ nat_traversal_support  = {{ nat_traversal_support | default('off') }}
 #   key-type: Only 1 supported (HMAC-SHA-1-96)
 #   key: password to authenticate with the map-server
 #   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
-
 map-server {
-        address        = {{ map_server_address | default('') }}
+        address        = {{ map_server_address | default('<ip-address>FIXME') }}
         key-type       = 1
-        key            = {{ map_server_key | default('') }}
-        proxy-reply    = {{ map_server_proxy_reply | default('off') }}
+        key            = {{ map_server_key | default('<password>FIXME') }}
+        proxy-reply    = {{ map_server_proxy_reply | default('<on/off>FIXME') }}
 }
 
 # Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR.
@@ -216,11 +172,10 @@ map-server {
 #   priority [0-255]: Proxy-ETR with lower values are more preferable.
 #   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,
 #     the weight indicates how to balance unicast traffic between them.
-
 proxy-etr {
-        address     = {{ proxy_etr_address | default('') }}
-        priority    = {{ proxy_etr_priority | default(0) }}
-        weight      = {{ proxy_etr_weight | default(0) }}
+        address     = {{ proxy_etr_address | default('<ip-address>FIXME') }}
+        priority    = {{ proxy_etr_priority | default('<int>FIXME') }}
+        weight      = {{ proxy_etr_weight | default('<int>FIXME') }}
 }
 
 # IPv4 / IPv6 EID of the node.
@@ -231,12 +186,12 @@ proxy-etr {
 #   rloc-address: Specifies directly the RLOC of the interface
 #     address: It could be one of the following cases
 #       - IPv4 or IPv6 address of the RLOC. Address should exist and
-#        be assigned to an UP interface during startup process otherwise
-#        it is discarded.
+#         be assigned to an UP interface during startup process otherwise
+#         it is discarded.
 #       - ELP name
 #   rloc-iface: Specifies the interface associated with the RLOC
-#     interface: interface containing the RLOCs associated to this mapping 
-#     ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6 
+#     interface: interface containing the RLOCs associated to this mapping
+#     ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6
 #       address of the interface
 # Both types of RLOCs use priority and weight
 #   priority [0-255]: Priority for the RLOC of the interface. Locators
@@ -244,27 +199,25 @@ proxy-etr {
 #     policy announcements and outgoing traffic policy management.
 #   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
 #     indicates how to balance unicast traffic between them.
-
 database-mapping {
-    eid-prefix          = {{ database_mapping_eid_prefix | default('') }}
+    eid-prefix          = {{ database_eid_prefix | default('') }}
     iid                 = 0
     rloc-address {
-        address         = {{ database_mapping_rloc_address | default('') }}
-        priority        = {{ database_mapping_rloc_priority | default(0) }}
-        weight          = {{ database_mapping_rloc_weight | default(0) }}
+        address         = {{ database_rloc_address | default('<string>FIXME') }}
+        priority        = {{ database_rloc_priority | default('<int>FIXME') }}
+        weight          = {{ database_rloc_weight | default('<int>FIXME') }}
     }
-    rloc-iface{
-        interface       = {{ database_mapping_rloc_iface | default('') }}
-        ip_version      = {{ database_mapping_rloc_iface_ip_version | default(4) }}
-        priority        = {{ database_mapping_rloc_iface_priority | default(0) }}
-        weight          = {{ database_mapping_rloc_iface_weight | default(0) }}
+    rloc-iface {
+        interface       = {{ database_rloc_iface_name | default('<string>FIXME') }}
+        ip_version      = {{ database_rloc_iface_ip_version | default('<4/6>FIXME') }}
+        priority        = {{ database_rloc_iface_priority | default('<int>FIXME') }}
+        weight          = {{ database_rloc_iface_weight | default('<int>FIXME') }}
     }
 }
 
 # Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
 # Uncomment the IPv4 or IPv6 list based on your current locators and
 # comment the previous 'proxy-itrs' section
-
 
 #proxy-itrs = {
 # LISP beta-network IPv4 PITRs
@@ -279,7 +232,7 @@ database-mapping {
 #        158.38.1.92,                 # uninett-pxtr
 #        203.181.249.172,             # apan-pxtr
 #        202.51.247.10                # sg-nus-pxtr
-# LISP beta-network IPv6 PITRs 
+# LISP beta-network IPv6 PITRs
 #        2001:590::451f:1f62,         # eqx-ash-pxtr
 #        2001:4f8:3:d::60,            # isc-pxtr
 #        2001:418:4:1:deaf:bebe::10d, # asp-pxtr
@@ -294,32 +247,31 @@ database-mapping {
 ###############################################
 #
 # Miscellaneous configuration
-#
+# Configuration for Explicit Locator Paths (ELP).
 
-# Structure to define a path involving multiple hops (Explicit Locator Path)
-#   elp-name: Name to define the ELP used as a reference in the rest of the 
+# Structure to define a path involving multiple hops.
+#   elp-name: Name to define the ELP used as a reference in the rest of the
 #     configuration
 #   elp-node: Defines each of the hops of the ELP. Several ones can be defined.
 #     In most cases, the last elp-node would be the local RLOC of an xTR
-#   address: IPv4 or IPv6 address of the RLOC. The address of the last elp-node 
-#     should exist and be assigned to an UP interface during startup process 
+#   address: IPv4 or IPv6 address of the RLOC. The address of the last elp-node
+#     should exist and be assigned to an UP interface during startup process
 #     otherwise it is discarded.
 #   strict [true/false]: Not yet implemented. Use false
 #   probe [true/false]: Not yet implemented. Use false
 #   lookup [true/false]: Not yet implemented. Use false
-
 explicit-locator-path {
-    elp-name        = {{ elp_name | default('') }}
+    elp-name        = {{ elp_name | default('<string>FIXME') }}
     elp-node {
-        address     = {{ elp_node1_address | default('') }}
-        strict      = {{ elp_node1_strict | default(False) | lower }}
-        probe       = {{ elp_node1_probe | default(False) | lower }}
-        lookup      = {{ elp_node1_lookup | default(False) | lower }}
+        address     = {{ elp_node_address | default('<ip-address>FIXME') }}
+        strict      = {{ elp_node_strict | default('<bool>FIXME') }}
+        probe       = {{ elp_node_probe | default('<bool>FIXME') }}
+        lookup      = {{ elp_node_lookup | default('<bool>FIXME') }}
     }
     elp-node {
-        address     = {{ elp_node2_address | default('') }}
-        strict      = {{ elp_node2_strict | default(False) | lower }}
-        probe       = {{ elp_node2_probe | default(False) | lower }}
-        lookup      = {{ elp_node2_lookup | default(False) | lower }}
-    } 
+        address     = {{ elp_node_2_address | default('<ip-address>FIXME') }}
+        strict      = {{ elp_node_2_strict | default('<bool>FIXME') }}
+        probe       = {{ elp_node_2_probe | default('<bool>FIXME') }}
+        lookup      = {{ elp_node_2_lookup | default('<bool>FIXME') }}
+    }
 }

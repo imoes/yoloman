@@ -1,0 +1,376 @@
+{
+  "what": "The rule catalogue of the explainable diagnosis (configs/schemas/diagnosis.schema.json, docs/diagnosis.md). Every rule_id an agent emits must be here. One name per cause on every platform: a missing executable is svc.image_missing on Windows (7000 / error 2) and on Linux (status=203/EXEC). `certainty` is the highest certainty the rule may give; `proven_when` / `likely_when` say on which evidence. Rules are evaluated in `order`; the first matching rule is the leading finding, later matches are listed after it.",
+  "version": 1,
+  "rules": {
+    "svc.not_installed": {
+      "order": 5,
+      "platforms": ["windows", "linux"],
+      "title": "There is no such service on this host",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "OpenService fails with ERROR_SERVICE_DOES_NOT_EXIST (1060)",
+        "linux": "LoadState=not-found — no unit file defines it"
+      },
+      "remedy_kinds": ["package"]
+    },
+    "svc.disabled": {
+      "order": 10,
+      "platforms": ["windows", "linux"],
+      "title": "The service is blocked from starting by its configuration",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "start type is Disabled (QueryServiceConfig dwStartType=4), or the start failed with error 1058",
+        "linux": "the unit is masked (LoadState=masked or UnitFileState=masked)"
+      },
+      "remedy_kinds": ["service_start_type", "systemd_unit"]
+    },
+    "svc.image_missing": {
+      "order": 20,
+      "platforms": ["windows", "linux"],
+      "title": "The program the service runs does not exist",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "the image file of ImagePath does not exist, or event 7000 carries error 2 (file not found) or 3 (path not found)",
+        "linux": "ExecMainStatus=203 (EXEC) and the ExecStart path does not exist"
+      },
+      "likely_when": {
+        "linux": "ExecMainStatus=203 and the path exists (not executable, wrong interpreter)"
+      },
+      "remedy_kinds": ["service_image_path", "package"]
+    },
+    "svc.image_path_unquoted": {
+      "order": 25,
+      "platforms": ["windows"],
+      "title": "The image path contains a space and is not quoted",
+      "certainty": "Likely",
+      "likely_when": {
+        "windows": "ImagePath has a space before the executable name and no quotes — Windows may try a shorter path first"
+      },
+      "remedy_kinds": ["service_image_path"]
+    },
+    "svc.blocked_by_policy": {
+      "order": 22,
+      "platforms": ["windows"],
+      "title": "An application-control policy blocked the service's program",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "an enforcement block event names the image — AppLocker 8004 (\"EXE and DLL\") or Code Integrity / WDAC 3077 (plan B14); the image's Authenticode trust (WinVerifyTrust) is attached as context, since unsigned or untrusted is the usual cause"
+      },
+      "remedy_kinds": []
+    },
+    "svc.account_missing": {
+      "order": 30,
+      "platforms": ["windows", "linux"],
+      "title": "The account the service runs as does not exist",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "the service account (lpServiceStartName) cannot be resolved to a SID, or event 7038 with error 1332",
+        "linux": "ExecMainStatus=217 (USER), or User= names no account"
+      },
+      "remedy_kinds": ["service_account"]
+    },
+    "svc.logon_failed": {
+      "order": 40,
+      "platforms": ["windows"],
+      "title": "The service account could not log on",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "event 7038 with its LogonUser error (disabled, locked out, password expired, wrong password), or error 1069 together with the account state that explains it"
+      },
+      "likely_when": {
+        "windows": "error 1069 (status or newest event 7000) with no event naming the reason"
+      },
+      "remedy_kinds": ["account_state", "service_account"]
+    },
+    "svc.logon_right_missing": {
+      "order": 45,
+      "platforms": ["windows"],
+      "title": "The service account lacks the right to log on as a service",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "event 7041 (the account was not granted the logon type), a 7038 with error 1385, or LSA shows neither the account nor one of its groups holding SeServiceLogonRight / a SeDenyServiceLogonRight"
+      },
+      "remedy_kinds": ["user_right"]
+    },
+    "svc.access_denied": {
+      "order": 50,
+      "platforms": ["windows", "linux"],
+      "title": "The service account may not read or execute what it needs",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "AuthzAccessCheck of the service account's SID on the image or its folder denies FILE_EXECUTE / FILE_READ_DATA — the denying or missing ACE named",
+        "linux": "ExecMainStatus=243 (CREDENTIALS) / 238 (STATE_DIRECTORY), or the journal shows EACCES on a path the unit owns"
+      },
+      "likely_when": {
+        "linux": "the journal reports 'Permission denied' on /var/lib, /var/cache or /var/log"
+      },
+      "remedy_kinds": ["file_acl", "path_owner"]
+    },
+    "svc.dependency_failed": {
+      "order": 60,
+      "platforms": ["windows", "linux"],
+      "title": "A service it depends on did not start",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "event 7001/7003 for the service, or a dependency (direct, via a load-order group, recursively) is not running — the finding points at the FIRST failed link",
+        "linux": "Result=dependency, or a Requires=/BindsTo= unit is failed — recursively, first failed link"
+      },
+      "remedy_note": "the remedy repairs the first failed link (its own cause), or removes the dependency",
+      "remedy_kinds": ["service_dependency", "service_start_type", "systemd_unit"]
+    },
+    "svc.deadlock": {
+      "order": 65,
+      "platforms": ["windows"],
+      "title": "The service's threads wait on each other — a deadlock",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "Wait Chain Traversal (GetThreadWaitChain) reports a cycle for a thread of the service's process: each lock or thread in the chain is owned by the next, back to the first (plan B14)"
+      },
+      "remedy_kinds": []
+    },
+    "svc.timeout": {
+      "order": 70,
+      "platforms": ["windows", "linux"],
+      "title": "The service did not report as started in time",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "event 7009 or 7011, or error 1053 (in the status or in the newest event 7000 — the status resets to 0 after a failed start); with an Application 1000 crash of the image in the window it is reported as svc.crash instead",
+        "linux": "Result=timeout"
+      },
+      "remedy_kinds": []
+    },
+    "svc.crash": {
+      "order": 80,
+      "platforms": ["windows", "linux"],
+      "title": "The service process crashed",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "event 7031/7034 together with an Application 1000/1026 for the service's image",
+        "linux": "Result=core-dump or signal with SIGSEGV/SIGABRT/SIGBUS (ExecMainCode=dumped|killed)"
+      },
+      "likely_when": {
+        "windows": "event 7031/7034 without a matching application error"
+      },
+      "remedy_kinds": []
+    },
+    "svc.oom_killed": {
+      "order": 85,
+      "platforms": ["linux"],
+      "title": "The kernel killed the service for lack of memory",
+      "certainty": "Proven",
+      "proven_when": {"linux": "Result=oom-kill"},
+      "remedy_kinds": ["systemd_unit_property"]
+    },
+    "svc.start_limit": {
+      "order": 88,
+      "platforms": ["linux"],
+      "title": "systemd stopped retrying after too many failed starts",
+      "certainty": "Proven",
+      "proven_when": {"linux": "Result=start-limit-hit, or systemd's own journal message 'Start request repeated too quickly' (systemd 257 keeps Result=exit-code)"},
+      "remedy_kinds": []
+    },
+    "svc.condition_failed": {
+      "order": 90,
+      "platforms": ["linux"],
+      "title": "A start condition of the unit is not met",
+      "certainty": "Proven",
+      "proven_when": {"linux": "ConditionResult=no with a ConditionTimestamp (evaluated), or AssertResult=no with an AssertTimestamp — a unit that never ran reports ConditionResult=no without a timestamp; or systemd's own journal message that the unit was skipped because of an unmet condition (a skipped unit is garbage-collected and its properties reset)"},
+      "remedy_kinds": []
+    },
+    "svc.exits_immediately": {
+      "order": 100,
+      "platforms": ["windows", "linux"],
+      "title": "The service starts and exits at once with an error code",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "event 7023/7024 (service-specific error) or 7034, with the exit code from QueryServiceStatusEx",
+        "linux": "Result=exit-code with ExecMainStatus not 0 and not a systemd status (200-243)"
+      },
+      "remedy_kinds": []
+    },
+    "svc.config_invalid": {
+      "order": 110,
+      "platforms": ["linux"],
+      "title": "The program refuses its configuration",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the invocation's journal shows a configuration parse error (unknown directive, error parsing … at line N, invalid option)"},
+      "remedy_kinds": []
+    },
+    "svc.config_incomplete": {
+      "order": 115,
+      "platforms": ["linux"],
+      "title": "The configuration lacks values the site must supply",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the journal reports a value that is not configured (not specified, please define, no configuration found, missing option) — the shipped file is a template that needs site values"},
+      "remedy_kinds": []
+    },
+    "svc.peer_unreachable": {
+      "order": 120,
+      "platforms": ["linux"],
+      "title": "The program cannot reach a service it needs",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the journal shows connection refused / cannot connect to a database or peer"},
+      "remedy_kinds": []
+    },
+    "svc.network_unavailable": {
+      "order": 125,
+      "platforms": ["linux"],
+      "title": "The program cannot resolve or reach the network",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the journal shows name resolution failures"},
+      "remedy_kinds": []
+    },
+    "svc.not_initialized": {
+      "order": 130,
+      "platforms": ["linux"],
+      "title": "The program needs a one-time initialisation first",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the journal asks for an init step (e.g. --initdb, database not initialized)"},
+      "remedy_kinds": []
+    },
+    "svc.device_missing": {
+      "order": 135,
+      "platforms": ["linux"],
+      "title": "A device the program needs is not present",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the journal reports no such device / missing hardware"},
+      "remedy_kinds": []
+    },
+    "svc.container_limit": {
+      "order": 140,
+      "platforms": ["linux"],
+      "title": "The environment does not allow what the program needs",
+      "certainty": "Likely",
+      "likely_when": {"linux": "the journal shows 'Operation not permitted' for kernel features, or a ConditionVirtualization excluding containers"},
+      "remedy_kinds": []
+    },
+    "svc.stopped_cleanly": {
+      "order": 900,
+      "platforms": ["windows", "linux"],
+      "title": "The service is stopped and its last run ended without error",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "the service is stopped with Win32ExitCode 0 and a Service Control Manager stop recorded (7036/7040), or start type Manual and never started since boot",
+        "linux": "the unit is inactive with Result=success — stopped cleanly, never started, or a oneshot that ran and finished"
+      },
+      "remedy_kinds": []
+    },
+    "svc.recent_incident": {
+      "order": 950,
+      "platforms": ["windows", "linux"],
+      "title": "The service hit a recent incident before now — it crashed, exited abnormally, or threw",
+      "certainty": "Likely",
+      "likely_when": {
+        "windows": "the agent's ETW incident ring holds a recent event for the service's image or last pid — a process exit with a non-zero code, an image crash, or a .NET exception (plan docs/etw-ringbuffer-plan.md); it describes a PAST invocation, so never above Likely",
+        "linux": "the agent's incident ring (fed by the eBPF collector) holds a recent event for the service's cgroup or last pid — an OOM kill or a fatal signal; a PAST invocation, so never above Likely"
+      },
+      "remedy_kinds": []
+    },
+    "svc.unexplained": {
+      "order": 1000,
+      "platforms": ["windows", "linux"],
+      "title": "The target is not running and no rule explains why",
+      "certainty": "Unknown",
+      "unknown_when": {
+        "windows": "no rule matched; the finding cites the state and the events that were read, and names what was not observable",
+        "linux": "no rule matched; the finding cites the unit state and the journal that was read"
+      },
+      "remedy_kinds": []
+    },
+    "upd.up_to_date": {
+      "order": 2070,
+      "platforms": ["windows", "linux"],
+      "title": "The host has no pending updates",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "windows_update_facts reports zero pending updates and the last search succeeded",
+        "linux": "the package manager reports nothing upgradable"
+      },
+      "remedy_kinds": []
+    },
+    "upd.behind": {
+      "order": 2060,
+      "platforms": ["windows", "linux"],
+      "title": "The host is behind on updates",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "windows_update_facts lists pending updates, with the security/critical count among them",
+        "linux": "the package manager lists upgradable packages, with the count from the security suite among them"
+      },
+      "remedy_kinds": ["package"]
+    },
+    "upd.reboot_pending": {
+      "order": 2020,
+      "platforms": ["windows", "linux"],
+      "title": "A reboot is pending and blocks further updates",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "a reboot is pending (Component Based Servicing RebootPending or WindowsUpdate RebootRequired)",
+        "linux": "/run/reboot-required exists"
+      },
+      "remedy_kinds": ["reboot"]
+    },
+    "upd.install_failed": {
+      "order": 2010,
+      "platforms": ["windows", "linux"],
+      "title": "The last update operation failed",
+      "certainty": "Proven",
+      "proven_when": {
+        "windows": "the newest update history entry has ResultCode Failed with its HResult, named in Windows' own words",
+        "linux": "the package manager or dpkg reported an error on the last run"
+      },
+      "remedy_kinds": ["package"]
+    },
+    "upd.wsus_unreachable": {
+      "order": 2030,
+      "platforms": ["windows"],
+      "title": "The assigned WSUS server did not answer",
+      "certainty": "Likely",
+      "likely_when": {
+        "windows": "a policy assigns a WSUS (UseWUServer=1, WUServer set) but the last search did not succeed"
+      },
+      "remedy_kinds": []
+    },
+    "upd.repo_unreachable": {
+      "order": 2040,
+      "platforms": ["linux"],
+      "title": "A package repository was unreachable",
+      "certainty": "Likely",
+      "likely_when": {
+        "linux": "the package manager could not reach a configured repository on the last update"
+      },
+      "remedy_kinds": []
+    },
+    "upd.held": {
+      "order": 2050,
+      "platforms": ["linux"],
+      "title": "Updates are held back",
+      "certainty": "Proven",
+      "proven_when": {
+        "linux": "packages are held (apt-mark hold / dpkg hold / dnf versionlock) or phased and not yet offered, each named with the reason"
+      },
+      "remedy_kinds": []
+    },
+    "upd.dpkg_interrupted": {
+      "order": 2000,
+      "platforms": ["linux"],
+      "title": "A previous package operation was interrupted",
+      "certainty": "Proven",
+      "proven_when": {
+        "linux": "dpkg is in an interrupted state and needs `dpkg --configure -a`"
+      },
+      "remedy_kinds": ["package"]
+    },
+    "upd.unexplained": {
+      "order": 2900,
+      "platforms": ["windows", "linux"],
+      "title": "The host's update state could not be explained",
+      "certainty": "Unknown",
+      "unknown_when": {
+        "windows": "no rule matched; the finding cites what windows_update_facts returned and names what was not measurable",
+        "linux": "no rule matched; the finding cites what the package manager returned and names what was not measurable"
+      },
+      "remedy_kinds": []
+    }
+  }
+}

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!-- SPDX-License-Identifier: MIT -->
+
+<!--
+  Adobe Source Sans Pro Font Aliasing Configuration for Red Hat
+  ==========================================================
+  This template configures fontconfig to alias the modern "Source Sans 3" font
+  as the preferred sans-serif family, while maintaining backward compatibility
+  for applications expecting the legacy "Source Sans Pro" name.
+
+  Variables:
+    - main_family: The new primary font family (default: Source Sans 3)
+    - fallback_family: The generic CSS font-family keyword (default: sans-serif)
+    - legacy_family: The old font family name to alias (default: Source Sans Pro)
+-->
+
+<fontconfig>
+
+  <!--
+    Rule 1: Primary Sans-Serf Alias
+    Description: Sets the main font family as the default choice for the generic
+    'sans-serif' fallback. This ensures that applications requesting 'sans-serif'
+    receive 'Source Sans 3' instead of the system default.
+  -->
+  <alias>
+    <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+    <family>{{ main_family | default('Source Sans 3') }}</family>
+    <default>
+      <!-- The generic fallback family for the main font family. -->
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Rule 2: Preference Reversal
+    Description: Tells fontconfig that when an application explicitly requests the
+    generic 'sans-serif' family, it should prefer 'Source Sans 3' over any other
+    available sans-serif fonts.
+  -->
+  <alias>
+    <!-- The generic fallback family for the main font family. -->
+    <family>{{ fallback_family | default('sans-serif') }}</family>
+    <prefer>
+      <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+      <family>{{ main_family | default('Source Sans 3') }}</family>
+    </prefer>
+  </alias>
+
+  <!--
+    Rule 3: Legacy Family Aliasing (Same Binding)
+    Description: Maps the legacy font name (Source Sans Pro) to the new family
+    (Source Sans 3) for applications that do not know the new name. Binding "same"
+    ensures consistency across all weight variations.
+  -->
+  <alias binding="same">
+    <!-- The legacy font family name to accept/alias to the main family for backward compatibility. -->
+    <family>{{ legacy_family | default('Source Sans Pro') }}</family>
+    <accept>
+      <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+      <family>{{ main_family | default('Source Sans 3') }}</family>
+    </accept>
+  </alias>
+
+  <!--
+    Rule 4: Legacy Weight Alias - ExtraLight
+    Description: Ensures the "ExtraLight" weight of the legacy name resolves to
+    the "ExtraLight" weight of the new family.
+  -->
+  <alias binding="same">
+    <!-- The legacy font family name to accept/alias to the main family for backward compatibility. -->
+    <family>{{ legacy_family | default('Source Sans Pro') }} ExtraLight</family>
+    <accept>
+      <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+      <family>{{ main_family | default('Source Sans 3') }} ExtraLight</family>
+    </accept>
+  </alias>
+
+  <!--
+    Rule 5: Legacy Weight Alias - Light
+    Description: Ensures the "Light" weight of the legacy name resolves to
+    the "Light" weight of the new family.
+  -->
+  <alias binding="same">
+    <!-- The legacy font family name to accept/alias to the main family for backward compatibility. -->
+    <family>{{ legacy_family | default('Source Sans Pro') }} Light</family>
+    <accept>
+      <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+      <family>{{ main_family | default('Source Sans 3') }} Light</family>
+    </accept>
+  </alias>
+
+  <!--
+    Rule 6: Legacy Weight Alias - SemiBold
+    Description: Ensures the "SemiBold" weight of the legacy name resolves to
+    the "SemiBold" weight of the new family.
+  -->
+  <alias binding="same">
+    <!-- The legacy font family name to accept/alias to the main family for backward compatibility. -->
+    <family>{{ legacy_family | default('Source Sans Pro') }} SemiBold</family>
+    <accept>
+      <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+      <family>{{ main_family | default('Source Sans 3') }} SemiBold</family>
+    </accept>
+  </alias>
+
+  <!--
+    Rule 7: Legacy Weight Alias - Black
+    Description: Ensures the "Black" weight of the legacy name resolves to
+    the "Black" weight of the new family.
+  -->
+  <alias binding="same">
+    <!-- The legacy font family name to accept/alias to the main family for backward compatibility. -->
+    <family>{{ legacy_family | default('Source Sans Pro') }} Black</family>
+    <accept>
+      <!-- The primary font family name to use for sans-serif fallback and aliasing. -->
+      <family>{{ main_family | default('Source Sans 3') }} Black</family>
+    </accept>
+  </alias>
+
+</fontconfig>

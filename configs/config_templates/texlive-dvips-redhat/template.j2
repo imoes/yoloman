@@ -1,0 +1,613 @@
+% $Id: config.ps 41704 2016-07-14 22:33:33Z karl $
+% config.ps - configuration file for dvips.
+% Tomas Rokicki, Thomas Esser, Karl Berry, et al., 1986ff, public domain.
+
+% Memory available. Download the three-line PostScript file:
+%   %! Hey, we're PostScript
+%   /Times-Roman findfont 30 scalefont setfont 144 432 moveto
+%   vmstatus exch sub 40 string cvs show pop showpage
+% to determine this number. (It will be the only thing printed.)
+m {{ dvips_memory | default('3500000') }}
+
+% Run securely.  z2 disables both shell command execution in
+% `\special' and config files (via the `E' option) and opening of any
+% absolute filenames.  z1, the default, forbids shell escapes but
+% allows absolute filenames.  z0 allows both.  The corresponding
+% command line options are -R0|-R1|-R2
+z{{ dvips_security_level | default('1') }}
+
+% How to print, maybe with lp instead lpr, etc. If commented-out, output
+% will go into a file by default.
+%o |{{ dvips_print_command | default('lpr') }}
+
+% Default resolution of this device, in dots per inch.
+D {{ dvips_resolution_dpi | default('600') }}
+X {{ dvips_resolution_dpi | default('600') }}
+Y {{ dvips_resolution_dpi | default('600') }}
+
+% Metafont mode.  (This is completely different from the -M
+% command-line option, which controls whether mktexpk is invoked.)
+% See ../../metafont/misc/modes.mf for a list of mode names.  This mode
+% and the D number above must agree, or mktexpk will get confused.
+M {{ dvips_metafont_mode | default('ljfour') }}
+
+% Last resort bitmap sizes.
+R {{ dvips_bitmap_small | default('300') }} {{ dvips_bitmap_large | default('600') }}
+
+% Correct printer offset. You can use testpage.tex from the LaTeX
+% distribution to find these numbers.
+O {{ dvips_printer_offset | default('0pt,0pt') }}
+
+% Bitmap font compression. Results in more compact output files, but
+% sometimes causes trouble. So the default is disabled. Set Z1 to enable
+% this feature.
+Z{{ dvips_font_compression | default('0') }}
+
+% Partially download Type 1 fonts by default.  Only reason not to do
+% this is if you encounter bugs.  (Please report them to
+% @email{tex-k@tug.org} if you do.)
+j
+
+% This shows how to add your own map file.
+% Remove the comment and adjust the name:
+% p +myfonts.map
+
+% In the past, the a4size and letterSize definitions did not set the
+% paper size, but we want to set it if we can so that ps2pdf can work
+% properly.  So, a4 and a4size, and letter and letterSize, are made
+% identical here, and we prefer the a4/letter names -- texconfig uses them.
+%
+% In the definitions below, if we have setpagedevice, use that.
+% Else if we have the a4 resp. letter operator, use that.
+% Else do nothing to set the page size.
+% 
+% If you need to have no paper size stuff in the output at all, e.g., if
+% you are producing a multi-page document for further processing, use
+% -tnopaper (defined at end).  (With a single-page document, you can use -E.)
+%
+% emacs-page
+
+@ a4 {{ dvips_paper_a4_width | default('210mm') }} {{ dvips_paper_a4_height | default('297mm') }}
+@+ ! %%DocumentPaperSizes: a4
+@+ %%BeginPaperSize: a4
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a4_ps_width | default('595') }} {{ dvips_paper_a4_ps_height | default('842') }} ] >> setpagedevice }
+@+  { /a4 where { pop a4 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ letter {{ dvips_paper_letter_width | default('8.5in') }} {{ dvips_paper_letter_height | default('11in') }}
+@+ ! %%DocumentPaperSizes: Letter
+@+ %%BeginPaperSize: Letter
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_letter_ps_width | default('612') }} {{ dvips_paper_letter_ps_height | default('792') }} ] >> setpagedevice }
+@+  { /letter where { pop letter } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a4size {{ dvips_paper_a4_width | default('210mm') }} {{ dvips_paper_a4_height | default('297mm') }}
+@+ ! %%DocumentPaperSizes: a4
+@+ %%BeginPaperSize: a4
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a4_ps_width | default('595') }} {{ dvips_paper_a4_ps_height | default('842') }} ] >> setpagedevice }
+@+  { /a4 where { pop a4 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ letterSize {{ dvips_paper_letter_width | default('8.5in') }} {{ dvips_paper_letter_height | default('11in') }}
+@+ ! %%DocumentPaperSizes: Letter
+@+ %%BeginPaperSize: Letter
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_letter_ps_width | default('612') }} {{ dvips_paper_letter_ps_height | default('792') }} ] >> setpagedevice }
+@+  { /letter where { pop letter } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+% The jacow paper size is the smaller of letter and a4 in both
+% dimensions, and can therefore hopefully be printed on either paper
+% size.  As far as we know, Volker Schaa first used it for the JACOW
+% conference proceedings that he produced.
+@ jacow {{ dvips_paper_jacow_width | default('210mm') }} {{ dvips_paper_jacow_height | default('11in') }}
+@+ ! %%DocumentPaperSizes: jacow
+@+ %%BeginPaperSize: jacow
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jacow_ps_width | default('595') }} {{ dvips_paper_jacow_ps_height | default('792') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+% The smallbook paper size has been used by the Free Software Foundation
+% to print manuals for many years, and is part of Texinfo.
+@ smallbook {{ dvips_paper_smallbook_width | default('7in') }} {{ dvips_paper_smallbook_height | default('9.25in') }}
+@+ ! %%DocumentPaperSizes: smallbook
+@+ %%BeginPaperSize: smallbook
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_smallbook_ps_width | default('504') }} {{ dvips_paper_smallbook_ps_height | default('666') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+% Special paper size for IEEE Computer Society Journals
+@ ieeecs {{ dvips_paper_ieee_width | default('7.875in') }} {{ dvips_paper_ieee_height | default('10.75in') }}
+@+ ! %%DocumentPaperSizes: ieeecs
+@+ %%BeginPaperSize: ieeecs
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_ieee_ps_width | default('567') }} {{ dvips_paper_ieee_ps_height | default('774') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ halfexecutive {{ dvips_paper_halfexecutive_width | default('133mm') }} {{ dvips_paper_halfexecutive_height | default('184mm') }}
+@+ ! %%DocumentPaperSizes: halfexecutive
+@+ %%BeginPaperSize: halfexecutive
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_halfexecutive_ps_width | default('378') }} {{ dvips_paper_halfexecutive_ps_height | default('522') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ halfletter {{ dvips_paper_halfletter_width | default('140mm') }} {{ dvips_paper_halfletter_height | default('216mm') }}
+@+ ! %%DocumentPaperSizes: halfletter
+@+ %%BeginPaperSize: halfletter
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_halfletter_ps_width | default('396') }} {{ dvips_paper_halfletter_ps_height | default('612') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ statement {{ dvips_paper_statement_width | default('140mm') }} {{ dvips_paper_statement_height | default('216mm') }}
+@+ ! %%DocumentPaperSizes: statement
+@+ %%BeginPaperSize: statement
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_statement_ps_width | default('396') }} {{ dvips_paper_statement_ps_height | default('612') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ executive {{ dvips_paper_executive_width | default('184mm') }} {{ dvips_paper_executive_height | default('267mm') }}
+@+ ! %%DocumentPaperSizes: executive
+@+ %%BeginPaperSize: executive
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_executive_ps_width | default('522') }} {{ dvips_paper_executive_ps_height | default('756') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+% for powerdot
+@ screen {{ dvips_paper_screen_width | default('8.25in') }} {{ dvips_paper_screen_height | default('11in') }}
+@+ ! %%DocumentPaperSizes: Screen
+@+ %%BeginPaperSize: Screen
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_screen_ps_width | default('594') }} {{ dvips_paper_screen_ps_height | default('792') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+% a common size for printers (in north america).
+@ sixbynine {{ dvips_paper_sixbynine_width | default('6in') }} {{ dvips_paper_sixbynine_height | default('9in') }}
+@+ ! %%DocumentPaperSizes: SixByNine
+@+ %%BeginPaperSize: SixByNine
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_sixbynine_ps_width | default('432') }} {{ dvips_paper_sixbynine_ps_height | default('648') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ quarto {{ dvips_paper_quarto_width | default('215mm') }} {{ dvips_paper_quarto_height | default('275mm') }}
+@+ ! %%DocumentPaperSizes: quarto
+@+ %%BeginPaperSize: quarto
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_quarto_ps_width | default('610') }} {{ dvips_paper_quarto_ps_height | default('780') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ note {{ dvips_paper_note_width | default('216mm') }} {{ dvips_paper_note_height | default('279mm') }}
+@+ ! %%DocumentPaperSizes: note
+@+ %%BeginPaperSize: note
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_note_ps_width | default('612') }} {{ dvips_paper_note_ps_height | default('792') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ folio {{ dvips_paper_folio_width | default('216mm') }} {{ dvips_paper_folio_height | default('330mm') }}
+@+ ! %%DocumentPaperSizes: folio
+@+ %%BeginPaperSize: folio
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_folio_ps_width | default('612') }} {{ dvips_paper_folio_ps_height | default('936') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ legal {{ dvips_paper_legal_width | default('8.5in') }} {{ dvips_paper_legal_height | default('14in') }}
+@+ ! %%DocumentPaperSizes: Legal
+@+ %%BeginPaperSize: Legal
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_legal_ps_width | default('612') }} {{ dvips_paper_legal_ps_height | default('1008') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ 10x14 {{ dvips_paper_10x14_width | default('10in') }} {{ dvips_paper_10x14_height | default('14in') }}
+@+ ! %%DocumentPaperSizes: 10x14
+@+ %%BeginPaperSize: 10x14
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_10x14_ps_width | default('720') }} {{ dvips_paper_10x14_ps_height | default('1008') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ ledger {{ dvips_paper_ledger_width | default('17in') }} {{ dvips_paper_ledger_height | default('11in') }}
+@+ ! %%DocumentPaperSizes: Ledger
+@+ %%BeginPaperSize: Ledger
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_ledger_ps_width | default('1224') }} {{ dvips_paper_ledger_ps_height | default('792') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ tabloid {{ dvips_paper_tabloid_width | default('11in') }} {{ dvips_paper_tabloid_height | default('17in') }}
+@+ ! %%DocumentPaperSizes: Tabloid
+@+ %%BeginPaperSize: Tabloid
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_tabloid_ps_width | default('792') }} {{ dvips_paper_tabloid_ps_height | default('1224') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ 11x17 {{ dvips_paper_11x17_width | default('11in') }} {{ dvips_paper_11x17_height | default('17in') }}
+@+ ! %%DocumentPaperSizes: 11x17
+@+ %%BeginPaperSize: 11x17
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_11x17_ps_width | default('792') }} {{ dvips_paper_11x17_ps_height | default('1224') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ a0 {{ dvips_paper_a0_width | default('841mm') }} {{ dvips_paper_a0_height | default('1189mm') }}
+@+ ! %%DocumentPaperSizes: a0
+@+ %%BeginPaperSize: a0
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a0_ps_width | default('2384') }} {{ dvips_paper_a0_ps_height | default('3370') }} ] >> setpagedevice }
+@+  { /a0 where { pop a0 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a1 {{ dvips_paper_a1_width | default('594mm') }} {{ dvips_paper_a1_height | default('841mm') }}
+@+ ! %%DocumentPaperSizes: a1
+@+ %%BeginPaperSize: a1
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a1_ps_width | default('1684') }} {{ dvips_paper_a1_ps_height | default('2384') }} ] >> setpagedevice }
+@+  { /a1 where { pop a1 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a2 {{ dvips_paper_a2_width | default('420mm') }} {{ dvips_paper_a2_height | default('594mm') }}
+@+ ! %%DocumentPaperSizes: a2
+@+ %%BeginPaperSize: a2
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a2_ps_width | default('1191') }} {{ dvips_paper_a2_ps_height | default('1684') }} ] >> setpagedevice }
+@+  { /a2 where { pop a2 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a3 {{ dvips_paper_a3_width | default('297mm') }} {{ dvips_paper_a3_height | default('420mm') }}
+@+ ! %%DocumentPaperSizes: a3
+@+ %%BeginPaperSize: a3
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a3_ps_width | default('842') }} {{ dvips_paper_a3_ps_height | default('1191') }} ] >> setpagedevice }
+@+  { /a3 where { pop a3 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a5 {{ dvips_paper_a5_width | default('148mm') }} {{ dvips_paper_a5_height | default('210mm') }}
+@+ ! %%DocumentPaperSizes: a5
+@+ %%BeginPaperSize: a5
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a5_ps_width | default('420') }} {{ dvips_paper_a5_ps_height | default('595') }} ] >> setpagedevice }
+@+  { /a5 where { pop a5 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a6 {{ dvips_paper_a6_width | default('105mm') }} {{ dvips_paper_a6_height | default('148mm') }}
+@+ ! %%DocumentPaperSizes: a6
+@+ %%BeginPaperSize: a6
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a6_ps_width | default('298') }} {{ dvips_paper_a6_ps_height | default('420') }} ] >> setpagedevice }
+@+  { /a6 where { pop a6 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a7 {{ dvips_paper_a7_width | default('74mm') }} {{ dvips_paper_a7_height | default('105mm') }}
+@+ ! %%DocumentPaperSizes: a7
+@+ %%BeginPaperSize: a7
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a7_ps_width | default('210') }} {{ dvips_paper_a7_ps_height | default('298') }} ] >> setpagedevice }
+@+  { /a7 where { pop a7 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a8 {{ dvips_paper_a8_width | default('52mm') }} {{ dvips_paper_a8_height | default('74mm') }}
+@+ ! %%DocumentPaperSizes: a8
+@+ %%BeginPaperSize: a8
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a8_ps_width | default('147') }} {{ dvips_paper_a8_ps_height | default('210') }} ] >> setpagedevice }
+@+  { /a8 where { pop a8 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a9 {{ dvips_paper_a9_width | default('37mm') }} {{ dvips_paper_a9_height | default('52mm') }}
+@+ ! %%DocumentPaperSizes: a9
+@+ %%BeginPaperSize: a9
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a9_ps_width | default('105') }} {{ dvips_paper_a9_ps_height | default('147') }} ] >> setpagedevice }
+@+  { /a9 where { pop a9 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ a10 {{ dvips_paper_a10_width | default('26mm') }} {{ dvips_paper_a10_height | default('37mm') }}
+@+ ! %%DocumentPaperSizes: a10
+@+ %%BeginPaperSize: a10
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_a10_ps_width | default('74') }} {{ dvips_paper_a10_ps_height | default('105') }} ] >> setpagedevice }
+@+  { /a10 where { pop a10 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb0 {{ dvips_paper_jisb0_width | default('1030mm') }} {{ dvips_paper_jisb0_height | default('1456mm') }}
+@+ ! %%DocumentPaperSizes: jisb0
+@+ %%BeginPaperSize: jisb0
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb0_ps_width | default('2920') }} {{ dvips_paper_jisb0_ps_height | default('4127') }} ] >> setpagedevice }
+@+  { /jisb0 where { pop jisb0 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb1 {{ dvips_paper_jisb1_width | default('728mm') }} {{ dvips_paper_jisb1_height | default('1030mm') }}
+@+ ! %%DocumentPaperSizes: jisb1
+@+ %%BeginPaperSize: jisb1
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb1_ps_width | default('2064') }} {{ dvips_paper_jisb1_ps_height | default('2920') }} ] >> setpagedevice }
+@+  { /jisb1 where { pop jisb1 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb2 {{ dvips_paper_jisb2_width | default('515mm') }} {{ dvips_paper_jisb2_height | default('728mm') }}
+@+ ! %%DocumentPaperSizes: jisb2
+@+ %%BeginPaperSize: jisb2
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb2_ps_width | default('1460') }} {{ dvips_paper_jisb2_ps_height | default('2064') }} ] >> setpagedevice }
+@+  { /jisb2 where { pop jisb2 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb3 {{ dvips_paper_jisb3_width | default('364mm') }} {{ dvips_paper_jisb3_height | default('515mm') }}
+@+ ! %%DocumentPaperSizes: jisb3
+@+ %%BeginPaperSize: jisb3
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb3_ps_width | default('1032') }} {{ dvips_paper_jisb3_ps_height | default('1460') }} ] >> setpagedevice }
+@+  { /jisb3 where { pop jisb3 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb4 {{ dvips_paper_jisb4_width | default('257mm') }} {{ dvips_paper_jisb4_height | default('364mm') }}
+@+ ! %%DocumentPaperSizes: jisb4
+@+ %%BeginPaperSize: jisb4
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb4_ps_width | default('729') }} {{ dvips_paper_jisb4_ps_height | default('1032') }} ] >> setpagedevice }
+@+  { /jisb4 where { pop jisb4 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb5 {{ dvips_paper_jisb5_width | default('182mm') }} {{ dvips_paper_jisb5_height | default('257mm') }}
+@+ ! %%DocumentPaperSizes: jisb5
+@+ %%BeginPaperSize: jisb5
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb5_ps_width | default('516') }} {{ dvips_paper_jisb5_ps_height | default('729') }} ] >> setpagedevice }
+@+  { /jisb5 where { pop jisb5 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb6 {{ dvips_paper_jisb6_width | default('128mm') }} {{ dvips_paper_jisb6_height | default('182mm') }}
+@+ ! %%DocumentPaperSizes: jisb6
+@+ %%BeginPaperSize: jisb6
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb6_ps_width | default('363') }} {{ dvips_paper_jisb6_ps_height | default('516') }} ] >> setpagedevice }
+@+  { /jisb6 where { pop jisb6 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb7 {{ dvips_paper_jisb7_width | default('91mm') }} {{ dvips_paper_jisb7_height | default('128mm') }}
+@+ ! %%DocumentPaperSizes: jisb7
+@+ %%BeginPaperSize: jisb7
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb7_ps_width | default('258') }} {{ dvips_paper_jisb7_ps_height | default('363') }} ] >> setpagedevice }
+@+  { /jisb7 where { pop jisb7 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ jisb8 {{ dvips_paper_jisb8_width | default('64mm') }} {{ dvips_paper_jisb8_height | default('91mm') }}
+@+ ! %%DocumentPaperSizes: jisb8
+@+ %%BeginPaperSize: jisb8
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_jisb8_ps_width | default('181') }} {{ dvips_paper_jisb8_ps_height | default('258') }} ] >> setpagedevice }
+@+  { /jisb8 where { pop jisb8 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b0 {{ dvips_paper_b0_width | default('1000mm') }} {{ dvips_paper_b0_height | default('1414mm') }}
+@+ ! %%DocumentPaperSizes: b0
+@+ %%BeginPaperSize: b0
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b0_ps_width | default('2835') }} {{ dvips_paper_b0_ps_height | default('4008') }} ] >> setpagedevice }
+@+  { /b0 where { pop b0 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b1 {{ dvips_paper_b1_width | default('707mm') }} {{ dvips_paper_b1_height | default('1000mm') }}
+@+ ! %%DocumentPaperSizes: b1
+@+ %%BeginPaperSize: b1
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b1_ps_width | default('2004') }} {{ dvips_paper_b1_ps_height | default('2835') }} ] >> setpagedevice }
+@+  { /b1 where { pop b1 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b2 {{ dvips_paper_b2_width | default('500mm') }} {{ dvips_paper_b2_height | default('707mm') }}
+@+ ! %%DocumentPaperSizes: b2
+@+ %%BeginPaperSize: b2
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b2_ps_width | default('1417') }} {{ dvips_paper_b2_ps_height | default('2004') }} ] >> setpagedevice }
+@+  { /b2 where { pop b2 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b3 {{ dvips_paper_b3_width | default('353mm') }} {{ dvips_paper_b3_height | default('500mm') }}
+@+ ! %%DocumentPaperSizes: b3
+@+ %%BeginPaperSize: b3
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b3_ps_width | default('1001') }} {{ dvips_paper_b3_ps_height | default('1417') }} ] >> setpagedevice }
+@+  { /b3 where { pop b3 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b4 {{ dvips_paper_b4_width | default('250mm') }} {{ dvips_paper_b4_height | default('353mm') }}
+@+ ! %%DocumentPaperSizes: b4
+@+ %%BeginPaperSize: b4
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b4_ps_width | default('709') }} {{ dvips_paper_b4_ps_height | default('1001') }} ] >> setpagedevice }
+@+  { /b4 where { pop b4 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b5 {{ dvips_paper_b5_width | default('176mm') }} {{ dvips_paper_b5_height | default('250mm') }}
+@+ ! %%DocumentPaperSizes: b5
+@+ %%BeginPaperSize: b5
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b5_ps_width | default('499') }} {{ dvips_paper_b5_ps_height | default('709') }} ] >> setpagedevice }
+@+  { /b5 where { pop b5 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ b6 {{ dvips_paper_b6_width | default('125mm') }} {{ dvips_paper_b6_height | default('176mm') }}
+@+ ! %%DocumentPaperSizes: b6
+@+ %%BeginPaperSize: b6
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_b6_ps_width | default('354') }} {{ dvips_paper_b6_ps_height | default('499') }} ] >> setpagedevice }
+@+  { /b6 where { pop b6 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ c5 {{ dvips_paper_c5_width | default('162mm') }} {{ dvips_paper_c5_height | default('229mm') }}
+@+ ! %%DocumentPaperSizes: c5
+@+ %%BeginPaperSize: c5
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_c5_ps_width | default('459') }} {{ dvips_paper_c5_ps_height | default('649') }} ] >> setpagedevice }
+@+  { /c5 where { pop c5 } if }
+@+ ifelse
+@+ %%EndPaperSize
+
+@ DL {{ dvips_paper_dl_width | default('110mm') }} {{ dvips_paper_dl_height | default('220mm') }}
+@+ ! %%DocumentPaperSizes: DL
+@+ %%BeginPaperSize: DL
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_dl_ps_width | default('312') }} {{ dvips_paper_dl_ps_height | default('624') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ Comm10 {{ dvips_paper_comm10_width | default('105mm') }} {{ dvips_paper_comm10_height | default('241mm') }}
+@+ ! %%DocumentPaperSizes: Comm10
+@+ %%BeginPaperSize: Comm10
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_comm10_ps_width | default('297') }} {{ dvips_paper_comm10_ps_height | default('684') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ Monarch {{ dvips_paper_monarch_width | default('98.4mm') }} {{ dvips_paper_monarch_height | default('190.5mm') }}
+@+ ! %%DocumentPaperSizes: Monarch
+@+ %%BeginPaperSize: Monarch
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_monarch_ps_width | default('279') }} {{ dvips_paper_monarch_ps_height | default('540') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ archE {{ dvips_paper_arche_width | default('36in') }} {{ dvips_paper_arche_height | default('48in') }}
+@+ ! %%DocumentPaperSizes: archE
+@+ %%BeginPaperSize: archE
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_arche_ps_width | default('2592') }} {{ dvips_paper_arche_ps_height | default('3456') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ archD {{ dvips_paper_archd_width | default('24in') }} {{ dvips_paper_archd_height | default('36in') }}
+@+ ! %%DocumentPaperSizes: archD
+@+ %%BeginPaperSize: archD
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_archd_ps_width | default('1728') }} {{ dvips_paper_archd_ps_height | default('2592') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ archC {{ dvips_paper_arhc_width | default('18in') }} {{ dvips_paper_arhc_height | default('24in') }}
+@+ ! %%DocumentPaperSizes: archC
+@+ %%BeginPaperSize: archC
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_arhc_ps_width | default('1296') }} {{ dvips_paper_arhc_ps_height | default('1728') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ archB {{ dvips_paper_arhb_width | default('12in') }} {{ dvips_paper_arhb_height | default('18in') }}
+@+ ! %%DocumentPaperSizes: archB
+@+ %%BeginPaperSize: archB
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_arhb_ps_width | default('864') }} {{ dvips_paper_arhb_ps_height | default('1296') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ archA {{ dvips_paper_arha_width | default('9in') }} {{ dvips_paper_arha_height | default('12in') }}
+@+ ! %%DocumentPaperSizes: archA
+@+ %%BeginPaperSize: archA
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_arha_ps_width | default('648') }} {{ dvips_paper_arha_ps_height | default('864') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ flsa {{ dvips_paper_flsa_width | default('216mm') }} {{ dvips_paper_flsa_height | default('330.2mm') }}
+@+ ! %%DocumentPaperSizes: flsa
+@+ %%BeginPaperSize: flsa
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_flsa_ps_width | default('612') }} {{ dvips_paper_flsa_ps_height | default('936') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ flse {{ dvips_paper_flse_width | default('216mm') }} {{ dvips_paper_flse_height | default('330.2mm') }}
+@+ ! %%DocumentPaperSizes: flse
+@+ %%BeginPaperSize: flse
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_flse_ps_width | default('612') }} {{ dvips_paper_flse_ps_height | default('936') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ csheet {{ dvips_paper_csheet_width | default('431.8mm') }} {{ dvips_paper_csheet_height | default('558.8mm') }}
+@+ ! %%DocumentPaperSizes: csheet
+@+ %%BeginPaperSize: csheet
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_csheet_ps_width | default('1224') }} {{ dvips_paper_csheet_ps_height | default('1584') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ dsheet {{ dvips_paper_dsheet_width | default('558.8mm') }} {{ dvips_paper_dsheet_height | default('863.6mm') }}
+@+ ! %%DocumentPaperSizes: dsheet
+@+ %%BeginPaperSize: dsheet
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_dsheet_ps_width | default('1584') }} {{ dvips_paper_dsheet_ps_height | default('2448') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+@ esheet {{ dvips_paper_esheet_width | default('863.6mm') }} {{ dvips_paper_esheet_height | default('1117.6mm') }}
+@+ ! %%DocumentPaperSizes: esheet
+@+ %%BeginPaperSize: esheet
+@+ /setpagedevice where
+@+  { pop << /PageSize [{{ dvips_paper_esheet_ps_width | default('2448') }} {{ dvips_paper_esheet_ps_height | default('3168') }} ] >> setpagedevice }
+@+ if
+@+ %%EndPaperSize
+
+% use -t unknown with a \special{papersize=...} for a nonstandard page size.
+@ unknown 0in 0in
+@+ % dvips-unknown
+@+ statusdict /setpageparams known { hsize vsize 0 1 statusdict begin {
+@+ setpageparams } stopped end } { true } ifelse { statusdict /setpage known
+@+ { hsize vsize 1 statusdict begin { setpage } stopped pop end } if } if
+
+% use -t nopaper to get no paper size stuff in the output at all.
+% This should remain as the last thing in the file, because the first
+% 0in 0in entry is chosen when there is nothing better; ordinarily, we
+% want to that to be "unknown", so that the correct nonstandard paper
+% size is output, instead of just being omitted.
+% http://groups.google.com/group/fr.comp.text.tex/browse_thread/thread/1b08961cf9b8a5ab/6b1d0b32443905e3
+% and mactex mailing list thread from 24 Sep 2009 11:36:26.
+@ nopaper 0in 0in
+@+ % dvips-nopaper

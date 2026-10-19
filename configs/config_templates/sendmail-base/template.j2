@@ -1,19 +1,33 @@
-# Configuration for sendmail-base package
+# ==============================================================================
+# Sendmail Configuration Template
+# ==============================================================================
+# This template generates the Sendmail address mapping rules. It handles local
+# delivery aliases and SMTP forwarding rules to specific gateways.
+#
+# The configuration is self-documenting: every directive is preceded by a comment
+# explaining its source and purpose based on the schema definition.
+# ==============================================================================
 
-# List of addresses to be delivered locally.
+# --- Local Delivery Addresses ---
+# Description: List of addresses to be delivered locally.
 # Default: ['root', 'postmaster', 'user', 'user@mailhub', 'user@mailhub.gadget.com', 'user@gadget.com']
-{% for addr in local_delivery_addresses | default(['root', 'postmaster', 'user', 'user@mailhub', 'user@mailhub.gadget.com', 'user@gadget.com']) %}
+# Note: These addresses are mapped to the local mail spool or local user accounts.
+{% for addr in (local_delivery_addresses | default(['root', 'postmaster', 'user', 'user@mailhub', 'user@mailhub.gadget.com', 'user@gadget.com'])) %}
 {{ addr }}
 {% endfor %}
 
-# List of addresses to be forwarded with SMTP to firewall.
+# --- SMTP Forwarding to Firewall ---
+# Description: List of addresses to be forwarded with SMTP to firewall.
 # Default: ['user@firewall', 'user@firewall.gadget.com']
-{% for addr in smtp_forward_to_firewall_addresses | default(['user@firewall', 'user@firewall.gadget.com']) %}
+# Note: Traffic matching these addresses is relayed to the configured firewall MTA.
+{% for addr in (smtp_forward_to_firewall_addresses | default(['user@firewall', 'user@firewall.gadget.com'])) %}
 {{ addr }}
 {% endfor %}
 
-# List of addresses to be forwarded with SMTP to harker.com.
+# --- SMTP Forwarding to Harker ---
+# Description: List of addresses to be forwarded with SMTP to harker.com.
 # Default: ['user@harker.com', 'harker!user']
-{% for addr in smtp_forward_to_harker_addresses | default(['user@harker.com', 'harker!user']) %}
+# Note: Traffic matching these addresses is relayed to the Harker mail hub.
+{% for addr in (smtp_forward_to_harker_addresses | default(['user@harker.com', 'harker!user'])) %}
 {{ addr }}
 {% endfor %}

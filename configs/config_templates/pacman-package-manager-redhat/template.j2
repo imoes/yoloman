@@ -1,0 +1,101 @@
+#
+# /etc/pacman.conf
+#
+# See the pacman.conf(5) manpage for option and repository directives
+
+#
+# GENERAL OPTIONS
+#
+[options]
+# The following paths are commented out with their default values listed.
+# If you wish to use different paths, uncomment and update the paths.
+{% if root_dir is defined and root_dir is not none and (root_dir is number or root_dir is boolean or root_dir | length > 0) %}RootDir     = {{ root_dir }}
+{% else %}#RootDir     = /
+{% endif %}{% if db_path is defined and db_path is not none and (db_path is number or db_path is boolean or db_path | length > 0) %}DBPath      = {{ db_path }}
+{% else %}#DBPath      = /var/lib/pacman/
+{% endif %}{% if cache_dir is defined and cache_dir is not none and (cache_dir is number or cache_dir is boolean or cache_dir | length > 0) %}CacheDir    = {{ cache_dir }}
+{% else %}#CacheDir    = /var/cache/pacman/pkg/
+{% endif %}{% if log_file is defined and log_file is not none and (log_file is number or log_file is boolean or log_file | length > 0) %}LogFile     = {{ log_file }}
+{% else %}#LogFile     = /var/log/pacman.log
+{% endif %}{% if gpg_dir is defined and gpg_dir is not none and (gpg_dir is number or gpg_dir is boolean or gpg_dir | length > 0) %}GPGDir      = {{ gpg_dir }}
+{% else %}#GPGDir      = /etc/pacman.d/gnupg/
+{% endif %}{% if hook_dir is defined and hook_dir is not none and (hook_dir is number or hook_dir is boolean or hook_dir | length > 0) %}HookDir     = {{ hook_dir }}
+{% else %}#HookDir     = /etc/pacman.d/hooks/
+{% endif %}HoldPkg     = {{ hold_pkg | default('pacman glibc') }}
+#XferCommand = /usr/bin/curl -L -C - -f -o %o %u
+#XferCommand = /usr/bin/wget --passive-ftp -c -O %o %u
+{% if clean_method is defined and clean_method is not none and (clean_method is number or clean_method is boolean or clean_method | length > 0) %}CleanMethod = {{ clean_method }}
+{% else %}#CleanMethod = KeepInstalled
+{% endif %}Architecture = {{ architecture | default('auto') }}
+
+# Pacman won't upgrade packages listed in IgnorePkg and members of IgnoreGroup
+{% if ignore_pkg is defined and ignore_pkg is not none and (ignore_pkg is number or ignore_pkg is boolean or ignore_pkg | length > 0) %}IgnorePkg   {{ ignore_pkg }}
+{% else %}#IgnorePkg   =
+{% endif %}{% if ignore_group is defined and ignore_group is not none and (ignore_group is number or ignore_group is boolean or ignore_group | length > 0) %}IgnoreGroup {{ ignore_group }}
+{% else %}#IgnoreGroup =
+{% endif %}
+{% if no_upgrade is defined and no_upgrade is not none and (no_upgrade is number or no_upgrade is boolean or no_upgrade | length > 0) %}NoUpgrade   {{ no_upgrade }}
+{% else %}#NoUpgrade   =
+{% endif %}{% if no_extract is defined and no_extract is not none and (no_extract is number or no_extract is boolean or no_extract | length > 0) %}NoExtract   {{ no_extract }}
+{% else %}#NoExtract   =
+{% endif %}
+# Misc options
+#UseSyslog
+#Color
+#NoProgressBar
+CheckSpace
+#VerbosePkgLists
+ParallelDownloads = {{ parallel_downloads | default('5') }}
+
+# PGP signature checking
+#SigLevel = Optional
+{% if local_file_sig_level is defined and local_file_sig_level is not none and (local_file_sig_level is number or local_file_sig_level is boolean or local_file_sig_level | length > 0) %}LocalFileSigLevel = {{ local_file_sig_level }}
+{% else %}#LocalFileSigLevel = Optional
+{% endif %}{% if remote_file_sig_level is defined and remote_file_sig_level is not none and (remote_file_sig_level is number or remote_file_sig_level is boolean or remote_file_sig_level | length > 0) %}RemoteFileSigLevel = {{ remote_file_sig_level }}
+{% else %}#RemoteFileSigLevel = Optional
+{% endif %}
+#
+# REPOSITORIES
+#   - can be defined here or included from another file
+#   - pacman will search repositories in the order defined here
+#   - local/custom mirrors can be added here or in separate files
+#   - repositories listed first will take precedence when packages
+#     have identical names, regardless of version number
+#   - URLs will have $repo replaced by the name of the current repo
+#   - URLs will have $arch replaced by the name of the architecture
+#
+# Repository entries are of the format:
+#       [repo-name]
+#       Server = ServerName
+#       Include = IncludePath
+#
+# The header [repo-name] is crucial - it must be present and
+# uncommented to enable the repo.
+#
+
+# An example of a disabled remote package repository with multiple servers
+# available. To enable, uncomment the following lines. You can add preferred
+# servers immediately after the header and they will be used before the
+# default mirrors.
+#[core]
+#SigLevel = Required
+#Server = ftp://ftp.example.com/foobar/$repo/os/$arch/
+# The file referenced here should contain a list of 'Server = ' lines.
+#Include = /etc/pacman.d/mirrorlist
+
+# An example of a custom package repository.  See the pacman manpage for
+# tips on creating your own repositories.
+#[custom]
+#SigLevel = Optional TrustAll
+#Server = file:///home/custompkgs
+[core]
+SigLevel = Required DatabaseOptional
+Include = /etc/pacman.d/mirrorlist
+
+[community]
+SigLevel = Required DatabaseOptional
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+SigLevel = Required DatabaseOptional
+Include = /etc/pacman.d/mirrorlist

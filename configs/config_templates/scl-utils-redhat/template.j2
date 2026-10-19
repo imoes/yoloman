@@ -1,0 +1,121 @@
+# ============================================================================
+# SCL (Software Collections) Bash Completion Script
+# ============================================================================
+#
+# This file provides bash completion functions for the `scl` command, which
+# is part of the scl-utils package on RHEL/CentOS systems. It allows users
+# to complete actions, collections, and options interactively in the shell.
+#
+# Since `scl-utils` is a utility package providing shell completion logic
+# and does not define network services, databases, or configuration parameters,
+# this template is a static shell script.
+#
+# No variables are required. This file is installed as-is.
+# ============================================================================
+
+# main function bound to scl command
+_scl()
+{
+    local cur actions cur_action collections
+
+    # Initialize completion reply array
+    COMPREPLY=()
+
+    # Current word being completed
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # List of valid top-level actions
+    actions="enable run load unload list-collections list-packages man register deregister --help"
+
+    # Retrieve available collections from the system
+    # Note: `scl list-collections` might return empty if no SCLs are installed
+    collections=`scl list-collections`
+
+    # Complete action names if the user is at the first argument position
+    if ((COMP_CWORD == 1)); then
+        COMPREPLY=( $(compgen -W "${actions}" -- ${cur}) )
+        return 0
+    fi
+
+    # If there are many arguments or quotes/flags in between, stop completion
+    # to avoid confusion with nested quotes or subcommands
+    if ((COMP_CWORD > 3)); then
+        for word in "${COMP_WORDS[@]}"; do
+            # Stop if we encounter a quoted string or explicit end of options
+            if [[ ${word} == \'* || ${word} == \"* || ${word} == "--" ]] ; then
+                return 0
+            fi
+        done
+    fi
+
+    # Complete arguments for specific actions (position >= 2)
+    if ((COMP_CWORD >= 2)); then
+        cur_action="${COMP_WORDS[1]}"
+
+        case "$cur_action" in
+            # Actions that do not take a collection argument
+            list-collections|list-enabled|--help)
+                return 0
+            ;;
+
+            # list-packages and man require a collection name
+            list-packages|man)
+                if ((COMP_CWORD == 2)); then
+                    # Suggest collections
+                    COMPREPLY=( $(compgen -W  "$collections" -- ${cur}) )
+                fi
+                return 0
+            ;;
+
+            # deregister allows collection or force flags
+            deregister)
+                # If user is typing the first argument, suggest collections or force flags
+                if ((COMP_CWORD == 2)); then
+                    COMPREPLY=( $(compgen -W  "$collections --force -f" -- ${cur}))
+                fi
+                # If the first argument was a force flag, the second must be a collection
+                if [ "$COMP_CWORD" -eq 3 -a  "(" "${COMP_WORDS[2]}" == "--force" -o "${COMP_WORDS[2]}" == "-f" ")" ]; then
+                    COMPREPLY=( $(compgen -W  "$collections" -- ${cur}))
+                fi
+                return 0
+            ;;
+
+            # register expects a directory path
+            register)
+                # Allow directory completion
+                compopt -o plusdirs
+                if ((COMP_CWORD == 2)); then
+                    COMPREPLY=( $(compgen -A  directory -- ${cur}) )
+                fi
+                return 0
+            ;;
+
+            # run and enable expect collection names or exec flags
+            run|enable)
+                if ((COMP_CWORD == 2)); then
+                    # Suggest collections or the -x/--exec flag
+                    COMPREPLY=( $(compgen -W  "$collections -x --exec" -- ${cur}) )
+                else
+                    # Subsequent arguments are just collections
+                    COMPREPLY=( $(compgen -W  "$collections" -- ${cur}) )
+                fi
+                return 0
+            ;;
+
+            # load and unload expect collection names
+            load|unload)
+                COMPREPLY=( $(compgen -W  "$collections" -- ${cur}) )
+                return 0
+            ;;
+
+            # Default case: no specific completion logic
+            *)
+            ;;
+        esac
+    fi
+
+}
+
+# Bind the scl command to the _scl function for bash completion
+# This makes the completion function active for the `scl` command
+complete -F _scl scl

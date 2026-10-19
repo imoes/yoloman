@@ -10,6 +10,7 @@ import {
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
 import { kindForTarget } from '../../shared/resource-node/resource-node-registry';
 import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /**
  * Systems — the unit above a host (apps + wiring) and the rehearsal plane
@@ -21,7 +22,7 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
 @Component({
   selector: 'app-systems',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent, ChatPlanGraphComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent, ChatPlanGraphComponent],
   template: `
     <div class="bm-page">
       <header class="bm-page-head">
@@ -33,12 +34,12 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
       <section class="bm-sys-propose">
         <div class="bm-row">
           <span class="bm-lbl">Propose from</span>
-          <select class="bm-in" [(ngModel)]="proposeHost">
+          <select class="bm-in" [(ngModel)]="proposeHost" aria-label="Propose from host">
             <option value="">— host —</option>
             @for (a of agents(); track a.id) { <option [value]="a.id">{{ a.name }}</option> }
           </select>
-          <input class="bm-in" [(ngModel)]="proposeName" placeholder="system name (optional)" />
-          <button mat-stroked-button (click)="propose()" [disabled]="!proposeHost() || busy()">Propose</button>
+          <input class="bm-in" [(ngModel)]="proposeName" placeholder="system name (optional)" aria-label="System name (optional)" />
+          <span class="bm-why"><button mat-stroked-button (click)="propose()" [bmBlocked]="hostBlocked(proposeHost())">Propose</button></span>
           @if (proposed(); as p) {
             <button mat-raised-button color="primary" (click)="createProposed()" [disabled]="busy()">
               <mat-icon>save</mat-icon> Create ({{ p.member_count }} members)
@@ -116,20 +117,20 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
 
             <div class="bm-row bm-sys-actions">
               <span class="bm-lbl">Target host</span>
-              <select class="bm-in" [(ngModel)]="targetHost">
+              <select class="bm-in" [(ngModel)]="targetHost" aria-label="Target host">
                 <option value="">— host —</option>
                 @for (a of agents(); track a.id) { <option [value]="a.id">{{ a.name }}</option> }
               </select>
-              <button mat-stroked-button (click)="clone()" [disabled]="!targetHost() || busy()">
+              <span class="bm-why"><button mat-stroked-button (click)="clone()" [bmBlocked]="hostBlocked(targetHost())" bmBlockedMode="tip">
                 <mat-icon>content_copy</mat-icon> Clone (dry-run)
-              </button>
-              <button mat-stroked-button (click)="rehearse()" [disabled]="!targetHost() || busy()">
+              </button></span>
+              <span class="bm-why"><button mat-stroked-button (click)="rehearse()" [bmBlocked]="hostBlocked(targetHost())">
                 <mat-icon>science</mat-icon> Rehearse
-              </button>
-              <button mat-raised-button color="primary" (click)="promote()"
-                      [disabled]="!targetHost() || !hasOverrides() || busy()">
+              </button></span>
+              <span class="bm-why"><button mat-raised-button color="primary" (click)="promote()"
+                      [bmBlocked]="promoteBlocked()">
                 <mat-icon>rocket_launch</mat-icon> Promote
-              </button>
+              </button></span>
             </div>
             @if (busy()) { <p class="bm-dim">{{ busyMsg() }}…</p> }
             @if (err()) { <p class="bm-err">{{ err() }}</p> }
@@ -190,8 +191,8 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
     .bm-sys-item.sel { border-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); }
     .bm-sys-dhead { display: flex; align-items: center; justify-content: space-between; }
     .bm-sys-dhead h2 { margin: 0; font-size: 17px; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 14px; }
-    .bm-table th, .bm-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); margin: 8px 0 14px; }
+    .bm-table th, .bm-table td { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-sys-actions { margin-bottom: 8px; }
     .bm-result { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: 13px; }
     .bm-result.ok { border-color: #1e9600; background: rgba(30,150,0,0.08); }
@@ -241,6 +242,14 @@ export class SystemsComponent {
   rehearsal = signal<RehearsalResult | null>(null);
   promotion = signal<PromoteResult | null>(null);
 
+  // Why an action is refused ('' = allowed) — each button's [disabled] and its tooltip read the same answer.
+  hostBlocked(host: string): string {
+    if (this.busy()) return 'Working…';
+    return host ? '' : 'Select a host';
+  }
+  promoteBlocked(): string {
+    return this.hostBlocked(this.targetHost()) || (this.hasOverrides() ? '' : 'Set at least one override — promoting an unchanged clone changes nothing');
+  }
   hasOverrides = computed(() => Object.values(this.overrides()).some((v) => !!v?.trim()));
 
   constructor() {

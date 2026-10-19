@@ -1,16 +1,21 @@
-# Configuration for vhba-dkms (Virtual Host Bus Adapter DKMS)
+# vhba-dkms module configuration
 #
-# vhba-dkms is a kernel module package (DKMS) that provides virtual SCSI Host Bus Adapters.
-# It is not a daemon or service with a configuration file.
-# The "vhba" output in the current template is likely a placeholder or an error.
+# vhba-dkms is a kernel module that provides Virtual Host Bus Adapter (VHBA) functionality,
+# allowing the creation of virtual SCSI host adapters within the kernel. It is typically
+# used by storage virtualization layers or testing frameworks to simulate SCSI devices.
 #
-# Kernel module parameters, if any, are typically passed via modprobe.d configuration files
-# or kernel command line arguments, not via a dedicated config file like this.
+# Since this is a kernel module, it does not have a traditional long-running configuration
+# file. Parameters are passed to the module at load time via modprobe configuration files
+# located in /etc/modprobe.d/.
 #
-# Since there are no configurable service fields (schema is empty), this template
-# should generally not be used to generate a config file.
-# If this role intends to ensure the module is loaded, it should use the 'insmod' or 'modprobe'
-# Ansible modules, or manage /etc/modprobe.d/ drop-in files.
+# This template generates the modprobe configuration file to set default module parameters.
 
-# No configuration directives to render.
-# The package provides functionality via a kernel module, not a user-space service.
+# Main configuration directive for vhba-dkms module options
+# Format: options <module_name> [param=value ...]
+# This line combines all defined parameters into a single 'options' directive for modprobe.
+options vhba {{ vhba_options | default({}) | tojson | replace('": ', '=') | replace('{', '') | replace('}', '') | replace('"', '') | trim }}
+
+{% for item in vhba_options | default({}) | dict2items %}
+# {{ item.key }}: {{ item.value | default('unset') }}
+# Description: Sets the '{{ item.key }}' parameter for the vhba kernel module.
+{% endfor %}

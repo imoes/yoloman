@@ -1,0 +1,86 @@
+# lxctl configuration template
+# This YAML file configures the lxctl tool, which manages LXC containers.
+# All variables are sourced from the Ansible inventory or role defaults.
+
+# ==========================================
+# LVM Configuration
+# ==========================================
+lvm:
+  # Volume Group name for LVM storage.
+  VG: '{{ lvm_vg | default("vg00") }}'
+
+# ==========================================
+# Path Configuration
+# ==========================================
+paths:
+  # Path to the YAML configuration directory.
+  YAML_CONFIG_PATH: '{{ paths_yaml_config_path | default("/etc/lxctl") }}'
+  # Directory where LXC container configurations are stored.
+  LXC_CONF_DIR: '{{ paths_lxc_conf_dir | default("/var/lib/lxc") }}'
+  # Mount path for root filesystems.
+  ROOT_MOUNT_PATH: '{{ paths_root_mount_path | default("/var/lib/lxctl/root") }}'
+  # Path to OS templates.
+  TEMPLATE_PATH: '{{ paths_template_path | default("/var/lib/lxctl/templates") }}'
+  # Path to the LXC log file.
+  LXC_LOG_PATH: '{{ paths_lxc_log_path | default("/var/log/lxc.log") }}'
+  # Log level for LXC operations (e.g., DEBUG, INFO, ERROR).
+  LXC_LOG_LEVEL: '{{ paths_lxc_log_level | default("DEBUG") }}'
+
+# ==========================================
+# Check / Validation Configuration
+# ==========================================
+check:
+  # Skip kernel configuration check (1=true, 0=false).
+  # If set to 1, lxctl will not validate the host kernel configuration before proceeding.
+  skip_kernel_config_check: {{ check_skip_kernel_config_check | default("1") }}
+
+# ==========================================
+# Rsync Configuration (used for container transfers)
+# ==========================================
+rsync:
+  # Options passed to rsync for container transfers.
+  # Default includes archive mode, hard links, deletion, numeric IDs, and exclusion of virtual filesystems.
+  RSYNC_OPTS: '{{ rsync_rsync_opts | default("-aH --delete --numeric-ids --exclude ''proc/*'' --exclude ''sys/*'' -e ssh") }}'
+
+# ==========================================
+# Root Filesystem Configuration
+# ==========================================
+root:
+  # Size of the root filesystem (e.g., 50G, 10G).
+  ROOT_SIZE: '{{ root_root_size | default("50G") }}'
+  # Type of root filesystem storage (e.g., lvm, dir).
+  ROOT_TYPE: '{{ root_root_type | default("lvm") }}'
+
+# ==========================================
+# Filesystem Configuration
+# ==========================================
+fs:
+  # Filesystem type to use (e.g., ext4, xfs).
+  FS: '{{ fs_fs | default("ext4") }}'
+  # Options for filesystem creation (passed to mkfs).
+  FS_OPTS: '{{ fs_fs_opts | default("-b 4096") }}'
+  # Mount options for the filesystem.
+  FS_MOUNT_OPTS: '{{ fs_fs_mount_opts | default("defaults,barrier=0") }}'
+
+# ==========================================
+# OS / Template Configuration
+# ==========================================
+os:
+  # Default OS template name.
+  OS_TEMPLATE: '{{ os_os_template | default("ubuntu-10.04-amd64") }}'
+
+# ==========================================
+# Network / Set Configuration
+# ==========================================
+set:
+  # Search domain for network configuration.
+  SEARCHDOMAIN: '{{ set_searchdomain | default("ru") }}'
+  # Interface name or command used for network setup.
+  IFNAME: '{{ set_ifname | default("ip") }}'
+
+# ==========================================
+# List Output Configuration
+# ==========================================
+list:
+  # Comma-separated list of columns for list output.
+  COLUMNS: '{{ list_columns | default("name,disk_free_mb,status,ip,hostname") }}'

@@ -1,36 +1,82 @@
-# ===========================================================================
-# GFork Configuration Template
-# Self-documenting template for the globus-gfork-progs service.
-# Every directive below is annotated with its schema description and default value.
-# Use this template as-is in Ansible; all variables have safe defaults.
-# ===========================================================================
+# ==============================================================================
+# Globus GFork Configuration Template
+# ==============================================================================
+# This file configures the GFork service, a static file server.
+# All variables are sourced from Ansible inventory/group_vars.
+# Each directive is self-documented with its schema description.
 
-# Main configuration for GFork
-
-# Port number for the GFork service
-# Default: 8080
-port = {{ port | default(8080) }}
+# ------------------------------------------------------------------------------
+# Network Binding Configuration
+# ------------------------------------------------------------------------------
 
 # Hostname or IP address to bind to
-# Default: 0.0.0.0
-host = {{ host | default('0.0.0.0') }}
+# Default: '0.0.0.0' (listen on all interfaces)
+# Schema: host (string)
+Listen {{ host | default('0.0.0.0') }}:{{ port | default(8080) }}
 
-# Document root for static files
-# Default: /var/www/gfork
-document_root = {{ document_root | default('/var/www/gfork') }}
-
-# Path to the log file
-# Default: /var/log/gfork/gfork.log
-log_file = {{ log_file | default('/var/log/gfork/gfork.log') }}
-
-# Maximum size of the log file in MB before rotation
-# Default: 10
-max_log_size = {{ max_log_size | default(10) }}
+# ------------------------------------------------------------------------------
+# Worker Process Configuration
+# ------------------------------------------------------------------------------
 
 # Number of worker processes
+# Controls concurrency by defining the pool of worker processes handling requests.
 # Default: 4
-workers = {{ workers | default(4) }}
+# Schema: workers (integer)
+MaxRequestWorkers {{ workers | default(4) }}
+
+# ------------------------------------------------------------------------------
+# Document Root Configuration
+# ------------------------------------------------------------------------------
+
+# Document root for static files
+# The base directory from which GFork serves static content.
+# Ensure the filesystem permissions allow the GFork user to read this directory.
+# Default: '/var/www/gfork'
+# Schema: document_root (string)
+DocumentRoot {{ document_root | default('/var/www/gfork') }}
+
+# Directory-specific access controls
+# Applies to the DocumentRoot defined above.
+<Directory {{ document_root | default('/var/www/gfork') }}>
+    # Enable directory listing if index file is missing, and follow symbolic links
+    Options Indexes FollowSymLinks
+    
+    # Disable .htaccess processing for performance and security
+    AllowOverride None
+    
+    # Grant access to everyone (adjust based on security requirements)
+    Require all granted
+</Directory>
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the log file
+# GFork will write error and access logs to this location.
+# Ensure the parent directory exists and is writable by the GFork service user.
+# Default: '/var/log/gfork/gfork.log'
+# Schema: log_file (string)
+ErrorLog {{ log_file | default('/var/log/gfork/gfork.log') }}
+
+# Log level for error logging
+# Standard setting kept at warn; adjust if verbose debugging is needed.
+LogLevel warn
+
+# Maximum size of the log file in MB before rotation
+# This is a configuration hint. Actual log rotation (e.g., via logrotate) should be
+# managed externally or via Ansible to ensure safe handling of rotated files.
+# Default: 10
+# Schema: max_log_size (integer)
+# MaxLogSize {{ max_log_size | default(10) }}
+
+# ------------------------------------------------------------------------------
+# Debugging Configuration
+# ------------------------------------------------------------------------------
 
 # Enable or disable debugging mode
-# Default: false
-debug = {{ debug | default(false) | lower }}
+# When enabled, the service may output additional diagnostic information.
+# Recommended to be False (disabled) in production environments.
+# Default: False (boolean)
+# Schema: debug (boolean)
+Debug {{ debug | default(False) | lower }}

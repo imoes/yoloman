@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -12,6 +14,15 @@ import (
 // ansible.builtin.systemd(_service). Runner is injectable for testing.
 type Systemd struct {
 	Runner CommandRunner
+}
+
+// legacyActionDir is where EL packages ship `service <name> <action>` scripts for units that refuse manual control.
+var legacyActionDir = "/usr/libexec/initscripts/legacy-actions"
+
+// refusesManualStop: systemctl's answer for a unit with RefuseManualStop=yes.
+func refusesManualStop(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "Operation refused") && strings.Contains(msg, "dependency only")
 }
 
 // NewSystemd returns a Systemd module backed by the real systemctl.
@@ -46,6 +57,7 @@ func (s *Systemd) InputSchema() map[string]any {
 		"name":    stringProp(`Unit name, e.g. "nginx" or "nginx.service" (the .service suffix is added automatically if omitted).`),
 		"state":   stringEnumProp(`Desired running state. Omit to only manage "enabled" without touching running state.`, "started", "stopped", "restarted", "reloaded"),
 		"enabled": boolProp("Whether the unit should start at boot. Omit to leave the current enabled state untouched.", false),
+		"masked":  boolProp("Whether the unit should be masked (cannot be started at all). false unmasks a unit the package installed masked (Debian's hostapd) before it is started. Omit to leave it untouched.", false),
 		"dry_run": boolProp("When true, report what would change without issuing any mutating systemctl command (check_mode).", false),
 	}, "name")
 }
@@ -66,6 +78,11 @@ func (s *Systemd) Run(ctx context.Context, params map[string]any, dryRunArg bool
 	if err != nil {
 		return Result{}, err
 	}
+	_, maskedGiven := params["masked"]
+	masked, err := boolParam(params, "masked", false)
+	if err != nil {
+		return Result{}, err
+	}
 	paramDryRun, err := boolParam(params, "dry_run", false)
 	if err != nil {
 		return Result{}, err
@@ -80,6 +97,28 @@ func (s *Systemd) Run(ctx context.Context, params map[string]any, dryRunArg bool
 	changed := false
 	data := map[string]any{"unit": unit}
 
+	// Masking first, like Ansible: a masked unit refuses start/restart/enable, so unmasking must precede them.
+	if maskedGiven {
+		cur, err := s.enabledState(ctx, unit)
+		if err != nil {
+			return Result{}, err
+		}
+		isMasked := cur == "masked" || cur == "masked-runtime"
+		data["was_masked"] = isMasked
+		if isMasked != masked {
+			changed = true
+			if !dryRun {
+				action := "unmask"
+				if masked {
+					action = "mask"
+				}
+				if _, err := s.Runner(ctx, "systemctl", action, unit); err != nil {
+					return Result{}, fmt.Errorf("systemd: %sing %s: %w", action, unit, err)
+				}
+			}
+		}
+	}
+
 	switch state {
 	case "":
 		// enabled-only management, handled below
@@ -89,6 +128,13 @@ func (s *Systemd) Run(ctx context.Context, params map[string]any, dryRunArg bool
 			return Result{}, err
 		}
 		data["was_active"] = active
+		if !active && s.oneshotSucceeded(ctx, unit) {
+			// A oneshot without RemainAfterExit is inactive after it ran: "started" means it ran and succeeded.
+			// Without this, detection predicted a start forever and such a role could never be compliant
+			// (package e2e baseline: chkboot, cause oneshot-finished).
+			active = true
+			data["oneshot_ran"] = true
+		}
 		if !active {
 			changed = true
 			if !dryRun {
@@ -115,7 +161,24 @@ func (s *Systemd) Run(ctx context.Context, params map[string]any, dryRunArg bool
 		changed = true
 		if !dryRun {
 			if _, err := s.Runner(ctx, "systemctl", "restart", unit); err != nil {
-				return Result{}, fmt.Errorf("systemd: restarting %s: %w", unit, err)
+				if !refusesManualStop(err) {
+					return Result{}, fmt.Errorf("systemd: restarting %s: %w", unit, err)
+				}
+				// RefuseManualStop=yes (auditd): systemd refuses a restart by hand on EVERY host, so a role that
+				// changed auditd.conf failed to apply it. The package's own restart path is the legacy action
+				// `service auditd restart` runs (/usr/libexec/initscripts/legacy-actions/auditd/restart, shipped by
+				// audit on EL). Without one, the refusal is returned with what it means.
+				action := filepath.Join(legacyActionDir, strings.TrimSuffix(unit, ".service"), "restart")
+				if _, statErr := os.Stat(action); statErr != nil {
+					return Result{}, fmt.Errorf("systemd: restarting %s: the unit refuses a manual restart "+
+						"(RefuseManualStop=yes) and its package ships no restart action in %s — restart it the way "+
+						"its documentation says: %w", unit, legacyActionDir, err)
+				}
+				if _, err2 := s.Runner(ctx, action); err2 != nil {
+					return Result{}, fmt.Errorf("systemd: restarting %s through %s (the unit refuses a manual "+
+						"restart): %w", unit, action, err2)
+				}
+				data["restarted_via"] = action
 			}
 		}
 	case "reloaded":
@@ -160,12 +223,44 @@ func (s *Systemd) isActive(ctx context.Context, unit string) (bool, error) {
 	return strings.TrimSpace(string(out)) == "active", nil
 }
 
-func (s *Systemd) isEnabled(ctx context.Context, unit string) (bool, error) {
+// enabledState is `systemctl is-enabled`'s answer (enabled, static, masked, …).
+func (s *Systemd) enabledState(ctx context.Context, unit string) (string, error) {
 	out, err := s.Runner(ctx, "systemctl", "is-enabled", unit)
 	if err != nil && !isExitError(err) {
-		return false, fmt.Errorf("systemd: querying is-enabled for %s: %w", unit, err)
+		return "", fmt.Errorf("systemd: querying is-enabled for %s: %w", unit, err)
 	}
-	return strings.TrimSpace(string(out)) == "enabled", nil
+	return strings.TrimSpace(string(out)), nil
+}
+
+// isEnabled: the answers for which `is-enabled` exits 0 (Ansible's test). A static, generated or indirect unit
+// cannot be enabled further — comparing against the literal "enabled" made `enabled: true` a change forever.
+func (s *Systemd) isEnabled(ctx context.Context, unit string) (bool, error) {
+	st, err := s.enabledState(ctx, unit)
+	if err != nil {
+		return false, err
+	}
+	switch st {
+	case "enabled", "enabled-runtime", "static", "indirect", "generated", "alias":
+		return true, nil
+	}
+	return false, nil
+}
+
+// oneshotSucceeded: a Type=oneshot unit without RemainAfterExit that has run and ended with Result=success.
+func (s *Systemd) oneshotSucceeded(ctx context.Context, unit string) bool {
+	out, err := s.Runner(ctx, "systemctl", "show", unit, "-p", "Type", "-p", "RemainAfterExit", "-p", "Result",
+		"-p", "ExecMainStartTimestampMonotonic")
+	if err != nil {
+		return false
+	}
+	props := map[string]string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+			props[k] = v
+		}
+	}
+	return props["Type"] == "oneshot" && props["RemainAfterExit"] == "no" && props["Result"] == "success" &&
+		props["ExecMainStartTimestampMonotonic"] != "" && props["ExecMainStartTimestampMonotonic"] != "0"
 }
 
 // isExitError reports whether err is a nonzero process exit (as opposed to a

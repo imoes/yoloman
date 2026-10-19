@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -294,7 +295,11 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 
 	mux.HandleFunc("GET /api/v1/tools", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"tools": listAvailableTools(cfg)})
+		// `write` + `withheld` make the write gate READABLE: a write tool missing from `tools` was
+		// otherwise indistinguishable from one this agent does not have at all (the console told a
+		// read-only host's operator the module was "missing or older than this console").
+		writeJSON(w, http.StatusOK, map[string]any{
+			"tools": listAvailableTools(cfg), "write": cfg.Write, "withheld": listWithheldTools(cfg)})
 	})
 	mux.HandleFunc("POST /api/v1/tools/{name}", func(w http.ResponseWriter, r *http.Request) {
 		handleToolCall(w, r, cfg)
@@ -612,6 +617,47 @@ func listAvailableTools(cfg RESTConfig) []availableTool {
 	return out
 }
 
+// withheldTool is a tool this agent has but does not offer: its write gate is
+// closed. The schema travels with it so a caller can still show the form —
+// greyed out, with the reason.
+type withheldTool struct {
+	availableTool
+	Reason string `json:"reason"`
+}
+
+// writeGateReason is the one sentence for a closed write gate — the same words
+// handleToolCall answers a refused call with.
+func writeGateReason(name string) string {
+	return fmt.Sprintf("tool %q is disabled (write=false): this agent's write gate is closed", name)
+}
+
+// listWithheldTools lists the write modules a closed write gate hides from
+// listAvailableTools (empty when writes are enabled).
+func listWithheldTools(cfg RESTConfig) []withheldTool {
+	out := []withheldTool{}
+	if cfg.Write {
+		return out
+	}
+	for _, m := range cfg.ModReg.All() {
+		if m.Writes() {
+			out = append(out, withheldTool{availableTool: availableTool{Name: m.Name(), Kind: "module", Writes: true,
+				Description: m.Description(), InputSchema: m.InputSchema()}, Reason: writeGateReason(m.Name())})
+		}
+	}
+	for _, t := range cfg.Tasks {
+		if writes, err := t.Writes(cfg.ModReg); err == nil && writes {
+			kind := "task"
+			if t.IsPipeline() {
+				kind = "pipeline"
+			}
+			out = append(out, withheldTool{availableTool: availableTool{Name: t.Name, Kind: kind, Writes: true},
+				Reason: writeGateReason(t.Name)})
+		}
+	}
+	return append(out, withheldTool{availableTool: availableTool{Name: "run_pipeline", Kind: "pipeline", Writes: true},
+		Reason: writeGateReason("run_pipeline")})
+}
+
 // coerceParams converts string values into the bool/number types a module's
 // input schema declares. NestedText runbook args are always strings ("true",
 // "8080"), while modules validate against typed params — this bridges the two
@@ -691,7 +737,7 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 
 	if m, ok := cfg.ModReg.Get(name); ok {
 		if m.Writes() && !cfg.Write {
-			err := fmt.Errorf("tool %q is disabled (write=false)", name)
+			err := errors.New(writeGateReason(name))
 			// A closed write gate is a REFUSAL BY THIS HOST and belongs in the log: "the tool was never
 			// called" and "nothing happened" look identical an hour later, and only one of them is true.
 			cfg.Audit.LogRefusal(identity, name, audit.OutcomeRefused, params, start, err)
@@ -733,7 +779,7 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 			return
 		}
 		if writes && !cfg.Write {
-			writeError(w, http.StatusForbidden, fmt.Errorf("tool %q is disabled (write=false)", name))
+			writeError(w, http.StatusForbidden, errors.New(writeGateReason(name)))
 			return
 		}
 		if !authorizeTool(w, r, cfg, name, writes) {

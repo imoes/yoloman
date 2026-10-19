@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -33,7 +34,18 @@ func (f *fakeApt) runner() CommandRunner {
 			}
 			return []byte("Installed: (none)\nCandidate: " + c + "\n"), nil
 		case "apt-get":
-			switch args[0] {
+			action := ""
+			for i := 0; i < len(args); i++ {
+				if args[i] == "-o" {
+					i++ // skip the option's value (DPkg::Lock::Timeout=…)
+					continue
+				}
+				if args[i] != "-y" {
+					action = args[i]
+					break
+				}
+			}
+			switch action {
 			case "install":
 				pkg := args[len(args)-1]
 				f.installed[pkg] = f.candidate[pkg]
@@ -147,6 +159,20 @@ func TestApt_DryRunDoesNotMutate(t *testing.T) {
 	}
 }
 
+// A preview fails where the real install would: no repository offers the package (measured: Ubuntu 26.04 "scx").
+func TestApt_DryRunRefusesAPackageNoRepositoryOffers(t *testing.T) {
+	fake := &fakeApt{installed: map[string]string{}, candidate: map[string]string{"curl": "8.5.0"}}
+	a := &Apt{Runner: fake.runner()}
+	_, err := a.Run(context.Background(), map[string]any{"name": []string{"curl", "scx"}, "dry_run": true}, false)
+	if err == nil || !strings.Contains(err.Error(), "scx has no installation candidate") {
+		t.Fatalf("err = %v", err)
+	}
+	res, err := a.Run(context.Background(), map[string]any{"name": []string{"curl"}, "dry_run": true}, false)
+	if err != nil || res.Data.([]map[string]any)[0]["would_install_version"] != "8.5.0" {
+		t.Errorf("err=%v data=%v", err, res.Data)
+	}
+}
+
 func TestApt_UpdateCacheCallsAptGetUpdate(t *testing.T) {
 	fake := &fakeApt{installed: map[string]string{"curl": "8.5.0"}, candidate: map[string]string{"curl": "8.5.0"}}
 	a := &Apt{Runner: fake.runner()}
@@ -155,7 +181,7 @@ func TestApt_UpdateCacheCallsAptGetUpdate(t *testing.T) {
 	}
 	found := false
 	for _, c := range fake.calls {
-		if c == "apt-get update" {
+		if c == "apt-get -o DPkg::Lock::Timeout=60 update" {
 			found = true
 		}
 	}
@@ -211,7 +237,7 @@ func TestApt_InstallFailurePropagatesError(t *testing.T) {
 // silently swallowed before the install step runs.
 func TestApt_UpdateCacheFailurePropagatesError(t *testing.T) {
 	a := &Apt{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
-		if name == "apt-get" && len(args) > 0 && args[0] == "update" {
+		if name == "apt-get" && len(args) > 0 && args[len(args)-1] == "update" {
 			return []byte("E: Failed to fetch"), &exec.ExitError{}
 		}
 		return nil, nil
@@ -219,5 +245,29 @@ func TestApt_UpdateCacheFailurePropagatesError(t *testing.T) {
 	_, err := a.Run(context.Background(), map[string]any{"name": []string{"curl"}, "update_cache": true}, false)
 	if err == nil {
 		t.Fatal("expected error when apt-get update fails")
+	}
+}
+
+func TestApt_WaitsForTheDpkgLockAndReportsTheInstalledVersion(t *testing.T) {
+	// "Could not get lock /var/lib/dpkg/lock-frontend" failed a role while another apt ran (Playwright B2), and a
+	// fresh install reported installed_version "" (the version queried before the install).
+	fake := &fakeApt{installed: map[string]string{}, candidate: map[string]string{"earlyoom": "1.8"}}
+	a := &Apt{Runner: fake.runner()}
+	res, err := a.Run(context.Background(), map[string]any{"name": []string{"earlyoom"}}, false)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var install string
+	for _, c := range fake.calls {
+		if len(c) > 7 && c[:7] == "apt-get" {
+			install = c
+		}
+	}
+	if install != "apt-get -o DPkg::Lock::Timeout=60 install -y earlyoom" {
+		t.Fatalf("install call = %q", install)
+	}
+	data := res.Data.([]map[string]any)
+	if data[0]["installed_version"] != "1.8" {
+		t.Fatalf("installed_version = %v", data[0]["installed_version"])
 	}
 }

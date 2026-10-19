@@ -1,61 +1,74 @@
-# ============================================================================
-# GRUB Configuration Template
-# ============================================================================
-# This file configures the GRand Unified Bootloader (GRUB). Changes here
-# are processed by 'update-grub' to generate /boot/grub/grub.cfg.
-# For full documentation of the options in this file, see:
-#   info -f grub -n 'Simple configuration'
-# ============================================================================
+# GRUB Cloud AMD64 Configuration Template
+#
+# This file configures the GRand Unified Bootloader (GRUB) for cloud-based AMD64 systems.
+# Changes to this file must be propagated to /boot/grub/grub.cfg by running 'update-grub'.
+# For detailed documentation, consult the manual: info -f grub -n 'Simple configuration'
 
-# ----------------------------------------------------------------------------
-# Default boot entry (menu index or title)
-# Specifies which entry in the GRUB menu is selected by default.
-# Can be a numeric index (0-based) or a string matching the menu entry title.
-# ----------------------------------------------------------------------------
+# ==============================================================================
+# Default Boot Entry
+# ==============================================================================
+# Description: Sets the default menu entry to boot. Can be a menu index (0-based),
+# a title string, or a saved entry.
+#
+# Schema Field: GRUB_DEFAULT
+# Default: '0'
 GRUB_DEFAULT={{ GRUB_DEFAULT | default('0') }}
 
-# ----------------------------------------------------------------------------
-# Time in seconds before booting default entry
-# The number of seconds GRUB waits for user input before automatically
-# booting the default entry. Set to 0 to boot immediately, or -1 to wait
-# indefinitely.
-# ----------------------------------------------------------------------------
+# ==============================================================================
+# Boot Timeout
+# ==============================================================================
+# Description: Number of seconds GRUB waits for user input before automatically
+# booting the default entry.
+#
+# Schema Field: GRUB_TIMEOUT
+# Default: '5'
 GRUB_TIMEOUT={{ GRUB_TIMEOUT | default('5') }}
 
-# ----------------------------------------------------------------------------
-# Distribution identifier
-# Dynamically sets the distribution name for GRUB menu entries.
-# Uses lsb_release if available, falling back to 'Debian'.
-# ----------------------------------------------------------------------------
+# ==============================================================================
+# Distributor Identification
+# ==============================================================================
+# Note: This variable is often required for GRUB scripts and menu generation.
+# It is typically auto-detected; no schema override provided here.
 GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
 
-# ----------------------------------------------------------------------------
-# Default kernel command line parameters
-# Additional kernel parameters passed to the kernel for the default boot entry.
-# Often left empty for cloud images to allow dynamic injection or specific
-# boot scenarios.
-# ----------------------------------------------------------------------------
-GRUB_CMDLINE_LINUX_DEFAULT="{{ GRUB_CMDLINE_LINUX_DEFAULT | default('') }}"
+# ==============================================================================
+# Default Kernel Command Line Parameters
+# ==============================================================================
+# Description: Additional arguments passed to the kernel for the default boot entry.
+# For cloud images, this is often empty or contains minimal console parameters,
+# as most kernel tuning is handled in GRUB_CMDLINE_LINUX.
+#
+# Schema Field: GRUB_CMDLINE_LINUX_DEFAULT
+# Default: '""'
+GRUB_CMDLINE_LINUX_DEFAULT={{ GRUB_CMDLINE_LINUX_DEFAULT | default('""') }}
 
-# ----------------------------------------------------------------------------
-# Kernel command line parameters for all boots
-# Kernel parameters that are appended to ALL boot entries.
-# Typical cloud image parameters ensure console output on local and serial
-# terminals for debugging and accessibility.
-# ----------------------------------------------------------------------------
-GRUB_CMDLINE_LINUX="{{ GRUB_CMDLINE_LINUX | default('console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 consoleblank=0') }}"
+# ==============================================================================
+# General Kernel Command Line Parameters
+# ==============================================================================
+# Description: Arguments passed to the kernel for ALL boots.
+# Common in cloud environments to ensure serial console access for metadata/automation tools
+# and to prevent screen blanking which can hang some cloud init processes.
+#
+# Schema Field: GRUB_CMDLINE_LINUX
+# Default: '"console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 consoleblank=0"'
+GRUB_CMDLINE_LINUX={{ GRUB_CMDLINE_LINUX | default('"console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 consoleblank=0"') }}
 
-# ----------------------------------------------------------------------------
-# Output terminals for GRUB menu
-# Specifies which terminals GRUB should use for displaying the menu and
-# boot process. 'gfxterm' enables graphical background, 'serial' enables
-# serial console access.
-# ----------------------------------------------------------------------------
-GRUB_TERMINAL_OUTPUT="{{ GRUB_TERMINAL_OUTPUT | default('gfxterm serial') }}"
+# ==============================================================================
+# Terminal Output Configuration
+# ==============================================================================
+# Description: Specifies the output terminals for the GRUB menu.
+# 'gfxterm' enables graphical menu (if supported), 'serial' allows access via serial console.
+#
+# Schema Field: GRUB_TERMINAL_OUTPUT
+# Default: '"gfxterm serial"'
+GRUB_TERMINAL_OUTPUT={{ GRUB_TERMINAL_OUTPUT | default('"gfxterm serial"') }}
 
-# ----------------------------------------------------------------------------
-# Serial port configuration command
-# Configures the serial port settings for GRUB if serial output is enabled.
-# Ensures consistent baud rates for serial console debugging.
-# ----------------------------------------------------------------------------
-GRUB_SERIAL_COMMAND="{{ GRUB_SERIAL_COMMAND | default('serial --speed=115200') }}"
+# ==============================================================================
+# Serial Port Configuration
+# ==============================================================================
+# Description: Configures the serial port settings for GRUB's serial console output.
+# Essential for headless/cloud instances accessed via SSH-over-serial or console.
+#
+# Schema Field: GRUB_SERIAL_COMMAND
+# Default: '"serial --speed=115200"'
+GRUB_SERIAL_COMMAND={{ GRUB_SERIAL_COMMAND | default('"serial --speed=115200"') }}

@@ -1,90 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Lomiri Online Accounts Plugin - OwnCloud CardDAV Profile Configuration
+<!-- Main profile configuration for Lomiri Online Accounts CardDAV plugin.
+     This template generates the XML profile definition required by the Lomiri
+     online-accounts service to manage CardDAV contact synchronization. -->
+<profile name="{{ profile_name | default('lomiri-owncloud-carddav') }}"
+         type="{{ profile_type | default('sync') }}" >
+    <!-- Category for this profile: 'contacts' indicates this is a contact list service. -->
+    <key value="{{ category_value | default('contacts') }}" name="category"/>
+    
+    <!-- Remote service name identifier used by the online accounts backend. -->
+    <key value="{{ remote_service_name | default('lomiri-owncloud-carddav') }}" name="remote_service_name"/>
+    
+    <!-- Destination type: 'online' indicates remote storage rather than local. -->
+    <key name="destinationtype" value="{{ destinationtype_value | default('online') }}"/>
+    
+    <!-- Whether the main profile is enabled. Defaults to false to avoid auto-enabling. -->
+    <key name="enabled" value="{{ enabled_value | default('false') }}"/>
+    
+    <!-- Whether the main profile is hidden from general views. Defaults to false. -->
+    <key name="hidden" value="{{ hidden_value | default('false') }}"/>
+    
+    <!-- Whether to use system accounts for authentication. Defaults to true. -->
+    <key name="use_accounts" value="{{ use_accounts_value | default('true') }}"/>
 
-  This template generates an XML profile configuration for the Lomiri Online Accounts
-  plugin to sync contacts via CardDAV. It defines the main profile metadata, the client
-  profile behavior, and scheduling parameters.
-
-  All variables are sourced from the Ansible inventory or role defaults.
--->
-<profile
-    <!-- The name of the main profile -->
-    name="{{ profile_name | default('lomiri-owncloud-carddav') }}"
-    <!-- The type of the main profile (e.g., sync, read-only) -->
-    type="{{ profile_type | default('sync') }}"
->
-    <key
-        <!-- The category for this profile (e.g., contacts, calendar) -->
-        value="{{ category_value | default('contacts') }}"
-        name="category"
-    />
-    <key
-        <!-- The remote service name identifier -->
-        value="{{ remote_service_name | default('lomiri-owncloud-carddav') }}"
-        name="remote_service_name"
-    />
-    <key
-        <!-- The destination type for the profile (e.g., online, local) -->
-        name="destinationtype"
-        value="{{ destinationtype_value | default('online') }}"
-    />
-    <key
-        <!-- Whether the main profile is enabled -->
-        name="enabled"
-        value="{{ enabled_value | default('false') }}"
-    />
-    <key
-        <!-- Whether the main profile is hidden from the UI -->
-        name="hidden"
-        value="{{ hidden_value | default('false') }}"
-    />
-    <key
-        <!-- Whether to use system accounts for this profile -->
-        name="use_accounts"
-        value="{{ use_accounts_value | default('true') }}"
-    />
-
-    <!-- Client Profile Definition: How the data is synced -->
-    <profile
-        <!-- The type of the client profile -->
-        type="{{ client_profile_type | default('client') }}"
-        <!-- The name of the client profile -->
-        name="{{ client_profile_name | default('carddav') }}"
-    >
-        <key
-            <!-- The sync direction (e.g., two-way, one-way) -->
-            value="{{ sync_direction_value | default('two-way') }}"
-            name="Sync Direction"
-        />
-        <key
-            <!-- The sync protocol (e.g., carddav, caldav) -->
-            value="{{ sync_protocol_value | default('carddav') }}"
-            name="Sync Protocol"
-        />
-        <key
-            <!-- The sync transport (e.g., HTTP, HTTPS) -->
-            value="{{ sync_transport_value | default('HTTP') }}"
-            name="Sync Transport"
-        />
-        <key
-            <!-- The conflict resolution policy -->
-            value="{{ conflictpolicy_value | default('prefer remote') }}"
-            name="conflictpolicy"
-        />
+    <!-- Client profile definition: handles the specifics of the CardDAV sync protocol. -->
+    <profile type="{{ client_profile_type | default('client') }}" name="{{ client_profile_name | default('carddav') }}">
+        <!-- Sync direction: 'two-way' allows changes on both client and server. -->
+        <key value="{{ sync_direction_value | default('two-way') }}" name="Sync Direction"/>
+        
+        <!-- Sync protocol: 'carddav' specifies the CardDAV standard for contacts. -->
+        <key value="{{ sync_protocol_value | default('carddav') }}" name="Sync Protocol"/>
+        
+        <!-- Sync transport: 'HTTP' is the standard transport for CardDAV. -->
+        <key value="{{ sync_transport_value | default('HTTP') }}" name="Sync Transport"/>
+        
+        <!-- Conflict resolution policy: 'prefer remote' keeps server-side changes. -->
+        <key value="{{ conflictpolicy_value | default('prefer remote') }}" name="conflictpolicy" />
     </profile>
 
-    <!-- Schedule Definition: When to sync -->
-    <schedule
-        <!-- Whether the schedule is enabled -->
-        enabled="{{ schedule_enabled | default('false') }}"
-        <!-- The sync interval string -->
-        interval="{{ schedule_interval | default('') }}"
-        <!-- Comma-separated list of days for the schedule (1=Mon, 7=Sun) -->
-        days="{{ schedule_days | default('1,2,3,4,5,6,7') }}"
-        <!-- The sync configured time string -->
-        syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}"
-        <!-- The time for the scheduled sync -->
-        time="{{ schedule_time | default('05:00:00') }}"
-    />
+    <!-- Schedule configuration for background synchronization tasks. -->
+    <!-- 
+      Note: If schedule_enabled is true, the interval and time settings become active.
+      Defaults provide a daily sync at 5:00 AM for all days of the week.
+    -->
+    <schedule enabled="{{ schedule_enabled | default('false') }}"
+              interval="{{ schedule_interval | default('') }}"
+              days="{{ schedule_days | default('1,2,3,4,5,6,7') }}"
+              syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}"
+              time="{{ schedule_time | default('05:00:00') }}" />
 </profile>

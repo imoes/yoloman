@@ -238,3 +238,19 @@ def test_a_role_survives_the_text_round_trip():
 
     # and the stored canonical doc re-validates as a role, not a runbook
     assert parse_data(doc).kind == "role"
+
+
+def test_invalid_yaml_names_its_line():
+    """The editor marks a lint error at its line; a YAML error without one marked line 1 for any mistake."""
+    import pytest
+
+    from bossman.services.ansible_playbook import PlaybookError, parse_playbook
+
+    src = "role: x\ntasks:\n  - name: a\n    package: {name: tree, state: present\n"
+    with pytest.raises(PlaybookError) as err:
+        parse_playbook(src)
+    assert err.value.line == 4                       # where the unclosed `{` opened
+    bad_indent = "role: x\ntasks:\n  - name: a\n   package: tree\n"
+    with pytest.raises(PlaybookError) as err:
+        parse_playbook(bad_indent)
+    assert err.value.line in (3, 4)

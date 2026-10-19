@@ -1,0 +1,53 @@
+#
+# /etc/dahdi/assigned-spans.conf:
+#
+# This file assigns span and channel numbers to DAHDI devices.
+# It is used by the DAHDI subsystem to map hardware resources to software channels.
+#
+# Format:
+#   <id>    <spanspec> [spanspec ...]
+#
+# <id> field specifications:
+#   - hardware_id:   Direct hardware identifier string (e.g., "usb:QA-1").
+#                    Supports shell-style globbing (e.g., "usb:QA-*").
+#   - @location:     Physical location on the bus (e.g., "@usb-0000:00:1d.7-3").
+#                    Must be prefixed with '@'.
+#   - devpath:       Sysfs device path (e.g., "/sys/bus/usb/devices/1-1").
+#                    Supports shell-style globbing.
+#
+# <spanspec> syntax:
+#   <local_spanno>:<assigned_spanno>:<base_channo>
+#   - local_spanno:  Logical span number assigned by DAHDI (1-based).
+#   - assigned_spanno: Physical span index on the hardware device.
+#   - base_channo:   Starting channel number for this span. Channels are typically
+#                    allocated in blocks (e.g., 50 per span for PRI, 8 for FXS).
+#
+# Notes:
+#   - Multiple spanspecs can be listed on a single line, separated by spaces.
+#   - Each span typically gets its own block of channel numbers to avoid overlap.
+#   - Comment lines start with '#'.
+
+{% if dahdi_assigned_spans is defined and dahdi_assigned_spans is iterable %}
+{# Iterate over the list of span configurations provided by the user or role #}
+{% for entry in dahdi_assigned_spans %}
+{# Determine the identifier key: hardware_id, @location, or devpath #}
+{# Default to an empty string if not specified, though usually one is required #}
+{% set dev_id = entry.id | default('') %}
+{# Determine the spanspecs list. Can be a string or a list of strings #}
+{% set spanspecs = entry.spanspecs | default([]) %}
+{# Normalize spanspecs to a list if it's a single string #}
+{% if spanspecs is string %}
+  {% set spanspecs = [spanspecs] %}
+{% endif %}
+
+{# Emit the configuration line: <id> <spanspec> <spanspec> ... #}
+{# If ID is empty, we still emit the spanspecs, but typically ID is required. #}
+{{ dev_id }} {% for spec in spanspecs %}{{ spec }} {% endfor %}
+
+{% endfor %}
+{% else %}
+{# No spans provided. This file might be empty or contain only comments. #}
+{# Ensure the file exists but is effectively empty of active rules. #}
+{# The template engine will produce an empty file or just comments depending on context. #}
+{# Here we leave it as potentially empty if no data is provided. #}
+{% endif %}

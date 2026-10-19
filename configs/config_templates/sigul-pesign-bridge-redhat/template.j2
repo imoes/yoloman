@@ -1,0 +1,108 @@
+# sigul-pesign-bridge configuration file
+#
+# This file configures the Sigul-Pesign Bridge service, which acts as an intermediary
+# between Fedora's pesign tool and the Sigul signing infrastructure.
+#
+# The service uses systemd credentials for sensitive data (private keys, passphrases).
+# Ensure all referenced credentials IDs are provided to the systemd unit via
+# `ImportCredential` or `LoadCredentialEncrypted`.
+
+# -----------------------------------------------------------------------------
+# Global Timeouts
+# -----------------------------------------------------------------------------
+
+# The total length of time (in seconds) to wait for a signing request to complete.
+# The service will retry requests to the Sigul server until it succeeds or
+# this timeout is reached, at which point it will signal to the pesign-client
+# that the request failed. This must be a non-zero value.
+total_request_timeout_secs = {{ total_request_timeout_secs | default('600') }}
+
+# The timeout (in seconds) to wait for a response from the Sigul server.
+# Requests that time out are retried until `total_request_timeout_secs` is reached.
+# As such, this value should be several times smaller than `total_request_timeout_secs`.
+sigul_request_timeout_secs = {{ sigul_request_timeout_secs | default('60') }}
+
+# -----------------------------------------------------------------------------
+# Sigul Server Connection
+# -----------------------------------------------------------------------------
+
+# Configuration block for connecting to the Sigul signing service.
+[sigul]
+
+# The hostname of the Sigul bridge; this is used to verify the bridge's
+# TLS certificate.
+bridge_hostname = "{{ sigul_bridge_hostname | default('sigul-bridge.example.com') }}"
+
+# The port to connect to the Sigul bridge; the typical port is 44334.
+bridge_port = {{ sigul_bridge_port | default('44334') }}
+
+# The hostname of the Sigul server; this is used to verify the server's
+# TLS certificate.
+server_hostname = "{{ sigul_server_hostname | default('sigul-server.example.com') }}"
+
+# The username to use when authenticating with the Sigul bridge.
+sigul_user_name = "{{ sigul_user_name | default('sigul-client') }}"
+
+# The systemd credentials ID of the PEM-encoded private key file.
+#
+# This private key is the key that matches the `client_certificate` and is used to authenticate
+# with the Sigul bridge. It is expected to be provided by systemd's "ImportCredential" or
+# "LoadCredentialEncrypted" option.
+#
+# Example preparation:
+#   systemd-creds encrypt /secure/ramfs/private-key.pem /etc/credstore.encrypted/sigul.client.private_key
+#
+private_key = "{{ sigul_private_key | default('sigul.client.private_key.pem') }}"
+
+# The path to client certificate that matches the `private_key`.
+client_certificate = "{{ sigul_client_certificate | default('sigul.client.certificate.pem') }}"
+
+# The path to the certificate authority to use when verifying the Sigul bridge and Sigul
+# server certificates.
+ca_certificate = "{{ sigul_ca_certificate | default('sigul.ca_certificate.pem') }}"
+
+# -----------------------------------------------------------------------------
+# Signing Keys
+# -----------------------------------------------------------------------------
+
+# A list of signing keys available for use.
+#
+# The pesign-client requests a signing key and certificate using the `--token`
+# and `--certificate` arguments respectively. If the pesign-client specifies
+# a pair that isn't present in this configuration file, the request is rejected.
+#
+# Each entry in the `keys` list defines a mapping between a local pesign token
+# and a Sigul key/certificate.
+
+{% for key in keys | default([{'pesign_token_name': 'OpenSC Card', 'pesign_certificate_name': 'some certificate', 'key_name': 'signing-key', 'certificate_name': 'codesigning', 'passphrase_path': 'sigul.signing-key.passphrase', 'certificate_file': '/path/to/signing/certificate.pem'}, {'key_name': 'other-signing-key', 'certificate_name': 'other-codesigning', 'passphrase_path': 'sigul.other-signing-key.passphrase', 'pesign_token_name': '', 'pesign_certificate_name': '', 'certificate_file': ''}]) %}
+[[keys]]
+
+# The token name that pesign-client provides; it will be mapped to the
+# `key_name` field when passed to sigul. For example, if pesign-client asks
+# for "OpenSC Card" and the key name in Sigul is "fedora-signer",
+# set `pesign_token_name` to "OpenSC Card" and `key_name` to "fedora-signer".
+pesign_token_name = "{{ key.pesign_token_name | default('') }}"
+
+# The certificate name that pesign-client provides; it will be mapped to
+# the `certificate_name` field just like `pesign_token_name` is mapped.
+pesign_certificate_name = "{{ key.pesign_certificate_name | default('') }}"
+
+# The name of the key in Sigul.
+key_name = "{{ key.key_name | default('') }}"
+
+# The name of the certificate in Sigul.
+certificate_name = "{{ key.certificate_name | default('') }}"
+
+# The path to a file containing the Sigul passphrase to access the key.
+#
+# It is expected to the ID used in the systemd encrypted credential.
+passphrase_path = "{{ key.passphrase_path | default('') }}"
+
+# The certificate to validate the PE signature with; this field is optional.
+#
+# If set, the service will validate the PE has been signed with the given certificate
+# before returning the signed file to the client. This validation is done with the
+# "sbverify" application, which must be installed to use this option.
+certificate_file = "{{ key.certificate_file | default('') }}"
+
+{% endfor %}

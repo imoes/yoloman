@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+    <!--
+      VL Gothic Font Configuration Template
+
+      This template configures the "VL Gothic" font family within the system's
+      Fontconfig setup. It establishes aliases for generic font families (monospace,
+      sans-serif) to resolve to VL Gothic, specifically for Japanese locales,
+      and optionally disables font hinting for this family.
+
+      Variables:
+        vl_gothic_family: The exact font family name to use for aliases and matches.
+        hinting_disabled: Boolean flag ('true'/'false') to disable font hinting.
+    -->
+
+    <!--
+      Alias: Monospace Family
+      Maps the generic 'monospace' font family to VL Gothic.
+      Ensures that applications requesting a monospace font receive VL Gothic.
+    -->
+    <alias>
+        <!-- The target generic family name -->
+        <family>monospace</family>
+        <default>
+            <!-- The specific font family name to use as the default -->
+            <family>{{ vl_gothic_family | default('VL Gothic') }}</family>
+        </default>
+    </alias>
+
+    <!--
+      Alias: Sans-Serif Family
+      Maps the generic 'sans-serif' font family to VL Gothic.
+      Provides a fallback for applications requesting sans-serif fonts.
+    -->
+    <alias>
+        <!-- The target generic family name -->
+        <family>sans-serif</family>
+        <default>
+            <!-- The specific font family name to use as the default -->
+            <family>{{ vl_gothic_family | default('VL Gothic') }}</family>
+        </default>
+    </alias>
+
+    <!--
+      Locale-Specific Match: Japanese Monospace
+      Overrides the 'monospace' font for Japanese ('ja') locales to prepend VL Gothic.
+      This ensures Japanese characters are rendered with VL Gothic in monospace contexts.
+    -->
+    <match>
+        <!-- Test if the locale is Japanese -->
+        <test name="lang" compare="contains">
+            <string>ja</string>
+        </test>
+        <!-- Test if the requested font family is monospace -->
+        <test name="family" ignore-blanks="true">
+            <string>monospace</string>
+        </test>
+        <!-- Prepend VL Gothic to the font list -->
+        <edit name="family" mode="prepend">
+            <string>{{ vl_gothic_family | default('VL Gothic') }}</string>
+        </edit>
+    </match>
+
+    <!--
+      Locale-Specific Match: Japanese Sans-Serif
+      Overrides the 'sans-serif' font for Japanese ('ja') locales to prepend VL Gothic.
+      This ensures Japanese characters are rendered with VL Gothic in sans-serif contexts.
+    -->
+    <match>
+        <!-- Test if the locale is Japanese -->
+        <test name="lang" compare="contains">
+            <string>ja</string>
+        </test>
+        <!-- Test if the requested font family is sans-serif -->
+        <test name="family" ignore-blanks="true">
+            <string>sans-serif</string>
+        </test>
+        <!-- Prepend VL Gothic to the font list -->
+        <edit name="family" mode="prepend">
+            <string>{{ vl_gothic_family | default('VL Gothic') }}</string>
+        </edit>
+    </match>
+
+    <!--
+      Hinting Configuration: VL Gothic
+      Controls font hinting for the VL Gothic family.
+      If hinting_disabled is 'true', hinting is disabled for this font.
+    -->
+    <match target="font">
+        <!-- Test if the font family is VL Gothic -->
+        <test name="family" ignore-blanks="true">
+            <string>{{ vl_gothic_family | default('VL Gothic') }}</string>
+        </test>
+        <!-- Set the hinting boolean value based on hinting_disabled variable -->
+        <edit name="hinting" mode="assign">
+            <bool>{{ hinting_disabled | default('false') | lower }}</bool>
+        </edit>
+    </match>
+</fontconfig>

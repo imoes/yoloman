@@ -1,48 +1,30 @@
-# ==============================================================================
-# pam_env.conf - PAM environment configuration for calife
+# =============================================================================
+# Package: calife
+# Description: PAM (Pluggable Authentication Modules) configuration
+# =============================================================================
+# This template configures the global PAM stack for authentication, account
+# validation, and session management. It relies on modular includes to keep
+# individual concerns (like password policies or account locking) separate
+# and reusable.
 #
-# This module sets the environment based on variable definitions.
-# It is part of the Pluggable Authentication Modules (PAM) system.
-#
-# Syntax:
-#   varname TYPE [DEFAULT=default_value] [OVERRIDE=default_value]
-#   - varname: The name of the environment variable to set.
-#   - TYPE: 'ENV' for environment variables, 'SYSTEM' for system variables (e.g., PATH, USER).
-#   - DEFAULT: The value to use if the variable is not found in the system.
-#   - OVERRIDE: The value to use regardless of the system value (use with caution).
-#
-# Comments are indicated by '#'. Empty lines are ignored.
-# ==============================================================================
+# Variable Mapping:
+# - Since the schema provided is empty, this template assumes the standard
+#   Debian/Ubuntu `common-*` PAM stack structure. No custom variables are
+#   injected.
+# =============================================================================
 
-# Load standard system environment variables (like PATH, USER, HOME, SHELL, LOGNAME).
-# These are typically provided by the operating system and should generally be trusted.
-# If no specific variables are listed here, the default behavior is to import system
-# variables. However, explicitly listing common ones ensures predictable behavior
-# across different Linux distributions.
-SYSTEM PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-SYSTEM HOME $HOME
-SYSTEM USER $USER
-SYSTEM LOGNAME $LOGNAME
-SYSTEM SHELL $SHELL
-# PAGER is often used by interactive tools; set a sensible default.
-SYSTEM PAGER less
-# TERM is crucial for terminal-based applications to render correctly.
-SYSTEM TERM $TERM
-# LANG or LC_ALL determine locale settings for text processing.
-# If not set by the caller, default to C (POSIX) for maximum compatibility.
-SYSTEM LANG C
-SYSTEM LC_ALL C
-# LANGUAGE is used by GNU gettext for translation fallback.
-SYSTEM LANGUAGE C
+# --- Authentication Modules ---
+# These modules handle the verification of user credentials (passwords, tokens, etc.).
+@include common-auth
 
-# ==============================================================================
-# Optional: Define application-specific defaults for the 'calife' service.
-# These ensure that even if the user's session environment is incomplete,
-# critical service variables are set.
-# ==============================================================================
+# --- Account Modules ---
+# These modules determine if the user's account is valid, active, and allowed to
+# log in at this time (e.g., checking for expired passwords or lockouts).
+@include common-account
 
-# Example: Set a default configuration directory if not provided by PAM stack.
-# ENV CALIFE_CONFIG_DIR /etc/calife
-
-# Example: Set the home directory for service operations if not inherited.
-# ENV CALIFE_HOME $HOME
+# --- Session Modules ---
+# These modules manage the user's session lifecycle, such as mounting home directories,
+# recording login attempts, or setting up environment variables.
+# The 'noninteractive' variant is often used for system services that do not have
+# an interactive terminal session.
+@include common-session-noninteractive

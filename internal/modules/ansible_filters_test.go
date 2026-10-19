@@ -225,3 +225,24 @@ func TestRecordNamedFilters(t *testing.T) {
 		}
 	}
 }
+
+func TestIntAndFloatOfABooleanAreOneAndZero(t *testing.T) {
+	// gonja's built-ins answered 0 for `true | int`; Jinja2/Ansible answer 1 (acmesh wrote AUTO_RENEW="0").
+	RegisterAnsibleFilters()
+	got := renderTmpl(t, "{{ t | int }} {{ f | int }} {{ t | float }} {{ '3' | int }} {{ 2.7 | int }}",
+		map[string]any{"t": true, "f": false})
+	if got != "1 0 1.0 3 2" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestQuoteIsShlexQuote(t *testing.T) {
+	// Python: shlex.quote('/etc/ssl/ca.crt') == '/etc/ssl/ca.crt'; quote("a b") == "'a b'"; quote("it's") == "'it'\"'\"'s'".
+	RegisterAnsibleFilters()
+	got := renderTmpl(t, `{{ a | quote }}|{{ b | quote }}|{{ c | quote }}|{{ d | quote }}`,
+		map[string]any{"a": "/etc/ssl/ca.crt", "b": "a b", "c": "it's", "d": ""})
+	want := `/etc/ssl/ca.crt|'a b'|'it'"'"'s'|''`
+	if got != want {
+		t.Fatalf("got %s want %s", got, want)
+	}
+}

@@ -1,0 +1,138 @@
+# i3status configuration file for Fedora/RedHat systems.
+# This configuration drives the system tray status bar used by i3wm.
+#
+# Self-documenting template: Every setting includes its schema description
+# as a comment above the directive. Defaults are applied inline via Jinja2
+# `default()` filters to ensure safe rendering even if variables are undefined.
+
+# ==============================================================================
+# General Settings
+# ==============================================================================
+general {
+    # Enable color output for status blocks.
+    # Default: true
+    colors = {{ general_colors | default(true) }}
+
+    # Refresh interval in seconds.
+    # Default: 5
+    interval = {{ general_interval | default(5) }}
+
+    # Output format for the status bar.
+    # Options: 'i3bar' (default for i3wm) or 'none'.
+    # Default: i3bar
+    output_format = "{{ general_output_format | default('i3bar') }}"
+
+    # Color for 'good' status.
+    # Default: #79DB32
+    color_good = "{{ general_color_good | default('#79DB32') }}"
+
+    # Color for 'degraded' status.
+    # Default: #E59728
+    color_degraded = "{{ general_color_degraded | default('#E59728') }}"
+
+    # Color for 'bad' status.
+    # Default: #DB3279
+    color_bad = "{{ general_color_bad | default('#DB3279') }}"
+}
+
+# ==============================================================================
+# Block Order
+# ==============================================================================
+# Define the order in which status blocks appear in the bar.
+# _first_ indicates the block should be placed at the beginning of its category.
+
+order += "ipv6"
+order += "wireless _first_"
+order += "ethernet _first_"
+order += "battery all"
+order += "disk /"
+order += "load"
+order += "memory"
+order += "tztime local"
+
+# ==============================================================================
+# Wireless Interface Block
+# ==============================================================================
+wireless _first_ {
+    # Format string for wireless interface when up.
+    # Placeholders: %quality, %essid, %ip
+    # Default: W: (%quality at %essid) %ip
+    format_up = "{{ wireless_format_up | default('W: (%quality at %essid) %ip') }}"
+
+    # Format string for wireless interface when down.
+    # Default: W: down
+    format_down = "{{ wireless_format_down | default('W: down') }}"
+}
+
+# ==============================================================================
+# Ethernet Interface Block
+# ==============================================================================
+ethernet _first_ {
+    # Format string for ethernet interface when up.
+    # Placeholders: %ip, %speed
+    # Default: E: %ip (%speed)
+    format_up = "{{ ethernet_format_up | default('E: %ip (%speed)') }}"
+
+    # Format string for ethernet interface when down.
+    # Default: E: down
+    format_down = "{{ ethernet_format_down | default('E: down') }}"
+}
+
+# ==============================================================================
+# Battery Block
+# ==============================================================================
+battery all {
+    # Format string for battery status.
+    # Placeholders: %status, %percentage, %remaining
+    # Default: %status %percentage %remaining
+    format = "{{ battery_format | default('%status %percentage %remaining') }}"
+}
+
+# ==============================================================================
+# Disk Block (Root Partition)
+# ==============================================================================
+disk "/" {
+    # Format string for disk usage.
+    # Placeholder: %avail
+    # Default: %avail
+    format = "{{ disk_format | default('%avail') }}"
+}
+
+# ==============================================================================
+# Load Average Block
+# ==============================================================================
+load {
+    # Format string for system load.
+    # Placeholder: %1min
+    # Default: %1min
+    format = "{{ load_format | default('%1min') }}"
+}
+
+# ==============================================================================
+# Memory Block
+# ==============================================================================
+memory {
+    # Format string for memory usage.
+    # Placeholder: %used, %available
+    # Default: %used | %available
+    format = "{{ memory_format | default('%used | %available') }}"
+
+    # Threshold for memory degraded status (e.g., '1G', '500M').
+    # When available memory drops below this, the block changes to 'degraded' color.
+    # Default: 1G
+    threshold_degraded = "{{ memory_threshold_degraded | default('1G') }}"
+
+    # Format string for memory degraded status.
+    # Placeholder: %available
+    # Default: MEMORY < %available
+    format_degraded = "{{ memory_format_degraded | default('MEMORY < %available') }}"
+}
+
+# ==============================================================================
+# Time Block
+# ==============================================================================
+tztime local {
+    # Format string for time display (strftime format).
+    # Default: %Y-%m-%d %H:%M:%S
+    format = "{{ tztime_format | default('%Y-%m-%d %H:%M:%S') }}"
+}

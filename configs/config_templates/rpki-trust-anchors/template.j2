@@ -1,21 +1,28 @@
-# RPKI Trust Anchor Configuration
-# This file defines the location and content of a Route Origin Authorization (ROA)
-# trust anchor certificate used by RPKI validators (e.g., Routinator, Fortify).
+# ==============================================================================
+# RPKI Trust Anchor Configuration Template
+# ==============================================================================
+# This template generates the configuration for RPKI (Resource Public Key
+# Infrastructure) trust anchors. It defines the source URLs from which the
+# trust anchor certificates are retrieved and embeds the certificate content.
+#
+# Variables:
+#   trust_anchor_name:       The short name of the RPKI trust anchor (e.g., afrinic, ripencc, arin).
+#   trust_anchor_certificate: The base64-encoded content of the trust anchor certificate.
+# ==============================================================================
 
-# The human-readable name of this trust anchor (e.g., afrinic, ripencc, arin).
-# Used to construct repository URLs.
-rpki_trust_anchor_name: {{ trust_anchor_name | default('afrinic') }}
+# --- Source URLs ---
+# These lines define the HTTP and RSYNC repositories for the specified trust anchor.
+# Replace `rpki.afrinic.net` with the appropriate registry's RPKI repository base
+# if using a different provider (e.g., ripencc, arin, apnic, lacnic).
 
-# Repository URL (HTTPS) for downloading the Trust Anchor certificate.
-# Constructed from the trust anchor name.
-repository_https: https://rpki.{{ trust_anchor_name | default('afrinic') }}.net/repository/{{ trust_anchor_name | default('afrinic') }}.cer
+# HTTP URL for the trust anchor certificate
+https://rpki.afrinic.net/repository/{{ trust_anchor_name | default('AfriNIC') }}.cer
 
-# Repository URL (RSYNC) for downloading the Trust Anchor certificate.
-# Constructed from the trust anchor name.
-repository_rsync: rsync://rpki.{{ trust_anchor_name | default('afrinic') }}.net/repository/{{ trust_anchor_name | default('afrinic') }}.cer
+# RSYNC URL for the trust anchor certificate
+rsync://rpki.afrinic.net/repository/{{ trust_anchor_name | default('AfriNIC') }}.cer
 
-# The base64-encoded content of the RPKI Trust Anchor X.509 certificate.
-# This is the actual root of trust for the RPKI hierarchy.
-# Usually provided as a PEM-encoded certificate block.
-trust_anchor_certificate: |
-{{ trust_anchor_certificate | default('MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxsAqAhWIO+ON2Ef9oRDM\npKxv+AfmSLIdLWJtjrvUyDxJPBjgR+kVrOHUeTaujygFUp49tuN5H2C1rUuQavTH\nvve6xNF5fU3OkTcqEzMOZy+ctkbde2SRMVdvbO22+TH9gNhKDc9l7Vu01qU4LeJH\nk3X0f5uu5346YrGAOSv6AaYBXVgXxa0s9ZvgqFpim50pReQe/WI3QwFKNgpPzfQL\n6Y7fDPYdYaVOXPXSKtx7P4s4KLA/ZWmRL/bobw/i2fFviAGhDrjqqqum+/9w1hEl\nL/vqihVnV18saKTnLvkItA/Bf5i11Yhw2K7qv573YWxyuqCknO/iYLTR1DToBZcZ\nUQIDAQAB') | indent(1) | trim }}
+# --- Certificate Content ---
+# The actual base64-encoded X.509 certificate content.
+# This is required by validators (like Routinator) to initialize the trust anchor store.
+
+{{ trust_anchor_certificate | default('MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxsAqAhWIO+ON2Ef9oRDM\npKxv+AfmSLIdLWJtjrvUyDxJPBjgR+kVrOHUeTaujygFUp49tuN5H2C1rUuQavTH\nvve6xNF5fU3OkTcqEzMOZy+ctkbde2SRMVdvbO22+TH9gNhKDc9l7Vu01qU4LeJH\nk3X0f5uu5346YrGAOSv6AaYBXVgXxa0s9ZvgqFpim50pReQe/WI3QwFKNgpPzfQL\n6Y7fDPYdYaVOXPXSKtx7P4s4KLA/ZWmRL/bobw/i2fFviAGhDrjqqqum+/9w1hEl\nL/vqihVnV18saKTnLvkItA/Bf5i11Yhw2K7qv573YWxyuqCknO/iYLTR1DToBZcZ\nUQIDAQAB') }}

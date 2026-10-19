@@ -1,0 +1,38 @@
+fqcn: yoloman.blockdev_tuning
+name: blockdev_tuning
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Set a block device's readahead and I/O scheduler, live and boot-persistent via a udev rule
+description: >-
+  Kernel-tuning tunable (docs/kernel-tuning.md). Writes /sys/block/<device>/queue/read_ahead_kb and
+  queue/scheduler. Persistence is a udev rule /etc/udev/rules.d/60-yoloman-blockdev-<device>.rules that
+  matches the device by its stable identity (ID_WWN, else ID_SERIAL, else the kernel name, which can
+  change between boots and is reported as such). Hosts without udevadm (Alpine with mdev) get an
+  /etc/local.d script on OpenRC. Returns before/after, persistence (live | persistent), the match used
+  and the rollback parameters.
+options:
+  device:
+    type: str
+    required: true
+    description: Kernel block device name as in /sys/block, e.g. sda, nvme0n1, vdb (no /dev/ prefix needed).
+  read_ahead_kb:
+    type: int
+    description: Readahead in KiB (0 to 65536).
+  scheduler:
+    type: str
+    description: I/O scheduler, one of those the device lists in queue/scheduler (e.g. none, mq-deadline, bfq, kyber).
+  persistent:
+    type: bool
+    default: true
+    description: Also write the boot-persistent rule. false changes only the running values.
+  state:
+    type: str
+    default: present
+    choices: [present, absent]
+    description: absent removes yoloman's rule for the device only; the running values are left as they are.
+examples: |
+  - yoloman.blockdev_tuning:
+      device: sdb
+      read_ahead_kb: 4096
+      scheduler: mq-deadline

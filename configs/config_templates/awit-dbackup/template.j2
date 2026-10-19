@@ -1,38 +1,57 @@
+# AWIT DBackup Configuration Template
+# This configuration file controls the behavior of the awit-dbackup service.
+# It uses an INI-style format with a [backup] section.
+
 [backup]
 
+# -----------------------------------------------------------------------------
+# System Exclusion Toggle
 # Set to '1' to exclude system directories from backup.
-# Default is empty (disabled).
-#exclude-system={{ backup_exclude_system | default('') }}
+# Default: '' (empty string, implies no exclusion unless explicitly enabled)
+# -----------------------------------------------------------------------------
+{% if (backup_exclude_system | default('') | bool) %}
+exclude-system={{ backup_exclude_system | default('1') }}
+{% else %}
+#exclude-system={{ backup_exclude_system | default('1') }}
+{% endif %}
 
-# System bases are kernel isolated virtual machines, like chroots.
-# The system-dir's are appended to these in the tests for exclusion.
+# -----------------------------------------------------------------------------
+# System Base Paths
+# These are root paths for kernel-isolated virtual machines, such as chroots
+# or vservers. System directories (defined below) are treated as subdirectories
+# of these bases and are excluded from backups.
+#
+# Note: These lines are commented out by default. Uncomment and adjust as
+# needed for your specific virtualization or containerization setup.
+# -----------------------------------------------------------------------------
 
-# Root path to exclude system base (kernel isolated VMs).
-# Default is '/'
+# Root path for kernel isolated VMs (e.g., '/').
 #exclude-system-base={{ backup_exclude_system_base_0 | default('/') }}
 
 # Example vserver path to exclude.
-# Default is '/vservers/my-linux-vserver'
 #exclude-system-base={{ backup_exclude_system_base_1 | default('/vservers/my-linux-vserver') }}
 
 # Example chroot path to exclude.
-# Default is '/chroots/my-chroot'
 #exclude-system-base={{ backup_exclude_system_base_2 | default('/chroots/my-chroot') }}
 
-# System dirs not to backup
+# -----------------------------------------------------------------------------
+# System Directories to Exclude
+# These specific system directories are always excluded from the backup
+# when the system exclusion feature is active. They are typically
+# virtual filesystems or temporary storage that should not be persisted.
+#
+# Note: These lines are commented out by default. Uncomment if you wish
+# to explicitly define these exclusions in the config file structure.
+# -----------------------------------------------------------------------------
 
-# System directory to exclude.
-# Default is '/sys'
+# Exclude the sysfs virtual filesystem.
 #exclude-system-dir={{ backup_exclude_system_dir_0 | default('/sys') }}
 
-# System directory to exclude.
-# Default is '/proc'
+# Exclude the procfs virtual filesystem.
 #exclude-system-dir={{ backup_exclude_system_dir_1 | default('/proc') }}
 
-# System directory to exclude.
-# Default is '/dev'
+# Exclude the devtmpfs/dev directory.
 #exclude-system-dir={{ backup_exclude_system_dir_2 | default('/dev') }}
 
-# System directory to exclude.
-# Default is '/tmp'
+# Exclude temporary files directory.
 #exclude-system-dir={{ backup_exclude_system_dir_3 | default('/tmp') }}

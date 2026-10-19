@@ -26,6 +26,8 @@ _ONLINE_WINDOW = timedelta(minutes=5)
 
 
 # OpenAI function-calling tool definitions handed to the model.
+from bossman.services.manpages import DESCRIPTION as _MAN_DESCRIPTION  # noqa: E402
+
 TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
@@ -257,6 +259,46 @@ TOOL_DEFS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "man_search",
+            "description": _MAN_DESCRIPTION,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string"},
+                    "query": {"type": "string", "description": "Search words, e.g. \"ssh daemon\"."},
+                    "full_text": {"type": "boolean", "description": "Also search inside the pages (finds option names)."},
+                    "page": {"type": "string", "description": "Page to read, e.g. \"sshd_config\"."},
+                    "section": {"type": "string", "description": "5 file formats, 8 admin commands, 1 user commands."},
+                    "heading": {"type": "string", "description": "Only this section of the page, e.g. OPTIONS."},
+                    "grep": {"type": "string", "description": "Only the paragraphs mentioning this word."},
+                    "max_chars": {"type": "integer", "description": "Cut the text here (default 8000)."},
+                },
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "diagnose_service",
+            "description": (
+                "Why does a service not start or not run? The host's own diagnosis (Windows service or systemd "
+                "unit): findings with certainty Proven/Likely/Unknown, each citing evidence ids, the change that "
+                "preceded the failure, a remedy as data. Repeat the certainty exactly, cite evidence ids, call a "
+                "precedent a correlation (not a cause), and propose a remedy instead of applying it."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string"},
+                    "name": {"type": "string", "description": "Service or unit name, e.g. \"nginx\" or \"Spooler\"."},
+                },
+                "required": ["host", "name"],
+            },
+        },
+    },
 ]
 
 TOOL_NAMES = {t["function"]["name"] for t in TOOL_DEFS}
@@ -305,6 +347,26 @@ async def execute_tool(
         return await _check_tool(session, name, args, settings, client_factory)
     if name in ("analyze_host", "read_host_log"):
         return await _analysis_tool(session, name, args, settings, client_factory)
+    if name == "man_search":
+        from bossman.services.manpages import man_lookup
+        if settings is None or client_factory is None:
+            return {"error": "host-reaching tools are not available in this chat context"}
+        agent = await _resolve_agent(session, args.get("host") or "")
+        if agent is None or not agent.address:
+            return {"error": f"no reachable host {args.get('host')!r}"}
+        return await man_lookup(client_factory(agent, settings), args)
+    if name == "diagnose_service":
+        from bossman.services import diagnosis as diag
+        if settings is None or client_factory is None:
+            return {"error": "host-reaching tools are not available in this chat context"}
+        agent = await _resolve_agent(session, args.get("host") or "")
+        if agent is None or not agent.address:
+            return {"error": f"no reachable host {args.get('host')!r}"}
+        try:
+            row = await diag.diagnose(session, agent, client_factory(agent, settings), str(args.get("name") or ""))
+        except diag.DiagnosisUnavailable as exc:
+            return {"error": str(exc)}
+        return diag.row_dict(row)
     if name == "list_hosts":
         agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
         return {

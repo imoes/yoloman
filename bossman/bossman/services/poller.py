@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
-from bossman.services import agent_release, knowledge_index, notification, registry_policy
+from bossman.services import agent_release, knowledge_index, notification, registry_policy, kubernetes
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.edge_identity import (
     EPHEMERAL_FLOOR,
@@ -908,6 +908,12 @@ async def poll_agent(
                     await _refresh_observed_cache(session, agent, client, now)
                 except Exception:
                     logger.exception("observed-state cache refresh failed for agent %s", agent.name)
+                # Kubernetes clusters whose ACCESS HOST this agent is: refresh their inventory cache on the
+                # same throttle, each in its own try so one unreachable API server costs nothing else.
+                try:
+                    await kubernetes.refresh_inventories_for_agent(session, agent, client, now)
+                except Exception:
+                    logger.exception("kubernetes inventory refresh failed for access host %s", agent.name)
                 # The RESULTANT SET OF POLICY — Windows' own declaration for this host. Own try/except and
                 # its own throttle: a gpresult that fails must not cost the observed-state cache, and vice
                 # versa.
@@ -952,14 +958,18 @@ async def poll_once(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
     client_factory: ClientFactory = _default_client_factory,
+    only: set | None = None,
 ) -> list[PollResult]:
-    """Runs one full poll cycle over every enrolled agent, bounded to
+    """Runs one full poll cycle over every enrolled agent (or the enrolled ones among `only`), bounded to
     settings.poll_concurrency in flight at a time. client_factory exists
     solely so tests can substitute a fake AgentClient instead of a real
     one — mirrors the Go proxy's own Manager.pullerFactory test seam
     (internal/fleet/manager.go)."""
     async with session_factory() as session:
-        agent_ids = (await session.scalars(select(Agent.id).where(Agent.enrollment_state == "enrolled"))).all()
+        q = select(Agent.id).where(Agent.enrollment_state == "enrolled")
+        if only is not None:
+            q = q.where(Agent.id.in_(list(only)))
+        agent_ids = (await session.scalars(q)).all()
 
     if not agent_ids:
         return []

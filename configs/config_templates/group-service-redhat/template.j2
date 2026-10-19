@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!--
+    Policy granting ownership of the primary D-Bus service to root.
+    This restricts the ability to claim the service name on the bus
+    to the root user only, ensuring high-privilege control.
+  -->
+  <policy user="root">
+    <!-- The D-Bus service name for the group admin interface -->
+    <allow own="{{ org_group_admin_service | default('org.group.admin') }}"/>
+  </policy>
+
+  <!--
+    Default policy allowing communication with the configured services
+    for properties and introspection, and full access to the list service.
+  -->
+  <policy context="default">
+    <!-- Allow sending messages to the primary admin service -->
+    <allow send_destination="{{ org_group_admin_service | default('org.group.admin') }}"/>
+
+    <!-- Allow reading properties of the primary admin service -->
+    <allow send_destination="{{ org_group_admin_service | default('org.group.admin') }}"
+           send_interface="org.freedesktop.DBus.Properties"/>
+
+    <!-- Allow introspecting the primary admin service -->
+    <allow send_destination="{{ org_group_admin_service | default('org.group.admin') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+
+    <!-- Allow reading properties of the group admin list service -->
+    <allow send_destination="{{ org_group_admin_list_service | default('org.group.admin.list') }}"
+           send_interface="org.freedesktop.DBus.Properties"/>
+
+    <!-- Allow introspecting the group admin list service -->
+    <allow send_destination="{{ org_group_admin_list_service | default('org.group.admin.list') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+  </policy>
+
+</busconfig>

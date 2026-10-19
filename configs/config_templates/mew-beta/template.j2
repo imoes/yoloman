@@ -1,11 +1,9 @@
-;;; 50mew-beta.el --- Debian mew-beta startup file -*-mode: emacs-lisp; -*-
-;;
-;; This file configures the MEW (Mule External Widget) Emacs package for the
-;; mew-beta distribution. It sets paths for icons, SSL/TLS settings, GPG
-;; programs, and other operational parameters.
-;;
-;; Variables are sourced from Ansible variables, which map directly to the
-;; schema fields defined for this package.
+;;; 50mew-beta.el --- Debian mew-beta startup file  -*-mode: emacs-lisp;-*-
+
+;;; Self-documenting template for mew-beta configuration.
+;;; Each configuration variable is documented with its schema description
+;;; and default value. Variables use Jinja2 defaults to ensure safe rendering
+;;; even if the variable is undefined in the Ansible inventory.
 
 (let* ((pkg "mew-beta")
        (pkg-sname "mew")
@@ -31,38 +29,33 @@
     (autoload 'mew "mew" nil t)
     (autoload 'mew-send "mew" nil t)
 
-    ;; Directory containing mew icons.
-    ;; Default: /usr/share/pixmaps/mew
+    ;; mew-icon-directory: Directory containing mew icons
     (setq mew-icon-directory "{{ mew_icon_directory | default('/usr/share/pixmaps/mew') }}")
 
-    ;; Program used for SSL tunneling.
-    ;; Default: mewstunnel
+    ;; mew-prog-ssl: Program used for SSL tunneling
     (setq mew-prog-ssl "{{ mew_prog_ssl | default('mewstunnel') }}")
 
-    ;; Directory containing SSL certificates.
-    ;; Default: /etc/ssl/certs
+    ;;(setq mew-prog-ssl-arg "ciphers=DEFAULT:@SECLEVEL=2\nsslVersionMin=TLSv1.2\n")
+    ;;(setq mew-prog-ssl-arg "ciphers=DEFAULT:@SECLEVEL=1\nsslVersionMin=TLSv1.2\nsslVersionMax=TLSv1.2\n")
+
+    ;; mew-ssl-cert-directory: Directory containing SSL certificates
     (setq mew-ssl-cert-directory "{{ mew_ssl_cert_directory | default('/etc/ssl/certs') }}")
 
-    ;; SSL certificate verification level.
-    ;; Default: 2
+    ;; mew-ssl-verify-level: SSL certificate verification level
     (setq mew-ssl-verify-level {{ mew_ssl_verify_level | default(2) }})
 
-    ;; Unix browser used by mew.
-    ;; Default: /usr/bin/sensible-browser
+    ;; mew-unix-browser: Unix browser used by mew
     (setq mew-unix-browser "{{ mew_unix_browser | default('/usr/bin/sensible-browser') }}")
 
     (setq mew-unix-browser-arg nil)
 
-    ;; Whether to delete temporary files.
-    ;; Default: false
-    (setq mew-delete-temp-file {{ mew_delete_temp_file | default(false) | lower }})
+    ;; mew-delete-temp-file: Whether to delete temporary files
+    (setq mew-delete-temp-file {{ mew_delete_temp_file | default('nil') }})
 
-    ;; Program used for GPG operations (version 1).
-    ;; Default: gpg1
+    ;; mew-prog-gpg: Program used for GPG operations (version 1)
     (setq mew-prog-gpg "{{ mew_prog_gpg | default('gpg1') }}")
 
-    ;; Program used for GPG operations (version 2).
-    ;; Default: gpg
+    ;; mew-prog-gpg2: Program used for GPG operations (version 2)
     (setq mew-prog-gpg2 "{{ mew_prog_gpg2 | default('gpg') }}")
 
     (setq mew-prog-pgp mew-prog-gpg2)
@@ -72,7 +65,7 @@
 	(setq mew-image-alist ;; Netpbm 10.0
 	      '((jpeg mew-jpeg-size "jpegtopnm" "pnmtojpeg")
 		(png  mew-png-size  "pngtopnm"  "pnmtopng")
-		(gif  mew-gif-size  "giftopnm"  "ppmtogif")
+		(gif  mew-png-size  "giftopnm"  "ppmtogif")
 		(tiff mew-tiff-size "tifftopnm" "pnmtotiff")
 		(xwd  nil           "xwdtopnm"  "pnmtoxwd")
 		(xbm  nil           "xbmtopbm"  "pbmtoxbm")
@@ -82,10 +75,10 @@
 		(TGA  nil           "tgatoppm"  "ppmtotga")
 		(ICO  nil           "winicontoppm" "ppmtowinicon")
 		(pbm  mew-pbm-size  nil         nil)
-		(PAM  mew-pbm-size  nil         nil)))))
+		(PAM  mew-pbm-size  nil         nil))))
     ;;(setq mew-ssl-default 'native) ;; GnuTLS
     ;;(setq mew-ssl-default 'tunnel) ;; stunnel
     ;;
-    )
+    ))
 
 ;;; 50mew-beta.el ends here

@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** FreeIPA section: show the host's IPA enrollment status, install the
  * freeipa-client package, and enroll the host (ipa-client-install). Enrolling
@@ -12,7 +13,7 @@ import { AgentService } from '../../../core/services/agent.service';
 @Component({
   selector: 'app-host-freeipa',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-mgmt-section">
       <div class="bm-topbar">
@@ -54,7 +55,7 @@ import { AgentService } from '../../../core/services/agent.service';
           <div class="bm-frow"><label>Principal</label><input type="text" placeholder="admin" [value]="principal()" (input)="principal.set($any($event.target).value)" /></div>
           <div class="bm-frow"><label>Password</label><input type="password" placeholder="enrollment / principal password" [value]="password()" (input)="password.set($any($event.target).value)" /></div>
           <div class="bm-frow"><label><input type="checkbox" [checked]="mkhomedir()" (change)="mkhomedir.set($any($event.target).checked)" /> Create home dirs on login (mkhomedir)</label></div>
-          <div><button mat-raised-button color="primary" (click)="enroll()" [disabled]="busy() || !domain().trim() || !principal().trim() || !password()"><mat-icon>verified_user</mat-icon> Enroll</button></div>
+          <div><button mat-raised-button color="primary" (click)="enroll()" [disabled]="busy()" [bmBlocked]="!domain().trim() || !principal().trim() || !password() ? 'Enter domain, principal and password' : ''"><mat-icon>verified_user</mat-icon> Enroll</button></div>
           <p class="bm-hint">Enrolling configures SSSD so IPA accounts can log in (incl. the web console). Password is used once, not stored.</p>
         </div>
       </section>

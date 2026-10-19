@@ -13,13 +13,17 @@
 # Each entry in the list becomes a separate line in this configuration file.
 # Default: [] (empty list, no hosts monitored)
 {% for hostname in hostnames | default([]) %}
-# hostnames {{ hostname }}
-{% endfor %}
+{% if hostname is defined and hostname is not none and (hostname is number or hostname is boolean or hostname | length > 0) %}hostnames {{ hostname }}
+{% else %}# hostnames <host1> <host2> <host3> ...
+{% endif %}{% endfor %}
 
 # UDP port number for IPMI messages (typically 623).
 # Default: 623
-# port {{ port | default(623) }}
-
+{% if port is defined and port is not none and (port is number or port is boolean or port | length > 0) %}port {{ port | default(623) }}
+{% else %}# port <num>
+{% endif %}
 # Timeout in seconds for each detection attempt.
 # Default: 2
-# timeout_len {{ timeout_len | default(2) }}
+{% if timeout_len is defined and timeout_len is not none and (timeout_len is number or timeout_len is boolean or timeout_len | length > 0) %}timeout_len {{ timeout_len | default(2) }}
+{% else %}# timeout_len <seconds>
+{% endif %}

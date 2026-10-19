@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Google Noto Serif Armenian.
+  This file configures font matching and aliasing for Armenian language text.
+  It is self-documenting: every variable has a default derived from the schema,
+  and every directive is commented.
+-->
+<fontconfig>
+  <!--
+    Match rule: Applies to fonts where the language attribute contains the specified code
+    AND the family is the specified generic family.
+  -->
+  <match>
+    <!--
+      Test: Check if the font's language tag contains the target language code.
+      Schema: lang_code (default='hy') - The ISO 639 language code to match for applying the font substitution.
+    -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('hy') }}</string>
+    </test>
+
+    <!--
+      Test: Check if the font's family is the specified generic family.
+      Schema: generic_family (default='serif') - The generic font family name to match (e.g., serif, sans-serif).
+    -->
+    <test name="family">
+      <string>{{ generic_family | default('serif') }}</string>
+    </test>
+
+    <!--
+      Edit: Prepend the specific Noto Serif Armenian font family as the primary choice for matched fonts.
+      Schema: font_family_name (default='Noto Serif Armenian') - The specific font family name to prepend as the primary choice.
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family_name | default('Noto Serif Armenian') }}</string>
+    </edit>
+
+    <!--
+      Edit: Enable hinting for the matched font family to improve rendering quality on screens.
+      Schema: hinting_enabled (default='false') - Whether to enable font hinting for the matched font family.
+      Note: Fontconfig expects 'true' or 'false' as string booleans in XML.
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ hinting_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias rule: Defines the preferred font family for the generic family.
+    When an application requests 'serif', it will receive 'Noto Serif Armenian' if available,
+    otherwise falling back to the system serif font.
+  -->
+  <alias>
+    <!--
+      The specific font family name to offer as the first choice.
+    -->
+    <family>{{ font_family_name | default('Noto Serif Armenian') }}</family>
+    <default>
+      <!--
+        The generic family name as the fallback if the specific font is not installed.
+      -->
+      <family>{{ generic_family | default('serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

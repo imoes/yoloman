@@ -1,0 +1,41 @@
+#!/usr/bin/bash
+
+# =============================================================================
+# QT6 XCB OpenGL Software Rendering Fallback Configuration
+#
+# This script is injected into the environment to force Qt6/X11 applications
+# to use software OpenGL rendering when the system's detected OpenGL major
+# version matches a specific threshold. This is primarily used as a workaround
+# for buggy or incompatible Mesa drivers on specific Red Hat-based distributions.
+#
+# Usage:
+#   source this script or ensure its variables are exported in the shell profile.
+# =============================================================================
+
+# If the environment variable QT_XCB_FORCE_SOFTWARE_OPENGL is already set,
+# we assume the user has made an explicit choice and skip detection.
+if [ -z "${QT_XCB_FORCE_SOFTWARE_OPENGL:-}" ]; then
+
+    # Detect the current OpenGL version string provided by glxinfo.
+    # We look for "OpenGL version string: MAJOR.MINOR..." and extract the MAJOR part.
+    # If glxinfo fails or is not present, the variable remains empty.
+    QT6_CHECK_OPENGL_VERSION=$(
+        LANG=C glxinfo 2>/dev/null \
+        | grep '^OpenGL version string: ' \
+        | head -n 1 \
+        | sed -e 's/^OpenGL version string: \([0-9]\).*$/\1/g'
+    )
+
+    # Check if the detected major version matches the configured threshold.
+    # The threshold is defined by the Ansible variable qt_xcb_force_software_opengl_check_version_threshold.
+    # Default threshold is '1'.
+    if [ "${QT6_CHECK_OPENGL_VERSION}" = "{{ qt_xcb_force_software_opengl_check_version_threshold | default('1') }}" ]; then
+        # Force software rendering for this session.
+        QT_XCB_FORCE_SOFTWARE_OPENGL=1
+        export QT_XCB_FORCE_SOFTWARE_OPENGL
+    fi
+
+    # Clean up the temporary detection variable.
+    unset QT6_CHECK_OPENGL_VERSION
+
+fi

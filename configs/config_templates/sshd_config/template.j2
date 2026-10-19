@@ -1,99 +1,171 @@
-# Listen on specified address and port
-Port {{ port }}
 
-# Bind to specified address (empty or '0.0.0.0' for all interfaces)
-ListenAddress {{ listen_address }}
+# This is the sshd server system-wide configuration file.  See
+# sshd_config(5) for more information.
 
-# Protocol version (typically 2 for modern SSH)
-Protocol {{ protocol_version }}
+# This sshd was compiled with PATH=/usr/local/bin:/usr/bin:/bin:/usr/games
 
-# Enable/disable password authentication
-PasswordAuthentication {{ password_auth_enabled | lower }}
+# The strategy used for options in the default sshd_config shipped with
+# OpenSSH is to specify options with their default value where
+# possible, but leave them commented.  Uncommented options override the
+# default value.
 
-# Enable/disable public key authentication
-PubkeyAuthentication {{ pubkey_auth_enabled | lower }}
+Include /etc/ssh/sshd_config.d/*.conf
 
-#AuthorizedKeysFile .ssh/authorized_keys
-AuthorizedKeysFile {{ authorized_keys_file }}
+{% if port is defined and port is not none and (port is number or port is boolean or port | length > 0) %}Port {{ port }}
+{% else %}#Port 22
+{% endif %}{% if address_family is defined and address_family is not none and (address_family is number or address_family is boolean or address_family | length > 0) %}AddressFamily {{ address_family }}
+{% else %}#AddressFamily any
+{% endif %}#ListenAddress 0.0.0.0
+#ListenAddress ::
 
-# Authentication timeout in seconds
-LoginGraceTime {{ login_grace_time }}
+#HostKey /etc/ssh/ssh_host_rsa_key
+#HostKey /etc/ssh/ssh_host_ecdsa_key
+#HostKey /etc/ssh/ssh_host_ed25519_key
 
-# Permit root login (yes/no/without-password/forceroot)
-PermitRootLogin {{ permit_root_login }}
+# Ciphers and keying
+{% if rekey_limit is defined and rekey_limit is not none and (rekey_limit is number or rekey_limit is boolean or rekey_limit | length > 0) %}RekeyLimit {{ rekey_limit }}
+{% else %}#RekeyLimit default none
+{% endif %}
+# Logging
+{% if syslog_facility is defined and syslog_facility is not none and (syslog_facility is number or syslog_facility is boolean or syslog_facility | length > 0) %}SyslogFacility {{ syslog_facility }}
+{% else %}#SyslogFacility AUTH
+{% endif %}{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}LogLevel {{ log_level }}
+{% else %}#LogLevel INFO
+{% endif %}
+# Authentication:
 
-# Maximum authentication attempts before disconnect
-MaxAuthTries {{ max_auth_tries }}
+{% if login_grace_time is defined and login_grace_time is not none and (login_grace_time is number or login_grace_time is boolean or login_grace_time | length > 0) %}LoginGraceTime {{ login_grace_time }}
+{% else %}#LoginGraceTime 2m
+{% endif %}{% if permit_root_login is defined and permit_root_login is not none and (permit_root_login is number or permit_root_login is boolean or permit_root_login | length > 0) %}PermitRootLogin {{ permit_root_login }}
+{% else %}#PermitRootLogin prohibit-password
+{% endif %}{% if strict_modes is defined and strict_modes is not none and (strict_modes is number or strict_modes is boolean or strict_modes | length > 0) %}StrictModes {{ strict_modes }}
+{% else %}#StrictModes yes
+{% endif %}{% if max_auth_tries is defined and max_auth_tries is not none and (max_auth_tries is number or max_auth_tries is boolean or max_auth_tries | length > 0) %}MaxAuthTries {{ max_auth_tries }}
+{% else %}#MaxAuthTries 6
+{% endif %}{% if max_sessions is defined and max_sessions is not none and (max_sessions is number or max_sessions is boolean or max_sessions | length > 0) %}MaxSessions {{ max_sessions }}
+{% else %}#MaxSessions 10
+{% endif %}
+{% if pubkey_authentication is defined and pubkey_authentication is not none and (pubkey_authentication is number or pubkey_authentication is boolean or pubkey_authentication | length > 0) %}PubkeyAuthentication {{ pubkey_authentication }}
+{% else %}#PubkeyAuthentication yes
+{% endif %}
+# Expect .ssh/authorized_keys2 to be disregarded by default in future.
+{% if authorized_keys_file is defined and authorized_keys_file is not none and (authorized_keys_file is number or authorized_keys_file is boolean or authorized_keys_file | length > 0) %}AuthorizedKeysFile {{ authorized_keys_file }}
+{% else %}#AuthorizedKeysFile	.ssh/authorized_keys .ssh/authorized_keys2
+{% endif %}
+{% if authorized_principals_file is defined and authorized_principals_file is not none and (authorized_principals_file is number or authorized_principals_file is boolean or authorized_principals_file | length > 0) %}AuthorizedPrincipalsFile {{ authorized_principals_file }}
+{% else %}#AuthorizedPrincipalsFile none
+{% endif %}
+{% if authorized_keys_command is defined and authorized_keys_command is not none and (authorized_keys_command is number or authorized_keys_command is boolean or authorized_keys_command | length > 0) %}AuthorizedKeysCommand {{ authorized_keys_command }}
+{% else %}#AuthorizedKeysCommand none
+{% endif %}{% if authorized_keys_command_user is defined and authorized_keys_command_user is not none and (authorized_keys_command_user is number or authorized_keys_command_user is boolean or authorized_keys_command_user | length > 0) %}AuthorizedKeysCommandUser {{ authorized_keys_command_user }}
+{% else %}#AuthorizedKeysCommandUser nobody
+{% endif %}
+# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts
+{% if hostbased_authentication is defined and hostbased_authentication is not none and (hostbased_authentication is number or hostbased_authentication is boolean or hostbased_authentication | length > 0) %}HostbasedAuthentication {{ hostbased_authentication }}
+{% else %}#HostbasedAuthentication no
+{% endif %}# Change to yes if you don't trust ~/.ssh/known_hosts for
+# HostbasedAuthentication
+{% if ignore_user_known_hosts is defined and ignore_user_known_hosts is not none and (ignore_user_known_hosts is number or ignore_user_known_hosts is boolean or ignore_user_known_hosts | length > 0) %}IgnoreUserKnownHosts {{ ignore_user_known_hosts }}
+{% else %}#IgnoreUserKnownHosts no
+{% endif %}# Don't read the user's ~/.rhosts and ~/.shosts files
+{% if ignore_rhosts is defined and ignore_rhosts is not none and (ignore_rhosts is number or ignore_rhosts is boolean or ignore_rhosts | length > 0) %}IgnoreRhosts {{ ignore_rhosts }}
+{% else %}#IgnoreRhosts yes
+{% endif %}
+# To disable tunneled clear text passwords, change to "no" here!
+{% if password_authentication is defined and password_authentication is not none and (password_authentication is number or password_authentication is boolean or password_authentication | length > 0) %}PasswordAuthentication {{ password_authentication }}
+{% else %}#PasswordAuthentication yes
+{% endif %}{% if permit_empty_passwords is defined and permit_empty_passwords is not none and (permit_empty_passwords is number or permit_empty_passwords is boolean or permit_empty_passwords | length > 0) %}PermitEmptyPasswords {{ permit_empty_passwords }}
+{% else %}#PermitEmptyPasswords no
+{% endif %}
+# Change to "yes" to enable keyboard-interactive authentication.  Depending on
+# the system's configuration, this may involve passwords, challenge-response,
+# one-time passwords or some combination of these and other methods.
+# Beware issues with some PAM modules and threads.
+KbdInteractiveAuthentication {{ kbd_interactive_authentication | default('no') }}
 
-# Maximum sessions per connection
-MaxSessions {{ max_sessions }}
+# Kerberos options
+{% if kerberos_authentication is defined and kerberos_authentication is not none and (kerberos_authentication is number or kerberos_authentication is boolean or kerberos_authentication | length > 0) %}KerberosAuthentication {{ kerberos_authentication }}
+{% else %}#KerberosAuthentication no
+{% endif %}{% if kerberos_or_local_passwd is defined and kerberos_or_local_passwd is not none and (kerberos_or_local_passwd is number or kerberos_or_local_passwd is boolean or kerberos_or_local_passwd | length > 0) %}KerberosOrLocalPasswd {{ kerberos_or_local_passwd }}
+{% else %}#KerberosOrLocalPasswd yes
+{% endif %}{% if kerberos_ticket_cleanup is defined and kerberos_ticket_cleanup is not none and (kerberos_ticket_cleanup is number or kerberos_ticket_cleanup is boolean or kerberos_ticket_cleanup | length > 0) %}KerberosTicketCleanup {{ kerberos_ticket_cleanup }}
+{% else %}#KerberosTicketCleanup yes
+{% endif %}{% if kerberos_get_afs_token is defined and kerberos_get_afs_token is not none and (kerberos_get_afs_token is number or kerberos_get_afs_token is boolean or kerberos_get_afs_token | length > 0) %}KerberosGetAFSToken {{ kerberos_get_afs_token }}
+{% else %}#KerberosGetAFSToken no
+{% endif %}
+# GSSAPI options
+{% if gssapi_authentication is defined and gssapi_authentication is not none and (gssapi_authentication is number or gssapi_authentication is boolean or gssapi_authentication | length > 0) %}GSSAPIAuthentication {{ gssapi_authentication }}
+{% else %}#GSSAPIAuthentication no
+{% endif %}{% if gssapi_cleanup_credentials is defined and gssapi_cleanup_credentials is not none and (gssapi_cleanup_credentials is number or gssapi_cleanup_credentials is boolean or gssapi_cleanup_credentials | length > 0) %}GSSAPICleanupCredentials {{ gssapi_cleanup_credentials }}
+{% else %}#GSSAPICleanupCredentials yes
+{% endif %}{% if gssapi_strict_acceptor_check is defined and gssapi_strict_acceptor_check is not none and (gssapi_strict_acceptor_check is number or gssapi_strict_acceptor_check is boolean or gssapi_strict_acceptor_check | length > 0) %}GSSAPIStrictAcceptorCheck {{ gssapi_strict_acceptor_check }}
+{% else %}#GSSAPIStrictAcceptorCheck yes
+{% endif %}{% if gssapi_key_exchange is defined and gssapi_key_exchange is not none and (gssapi_key_exchange is number or gssapi_key_exchange is boolean or gssapi_key_exchange | length > 0) %}GSSAPIKeyExchange {{ gssapi_key_exchange }}
+{% else %}#GSSAPIKeyExchange no
+{% endif %}
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
+# be allowed through the KbdInteractiveAuthentication and
+# PasswordAuthentication.  Depending on your PAM configuration,
+# PAM authentication via KbdInteractiveAuthentication may bypass
+# the setting of "PermitRootLogin prohibit-password".
+# If you just want the PAM account and session checks to run without
+# PAM authentication, then enable this but set PasswordAuthentication
+# and KbdInteractiveAuthentication to 'no'.
+UsePAM {{ use_pam | default('yes') }}
 
-# Allow/deny specific users (space-separated list)
-AllowUsers {{ allow_users | join(' ') }}
+{% if allow_agent_forwarding is defined and allow_agent_forwarding is not none and (allow_agent_forwarding is number or allow_agent_forwarding is boolean or allow_agent_forwarding | length > 0) %}AllowAgentForwarding {{ allow_agent_forwarding }}
+{% else %}#AllowAgentForwarding yes
+{% endif %}{% if allow_tcp_forwarding is defined and allow_tcp_forwarding is not none and (allow_tcp_forwarding is number or allow_tcp_forwarding is boolean or allow_tcp_forwarding | length > 0) %}AllowTcpForwarding {{ allow_tcp_forwarding }}
+{% else %}#AllowTcpForwarding yes
+{% endif %}{% if gateway_ports is defined and gateway_ports is not none and (gateway_ports is number or gateway_ports is boolean or gateway_ports | length > 0) %}GatewayPorts {{ gateway_ports }}
+{% else %}#GatewayPorts no
+{% endif %}X11Forwarding {{ x11_forwarding | default('yes') }}
+{% if x11_display_offset is defined and x11_display_offset is not none and (x11_display_offset is number or x11_display_offset is boolean or x11_display_offset | length > 0) %}X11DisplayOffset {{ x11_display_offset }}
+{% else %}#X11DisplayOffset 10
+{% endif %}{% if x11_use_localhost is defined and x11_use_localhost is not none and (x11_use_localhost is number or x11_use_localhost is boolean or x11_use_localhost | length > 0) %}X11UseLocalhost {{ x11_use_localhost }}
+{% else %}#X11UseLocalhost yes
+{% endif %}{% if permit_tty is defined and permit_tty is not none and (permit_tty is number or permit_tty is boolean or permit_tty | length > 0) %}PermitTTY {{ permit_tty }}
+{% else %}#PermitTTY yes
+{% endif %}PrintMotd {{ print_motd | default('no') }}
+{% if print_last_log is defined and print_last_log is not none and (print_last_log is number or print_last_log is boolean or print_last_log | length > 0) %}PrintLastLog {{ print_last_log }}
+{% else %}#PrintLastLog yes
+{% endif %}{% if tcp_keep_alive is defined and tcp_keep_alive is not none and (tcp_keep_alive is number or tcp_keep_alive is boolean or tcp_keep_alive | length > 0) %}TCPKeepAlive {{ tcp_keep_alive }}
+{% else %}#TCPKeepAlive yes
+{% endif %}{% if permit_user_environment is defined and permit_user_environment is not none and (permit_user_environment is number or permit_user_environment is boolean or permit_user_environment | length > 0) %}PermitUserEnvironment {{ permit_user_environment }}
+{% else %}#PermitUserEnvironment no
+{% endif %}{% if compression is defined and compression is not none and (compression is number or compression is boolean or compression | length > 0) %}Compression {{ compression }}
+{% else %}#Compression delayed
+{% endif %}{% if client_alive_interval is defined and client_alive_interval is not none and (client_alive_interval is number or client_alive_interval is boolean or client_alive_interval | length > 0) %}ClientAliveInterval {{ client_alive_interval }}
+{% else %}#ClientAliveInterval 0
+{% endif %}{% if client_alive_count_max is defined and client_alive_count_max is not none and (client_alive_count_max is number or client_alive_count_max is boolean or client_alive_count_max | length > 0) %}ClientAliveCountMax {{ client_alive_count_max }}
+{% else %}#ClientAliveCountMax 3
+{% endif %}{% if use_dns is defined and use_dns is not none and (use_dns is number or use_dns is boolean or use_dns | length > 0) %}UseDNS {{ use_dns }}
+{% else %}#UseDNS no
+{% endif %}{% if pid_file is defined and pid_file is not none and (pid_file is number or pid_file is boolean or pid_file | length > 0) %}PidFile {{ pid_file }}
+{% else %}#PidFile /run/sshd.pid
+{% endif %}{% if max_startups is defined and max_startups is not none and (max_startups is number or max_startups is boolean or max_startups | length > 0) %}MaxStartups {{ max_startups }}
+{% else %}#MaxStartups 10:30:100
+{% endif %}{% if permit_tunnel is defined and permit_tunnel is not none and (permit_tunnel is number or permit_tunnel is boolean or permit_tunnel | length > 0) %}PermitTunnel {{ permit_tunnel }}
+{% else %}#PermitTunnel no
+{% endif %}{% if chroot_directory is defined and chroot_directory is not none and (chroot_directory is number or chroot_directory is boolean or chroot_directory | length > 0) %}ChrootDirectory {{ chroot_directory }}
+{% else %}#ChrootDirectory none
+{% endif %}{% if version_addendum is defined and version_addendum is not none and (version_addendum is number or version_addendum is boolean or version_addendum | length > 0) %}VersionAddendum {{ version_addendum }}
+{% else %}#VersionAddendum none
+{% endif %}
+# no default banner path
+{% if banner is defined and banner is not none and (banner is number or banner is boolean or banner | length > 0) %}Banner {{ banner }}
+{% else %}#Banner none
+{% endif %}
+# Allow client to pass locale and color environment variables
+AcceptEnv {{ accept_env | default('LANG LC_* COLORTERM NO_COLOR') }}
 
-# Allow/deny specific groups (space-separated list)
-AllowGroups {{ allow_groups | join(' ') }}
+# override default of no subsystems
+Subsystem	{{ subsystem | default('sftp	/usr/lib/openssh/sftp-server') }}
 
-# Disable legacy insecure algorithms
-HostKeyAlgorithms {{ host_key_algorithms | join(',') }}
-
-# Key exchange algorithms
-KexAlgorithms {{ kex_algorithms | join(',') }}
-
-# Ciphers (cipher,cipher,...)
-Ciphers {{ ciphers | join(',') }}
-
-# MACs (message authentication code algorithms)
-MACs {{ macs | join(',') }}
-
-# Logging verbosity (0=quiet, 3=verbose)
-LogLevel {{ log_level }}
-
-# Logging facility
-SyslogFacility {{ syslog_facility }}
-
-# Enable/disable X11 forwarding
-X11Forwarding {{ x11_forwarding_enabled | lower }}
-
-# X11 display offset
-X11DisplayOffset {{ x11_display_offset }}
-
-# Enable/disable TCP forwarding
-AllowTcpForwarding {{ tcp_forwarding_enabled | lower }}
-
-# Enable/disable agent forwarding
-AllowAgentForwarding {{ agent_forwarding_enabled | lower }}
-
-# Subsystem definition for SFTP
-# Use internal-sftp for chrooted SFTP
-{% for sftp_subsystem in sftp_subsystems %}
-Subsystem {{ sftp_subsystem.name }} {{ sftp_subsystem.executable }}
-{% endfor %}
-
-# Per-subsystem or per-user settings via Match blocks
-{% for match in match_blocks %}
-# Match block: {{ match.reason }}
-Match {{ match.criteria }}
-{% for directive in match.directives %}
-  {{ directive.key }} {{ directive.value }}
-{% endfor %}
-{% endfor %}
-
-# Keep-alive settings
-ClientAliveInterval {{ client_alive_interval }}
-ClientAliveCountMax {{ client_alive_count_max }}
-
-# TCP keep-alive
-TCPKeepAlive {{ tcp_keep_alive | lower }}
-
-# Banner to display before authentication
-Banner {{ banner }}
-
-# Disable insecure legacy features
-StrictModes {{ strict_modes | lower }}
-
-# Ignore rhosts
-IgnoreRhosts {{ ignore_rhosts | lower }}
-
-# Use PAM for authentication
-UsePAM {{ use_pam | lower }}
+# Example of overriding settings on a per-user basis
+#Match User anoncvs
+#	X11Forwarding no
+#	AllowTcpForwarding no
+#	PermitTTY no
+#	ForceCommand cvs server

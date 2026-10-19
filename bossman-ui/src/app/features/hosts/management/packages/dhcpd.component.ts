@@ -109,8 +109,8 @@ const LEASES_PATH = '/var/lib/dhcp/dhcpd.leases';
     .bm-card > header, .bm-cardhead { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); display: flex; align-items: center; justify-content: space-between; }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }
-    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: 5px 8px; }
-    .bm-t td { padding: 3px 8px; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; }
+    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
     .bm-t input { width: 100%; box-sizing: border-box; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
     .bm-x { border: 0; background: transparent; cursor: pointer; opacity: 0.6; }
     .bm-dim { opacity: 0.6; font-size: 13px; padding: 6px 8px; } .bm-ok { color: var(--bm-green,#2e7d32); font-size: 13px; } .bm-err { color: var(--mat-sys-error,#c62828); font-size: 13px; }

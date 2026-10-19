@@ -1,0 +1,40 @@
+# ============================================================================
+# Mailman 3 - HyperKitty Archiver Extension Configuration
+# ============================================================================
+# This file configures the HyperKitty archiver extension for Mailman 3.
+# It tells Mailman where to send emails for archiving and how to authenticate.
+#
+# Usage:
+#   Add the following to your mailman.cfg (typically under [archiver.hyperkitty]):
+#
+#   [archiver.hyperkitty]
+#   class: mailman_hyperkitty.Aarchiver
+#   enable: yes
+#   configuration: {{ item_path | default('/etc/mailman-hyperkitty.cfg') }}
+#
+# Source variables:
+#   base_url: The base URL of the HyperKitty installation.
+#   api_key:  The shared API key for authentication between Mailman and HyperKitty.
+# ============================================================================
+
+[general]
+
+# The base URL of the HyperKitty installation, used by Mailman to forward
+# emails for archiving.
+# This address will be used by Mailman to forward incoming emails to HyperKitty
+# for archiving. It does not need to be publicly available; in fact, it is
+# better if it is not accessible from outside the local network.
+# However, if your Mailman installation is accessed via HTTPS, the URL must
+# match your SSL certificate (e.g., https://lists.example.com/hyperkitty).
+#
+# Variable: base_url
+# Default: 'http://localhost/hyperkitty/'
+base_url: {{ base_url | default('http://localhost/hyperkitty/') }}
+
+# The shared API key for authentication between Mailman and HyperKitty.
+# This key MUST match the value of MAILMAN_ARCHIVER_KEY in HyperKitty's
+# settings.py (or equivalent configuration).
+#
+# Variable: api_key
+# Default: 'SecretArchiverAPIKey'
+api_key: {{ api_key | default('SecretArchiverAPIKey') }}

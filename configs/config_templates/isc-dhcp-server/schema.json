@@ -1,80 +1,72 @@
 {
-  "DHCPD_DEFAULT": {
+  "domain_name": {
     "type": "string",
-    "default": "/etc/default/isc-dhcp-server",
-    "description": "Path to the init script defaults file (source'd before start/stop)."
+    "default": "example.org",
+    "description": "option domain-name handed to clients."
   },
-  "DHCPDv4_CONF": {
+  "domain_name_servers": {
     "type": "string",
-    "default": "/etc/dhcp/dhcpd.conf",
-    "description": "Path to IPv4 DHCP server configuration file."
+    "default": "ns1.example.org, ns2.example.org",
+    "description": "option domain-name-servers handed to clients (comma-separated)."
   },
-  "DHCPDv6_CONF": {
-    "type": "string",
-    "default": "/etc/dhcp/dhcpd6.conf",
-    "description": "Path to IPv6 DHCP server configuration file."
-  },
-  "DHCPDv4_PID": {
-    "type": "string",
-    "default": "/var/run/dhcpd.pid",
-    "description": "PID file path for the IPv4 DHCP daemon."
-  },
-  "DHCPDv6_PID": {
-    "type": "string",
-    "default": "/var/run/dhcpd6.pid",
-    "description": "PID file path for the IPv6 DHCP daemon."
-  },
-  "DOMAIN_NAME_SERVERS": {
-    "type": "list",
-    "default": [
-      "8.8.8.8",
-      "8.8.4.4"
-    ],
-    "description": "List of DNS servers to offer to DHCP clients."
-  },
-  "DOMAIN_NAME": {
-    "type": "string",
-    "default": "example.com",
-    "description": "Domain name to offer to DHCP clients."
-  },
-  "ROUTERS": {
-    "type": "string",
-    "default": "192.168.1.1",
-    "description": "Default router (gateway) to offer to DHCP clients."
-  },
-  "SUBNET_MASK": {
-    "type": "string",
-    "default": "255.255.255.0",
-    "description": "Subnet mask to offer to DHCP clients."
-  },
-  "RANGE_START": {
-    "type": "string",
-    "default": "192.168.1.100",
-    "description": "Start of the IP address range for dynamic allocation."
-  },
-  "RANGE_END": {
-    "type": "string",
-    "default": "192.168.1.200",
-    "description": "End of the IP address range for dynamic allocation."
-  },
-  "DDNS_UPDATE_STYLE": {
-    "type": "string",
-    "default": "ad-hoc",
-    "description": "Style of DNS update (ad-hoc, interim, or none).",
-    "enum": [
-      "ad-hoc",
-      "interim",
-      "none"
-    ]
-  },
-  "DEFAULT_LEASE_TIME": {
+  "default_lease_time": {
     "type": "number",
     "default": 600,
-    "description": "Default lease time in seconds."
+    "description": "Lease length in seconds when the client asks for none."
   },
-  "MAX_LEASE_TIME": {
+  "max_lease_time": {
     "type": "number",
     "default": 7200,
-    "description": "Maximum lease time in seconds."
+    "description": "Longest lease in seconds a client may get."
+  },
+  "ddns_update_style": {
+    "type": "string",
+    "default": "none",
+    "enum": [
+      "none",
+      "interim",
+      "standard"
+    ],
+    "description": "Dynamic DNS updates on lease (dhcpd.conf(5)): none, interim or standard."
+  },
+  "authoritative": {
+    "type": "bool",
+    "default": null,
+    "description": "This server is the official DHCP server for its networks (answers DHCPNAK to foreign leases). Unset keeps the shipped line."
+  },
+  "subnets": {
+    "type": "list",
+    "required": true,
+    "default": null,
+    "items": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "string",
+          "description": "Network address, e.g. 192.0.2.0"
+        },
+        "netmask": {
+          "type": "string",
+          "description": "Netmask, e.g. 255.255.255.0"
+        },
+        "range_start": {
+          "type": "string",
+          "description": "First address handed out (omit for a declared-only subnet)"
+        },
+        "range_end": {
+          "type": "string",
+          "description": "Last address handed out"
+        },
+        "routers": {
+          "type": "string",
+          "description": "option routers (comma-separated)"
+        },
+        "dns_servers": {
+          "type": "string",
+          "description": "option domain-name-servers for this subnet (comma-separated)"
+        }
+      }
+    },
+    "description": "The subnets dhcpd serves: network, netmask, and optionally a range, routers and DNS servers. At least one must contain an address of one of the host's interfaces \u2014 dhcpd refuses to start otherwise (\"No subnet declaration for <interface>\"). A site value: the role asks for it before deploying."
   }
 }

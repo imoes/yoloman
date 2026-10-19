@@ -1,130 +1,131 @@
-# ==============================================================================
-# ZeroC Glacier2 Router Configuration
-# ==============================================================================
-# This template generates the configuration file for the ZeroC Glacier2 Router.
-# Glacier2 is a firewall router for the Ice middleware, managing connections
-# between clients and servers.
 #
-# All variables are sourced from the Ansible role's defaults/vars.
-# Each variable uses a safe inline default matching its schema definition.
-# ==============================================================================
+# ============================================================================
+# Glacier2 Router Configuration Template
+# ============================================================================
+# This template configures the ZeroC Glacier2 router, which acts as a
+# firewall and session manager for Ice applications.
+# ============================================================================
 
 #
-# Instance Name
-# The unique identifier for this Glacier2 router instance.
-# Schema: instance_name (str) = 'DemoGlacier2Router'
+# Glacier2.InstanceName
+# The instance name for the Glacier2 router daemon. This name is used to
+# distinguish this router instance from others running on the same host.
+# It must match the name used by clients connecting to this router.
 #
 Glacier2.InstanceName={{ instance_name | default('DemoGlacier2Router') }}
 
 #
-# Client Endpoints
-# The client-visible endpoint configuration (insecure TCP).
-# Should be secure for production; consider using client_endpoints_ssl instead.
-# Default port 4063 is IANA-registered for Glacier2.
-# Schema: client_endpoints (str) = 'tcp -p 4063 -h localhost'
+# Glacier2.Client.Endpoints
+# The client-visible endpoint configuration. This is the address and port
+# that clients use to connect to the router.
+#
+# Default uses insecure TCP on port 4063. For production, SSL should be enabled
+# via the SSL endpoints configuration below.
 #
 Glacier2.Client.Endpoints={{ client_endpoints | default('tcp -p 4063 -h localhost') }}
 
 #
-# Client Endpoints SSL
-# The client-visible endpoint configuration (secure SSL).
-# Commented out by default; uncomment and configure for production use.
-# Default port 4064 is IANA-registered for Glacier2 SSL.
-# Schema: client_endpoints_ssl (str) = 'ssl -p 4064 -h localhost'
+# Glacier2.Client.Endpoints (SSL)
+# The client-visible endpoint configuration using SSL. This is commented out
+# by default. Uncomment and configure to enable secure client connections.
 #
-#Glacier2.Client.Endpoints={{ client_endpoints_ssl | default('ssl -p 4064 -h localhost') }}
+{% if client_endpoints_ssl is defined and client_endpoints_ssl | length > 0 %}
+Glacier2.Client.Endpoints={{ client_endpoints_ssl }}
+{% else %}
+#Glacier2.Client.Endpoints=ssl -p 4064 -h localhost
+{% endif %}
 
 #
-# Server Endpoints
-# The server-visible endpoint configuration, used if callbacks are needed.
-# Should be an internal network address or loopback.
-# Schema: server_endpoints (str) = 'tcp -h localhost'
+# Glacier2.Server.Endpoints
+# The server-visible endpoint configuration. This endpoint is required only
+# if the router needs to make callbacks to servers. It should typically be
+# bound to an internal or loopback interface.
 #
 Glacier2.Server.Endpoints={{ server_endpoints | default('tcp -h localhost') }}
 
 #
-# Permissions Verifier
-# The permissions verifier string. NullPermissionsVerifier allows any user-id/password.
-# For production, use a secure verifier (e.g., IceGrid permissions).
-# Schema: permissions_verifier (str) = 'DemoGlacier2Router/NullPermissionsVerifier'
+# Glacier2.PermissionsVerifier
+# The permissions verifier string determines how user authentication and
+# authorization are handled.
+# 'DemoGlacier2Router/NullPermissionsVerifier' allows any user-id/password
+# combination (insecure, suitable only for testing).
+# For production, use a database or LDAP verifier.
 #
 Glacier2.PermissionsVerifier={{ permissions_verifier | default('DemoGlacier2Router/NullPermissionsVerifier') }}
 
 #
-# Session Timeout
-# The timeout for inactive sessions in seconds.
-# If any client session is inactive for longer than this value, the session expires.
-# Schema: session_timeout (int) = 30
+# Glacier2.SessionTimeout
+# The timeout for inactive sessions in seconds. If a client session is
+# inactive for longer than this value, the session expires and is removed
+# by the router.
 #
-Glacier2.SessionTimeout={{ session_timeout | default(30) }}
+Glacier2.SessionTimeout={{ session_timeout | default('30') }}
 
 #
-# Use Systemd Journal
-# Enable use of systemd journal for logging.
-# Recommended when running Glacier2 as a systemd service.
-# Schema: use_systemd_journal (str) = '1'
+# Ice.UseSystemdJournal
+# Enable use of systemd journal for logging. Set to 1 to enable, 0 to disable.
 #
 Ice.UseSystemdJournal={{ use_systemd_journal | default('1') }}
 
 #
-# Trace Client Request
-# Trace client requests for debugging.
-# Schema: trace_client_request (str) = '1'
+# Tracing Configuration
+# The following settings control various trace levels for debugging and monitoring.
+# Values are typically 0 (off) or 1 (on).
 #
+
+# Trace client requests received by the router
 Glacier2.Client.Trace.Request={{ trace_client_request | default('1') }}
 
-#
-# Trace Server Request
-# Trace server requests for debugging.
-# Schema: trace_server_request (str) = '1'
-#
+# Trace server requests sent by the router
 Glacier2.Server.Trace.Request={{ trace_server_request | default('1') }}
 
-#
-# Trace Client Override
-# Trace client overrides for debugging.
-# Schema: trace_client_override (str) = '1'
-#
+# Trace client overrides
 Glacier2.Client.Trace.Override={{ trace_client_override | default('1') }}
 
-#
-# Trace Server Override
-# Trace server overrides for debugging.
-# Schema: trace_server_override (str) = '1'
-#
+# Trace server overrides
 Glacier2.Server.Trace.Override={{ trace_server_override | default('1') }}
 
-#
-# Trace Client Reject
-# Trace client rejections for debugging.
-# Schema: trace_client_reject (str) = '1'
-#
+# Trace client rejections (e.g., authentication failures)
 Glacier2.Client.Trace.Reject={{ trace_client_reject | default('1') }}
 
-#
-# Trace Session
-# Trace session events for debugging.
-# Schema: trace_session (str) = '1'
-#
+# Trace session events (creation, expiration)
 Glacier2.Trace.Session={{ trace_session | default('1') }}
 
-#
-# Trace Routing Table
-# Trace routing table events for debugging.
-# Schema: trace_routing_table (str) = '1'
-#
+# Trace routing table changes
 Glacier2.Trace.RoutingTable={{ trace_routing_table | default('1') }}
 
 #
-# Warn Connections
-# Warn about connection exceptions.
-# Schema: warn_connections (str) = '1'
+# Ice.Warn.Connections
+# Warn about connection exceptions. Set to 1 to enable warnings.
 #
 Ice.Warn.Connections={{ warn_connections | default('1') }}
 
 #
-# SSL Configuration (Optional)
-# Uncomment and configure these lines if using SSL endpoints.
+# Network Tracing
+# 0 = no network tracing
+# 1 = trace connection establishment and closure
+# 2 = like 1, but more detailed
+# 3 = like 2, but also trace data transfer
+#
+#Ice.Trace.Network=1
+
+#
+# Protocol Tracing
+# 0 = no protocol tracing
+# 1 = trace protocol messages
+#
+#Ice.Trace.Protocol=1
+
+#
+# Security Tracing
+# 0 = no security tracing
+# 1 = trace messages
+#
+#IceSSL.Trace.Security=1
+
+#
+# SSL Configuration
+# Uncomment and configure the following lines to enable SSL/TLS support.
 #
 #Ice.Plugin.IceSSL=IceSSL:createIceSSL
 #IceSSL.DefaultDir=<path to certs dir>

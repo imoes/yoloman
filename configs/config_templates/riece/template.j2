@@ -1,10 +1,15 @@
-;; -*-emacs-lisp-*-
+;; -*-emacs-lisp--;
 ;;
 ;; Emacs startup file for the Debian riece package
 ;;
-;; This template is self-documenting: every variable reference is annotated
-;; with its schema description and default value. It is safe to reuse in
-;; any Ansible role managing riece (an Emacs-based IRC client).
+;; Originally contributed by Nils Naumann <naumann@unileoben.ac.at>
+;; Modified by Dirk Eddelbuettel <edd@debian.com>
+;; Adapted for dh-make by Jim Van Zandt <jrv@vanzandt.mv.com>
+;;
+;; Self-documenting enrichment:
+;; This template configures the Riece IRC client integration within Emacs.
+;; It ensures the data directory is present and adds the necessary load-path
+;; and autoloads for the 'riece' package.
 
 ;; The riece package follows the Debian/GNU Linux 'emacsen' policy and
 ;; byte-compiles its elisp files for each 'emacs flavor' (emacs19,
@@ -12,18 +17,21 @@
 ;; installed in a subdirectory of the respective site-lisp directory.
 ;; We have to add this to the load-path:
 
-;; Check if the data directory exists; if not, skip setup with a warning.
-;; This handles the case where the package was removed but not purged.
+;; Check if the data directory exists. If not, it implies the package
+;; was removed but not purged, or the directory is missing.
+;; Variable: riece_data_directory
+;; Default: '/usr/share/emacs/site-lisp/riece'
+;; Description: The directory where riece data files are stored and loaded from.
 (if (not (file-exists-p "{{ riece_data_directory | default('/usr/share/emacs/site-lisp/riece') }}"))
     (message "Package riece removed but not purged.  Skipping setup.")
   (debian-pkg-add-load-path-item
    (concat "/usr/share/" (symbol-name debian-emacs-flavor)
 	   "/site-lisp/riece"))
 
-  ;; Autoload the main riece entry point so it is loaded on demand.
+  ;; Autoload the riece function so it is available without loading the full package immediately.
   (autoload 'riece "riece" nil t)
 
-  ;; Set the data directory where riece stores and loads its data files.
-  ;; Schema description: The directory where riece data files are stored and loaded from.
-  ;; Schema default: /usr/share/emacs/site-lisp/riece
+  ;; Set the riece data directory variable.
+  ;; Variable: riece-data-directory
+  ;; Default: '/usr/share/emacs/site-lisp/riece'
   (setq riece-data-directory "{{ riece_data_directory | default('/usr/share/emacs/site-lisp/riece') }}"))

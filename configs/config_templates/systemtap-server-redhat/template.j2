@@ -1,0 +1,20 @@
+# Log rotation configuration for stap-server logs.
+# Managed by Ansible role: systemtap-server-redhat
+
+/var/log/stap-server/log {
+    # Number of rotated log files to keep.
+    rotate {{ logrotate_rotate | default('2') }}
+
+    # Do not rotate if the log file is missing (e.g., if the service hasn't started yet).
+    missingok
+
+    # Do not rotate if the log file is empty.
+    notifempty
+
+    # Size at which to rotate the log file.
+    size {{ logrotate_size | default('30k') }}
+
+    # Permissions for newly created log files.
+    # Format: <perms> <owner> <group>
+    create {{ logrotate_create_perms | default('0664') }} {{ logrotate_create_owner | default('stap-server') }} {{ logrotate_create_group | default('stap-server') }}
+}

@@ -1,0 +1,88 @@
+{
+  "schema": "yoloman.diagnosis/v1",
+  "diagnosis_id": "0b3e9d55-7a2c-4f18-8e44-6c1d5a9b2f70",
+  "host": "bossman-wintest",
+  "platform": "windows",
+  "target": {
+    "kind": "service",
+    "name": "yoloman-probe-dep",
+    "display_name": "yoloman probe (dependency)"
+  },
+  "collected_at": "2026-10-17T14:10:03Z",
+  "status": "stopped",
+  "summary": "yoloman-probe-dep does not start because the service it depends on, yoloman-probe-base, is disabled.",
+  "evidence": [
+    {
+      "id": "scm:config:yoloman-probe-dep",
+      "source": "QueryServiceConfig",
+      "observed": null,
+      "fact": "yoloman-probe-dep depends on yoloman-probe-base and runs as LocalSystem, start type Manual.",
+      "raw": {"binary_path_name": "C:\\probe\\ProbeService.exe", "start_type": "demand", "service_start_name": "LocalSystem", "dependencies": ["yoloman-probe-base"], "load_order_group": ""}
+    },
+    {
+      "id": "scm:config:yoloman-probe-base",
+      "source": "QueryServiceConfig",
+      "observed": null,
+      "fact": "yoloman-probe-base has start type Disabled.",
+      "raw": {"binary_path_name": "C:\\probe\\ProbeService.exe", "start_type": "disabled", "service_start_name": "LocalSystem", "dependencies": [], "load_order_group": ""}
+    },
+    {
+      "id": "scm:status:yoloman-probe-base",
+      "source": "QueryServiceStatusEx",
+      "observed": null,
+      "fact": "yoloman-probe-base is stopped.",
+      "raw": {"current_state": "stopped", "win32_exit_code": 1077, "service_specific_exit_code": 0, "process_id": 0}
+    },
+    {
+      "id": "evt:System:7001:20502",
+      "source": "EventLog/System",
+      "observed": "2026-10-17T14:09:51Z",
+      "fact": "Service Control Manager event 7001: yoloman probe (dependency) depends on yoloman probe (base), which failed to start with error 1058 (the service is disabled).",
+      "raw": {"event_id": 7001, "provider": "Service Control Manager", "record_id": 20502, "event_data": ["yoloman probe (dependency)", "yoloman probe (base)", "%%1058"]}
+    },
+    {
+      "id": "reg:lastwrite:yoloman-probe-base",
+      "source": "RegQueryInfoKey",
+      "observed": "2026-10-17T14:08:30Z",
+      "fact": "The service key HKLM\\SYSTEM\\CurrentControlSet\\Services\\yoloman-probe-base was last written at 2026-10-17T14:08:30Z.",
+      "raw": {"key": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\yoloman-probe-base", "last_write_time": "2026-10-17T14:08:30Z"}
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "svc.dependency_failed",
+      "claim": "yoloman-probe-dep does not start because the service it depends on, yoloman-probe-base, is disabled.",
+      "certainty": "Proven",
+      "evidence_ids": ["scm:config:yoloman-probe-dep", "evt:System:7001:20502", "scm:config:yoloman-probe-base"],
+      "precedent": {
+        "evidence_id": "reg:lastwrite:yoloman-probe-base",
+        "change": "the service key of yoloman-probe-base was changed",
+        "observed": "2026-10-17T14:08:30Z",
+        "gap_seconds": 81
+      },
+      "remedy": {
+        "action": "set",
+        "target": {"kind": "service_start_type", "id": "yoloman-probe-base", "attribute": "start_type"},
+        "before": "disabled",
+        "after": "demand",
+        "rollback": {"action": "set", "value": "disabled"},
+        "verify": {"rule_absent": "svc.dependency_failed", "expect": {"status": "running"}}
+      },
+      "gap": null
+    },
+    {
+      "rule_id": "svc.disabled",
+      "claim": "yoloman-probe-base is disabled (start type Disabled).",
+      "certainty": "Proven",
+      "evidence_ids": ["scm:config:yoloman-probe-base"],
+      "precedent": null,
+      "remedy": null,
+      "gap": null
+    }
+  ],
+  "timeline": [
+    {"observed": "2026-10-17T14:08:30Z", "evidence_id": "reg:lastwrite:yoloman-probe-base"},
+    {"observed": "2026-10-17T14:09:51Z", "evidence_id": "evt:System:7001:20502"}
+  ],
+  "gaps": []
+}

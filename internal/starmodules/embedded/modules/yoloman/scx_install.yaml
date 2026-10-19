@@ -1,0 +1,57 @@
+fqcn: yoloman.scx_install
+name: scx_install
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Build the sched_ext schedulers of the scx project (scx_rusty, scx_bpfland, scx_lavd, ...) from a pinned upstream release
+description: >-
+  Kernel-tuning helper (docs/kernel-tuning.md). Distributions run kernels with sched_ext but ship
+  no scx userspace that loads into them (Fedora 44's packages fail with Invalid argument; AlmaLinux 10,
+  EPEL 10 and Ubuntu 26.04 have none). This builds a pinned scx release from source as a transient
+  systemd unit (yoloman-scx-build-<version>, niced, idle I/O) into /opt/yoloman/scx/<version>/bin and
+  links /usr/local/bin/scx_<name> to it, so yoloman.sched_ext finds the binaries. States: built
+  (present and linked), building (the unit runs; calling again starts nothing new and waits up to
+  wait seconds), absent. A failed build fails the call with its last log lines, and the next call
+  starts over. Missing build tools are tool_unavailable with this OS family's package names (install
+  them with the package module); a non-yoloman file at /usr/local/bin/scx_<name> is a conflict, and
+  so is removing a build that yoloman.sched_ext is running. The agent package carries a build of the
+  default version, which is linked in seconds without a compiler (its libraries are checked first). The
+  yoloman links always point at exactly one version, so the reported rollback is one call.
+options:
+  state:
+    type: str
+    default: present
+    choices: [present, absent]
+    description: present builds and links the version; absent removes it and its links.
+  source:
+    type: str
+    default: auto
+    choices: [auto, bundled, upstream]
+    description: auto links the build the agent package carries (/usr/lib/yoloman/scx/<version>, scripts/build-scx.sh) when it has the version and schedulers, else builds; bundled only links (refused when the package has none); upstream always builds from source.
+  version:
+    type: str
+    default: v1.1.4
+    description: The scx release tag (vX.Y.Z). There is no 'latest', so a build is reproducible.
+  schedulers:
+    type: list
+    elements: str
+    default: [rusty, bpfland, lavd]
+    description: The schedulers to build, without the scx_ prefix.
+  proxy:
+    type: str
+    description: HTTP(S) proxy URL for git and cargo, when the host reaches the internet only through one.
+  wait:
+    type: int
+    default: 600
+    description: Seconds this call waits for the build before it answers with state building.
+examples: |
+  - yoloman.scx_install:
+      proxy: http://proxy.example.org:3128
+  - yoloman.scx_install:
+      version: v1.1.4
+      schedulers: [bpfland]
+  - yoloman.sched_ext:
+      scheduler: bpfland
+  - yoloman.scx_install:
+      state: absent
+      version: v1.1.4

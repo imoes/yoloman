@@ -1,0 +1,96 @@
+# ============================================================================
+# Gitweb Configuration Template (RedHat/CentOS style)
+# ============================================================================
+# This file is a fragment of Perl code used by gitweb.
+# Variables are set using the syntax: our $variable = value;
+# Lines starting with # are comments.
+#
+# See /usr/share/doc/gitweb-*/README and /usr/share/doc/gitweb-*/INSTALL
+# for more details and available configuration variables.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Project Root Directory
+# --------------------------------------------------------------------------
+# Description: The absolute filesystem path to the git projects root directory.
+#              Gitweb will look for repositories under this path.
+#              It is prepended to project paths in URLs.
+# --------------------------------------------------------------------------
+our $projectroot = "{{ projectroot | default('/var/lib/git') }}";
+
+# --------------------------------------------------------------------------
+# Git Base URL List
+# --------------------------------------------------------------------------
+# Description: List of base URLs for fetching projects.
+#              These URLs are used to generate links for cloning projects.
+#              The list should be provided as a space-separated string
+#              suitable for Perl's qw() construct or explicit array literals.
+#              If multiple URLs are provided, they are separated by spaces.
+#              Default: 'git://git.example.com' and 'ssh://git.example.com/var/lib/git'
+# --------------------------------------------------------------------------
+# Note: The schema default is a list. We join them with spaces to fit the
+# qw() syntax commonly used in gitweb config, or you can use explicit
+# Perl array syntax if preferred. Here we use the qw() style as per the
+# original template structure, assuming the joined string contains
+# space-separated values.
+our @git_base_url_list = qw({{ git_base_url_list | default(['git://git.example.com', 'ssh://git.example.com/var/lib/git']) | join(' ') }});
+
+# --------------------------------------------------------------------------
+# Feature: Blame View
+# --------------------------------------------------------------------------
+# Description: Enable the 'blame' blob view, showing the last commit that
+#              modified each line in the file.
+#              This can be very CPU-intensive. Disabled by default.
+# --------------------------------------------------------------------------
+# Uncomment to enable:
+#$feature{'blame'}{'default'} = [1];
+#
+# Allow projects to override the default setting via git config file.
+# Example: gitweb.blame = 0|1;
+#$feature{'blame'}{'override'} = 1;
+
+# --------------------------------------------------------------------------
+# Feature: Snapshot Download
+# --------------------------------------------------------------------------
+# Description: Disable the 'snapshot' link, providing a compressed archive
+#              of any tree. This can potentially generate high traffic if
+#              you have large projects. Enabled for .tar.gz snapshots by default.
+#
+# Value is a list of formats defined in %known_snapshot_formats that you
+# wish to offer (e.g., 'tbz2', 'zip'). Use 'none' to disable completely.
+# --------------------------------------------------------------------------
+# Uncomment to customize:
+#$feature{'snapshot'}{'default'} = [];
+#
+# Allow projects to override the default setting via git config file.
+# Example: gitweb.snapshot = tbz2,zip; (use "none" to disable)
+#$feature{'snapshot'}{'override'} = 1;
+
+# --------------------------------------------------------------------------
+# Feature: Grep Search
+# --------------------------------------------------------------------------
+# Description: Disable grep search, which will list the files in currently
+#              selected tree containing the given string.
+#              This can be potentially CPU-intensive. Enabled by default.
+# --------------------------------------------------------------------------
+# Uncomment to customize:
+#$feature{'grep'}{'default'} = [0];
+#
+# Allow projects to override the default setting via git config file.
+# Example: gitweb.grep = 0|1;
+#$feature{'grep'}{'override'} = 1;
+
+# --------------------------------------------------------------------------
+# Feature: Pickaxe Search
+# --------------------------------------------------------------------------
+# Description: Disable the pickaxe search, which will list the commits that
+#              modified a given string in a file.
+#              This is a practical and quite faster alternative to 'blame',
+#              but still potentially CPU-intensive. Enabled by default.
+# --------------------------------------------------------------------------
+# Uncomment to customize:
+#$feature{'pickaxe'}{'default'} = [0];
+#
+# Allow projects to override the default setting via git config file.
+# Example: gitweb.pickaxe = 0|1;
+#$feature{'pickaxe'}{'override'} = 1;

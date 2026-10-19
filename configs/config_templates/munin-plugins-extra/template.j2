@@ -1,12 +1,19 @@
-# Munin plugin monitoring for the DHCP daemon (ISC dhcpd).
-# Reads statistics from the DHCP server configuration and lease file.
-# See: /usr/share/doc/munin-plugins-extra/dhcpd3/README or man munin-plugin-dhcpd3
+# Munin plugin configuration for monitoring the DHCP server (dhcpd3/dhcpd).
+# This template generates the configuration for the `dhcpd3` munin plugin,
+# which reads DHCP server logs and lease files to graph statistics like
+# allocated addresses, failed leases, and requests.
 
+# Section header for the munin plugin
 [dhcpd3]
-# Path to the DHCP server configuration file
-# The plugin parses this to determine if the server is running and its basic settings.
+
+# Path to the DHCP server configuration file.
+# The plugin uses this to parse the server's configuration, such as
+# subnet definitions and shared networks, to correctly attribute lease data.
+# Default: /etc/dhcp/dhcpd.conf
 env.configfile {{ dhcpd_config_path | default('/etc/dhcp/dhcpd.conf') }}
 
-# Path to the DHCP lease file
-# The plugin parses this to count active and expired leases.
+# Path to the DHCP lease file.
+# The plugin reads this file to determine the current state of leased IP addresses
+# and historical lease data. Ensure the munin user has read access to this file.
+# Default: /var/lib/dhcp/dhcpd.leases
 env.leasefile {{ dhcpd_lease_path | default('/var/lib/dhcp/dhcpd.leases') }}

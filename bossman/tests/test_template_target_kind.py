@@ -35,6 +35,10 @@ from bossman.services.template_index import unsuitable_target
     ("/etc/foo/CHANGELOG.md", "documentation"),
     # source code, kept narrow on purpose
     ("/etc/jabber-querybot/Querymodule.pm", "source code"),
+    # key material and trust anchors (measured 2026-10-15: elrepo's Secure Boot key, unbound's ICANN bundle)
+    ("/etc/pki/elrepo/SECURE-BOOT-KEY-elrepo.org.der", "key material"),
+    ("/etc/unbound/icannbundle.pem", "key material"),
+    ("/etc/apt/trusted.gpg.d/debian-ports-archive-2026.asc", "key material"),
 ])
 def test_a_non_setting_is_refused_with_its_reason(path, marker):
     why = unsuitable_target(path)

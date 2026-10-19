@@ -1,0 +1,385 @@
+! 
+! $Id: XFaces.ad,v 1.23 1994/03/08 03:23:33 liebman Exp $
+! 
+!    Application level resources for xfaces.
+!
+! 
+! Pop mailbox support.  You need to have a .popauth file in your home dir.
+! it should contain one line as:
+!		<username> <password>
+! 
+! Its not very secure but the pop servers that I have access to don't support
+! any other authentation.
+!
+! XFaces.popHost:	hostname.for.pop.mailbox
+
+! Search spec:
+!	<search type> <format list> <search path>
+! 
+! Search type:
+!	beforeImage
+!	afterImage
+!	beforeSound
+!	afterSound
+!	beforeCommand
+!	afterCommand
+!	resource
+!	x-face
+!	facedb
+! 
+! format list:
+!	<format>:<format>:<format>
+! 
+! Formats:
+!	xpm-shape
+!	xpm
+!	xbm-shape
+!	xbm
+! 
+! If search path is empty then use imagePath/soundPath resource as path.
+! If format list is empty then the imageFormats resource is used.
+! The format list is ignored currently for sound (must still be supplied
+! if you want to specify paths).
+!
+! Here are the defaults.
+!
+!XFaces.imageTypes:	xpm-shape:xpm:xbm-shape:xbm
+!
+!XFaces.imageSearch:	\
+!		beforeImage\n\
+!		resource\n\
+!		facedb\n\
+!		x-face\n\
+!	afterImage
+!
+!XFaces.soundSearch:	\
+!		beforeSound\n\
+!		resource\n\
+!		facedb\n\
+!	afterSound
+!
+!XFaces.commandSearch:	\
+!		beforeCommand\n\
+!		resource\n\
+!	afterCommand
+!
+
+! 
+! This is where we look for sounds or images if the file name does not
+! begin with a '/' or a './' or a '../'. It they are ':' seperated path
+! lists.
+!
+XFaces.soundPath: 	{{ XFaces.soundPath }}
+XFaces.imagePath: 	{{ XFaces.imagePath }}
+
+! 
+!  This is where we look for sounds/images in the "faces" format.
+!  The address liebman@zod.clark.net will look for the following
+!  files:
+!
+!	[facedbPath]/net/clark/zod/liebman
+!	[facedbPath]/net/clark/zod/liebman/face
+!	[facedbPath]/net/clark/liebman
+!	[facedbPath]/net/clark/liebman/face
+!	[facedbPath]/net/liebman
+!	[facedbPath]/net/liebman/face
+!	[facedbPath]/MISC/liebman
+!	[facedbPath]/MISC/liebman/face
+!	[facedbPath]/net/clark/zod/unknown
+!	[facedbPath]/net/clark/zod/unknown/face
+!	[facedbPath]/net/clark/unknown
+!	[facedbPath]/net/clark/unknown/face
+!	[facedbPath]/net/unknown
+!	[facedbPath]/net/unknown/face
+!	[facedbPath]/MISC/unknown
+!	[facedbPath]/MISC/unknown/face
+!
+! Note that various extensions are attempted for each file depending on what
+! image types are set in the imageTypes resource.
+!
+
+XFaces.facedbPath: {{ XFaces.facedbPath }}
+
+! 
+!  Tell how many different annotations there are. We can support any number.
+!
+
+XFaces.annotationCount: 		{{ XFaces.annotationCount }}
+XFaces.unknownAnnotationCount: 	{{ XFaces.unknownAnnotationCount }}
+
+! 
+! Annotation defaults.
+!
+
+XFaces.Annotation.font: 		{{ XFaces.Annotation.font }}
+
+! 
+! Describe the annotations. A negative 'x' means pixels from the right edge
+! of the face and a negitive 'y' is pixels up from the bottom.
+!
+
+XFaces.annotation1.x: 		{{ XFaces.annotation1.x }}
+XFaces.annotation1.y: 		{{ XFaces.annotation1.y }}
+XFaces.unknownAnnotation1.x: 	{{ XFaces.unknownAnnotation1.x }}
+XFaces.unknownAnnotation1.y: 	{{ XFaces.unknownAnnotation1.y }}
+!XFaces.annotation1.foreground:	blue
+!XFaces.annotation1.background:	white
+!XFaces.annotation1.font:	-*-helvetica-*-r-*--10-*
+
+XFaces.annotation2.x: 		{{ XFaces.annotation2.x }}
+XFaces.annotation2.y: 		{{ XFaces.annotation2.y }}
+XFaces.unknownAnnotation2.x: 	{{ XFaces.unknownAnnotation2.x }}
+XFaces.unknownAnnotation2.y: 	{{ XFaces.unknownAnnotation2.y }}
+!XFaces.annotation2.foreground:	red
+!XFaces.annotation2.background:	white
+!XFaces.annotation2.font:	-*-helvetica-*-r-*--10-*
+
+! 
+! Here we specify what goes in each of the annotations for mail messages.
+! Valid values are:
+!	user		- The user part of the From address.
+!	host		- The host part of the From address.
+!	user@host	- The user and host parts of the From address.
+!	count		- The number of messages represented by this face.
+!	*header		- any value beginning with a '*' is expected to
+!			  be a header name and the contents of that header
+!			  will be displayed. For instance "*subject:" will
+!			  display the subject line.
+!
+
+XFaces.mail.annotation1: {{ XFaces.mail.annotation1 }}
+XFaces.mail.annotation2: {{ XFaces.mail.annotation2 }}
+XFaces.mail.unknownAnnotation1: {{ XFaces.mail.unknownAnnotation1 }}
+XFaces.mail.unknownAnnotation2: {{ XFaces.mail.unknownAnnotation2 }}
+
+! 
+! 
+!  Try this in your .Xdefaults as an alternative annotation scheme.
+! This will display the subject line across the bottom of faces and the
+! count in the upper left corner.  If the face is an "unknown" face then
+! the username will appear above the subject.
+!
+!XFaces.annotationCount:		2
+!XFaces.annotation1.x:			1
+!XFaces.annotation1.y:			-1
+!XFaces.annotation1.maxWidth:		62
+!XFaces.annotation2.x:			1
+!XFaces.annotation2.y:			1
+!XFaces.mail.annotation1:		*subject:
+!XFaces.mail.annotation2:		count
+!XFaces.unknownAnnotationCount:		3
+!XFaces.unknownAnnotation1.x:		1
+!XFaces.unknownAnnotation1.y:		-1
+!XFaces.unknownAnnotation1.maxWidth:	62
+!XFaces.unknownAnnotation2.x:		1
+!XFaces.unknownAnnotation2.y:		1
+!XFaces.unknownAnnotation3.x:		1
+!XFaces.unknownAnnotation3.y:		-12
+!XFaces.unknownAnnotation3.maxWidth:	62
+!XFaces.mail.unknownAnnotation1:	*subject:
+!XFaces.mail.unknownAnnotation2:	count
+!XFaces.mail.unknownAnnotation3:	user
+
+! 
+!  Conversion for GIF images.
+!
+
+XFaces.xpm.filterCount: 		{{ XFaces.xpm.filterCount }}
+XFaces.xpmFilter.name: 		{{ XFaces.xpmFilter.name }}
+XFaces.xpmFilter.filter: 	{{ XFaces.xpmFilter.filter }}
+XFaces.xpmFilter.extension: 	{{ XFaces.xpmFilter.extension }}
+
+! 
+! This is the image/sound that will be displayed/played
+! when there us no mail.
+!
+
+XFaces.noMailImage: 			{{ XFaces.noMailImage }}
+XFaces.noMailSound: 			{{ XFaces.noMailSound }}
+
+! 
+! this is the volume sounds will be played with.
+!
+
+XFaces.volume: 				{{ XFaces.volume }}
+
+! 
+! I like to use the RFC822 From: header for the From address.
+!
+
+XFaces.fromField: 	{{ XFaces.fromField }}
+
+! 
+! This will tell xfaces not to compress images. There will be one image for
+! each mail/list item.  The default is True.
+!
+! XFaces.compressImages:	False
+!
+
+! 
+! Use the specified command rather than the builtin mail check.  The
+! command is expected to return as the first line:
+! "<user> <host>"
+! and is ignored. The second line is:
+! "Rows=nnn Cols=nnn" 
+! and specifies the size in images for the display.
+! All following lines look like:
+! "<user><tab><host><tab><label1><tab><label2><tab><label3><tab><label4>"
+! only the first two fields are required.
+!
+! See scripts.tar.Z on cs.indiana.edu in the /pub/faces/scripts directory 
+! for a collection of scripts (from Steve Kinzler kinzler@cs.indiana.edu) 
+! that can be used here. (If you want to use the (realy cool) weather forcast
+! script you will want to grab weather.tar.Z also as it contains the images
+! for the forcasts.
+
+!XFaces.listCommand:	wx.faces
+
+! 
+! The folowing are what I use for the fx.faces script. Note you can use
+! command line options to do this too:
+! 
+! xfaces -name weather
+!
+
+weather.listCommand: 	{{ weather.listCommand }} wbc
+weather.facedbPath: 	{{ weather.facedbPath }}
+weather.compressImages: 	{{ weather.compressImages }}
+weather.keepOrder: 	{{ weather.keepOrder }}
+weather.shapeExtra: 	{{ weather.shapeExtra }}
+weather.update: 		{{ weather.update }}
+
+! 
+!    Top level shell resources.
+!
+
+XFaces.allowShellResize: 		{{ XFaces.allowShellResize }}
+
+! 
+!    Frame resources.
+!
+
+XFaces.frame.tileWidth: 		{{ XFaces.frame.tileWidth }}
+XFaces.frame.tileHeight: 	{{ XFaces.frame.tileHeight }}
+
+XFaces.frame.horizSpacing: 	{{ XFaces.frame.horizSpacing }}
+XFaces.frame.vertSpacing: 	{{ XFaces.frame.vertSpacing }}
+XFaces.frame.internalWidth: 	{{ XFaces.frame.internalWidth }}
+XFaces.frame.internalHeight: 	{{ XFaces.frame.internalHeight }}
+XFaces.frame.borderWidth: 	{{ XFaces.frame.borderWidth }}
+
+!XFaces.frame.setWidth:		4
+!XFaces.frame.setHeight:	2
+!XFaces.frame.minWidth:		2
+XFaces.frame.maxWidth: 		{{ XFaces.frame.maxWidth }}
+!XFaces.frame.minHeight:	2
+!XFaces.frame.maxHeight:	4
+
+! 
+!    General resources for face icons.
+! 
+! All of my faces are 64x64 (you can use other sizes!).  Note that if you
+! have images that are of more than one size you should set the above
+! tileWidth and tileHeight to the *largest* size or your images may be chopped.
+! The Tiled widget only attempts to deal with identicly sized children. Images
+! smaller than the "tile" size are centered by the Label widget but those
+! larger will be chopped off.
+!
+
+XFaces.frame.Label.width: 		{{ XFaces.frame.Label.width }}
+XFaces.frame.Label.height: 		{{ XFaces.frame.Label.height }}
+XFaces.frame.Label.internalWidth: 	{{ XFaces.frame.Label.internalWidth }}
+XFaces.frame.Label.internalHeight: 	{{ XFaces.frame.Label.internalHeight }}
+XFaces.frame.Label.borderWidth: 		{{ XFaces.frame.Label.borderWidth }}
+
+! 
+!  Button1 will cause all sounds for the given face to be played.
+!  Button2 will check for new mail.
+!  Button3 will re-run commands.
+!
+
+XFaces.frame.Label.translations:	<Btn1Down>:PlaySounds()\n\
+					<Btn2Up>:CheckMail()\n\
+					<Btn3Down>:RunCommands()
+XFaces.frame.translations: 		{{ XFaces.frame.translations }}
+
+
+! 
+!  This will cause any message that has already been read but left in the
+! system mailbox to be ignored. This works with SunOS4.  It should work 
+! other places as well.
+!
+
+XFaces.ignoreMessageBindings:	\
+	Status:	[OU]
+
+! 
+! I use the before image bindings to catch mailing lists.
+!
+!  By not placeing the extension on the image name allows things to fall
+! back to non-shaped and monochrome (if available) when needed.
+!
+
+XFaces.beforeImageBindings:	\
+	To:	info-andrew:		andrew		Andrew\n\
+	Cc:	info-andrew:		andrew		Andrew\n\
+	To:	xannounce@x.org:	x		XAnnounce\n\
+	Cc:	xannounce@x.org:	x		XAnnounce\n\
+	Cc:	framer:			window		Framers\n\
+	From:	framer:			window		Framers\n\
+	To:	framer:			window		Framers\n\
+	To:	owner-sunflash:		sunflash	SunFlash\n\
+	Cc:	owner-sunflash:		sunflash	SunFlash\n\
+	From:	owner-sunflash:		sunflash	SunFlash
+
+! 
+! Could setup special sounds for mailing lists.
+!
+
+!XFaces.beforeSoundBindings:	\
+!	Cc:	foo:		train
+
+! 
+! Could use this to show a special face for users that we have no face for.
+!
+
+!XFaces.afterImageBindings:	\
+!	*	.*:		unknown
+
+! 
+! Could setup default sounds if no sound is specified.
+!
+
+!XFaces.afterSoundBindings:	\
+!	*	.*:			train
+
+! 
+! This set of bindings is run after the all of the image search has 
+! completed.  If it finds a match then the value will be used as the 
+! widget name for the widget.  If no image was found then the value will
+! also be displayed as a string for the image.
+!
+
+!XFaces.labelBindings:	\
+!	*	.*:	Huh?
+
+! 
+!  For bounced mail.
+!
+
+XFaces.image.mailer-daemon: 	{{ XFaces.image.mailer_daemon }}
+XFaces.sound.mailer-daemon: 	{{ XFaces.sound.mailer_daemon }}
+
+! 
+!  For mail from uucp.
+!
+
+XFaces.image.uucp: 		{{ XFaces.image.uucp }}
+XFaces.sound.uucp: 	{{ XFaces.sound.uucp }}
+
+! 
+!  Mail from root.
+!
+
+XFaces.image.root: 	{{ XFaces.image.root }}
+XFaces.sound.root: 	{{ XFaces.sound.root }}

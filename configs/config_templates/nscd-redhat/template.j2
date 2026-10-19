@@ -1,0 +1,157 @@
+#
+# /etc/nscd.conf
+#
+# This file is the configuration for the Name Service Cache Daemon (nscd).
+# nscd caches information from the Name Service Switch (NSS) databases
+# such as /etc/passwd, /etc/group, /etc/hosts, etc.
+#
+# WARNING: Running nscd with a secondary caching service like sssd may lead to
+#          unexpected behaviour, especially with how long entries are cached.
+#
+# Configuration directives are case-insensitive. Whitespace is flexible.
+#
+# Global Settings
+#
+
+# log-file <file>
+# Path to the log file. Commented out by default; nscd logs to syslog if not specified.
+# # logfile /var/log/nscd.log
+
+# debug-level <level>
+# Sets the debug level for nscd. Higher values produce more verbose output.
+# 0 = no debugging, 1 = minimal, ..., 8 = extensive.
+debug-level		{{ debug_level | default('0') }}
+
+# threads <number>
+# Initial number of threads to use for handling requests.
+threads			{{ threads | default(4) }}
+
+# max-threads <number>
+# Maximum number of threads nscd will use. If set too low, requests may be delayed.
+max-threads		{{ max_threads | default(32) }}
+
+# server-user <user>
+# User to run the nscd server as, instead of root.
+# Note: This is ignored if nscd is started with the -S parameter (setuid).
+server-user		{{ server_user | default('nscd') }}
+
+# stat-user <user>
+# User who is allowed to request statistics from the daemon (e.g., via `nscd -g`).
+# # stat-user somebody
+
+# reload-count <number>|unlimited
+# Number of requests to handle before reloading the configuration file.
+# Set to 'unlimited' to never auto-reload, or a number for periodic reloads.
+# # reload-count 5
+
+# paranoia <yes|no>
+# Enable paranoia mode. This checks for suspicious activity and may reject requests
+# that look like attacks (e.g., very large queries).
+paranoia		{{ paranoia | default('no') }}
+
+# restart-interval <seconds>
+# Restart interval in seconds. nscd will restart itself if it has been running
+# for this amount of time without being restarted by the init system.
+# Useful to prevent memory leaks in long-running processes.
+# # restart-interval 3600
+
+
+# Cache Settings
+# Each cache section defines behavior for a specific NSS database.
+# Supported services: passwd, group, hosts, services, netgroup.
+
+# --- passwd cache ---
+# Manages caching of user account information from /etc/passwd and nsswitch.
+
+# enable-cache <service> <yes|no>
+# Enable the cache for this specific service.
+enable-cache		passwd		{{ passwd_enable_cache | default('yes') }}
+
+# positive-time-to-live <service> <seconds>
+# How long (in seconds) successful lookups are cached.
+positive-time-to-live	passwd		{{ passwd_positive_time_to_live | default('600') }}
+
+# negative-time-to-live <service> <seconds>
+# How long (in seconds) failed lookups (e.g., non-existent user) are cached.
+negative-time-to-live	passwd		{{ passwd_negative_time_to_live | default('20') }}
+
+# suggested-size <service> <prime number>
+# Suggested size (number of entries) for the cache database.
+# The daemon may adjust this to fit memory constraints, but starting with a prime number is recommended.
+suggested-size		passwd		{{ passwd_suggested_size | default(211) }}
+
+# check-files <service> <yes|no>
+# If yes, nscd will check the modification time of the underlying files
+# (e.g., /etc/passwd) and invalidate the cache if they have changed.
+check-files		passwd		{{ passwd_check_files | default('yes') }}
+
+# persistent <service> <yes|no>
+# If yes, nscd will save the cache database to disk on shutdown and restore it on startup.
+persistent		passwd		{{ passwd_persistent | default('yes') }}
+
+# shared <service> <yes|no>
+# If yes, the cache database is shared among all clients using shared memory.
+# This accelerates lookups but means cache hits might not be counted in standard statistics.
+shared			passwd		{{ passwd_shared | default('yes') }}
+
+# max-db-size <service> <bytes>
+# Maximum size in bytes for the cache database.
+max-db-size		passwd		{{ passwd_max_db_size | default(33554432) }}
+
+# auto-propagate <service> <yes|no>
+# If yes, changes to the underlying files (detected by check-files) will automatically
+# trigger a cache propagation/update rather than a full invalidation.
+auto-propagate		passwd		{{ passwd_auto_propagate | default('yes') }}
+
+
+# --- group cache ---
+# Manages caching of group information from /etc/group.
+
+enable-cache		group		{{ group_enable_cache | default('yes') }}
+positive-time-to-live	group		{{ group_positive_time_to_live | default('3600') }}
+negative-time-to-live	group		{{ group_negative_time_to_live | default('60') }}
+suggested-size		group		{{ group_suggested_size | default(211) }}
+check-files		group		{{ group_check_files | default('yes') }}
+persistent		group		{{ group_persistent | default('yes') }}
+shared			group		{{ group_shared | default('yes') }}
+max-db-size		group		{{ group_max_db_size | default(33554432) }}
+auto-propagate		group		{{ group_auto_propagate | default('yes') }}
+
+
+# --- hosts cache ---
+# Manages caching of hostname-to-IP mappings from /etc/hosts and DNS.
+
+enable-cache		hosts		{{ hosts_enable_cache | default('yes') }}
+positive-time-to-live	hosts		{{ hosts_positive_time_to_live | default('3600') }}
+negative-time-to-live	hosts		{{ hosts_negative_time_to_live | default('20') }}
+suggested-size		hosts		{{ hosts_suggested_size | default(211) }}
+check-files		hosts		{{ hosts_check_files | default('yes') }}
+persistent		hosts		{{ hosts_persistent | default('yes') }}
+shared			hosts		{{ hosts_shared | default('yes') }}
+max-db-size		hosts		{{ hosts_max_db_size | default(33554432) }}
+
+
+# --- services cache ---
+# Manages caching of service definitions from /etc/services.
+
+enable-cache		services	{{ services_enable_cache | default('yes') }}
+positive-time-to-live	services	{{ services_positive_time_to_live | default('28800') }}
+negative-time-to-live	services	{{ services_negative_time_to_live | default('20') }}
+suggested-size		services	{{ services_suggested_size | default(211) }}
+check-files		services	{{ services_check_files | default('yes') }}
+persistent		services	{{ services_persistent | default('yes') }}
+shared			services	{{ services_shared | default('yes') }}
+max-db-size		services	{{ services_max_db_size | default(33554432) }}
+
+
+# --- netgroup cache ---
+# Manages caching of netgroup information from /etc/netgroup (NIS/NIS+).
+
+enable-cache		netgroup	{{ netgroup_enable_cache | default('yes') }}
+positive-time-to-live	netgroup	{{ netgroup_positive_time_to_live | default('28800') }}
+negative-time-to-live	netgroup	{{ netgroup_negative_time_to_live | default('20') }}
+suggested-size		netgroup	{{ netgroup_suggested_size | default(211) }}
+check-files		netgroup	{{ netgroup_check_files | default('yes') }}
+persistent		netgroup	{{ netgroup_persistent | default('yes') }}
+shared			netgroup	{{ netgroup_shared | default('yes') }}
+max-db-size		netgroup	{{ netgroup_max_db_size | default(33554432) }}

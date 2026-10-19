@@ -1,3 +1,15 @@
-# ldirectord configuration file path
-# Specifies the main configuration file for the ldirectord high-availability load balancer daemon.
-CONFIG_FILE={{ CONFIG_FILE | default('/etc/ldirectord.cf') }}
+# ==============================================================================
+# ldirectord Configuration Template
+# ==============================================================================
+# This template configures the ldirectord load balancer daemon.
+# ldirectord monitors real servers and handles health checks for virtual services.
+#
+# Schema Field: CONFIG_FILE
+# Description: Path to the main ldirectord configuration file.
+# Default: None (empty/no setting)
+# ==============================================================================
+
+# --- Main Configuration File Path ---
+# Sets the path to the primary configuration file for ldirectord.
+# If left undefined, ldirectord will look for its config in standard locations.
+{% if CONFIG_FILE is defined and CONFIG_FILE is not none and (CONFIG_FILE is number or CONFIG_FILE is boolean or CONFIG_FILE | length > 0) %}CONFIG_FILE={{ CONFIG_FILE | default(None) | ternary('', '# CONFIG_FILE is not set') }}{% else %}# CONFIG_FILE=/etc/ldirectord.cf{% endif %}

@@ -1,45 +1,61 @@
 # /etc/cron.d/cedar-backup3
 #
-# This file configures the cron jobs for Cedar Backup 3.
-# It supports three deployment modes:
-#   1. Single Machine: All tasks run on one node.
-#   2. Client Machine: Only collect and purge tasks run here.
-#   3. Master Machine: Only collect, stage, store, and purge tasks run here.
+# Cedar Backup 3 Cron Configuration
+# =================================
+# This template configures the cron jobs for Cedar Backup 3.
+# The backup strategy is determined by the role this machine plays in the Cedar
+# infrastructure: Single Machine (standalone), Client, or Master.
 #
-# Uncomment the appropriate section below for your deployment mode.
+# Roles:
+# - Single: A standalone machine that performs all backup operations locally.
+# - Client: A machine that collects data and sends it to a Master.
+# - Master: A machine that receives data from Clients, stages, stores, and purges backups.
 #
+# Instructions:
+# Uncomment the section corresponding to your deployment role.
+# Ensure only one section is active to prevent conflicting jobs.
 
-# Single machine (pool of one)
-# Run the 'all' task to perform full backup lifecycle on a single node.
-# Cron schedule: {{ cron_schedule_single | default('30 00 * * *') }}
-#{{ cron_schedule_single | default('30 00 * * *') }} root  /usr/bin/cback3 all
+# =================================
+# Single Machine Configuration
+# =================================
+# Use this section if the machine is the only one in the pool and handles
+# all backup tasks (collect, stage, store, purge) locally.
+# Cron schedule for the 'all' task on a single machine.
+# Default: 00:30 every day
+{{ cron_schedule_single | default('30 00 * * *') }} root /usr/bin/cback3 all
 
-# Client machine tasks
-# These tasks run on client nodes to gather data and clean up old backups.
+# =================================
+# Client Machine Configuration
+# =================================
+# Use this section if the machine is a client that sends backups to a Master.
+# It only collects local data and purges old local collections.
 
-# Collect task: Gathers backup data from the client.
-# Cron schedule: {{ cron_schedule_client_collect | default('30 00 * * *') }}
-#{{ cron_schedule_client_collect | default('30 00 * * *') }} root  /usr/bin/cback3 collect
+# Cron schedule for collecting data on the client machine.
+# Default: 00:30 every day
+#{{ cron_schedule_client_collect | default('30 00 * * *') }} root /usr/bin/cback3 collect
 
-# Purge task: Removes expired backup sets.
-# Cron schedule: {{ cron_schedule_client_purge | default('30 06 * * *') }}
-#{{ cron_schedule_client_purge | default('30 06 * * *') }} root  /usr/bin/cback3 purge
+# Cron schedule for purging old collected data on the client machine.
+# Default: 06:30 every day
+#{{ cron_schedule_client_purge | default('30 06 * * *') }} root /usr/bin/cback3 purge
 
-# Master machine tasks
-# These tasks run on the central master server to manage storage and archival.
+# =================================
+# Master Machine Configuration
+# =================================
+# Use this section if the machine is the central backup server.
+# It receives data from Clients, stages it, stores it to final media, and purges old backups.
 
-# Collect task: Receives backup data from clients.
-# Cron schedule: {{ cron_schedule_master_collect | default('30 00 * * *') }}
-#{{ cron_schedule_master_collect | default('30 00 * * *') }} root  /usr/bin/cback3 collect
+# Cron schedule for collecting/receiving data from clients on the master machine.
+# Default: 00:30 every day
+#{{ cron_schedule_master_collect | default('30 00 * * *') }} root /usr/bin/cback3 collect
 
-# Stage task: Prepares data for long-term storage (e.g., compression/indexing).
-# Cron schedule: {{ cron_schedule_master_stage | default('30 02 * * *') }}
-#{{ cron_schedule_master_stage | default('30 02 * * *') }} root  /usr/bin/cback3 stage
+# Cron schedule for staging data on the master machine (preparing for final storage).
+# Default: 02:30 every day
+#{{ cron_schedule_master_stage | default('30 02 * * *') }} root /usr/bin/cback3 stage
 
-# Store task: Archives data to final storage backend.
-# Cron schedule: {{ cron_schedule_master_store | default('30 04 * * *') }}
-#{{ cron_schedule_master_store | default('30 04 * * *') }} root  /usr/bin/cback3 store
+# Cron schedule for storing data to final media on the master machine.
+# Default: 04:30 every day
+#{{ cron_schedule_master_store | default('30 04 * * *') }} root /usr/bin/cback3 store
 
-# Purge task: Removes expired master-side backup sets.
-# Cron schedule: {{ cron_schedule_master_purge | default('30 06 * * *') }}
-#{{ cron_schedule_master_purge | default('30 06 * * *') }} root  /usr/bin/cback3 purge
+# Cron schedule for purging old backups on the master machine.
+# Default: 06:30 every day
+#{{ cron_schedule_master_purge | default('30 06 * * *') }} root /usr/bin/cback3 purge

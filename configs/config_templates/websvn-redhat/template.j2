@@ -1,0 +1,32 @@
+# WebSVN Apache Configuration Template
+# This configuration sets up an Apache Alias and Directory block for the WebSVN application.
+# It handles access control for both Apache 2.4 (mod_authz_core) and 2.2 (legacy mod_access).
+
+# Define the alias URL path mapping to the document root directory.
+# Schema Field: websvn_document_root
+# Description: The document root directory path for the WebSVN installation.
+Alias /websvn /{{ websvn_document_root | default('usr/share/websvn') }}/
+
+# Directory block configuration for the WebSVN document root.
+<Directory /{{ websvn_document_root | default('usr/share/websvn') }}/>
+    # Options: Enable MultiViews (content negotiation) and FollowSymLinks.
+    Options MultiViews FollowSymLinks
+
+    # Default file to serve when a directory is requested.
+    DirectoryIndex browse.php
+
+    # Apache 2.4 Access Control (mod_authz_core)
+    <IfModule mod_authz_core.c>
+        # Require local access only (localhost/loopback).
+        # To allow external access, replace 'local' with specific IP/CIDR or 'all'.
+        Require local
+    </IfModule>
+
+    # Apache 2.2 Access Control (mod_access_compat) - Legacy fallback
+    <IfModule !mod_authz_core.c>
+        # Deny by default, then allow loopback addresses.
+        order deny,allow
+        deny from all
+        allow from 127.0.0.1 ::1
+    </IfModule>
+</Directory>

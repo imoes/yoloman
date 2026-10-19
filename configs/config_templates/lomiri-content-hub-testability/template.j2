@@ -1,42 +1,46 @@
 # vim:syntax=apparmor
 # Author: Ken VanDine <ken.vandine@canonical.com>
 #
-# This template generates AppArmor profiles for the Lomiri Content Hub testability suite.
-# It creates two distinct profiles: one for an 'ok' (passing) test case and one for a 'bad'
-# (failing) test case. These are primarily used for automated integration testing of
-# AppArmor policy enforcement within the Lomiri environment.
+# Lomiri Content Hub Testability - AppArmor Profile Configuration
+#
+# This template generates two AppArmor profiles used for testing the
+# Lomiri Content Hub. One profile allows access to `/etc/issue`,
+# while the other explicitly denies it (auditing the denial).
+#
+# The profiles are named dynamically based on the schema fields
+# `profile_ok_name` and `profile_bad_name`.
 
 #include <tunables/global>
 
-# AppArmor profile for the 'ok' test case.
-# This profile allows basic system access including reading /etc/issue, simulating a
-# compliant application behavior.
+# Profile: OK Test Case
+# Description: A permissive profile used to verify that the Content Hub
+#              can successfully read system files like `/etc/issue`.
+#              This profile includes standard base abstractions and
+#              session D-Bus access.
 profile "{{ profile_ok_name | default('lomiri-content-hub-test-ok') }}" {
-    # Include base system abstractions for common file and library access.
     #include <abstractions/base>
-
-    # Include D-Bus session bus abstractions, allowing the test case to communicate
-    # via the session bus, which is typical for Lomiri applications.
     #include <abstractions/dbus-session>
-
-    # Allow reading the system issue file. This is a standard read-only permission
-    # often required by graphical sessions to display login information.
+    
+    # Rule: Read /etc/issue
+    # Description: Allows reading the issue file (often containing system
+    #              identification info). This is allowed in the "ok" test
+    #              case.
     /etc/issue r,
 }
 
-# AppArmor profile for the 'bad' test case.
-# This profile explicitly denies reading /etc/issue, simulating a non-compliant or
-# restricted application behavior to test how the system handles policy violations.
+# Profile: BAD Test Case
+# Description: A restrictive profile used to verify that the Content Hub
+#              correctly fails (or is denied) when attempting to access
+#              restricted files. This profile audits the denial.
+#              This profile includes standard base abstractions and
+#              session D-Bus access.
 profile "{{ profile_bad_name | default('lomiri-content-hub-test-bad') }}" {
-    # Include base system abstractions for common file and library access.
     #include <abstractions/base>
-
-    # Include D-Bus session bus abstractions, allowing the test case to communicate
-    # via the session bus.
     #include <abstractions/dbus-session>
-
-    # Explicitly deny reading the /etc/issue file.
-    # The 'audit' keyword ensures that the denial is logged, allowing the test harness
-    # to verify that the policy violation was detected.
+    
+    # Rule: Deny and Audit /etc/issue
+    # Description: Explicitly denies reading `/etc/issue` and generates
+    #              an audit log entry. This is used in the "bad" test
+    #              case to ensure security boundaries are enforced.
     audit deny /etc/issue r,
 }

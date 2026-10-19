@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- -*- XML -*- -->
+<!--
+  Switcheroo Control D-Bus Policy Configuration
+
+  This file defines the D-Bus security policies for the Switcheroo Control
+  service. It restricts service ownership to the root user and allows
+  standard introspection and property access to all users.
+-->
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!--
+    Policy: Root-only service ownership
+    Description: Restricts the ability to 'own' the D-Bus service name
+    to the root user. This prevents unauthorized processes from claiming
+    the service identity.
+    Schema Field: service_name
+    Default: net.hadess.SwitcherooControl
+  -->
+  <policy user="root">
+    <!-- The D-Bus service name to restrict ownership for. -->
+    <allow own="{{ service_name | default('net.hadess.SwitcherooControl') }}"/>
+  </policy>
+
+  <!--
+    Policy: Default access rules
+    Description: Defines the default permissions for all other D-Bus messages.
+    Specifically, it allows any client to communicate with the service for
+    standard introspection and peer verification purposes.
+  -->
+  <policy context="default">
+
+    <!--
+      Allow Introspection
+      Description: Permits any user to query the service's interface structure
+      using the org.freedesktop.DBus.Introspectable interface.
+    -->
+    <allow send_destination="{{ service_name | default('net.hadess.SwitcherooControl') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+
+    <!--
+      Allow Peer Verification
+      Description: Permits any user to perform peer connection checks
+      using the org.freedesktop.DBus.Peer interface.
+    -->
+    <allow send_destination="{{ service_name | default('net.hadess.SwitcherooControl') }}"
+           send_interface="org.freedesktop.DBus.Peer"/>
+
+    <!--
+      Allow Property Access
+      Description: Permits any user to get or set properties of objects
+      exported by the service using the org.freedesktop.DBus.Properties interface.
+    -->
+    <allow send_destination="{{ service_name | default('net.hadess.SwitcherooControl') }}"
+           send_interface="org.freedesktop.DBus.Properties"/>
+
+    <!--
+      Allow Service-Specific Communication
+      Description: Permits any user to send method calls to the main
+      Switcheroo Control interface.
+    -->
+    <allow send_destination="{{ service_name | default('net.hadess.SwitcherooControl') }}"
+           send_interface="{{ service_name | default('net.hadess.SwitcherooControl') }}"/>
+  </policy>
+
+</busconfig>

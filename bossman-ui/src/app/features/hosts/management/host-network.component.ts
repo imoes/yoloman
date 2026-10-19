@@ -7,6 +7,7 @@ import { AgentService } from '../../../core/services/agent.service';
 import { NetInterface, NetworkResponse } from '../../../core/models/agent.model';
 import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
 import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** Block J4e, Cockpit-adaptation — the Network section restructured like
  * Cockpit's networkmanager (../cockpit/pkg/networkmanager): an Interfaces
@@ -18,7 +19,7 @@ import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
 @Component({
   selector: 'app-host-network',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-mgmt-section">
       @if (loading()) {
@@ -138,7 +139,7 @@ import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
             <div class="bm-factions">
               <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
               <span class="bm-spacer"></span>
-              <button mat-raised-button color="primary" (click)="createConnection()" [disabled]="busy() || !connName().trim() || !connIf().trim()">Add</button>
+              <button mat-raised-button color="primary" (click)="createConnection()" [disabled]="busy()" [bmBlocked]="!connName().trim() || !connIf().trim() ? 'Enter a connection name and an interface' : ''">Add</button>
             </div>
           </div>
         </section>
@@ -174,9 +175,9 @@ import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
       .bm-spacer { flex: 1; }
       .bm-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
       @media (max-width: 900px) { .bm-grid2 { grid-template-columns: 1fr; } }
-      .bm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: 6px 14px; font-size: 12px; }
-      .bm-ct td { padding: 8px 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
+      .bm-ct { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 14px; font-size: 12px; }
+      .bm-ct td { padding: var(--bm-cell-py) 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
       .bm-ifrow { cursor: pointer; }
       .bm-ifrow:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
       .bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); }

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+    {# ----------------------------------------------------------------------- #}
+    {# Google Caladea Font Alias Configuration                                #}
+    {#                                                                        #}
+    {# This block establishes an alias relationship between the proprietary    #}
+    {# Microsoft Calibri/Cambria font family and the open-source Caladea font. #}
+    {# Applications requesting the original family will receive Caladea       #}
+    {# instead, ensuring consistent typography.                               #}
+    {# ----------------------------------------------------------------------- #}
+
+    <!--
+      Alias: Original -> Fallback
+      When an application requests the original font family, Fontconfig
+      will substitute it with the fallback font family.
+      binding="same" ensures strict substitution within the same family group.
+    -->
+    <alias binding="same">
+        <!-- The proprietary font family name that applications request. -->
+        <family>{{ font_alias_original | default('Cambria') }}</family>
+            <accept>
+                <!-- The open-source font family that will be used instead. -->
+                <family>{{ font_alias_fallback | default('Caladea') }}</family>
+            </accept>
+        </alias>
+
+        <!--
+          Alias: Fallback -> Original (Default)
+          Defines the default font family for the fallback name.
+          This ensures that if Caladea is explicitly requested, it resolves
+          correctly, or sets the baseline for the family.
+        -->
+    <alias binding="same">
+        <!-- The fallback font family name. -->
+        <family>{{ font_alias_fallback | default('Caladea') }}</family>
+            <default>
+                <!-- The original font family name being aliased. -->
+                <family>{{ font_alias_original | default('Cambria') }}</family>
+            </default>
+        </alias>
+</fontconfig>

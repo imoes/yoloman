@@ -1,0 +1,57 @@
+# osc-completion.tcsh: Fish-shell completion script for the 'osc' command.
+# This script checks the version of the running shell and the osc source tree
+# to determine if completion should be enabled.
+#
+# Configuration variables provided by Ansible schema:
+# - osc_completions_min_rev: Minimum revision number of the osc source tree for which completions are enabled.
+# - osc_completions_min_rel: Minimum release number of the osc source tree for which completions are enabled.
+# - osc_completion_paths: List of possible paths to the osc completion script.
+
+# Exit immediately if the previous command failed
+onintr -
+
+# Determine if we are running under tcsh.
+# $prompt is set if interactive, $tcsh is set if shell is tcsh.
+if (! $?prompt || ! $?tcsh) goto end
+
+# If the shell is not tcsh (tcsh == 0), skip completion setup
+if ($tcsh == 1) goto end
+
+# Parse version components from the shell name ($tcsh is usually like "6.20.00" or "6.15.00")
+# Example: $tcsh = "6.20.00"
+# $rev becomes "6.20.0" (r removes last colon-separated field)
+# $rel becomes "0" (e removes the last component, leaving the extension/revision part? No, tcsh string manipulation is specific)
+# $pat becomes "00" (extension part of $tcsh)
+# Then $rev is updated to just the numeric part before the extension.
+set rev=$tcsh:r
+set rel=$rev:e
+set pat=$tcsh:e
+set rev=$rev:r
+
+# Only enable completions if the osc source tree version meets minimum requirements.
+# This ensures compatibility with older osc installations.
+# Minimum revision number of the osc source tree for which completions are enabled.
+set min_rev={{ osc_completions_min_rev | default('5') }}
+# Minimum release number of the osc source tree for which completions are enabled.
+set min_rel={{ osc_completions_min_rel | default('1') }}
+
+# Compare shell version against minimum required osc version
+if ($rev > $min_rev && $rel > $min_rel) then
+
+    # Iterate through configured paths to find active completion scripts.
+    # List of possible paths to the osc completion script.
+{% for path in osc_completion_paths | default(['/usr/share/osc/complete', '/usr/lib64/osc/complete', '/usr/lib/osc/complete']) %}
+    # Check if the completion script file exists and is not empty (-s flag)
+    if ( -s {{ path }} )
+        # Source the completion script.
+        # The 'complete' command is used to define completions for the 'osc' command.
+        # 'p@*@`\\{{ path }}`@' tells tcsh to use the specified file for completions.
+        complete osc 'p@*@`\\{{ path }}`@'
+    endif
+{% endfor %}
+
+endif
+
+end:
+    # Reset signal handling
+    onintr

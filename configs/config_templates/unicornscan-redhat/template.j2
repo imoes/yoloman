@@ -1,0 +1,39 @@
+# =============================================================================
+# unicornscan-redhat Configuration Template
+# =============================================================================
+# This template generates the configuration for the unicornscan service on Red Hat
+# based systems. It configures database connectivity for the pgsqldb module and
+# OS detection parameters for the osdetect module.
+# =============================================================================
+
+# --- pgsqldb Module Configuration ---
+# Configures the PostgreSQL database connection parameters for unicornscan.
+module "pgsqldb" {
+    # Database connection string components:
+    # - user: The PostgreSQL role to authenticate as.
+    dbconf:		"user={{ unicornscan_user | default('unicornscan') }} password={{ unicornscan_password | default('scanit!') }} host={{ unicornscan_host | default('localhost') }} dbname={{ unicornscan_dbname | default('unicornscan') }}";
+
+    # Whether to log packets received during scans to the database.
+    # Default: true
+    logpacket:	"{{ unicornscan_db_logpacket | default(true) }}";
+};
+
+# --- osdetect Module Configuration ---
+# Configures Operating System detection signatures and behaviors.
+module "osdetect" {
+    # Fixed OS detection signatures (NetBSD, Linux variants).
+    # These are hardcoded binary-like strings defining TCP options and expected responses.
+
+    "	ST6,	SA,	64,	1,	32768,	0,	TS0,	"
+    "MSS1460:N:WS0:N:N:TS,	NetBSD,	NetBSD_2.?_Generic		";
+
+    "	ST6,	SA,	64,	1,	5792,	0,	none,	"
+    "MSS1460:S:TS:N:WS2,	Linux,	Linux_2.6_newer			";
+
+    "	ST6,	SA,	64,	1,	5792,	0,	none,	"
+    "MSS1460:S:TS:N:WS0,	Linux,	Linux_2.[46]			";
+
+    # Whether to dump results for OS detections that did not match known signatures.
+    # Default: true
+    dumpunknown:	{{ unicornscan_osdetect_dumpunknown | default(true) }};
+};

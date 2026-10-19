@@ -1,0 +1,61 @@
+# pam_url configuration file
+#
+# This template configures the PAM URL module (pam_url) for Red Hat-based systems.
+# It enables HTTP-based two-factor authentication (2FA) or single-sign-on by
+# POSTing user credentials to a remote URL and verifying the response.
+#
+# Variables used:
+#   url, returncode, userfield, passwdfield, extradata, prompt
+#   verify_peer, verify_host, client_cert, client_key, ca_cert
+#
+# All variables are provided with sensible defaults from the schema to ensure
+# idempotency and safety if undefined in the Ansible inventory.
+
+pam_url:
+{
+    settings:
+    {
+        # URI to fetch. The module will POST user credentials to this endpoint.
+        # Defaults to 'https://totp.example.com/' to prevent configuration drift.
+        url         = "{{ url | default('https://totp.example.com') }}/";
+
+        # The remote script/cgi should return a 200 http code and this string as its only results.
+        # Used to validate the authentication response.
+        returncode  = "{{ returncode | default('OK') }}";
+
+        # userfield name to send. The key used in the POST body for the username.
+        userfield   = "{{ userfield | default('user') }}";
+
+        # passwdfield name to send. The key used in the POST body for the password/token.
+        passwdfield = "{{ passwdfield | default('token') }}";
+
+        # Extra data to send appended to the POST body. Useful for actions or flags.
+        extradata   = "{{ extradata | default('&do=login') }}";
+
+        # Password prompt displayed to the user before collecting the second factor.
+        prompt      = "{{ prompt | default('Token: ') }}";
+    };
+
+    ssl:
+    {
+        # Verify peer? Enforces SSL certificate verification.
+        # Must be 'true' or 'false'.
+        verify_peer = {{ verify_peer | default('true') }};
+
+        # Make sure peer CN matches? Verifies the server's Common Name matches the URL hostname.
+        # Must be 'true' or 'false'.
+        verify_host = {{ verify_host | default('true') }};
+
+        # Client-side certificate path. Used for mutual TLS (mTLS) authentication.
+        client_cert = "{{ client_cert | default('/etc/pki/tls/certs/totpcgi.crt') }}";
+
+        # Client-side key path. Private key corresponding to client_cert.
+        client_key  = "{{ client_key | default('/etc/pki/tls/private/totpcgi.pem') }}";
+
+        # CA cert path. Certificate Authority bundle used to verify the server's certificate.
+        # Defaults to the system CA bundle.
+        ca_cert     = "{{ ca_cert | default('/etc/pki/tls/certs/ca-bundle.crt') }}";
+    };
+};
+
+# END

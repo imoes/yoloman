@@ -29,19 +29,20 @@ import { AuditService, AuditEntry, AuditStats } from '../../core/services/audit.
       }
 
       <div class="bm-filters">
-        <input placeholder="search action / path / target" [(ngModel)]="fq" (keyup.enter)="reload()" class="bm-mono" />
-        <select [(ngModel)]="fCategory" (ngModelChange)="reload()">
+        <input placeholder="search action / path / target" aria-label="Search action, path or target" [(ngModel)]="fq" (keyup.enter)="reload()" class="bm-mono" />
+        <select [(ngModel)]="fCategory" (ngModelChange)="reload()" aria-label="Category">
           <option value="">all categories</option>
           @for (c of catOptions; track c) { <option [value]="c">{{ c }}</option> }
         </select>
-        <select [(ngModel)]="fStatus" (ngModelChange)="reload()">
+        <select [(ngModel)]="fStatus" (ngModelChange)="reload()" aria-label="Status">
           <option value="">any status</option><option value="ok">ok</option><option value="failed">failed</option>
         </select>
-        <input placeholder="actor" [(ngModel)]="fActor" (keyup.enter)="reload()" />
+        <input placeholder="actor" aria-label="Actor" [(ngModel)]="fActor" (keyup.enter)="reload()" />
         <button mat-stroked-button (click)="reload()"><mat-icon>search</mat-icon> Search</button>
       </div>
 
-      <div class="bm-table-wrap">
+      <!-- Focusable so a keyboard user can scroll the wide table (WCAG scrollable-region-focusable). -->
+      <div class="bm-table-wrap" tabindex="0" role="region" aria-label="Audit log entries">
         <table class="bm-table">
           <thead><tr><th>When</th><th>Actor</th><th>Category</th><th>Action</th><th>Target</th><th>Status</th><th>IP</th></tr></thead>
           <tbody>
@@ -75,9 +76,9 @@ import { AuditService, AuditEntry, AuditStats } from '../../core/services/audit.
     .bm-filters input { min-width: 160px; }
     .bm-mono { font-family: ui-monospace, monospace; }
     .bm-table-wrap { overflow-x: auto; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); font-size: 11px; text-transform: uppercase; opacity: 0.6; }
-    .bm-table td { padding: 7px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); font-size: 11px; text-transform: uppercase; opacity: 0.6; }
+    .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
     .bm-nowrap { white-space: nowrap; }
     .bm-action { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bm-target { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,0 +1,81 @@
+# ==============================================================================
+# BRLTTY Dracut Configuration Template
+# ==============================================================================
+# Purpose:
+#   Configures BRLTTY (Braille Terminal) parameters within the initramfs image.
+#   These parameters are applied as kernel command-line arguments prefixed with
+#   'rd.brltty.' during the early boot process.
+#
+# Precedence (Lowest to Highest):
+#   1. BRLTTY built-in defaults
+#   2. /etc/brltty.conf
+#   3. Initramfs override (specified in this file)
+#   4. Kernel command line (user-supplied)
+#
+# Usage:
+#   This file is processed by dracut to inject arguments into the initramfs
+#   kernel command line. Do not include the 'rd.brltty.' prefix in the values
+#   below; it is added automatically by the system.
+#
+# Syntax:
+#   format: name=value
+#   - If 'value' is omitted, it defaults to 'yes'.
+#   - Lines starting with '#' are comments.
+#   - Blank lines are ignored.
+# ==============================================================================
+
+# [brltty_device]
+# Description: Specifies the device node for the braille display.
+# Default: null (auto-detect)
+# Example: /dev/ttyS0, /dev/ttyUSB0
+{% if brltty_device is defined %}
+rd.brltty.device={{ brltty_device }}
+{% endif %}
+
+# [brltty_driver]
+# Description: Specifies the driver module to use for the braille display.
+# Default: null (auto-detect)
+# Example: brlapi, nullmodem
+{% if brltty_driver is defined %}
+rd.brltty.driver={{ brltty_driver }}
+{% endif %}
+
+# [brltty_port]
+# Description: Specifies the serial port for the braille display (if not using device).
+# Default: null
+# Example: /dev/ttyS0
+{% if brltty_port is defined %}
+rd.brltty.port={{ brltty_port }}
+{% endif %}
+
+# [brltty_baudrate]
+# Description: Sets the baudrate for serial braille displays.
+# Default: null (auto)
+# Example: 9600, 19200, 38400, 57600, 115200
+{% if brltty_baudrate is defined %}
+rd.brltty.baudrate={{ brltty_baudrate }}
+{% endif %}
+
+# [brltty_keymap]
+# Description: Specifies the keymap configuration file.
+# Default: null
+# Example: us, de, fr
+{% if brltty_keymap is defined %}
+rd.brltty.keymap={{ brltty_keymap }}
+{% endif %}
+
+# [brltty_verbose]
+# Description: Enables verbose output for debugging brltty initialization.
+# Default: no
+# Values: yes, no
+{% if brltty_verbose is defined %}
+rd.brltty.verbose={{ brltty_verbose }}
+{% endif %}
+
+# [brltty_logfile]
+# Description: Path to the log file for brltty diagnostics.
+# Default: /var/log/brltty.log
+# Example: /tmp/brltty.log
+{% if brltty_logfile is defined %}
+rd.brltty.logfile={{ brltty_logfile }}
+{% endif %}

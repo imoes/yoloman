@@ -1,0 +1,217 @@
+#
+# Xpra Configuration Template
+# ===========================
+#
+# This file configures the Xpra (X Persistent Remote Applications) server.
+# It supports both system-wide defaults and per-user overrides.
+#
+# Syntax Notes:
+# - Boolean options accept: 1, 0, true, false, yes, no
+# - Multiple values may be specified by repeating the directive.
+# - Long lines may be split with a trailing backslash '\'.
+#
+# For full documentation, see `man xpra` or `xpra --help`.
+
+# -----------------------------------------------------------------------------
+# Server Identity and Display Configuration
+# -----------------------------------------------------------------------------
+
+# The display number to use for the Xpra server.
+# If not set, Xpra may auto-allocate a display (e.g., :10, :11).
+# Set to a specific integer to force a display number.
+# default: None (auto-allocate)
+{% if xpra_display is defined %}
+display={{ xpra_display }}
+{% endif %}
+
+# The hostname or IP address to bind the Xpra server to.
+# Use '0.0.0.0' to listen on all interfaces, or 'localhost' for local only.
+# default: 127.0.0.1
+bind_address={{ xpra_bind_address | default('127.0.0.1') }}
+
+# The port number for the Xpra server to listen on.
+# This is the main port clients connect to for the initial handshake.
+# default: 10000
+port={{ xpra_port | default('10000') }}
+
+# The port number for the SSL/TLS port (if using encryption).
+# If set, the server will attempt to negotiate SSL.
+# default: None
+{% if xpra_ssl_port is defined %}
+ssl_port={{ xpra_ssl_port }}
+{% endif %}
+
+# Path to the certificate file for SSL/TLS.
+# default: None
+{% if xpra_cert is defined %}
+cert={{ xpra_cert }}
+{% endif %}
+
+# Path to the private key file for SSL/TLS.
+# default: None
+{% if xpra_key is defined %}
+key={{ xpra_key }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Authentication and Access Control
+# -----------------------------------------------------------------------------
+
+# Password or encryption key for the connection.
+# Can be a plain text password, or a path to a file containing the password.
+# If using encryption, this is often a base64-encoded key.
+# default: None (no authentication)
+{% if xpra_password is defined %}
+password={{ xpra_password }}
+{% endif %}
+
+# Path to the access control file.
+# This file defines permissions for users/groups.
+# Syntax: `user:permissions` or `group:permissions`
+# Permissions: r=read, w=write, x=execute/control
+# Example: `alice:rw`, `admin:rw`
+# default: None
+{% if xpra_acl is defined %}
+acl={{ xpra_acl }}
+{% endif %}
+
+# Enable verbose logging for debugging authentication issues.
+# Accepts: true, false
+# default: false
+verbose_auth={{ xpra_verbose_auth | default('false') }}
+
+# -----------------------------------------------------------------------------
+# Audio Configuration
+# -----------------------------------------------------------------------------
+
+# Enable audio output (play remote sounds locally).
+# Accepts: true, false
+# default: true
+audio={{ xpra_audio_output | default('true') }}
+
+# Enable audio input (capture local microphone and send to remote).
+# Accepts: true, false
+# default: true
+audio_input={{ xpra_audio_input | default('true') }}
+
+# The audio input source device name.
+# Use `pactl list sources` or `arecord -l` to find valid names.
+# default: PulseAudio default source
+{% if xpra_audio_source is defined %}
+audio_source={{ xpra_audio_source }}
+{% endif %}
+
+# The audio output sink device name.
+# Use `pactl list sinks` or `aplay -l` to find valid names.
+# default: PulseAudio default sink
+{% if xpra_audio_sink is defined %}
+audio_sink={{ xpra_audio_sink }}
+{% endif %}
+
+# Quality of the audio encoding.
+# Higher values mean better quality but more bandwidth usage.
+# Range: 0-10 (or specific codec params depending on backend).
+# default: 5
+audio_quality={{ xpra_audio_quality | default('5') }}
+
+# -----------------------------------------------------------------------------
+# Video and Image Encoding
+# -----------------------------------------------------------------------------
+
+# Video encoding plugin to use (e.g., h264, vp8, vp9, libvpx, mpeg4).
+# H.264 is generally recommended for performance and compatibility.
+# default: auto (selects best available)
+video={{ xpra_video_encode | default('auto') }}
+
+# Maximum width for encoded video.
+# default: 1920
+video_width={{ xpra_video_width | default('1920') }}
+
+# Maximum height for encoded video.
+# default: 1080
+video_height={{ xpra_video_height | default('1080') }}
+
+# JPEG quality for static screen updates (0-100).
+# default: 75
+jpeg_quality={{ xpra_jpeg_quality | default('75') }}
+
+# JPEG quality level for lossless JPEG compression (0-9).
+# Higher is slower but smaller size.
+# default: 3
+jpeg_level={{ xpra_jpeg_level | default('3') }}
+
+# -----------------------------------------------------------------------------
+# Logging and Debugging
+# -----------------------------------------------------------------------------
+
+# Path to the log file.
+# If not set, logs go to stderr or the journal.
+# default: None
+{% if xpra_log_file is defined %}
+log={{ xpra_log_file }}
+{% endif %}
+
+# Log level: critical, error, warning, notice, info, debug, or trace.
+# default: notice
+log_level={{ xpra_log_level | default('notice') }}
+
+# Enable logging of clipboard content (for debugging).
+# Accepts: true, false
+# default: false
+clipboard_log={{ xpra_clipboard_log | default('false') }}
+
+# -----------------------------------------------------------------------------
+# Session and Daemon Management
+# -----------------------------------------------------------------------------
+
+# Start the Xpra server as a daemon (background process).
+# Accepts: true, false
+# default: true
+daemon={{ xpra_daemon | default('true') }}
+
+# Path to the directory where Xpra stores its socket and pid files.
+# default: /tmp
+tmp_dir={{ xpra_tmp_dir | default('/tmp') }}
+
+# Name of the Xpra socket file.
+# default: xpra_$DISPLAY
+{% if xpra_socket_path is defined %}
+socket_path={{ xpra_socket_path }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Security and Network
+# -----------------------------------------------------------------------------
+
+# Restrict access to the local network only (no external connections).
+# Accepts: true, false
+# default: false
+local={{ xpra_local | default('false') }}
+
+# Enable TCP keepalive to detect dead connections.
+# Accepts: true, false
+# default: true
+tcp_keepalive={{ xpra_tcp_keepalive | default('true') }}
+
+# -----------------------------------------------------------------------------
+# Additional Plugins and Options
+# -----------------------------------------------------------------------------
+
+# Load specific Xpra plugins.
+# Example: `audio`, `video`, `clipboard`, `systray`
+# default: auto-load standard plugins
+{% if xpra_plugins is defined %}
+plugins={{ xpra_plugins }}
+{% endif %}
+
+# Exclude specific plugins.
+# Example: `audio` to disable audio support entirely.
+{% if xpra_plugins_exclude is defined %}
+plugins_exclude={{ xpra_plugins_exclude }}
+{% endif %}
+
+# Extra command-line options to pass to the Xpra server.
+# Useful for advanced tuning not exposed in this config file.
+{% if xpra_extra_options is defined %}
+extra_options={{ xpra_extra_options }}
+{% endif %}

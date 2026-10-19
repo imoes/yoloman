@@ -1,7 +1,7 @@
 # Windows modules — the Ansible-shaped action plane
 
 > **GENERATED** by `scripts/generate-module-docs.py` from what the agent itself publishes
-> (`GET /api/v1/tools` on `bossman-wintest`), on 2026-08-28. Do not edit by hand: the next run
+> (`GET /api/v1/tools` on `bossman-wintest`), on 2026-10-18. Do not edit by hand: the next run
 > overwrites it, and the point of generating it is that this page cannot disagree with the agents.
 
 ## What this is
@@ -10,7 +10,7 @@ Every module this platform's agent exposes **right now**, with the parameters th
 declares. A module is the unit a runbook step, a console action and an MCP tool call all use — the same
 name, the same parameters, on every host of this platform.
 
-**34 modules**: 19 that change the host, 15 that only read it. 7 are listed but not usable on this host (see below).
+**37 modules**: 20 that change the host, 17 that only read it. 7 are listed but not usable on this host (see below).
 
 Two rules hold for all of them, and they are why the tables below are worth reading rather than
 skimming:
@@ -112,7 +112,7 @@ Install or remove software on this Windows host. `provider` is REQUIRED and expl
 | Parameter | Type | Required | What it means |
 |---|---|---|---|
 | `provider` | one of `msi`, `installer`, `packagemanagement`, `winget`, `choco`, `appx` | yes | Required. See the module description for why there is no default. |
-| `arguments` | string | — | The installer's own switches, space-separated (e.g. "/S /v/qn"). |
+| `arguments` | string | — | The installer's own switches for INSTALLING, space-separated (e.g. "/S /v/qn"). Not used when state is absent — see uninstall_arguments. |
 | `detect` | one of `registry`, `msi_product`, `file_version`, `command` | — | Required for state:present. How to tell whether it is already installed. |
 | `detect_equals` | string | — | registry/file_version: the value it must have. Omit to require only that it exists — which is a WEAKER claim, and the reply says which was used. |
 | `detect_key` | string | — | registry: the key. msi_product: the ProductCode. file_version: the file. command: the script. |
@@ -123,6 +123,7 @@ Install or remove software on this Windows host. `provider` is REQUIRED and expl
 | `source_url` | string | — | Where to fetch the installer from. |
 | `state` | one of `present`, `absent` | — |  |
 | `success_codes` | string | — | Exit codes that mean success. 3010 = installed, reboot pending. |
+| `uninstall_arguments` | string | — | Switches appended to the product's own UninstallString when state is absent. Separate from `arguments` because the two are different commands: a recipe carrying /S for a silent install made the removal run "reg delete <key> /f /S", which Windows refuses as invalid syntax. Most products need nothing here. |
 
 ### `powershell`
 
@@ -245,7 +246,7 @@ The Windows DHCP server. No arguments: whether it is authorized, its scopes with
 | `mac_address` | string | — | For a reservation: the client's MAC, e.g. 00-15-5d-01-02-03. |
 | `object` | one of `scope`, `reservation` | — | What a write targets: scope or reservation. |
 | `router` | string | — | The default gateway handed to clients (option 3). |
-| `scope` | string | — | The scope id (its network address, e.g. 10.32.28.0). Alone it READS that scope's leases and reservations. |
+| `scope` | string | — | The scope id (its network address, e.g. 192.0.2.0). Alone it READS that scope's leases and reservations. |
 | `scope_name` | string | — | A human name for the scope. |
 | `start_range` | string | — | First address the scope hands out. Required when creating. |
 | `state` | one of `present`, `absent`, `active`, `inactive` | — | present creates the scope INACTIVE (it hands out nothing); active makes it answer; inactive stops it answering without deleting it; absent removes it with its leases. |
@@ -295,7 +296,7 @@ Windows firewall rules. Without `name`: list every rule with its direction, acti
 | `profile` | string | — | Profiles the rule applies in: Domain, Private, Public, Any (comma-separated). A RULE ENABLED ONLY IN Domain IS NOT IN EFFECT on a host whose network is classified Public — the commonest reason a port with a rule is still closed. Default Any. |
 | `program` | string | — | Restrict to a program's full path. |
 | `protocol` | string | — | TCP, UDP, ICMPv4, or Any. Default TCP when a port is given. |
-| `remote_address` | string | — | Restrict to a remote address or CIDR, e.g. 10.32.0.0/16. |
+| `remote_address` | string | — | Restrict to a remote address or CIDR, e.g. 192.0.2.0/24. |
 | `state` | one of `present`, `absent` | — | Whether the rule should exist. Default present. |
 
 ### `windows_iis`
@@ -312,6 +313,23 @@ IIS sites, bindings and application pools. Without `name`: return every site (wi
 | `object` | one of `site`, `app_pool` | — | What a write targets: site or app_pool. Required with `name`. |
 | `physical_path` | string | — | The site's content folder. Required when creating a site. |
 | `state` | one of `present`, `absent`, `started`, `stopped` | — | present/absent for existence, started/stopped for the running state (which implies present). Default present. |
+
+### `windows_update`
+
+Search, download and install Windows updates through the Windows Update Agent (the same selection as ansible.windows.win_updates). Parameters: state searched|downloaded|installed (default installed), category_names (default CriticalUpdates, SecurityUpdates, UpdateRollups; "*" for all; e.g. DefinitionUpdates), accept_list / reject_list (KB ids or title patterns; accept_list applies within the categories), reboot never|if_required (default never — a needed reboot is reported as reboot_required, the host is not restarted), dry_run (the list that would be taken; nothing is downloaded). Each update's result is Windows' own (Succeeded, SucceededWithErrors, Failed, Aborted + HRESULT), and an update is `installed` only when a new read confirms it (history Succeeded, no longer pending); otherwise `unverified` with the reason.
+
+Cross-tool equivalents:
+- Ansible: ansible.windows.win_updates.
+- Rollback: state=removed — DISM /Remove-Package by the KB's package (wusa /quiet is deprecated on Server 2016+).
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `accept_list` | array of string | — | Only these (KB ids or title patterns), within category_names. |
+| `category_names` | array of string | — | Default CriticalUpdates, SecurityUpdates, UpdateRollups; "*" for all. |
+| `dry_run` | boolean | — |  |
+| `reboot` | one of `never`, `if_required` | — |  |
+| `reject_list` | array of string | — | Never these (KB ids or title patterns). |
+| `state` | one of `searched`, `downloaded`, `installed`, `removed` | — | removed = uninstall the KBs named in accept_list with DISM (the rollback). |
 
 ## Read-only modules
 
@@ -334,6 +352,21 @@ _Takes no parameters._
 Whether this Windows host is waiting for a reboot, and WHY — the four independent places Windows records it (Component-Based Servicing, Windows Update, pending file renames, a pending computer rename), each reported separately plus the aggregate. Read-only, takes no parameters.
 
 _Takes no parameters._
+
+### `service_diagnose`
+
+Explain why a Windows service does not start. Returns a Diagnosis: EVIDENCE (each measurement with a stable id — scm:config:<name>, scm:status:<name>, evt:System:<event id>:<record id>, file:stat:<image>), FINDINGS (a rule from configs/diagnosis_rules.json, a claim, a certainty Proven/Likely/Unknown, the evidence ids it rests on), a timeline and named gaps. Deterministic and read-only: no model is involved and nothing is changed. A service that is not running always gets a finding — svc.unexplained (Unknown, naming what could not be measured) when no rule matches. Rules: no such service, disabled, image missing, unquoted image path, account missing, logon failed (disabled, locked, expired, wrong password), log-on-as-a-service right missing, failed dependency (the deepest broken link, load-order groups resolved), timeout, crash (with the application error), the service's own exit code, stopped cleanly. Events are read by id and EventData, never by the (localized) message text.
+
+Parameters: name (the service's key name, e.g. "Spooler"), include_snapshot (also return what the rules saw).
+
+Cross-tool equivalents:
+- Ansible: none — win_service reports state, not cause.
+- DSC: none; a Service resource converges a state, it does not explain a failure.
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `name` | string | yes | The service's key name, e.g. "Spooler". |
+| `include_snapshot` | boolean | — | Also return the snapshot the rules evaluated. |
 
 ### `service_facts`
 
@@ -378,4 +411,14 @@ Report which Group Policy Objects apply to this host and which were denied, with
 |---|---|---|---|
 | `include_xml` | boolean | — | Also return the raw gpresult XML (48 kB on a workgroup host, more in a domain). Off by default: the parsed summary is what a decision reads, and the extension sections are localised so nothing generic can be made of them here. |
 | `scope` | one of `computer`, `user`, `both` | — | Computer policy is the one that governs a server. User policy applies to whoever is signed in, which on a server is usually nobody. |
+
+### `windows_update_facts`
+
+What Windows Update reports for this host — read-only. Pending updates (kb, title, categories, msrc_severity in Windows' own words, cve_ids where Windows supplies them, reboot_behavior, downloaded, size), the last 50 history entries (operation, result NotStarted/InProgress/Succeeded/SucceededWithErrors/Failed/Aborted, hresult), last successful search/installation, the update server (windows_update, or the WSUS a policy assigns) and a pending reboot. Updates without CVE ids are counted in cve_gap with the reason. Takes no parameters.
+
+Cross-tool equivalents:
+- Ansible: ansible.windows.win_updates with state=searched.
+- PowerShell: PSWindowsUpdate Get-WindowsUpdate (a gallery module; this uses the built-in COM API).
+
+_Takes no parameters._
 

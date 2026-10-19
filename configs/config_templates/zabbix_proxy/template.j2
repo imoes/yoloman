@@ -7,10 +7,10 @@ Hostname={{ proxy_hostname }}
 Server={{ zabbix_server_host }}
 
 # Port on which Zabbix proxy listens for incoming connections from Zabbix server
-ListenPort={{ listen_port }}
+{% if listen_port is defined and listen_port is not none and (listen_port is number or listen_port is boolean or listen_port | length > 0) %}ListenPort={{ listen_port }}{% else %}# ListenPort=10051{% endif %}
 
 # IP address to bind to for incoming connections (use 0.0.0.0 for all interfaces)
-ListenIP={{ listen_ip }}
+{% if listen_ip is defined and listen_ip is not none and (listen_ip is number or listen_ip is boolean or listen_ip | length > 0) %}ListenIP={{ listen_ip }}{% else %}# ListenIP=0.0.0.0{% endif %}
 
 # Database type: sqlite3 for this package
 DBType=sqlite3
@@ -28,13 +28,13 @@ DBPassword=
 DBHost=
 
 # Maximum number of concurrent configuration syncs (0 = disabled)
-ConfigFrequency={{ config_frequency }}
+{% if config_frequency is defined and config_frequency is not none and (config_frequency is number or config_frequency is boolean or config_frequency | length > 0) %}ConfigFrequency={{ config_frequency }}{% else %}# ConfigFrequency=3600{% endif %}
 
 # How often (in seconds) the proxy sends data to the server
 DataFrequency={{ data_frequency }}
 
 # Enable remote commands (0 = disabled, 1 = enabled)
-EnableRemoteCommands={{ enable_remote_commands | lower }}
+{% if enable_remote_commands is defined and enable_remote_commands is not none and (enable_remote_commands is number or enable_remote_commands is boolean or enable_remote_commands | length > 0) %}EnableRemoteCommands={{ enable_remote_commands | lower }}{% else %}# EnableRemoteCommands=0{% endif %}
 
 # Log level: 0 (basic) to 5 (debug)
 LogLevel={{ log_level }}
@@ -70,19 +70,19 @@ NumDBPollers={{ num_db_pollers }}
 NumInternalPollers={{ num_internal_pollers }}
 
 # Enable TLS connections to the Zabbix server
-TLSConnect={{ tls_connect | lower }}
-TLSAccept={{ tls_accept | lower }}
-TLSCAFile={{ tls_ca_file }}
-TLSCertFile={{ tls_cert_file }}
-TLSKeyFile={{ tls_key_file }}
+{% if tls_connect is defined and tls_connect is not none and (tls_connect is number or tls_connect is boolean or tls_connect | length > 0) %}TLSConnect={{ tls_connect | lower }}{% else %}# TLSConnect=unencrypted{% endif %}
+{% if tls_accept is defined and tls_accept is not none and (tls_accept is number or tls_accept is boolean or tls_accept | length > 0) %}TLSAccept={{ tls_accept | lower }}{% else %}# TLSAccept=unencrypted{% endif %}
+{% if tls_ca_file is defined and tls_ca_file is not none and (tls_ca_file is number or tls_ca_file is boolean or tls_ca_file | length > 0) %}TLSCAFile={{ tls_ca_file }}{% else %}# TLSCAFile={% endif %}
+{% if tls_cert_file is defined and tls_cert_file is not none and (tls_cert_file is number or tls_cert_file is boolean or tls_cert_file | length > 0) %}TLSCertFile={{ tls_cert_file }}{% else %}# TLSCertFile={% endif %}
+{% if tls_key_file is defined and tls_key_file is not none and (tls_key_file is number or tls_key_file is boolean or tls_key_file | length > 0) %}TLSKeyFile={{ tls_key_file }}{% else %}# TLSKeyFile={% endif %}
 
 # Paths to SSL certificate files for TLSv1.2+ (optional, empty = use defaults)
 TLSServerCertIssuer=
 TLSServerCertSubject=
 
 # Enable proxy to collect data for hosts not registered on server (experimental)
-UnreachablePeriod={{ unreachable_period }}
-UnavailableDelay={{ unavailable_delay }}
+{% if unreachable_period is defined and unreachable_period is not none and (unreachable_period is number or unreachable_period is boolean or unreachable_period | length > 0) %}UnreachablePeriod={{ unreachable_period }}{% else %}# UnreachablePeriod=45{% endif %}
+{% if unavailable_delay is defined and unavailable_delay is not none and (unavailable_delay is number or unavailable_delay is boolean or unavailable_delay | length > 0) %}UnavailableDelay={{ unavailable_delay }}{% else %}# UnavailableDelay=60{% endif %}
 
 # Maximum number of items that can be queued for processing
 MaxHousekeeperExecution={{ max_housekeeper_execution }}

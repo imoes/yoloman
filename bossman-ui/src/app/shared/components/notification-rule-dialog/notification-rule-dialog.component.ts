@@ -8,6 +8,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { NotificationChannel, NotificationRule, NotificationRuleInput, TimePeriod } from '../../../core/models/notification.model';
 import { NotificationService } from '../../../core/services/notification.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface NotificationRuleDialogData {
   rule?: NotificationRule;
@@ -18,7 +19,7 @@ export interface NotificationRuleDialogData {
 @Component({
   selector: 'app-notification-rule-dialog',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -92,7 +93,7 @@ export interface NotificationRuleDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Save</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">Save</button>
     </mat-dialog-actions>
   `,
   styles: [

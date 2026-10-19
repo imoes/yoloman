@@ -5,7 +5,8 @@ if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
     set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
 fi
 ### BEGIN INIT INFO
-# Provides:          {{ service_name | default('courier-webadmin') }}
+# Name of the provided service (used in the INIT INFO section).
+Provides:          {{ service_name | default('courier-webadmin') }}
 # Required-Start:    courier-authdaemon $remote_fs $syslog
 # Required-Stop:     courier-authdaemon $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -18,6 +19,7 @@ fi
 
 # Path to the courierlogger daemon wrapper used to manage the PID and process.
 # The logger writes the PID of the child process (webadmin) to the specified file.
+# Full path to the PID file for the daemon.
 DAEMON="courierlogger -pid={{ pidfile_path | default('/run/courier/webadmin.pid') }}"
 DESC="Courier Web Admin"
 
@@ -26,6 +28,7 @@ DO_START=yes
 
 # Full path to the PID file tracking the webadmin daemon process.
 # Ensures the init script can correctly identify and manage the running process.
+# Full path to the PID file for the daemon.
 PIDFILE="{{ pidfile_path | default('/run/courier/webadmin.pid') }}"
 
 # Source the standard Courier init script helpers.

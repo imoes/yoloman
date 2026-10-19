@@ -93,7 +93,9 @@ drop_characters: "{{ drop_characters | default('.') }}"
 # Description: Logging destination: '<syslog>', '<stdout>', or '<stderr>'.
 # Default: syslog
 # -----------------------------------------------------------------------------
-log: "{{ log | default('syslog') }}"
+{# chasquid's option is mail_log_path ("<syslog>", "<stdout>", "<stderr>" or a file); the template wrote `log:`,
+   which chasquid refused ("unknown field: log"). #}
+mail_log_path: "{{ '<' ~ log ~ '>' if log in ['syslog', 'stdout', 'stderr'] else log }}"
 
 # -----------------------------------------------------------------------------
 # Dovecot Authentication

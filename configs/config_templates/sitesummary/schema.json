@@ -1,12 +1,550 @@
 {
-  "site_path": {
+  "log_file": {
     "type": "string",
-    "default": "sitesummary",
-    "description": "The URL path segment for accessing the sitesummary listing page."
+    "default": "/var/log/icinga/icinga.log",
+    "description": "The main log file where service and host events are logged."
   },
-  "www_directory": {
+  "nagios_generated_cfg": {
     "type": "string",
-    "default": "/var/lib/sitesummary/www",
-    "description": "The filesystem path to the web root for sitesummary data."
+    "default": "/var/lib/sitesummary/nagios-generated.cfg",
+    "description": "The path to the sitesummary generated Nagios configuration file."
+  },
+  "object_cache_file": {
+    "type": "string",
+    "default": "/var/cache/icinga/objects.cache",
+    "description": "The file where object definitions are cached when Nagios starts/restarts."
+  },
+  "precached_object_file": {
+    "type": "string",
+    "default": "/var/lib/icinga/objects.precache",
+    "description": "The location of the precached object file."
+  },
+  "resource_file": {
+    "type": "string",
+    "default": "/etc/icinga/resource.cfg",
+    "description": "An optional resource file that contains $USERx$ macro definitions."
+  },
+  "status_file": {
+    "type": "string",
+    "default": "/var/lib/icinga/status.dat",
+    "description": "The file where the current status of all monitored services and hosts is stored."
+  },
+  "status_update_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "The frequency (in seconds) that Nagios will periodically dump program, host, and service status data."
+  },
+  "nagios_user": {
+    "type": "string",
+    "default": "nagios",
+    "description": "The effective user that Nagios should run as."
+  },
+  "nagios_group": {
+    "type": "string",
+    "default": "nagios",
+    "description": "The effective group that Nagios should run as."
+  },
+  "check_external_commands": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether or not Nagios should check for external commands (0 = disable, 1 = enable)."
+  },
+  "command_check_interval": {
+    "type": "string",
+    "default": "-1",
+    "description": "The interval at which Nagios should check for external commands."
+  },
+  "command_file": {
+    "type": "string",
+    "default": "/var/lib/icinga/rw/icinga.cmd",
+    "description": "The file that Nagios checks for external command requests."
+  },
+  "external_command_buffer_slots": {
+    "type": "number",
+    "default": 4096,
+    "description": "The number of items or 'slots' that the Nagios daemon should allocate to the buffer for external commands."
+  },
+  "lock_file": {
+    "type": "string",
+    "default": "/var/run/icinga/icinga.pid",
+    "description": "The lockfile that Nagios will use to store its PID number."
+  },
+  "temp_file": {
+    "type": "string",
+    "default": "/var/cache/icinga/icinga.tmp",
+    "description": "A temporary file that is used as scratch space when Nagios updates the status log, etc."
+  },
+  "temp_path": {
+    "type": "string",
+    "default": "/tmp",
+    "description": "Path where Nagios can create temp files for service and host check results."
+  },
+  "event_broker_options": {
+    "type": "string",
+    "default": "-1",
+    "description": "Controls what (if any) data gets sent to the event broker (-1 = Broker everything)."
+  },
+  "log_rotation_method": {
+    "type": "string",
+    "default": "d",
+    "description": "The log rotation method (n=none, h=hourly, d=daily, w=weekly, m=monthly).",
+    "enum": [
+      "n",
+      "h",
+      "d",
+      "w",
+      "m"
+    ]
+  },
+  "log_archive_path": {
+    "type": "string",
+    "default": "/var/log/icinga/archives",
+    "description": "The directory where archived (rotated) log files should be placed."
+  },
+  "use_syslog": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether messages should be logged to the syslog facility (1 = yes, 0 = no)."
+  },
+  "log_notifications": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether notifications should be logged (1 = yes, 0 = no)."
+  },
+  "log_service_retries": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether service check retries should be logged (1 = yes, 0 = no)."
+  },
+  "log_host_retries": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether host check retries should be logged (1 = yes, 0 = no)."
+  },
+  "log_event_handlers": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether host and service event handlers should be logged (1 = yes, 0 = no)."
+  },
+  "log_initial_states": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios should log all initial host and service states (1 = yes, 0 = no)."
+  },
+  "log_external_commands": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios should log external commands (1 = yes, 0 = no)."
+  },
+  "log_passive_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios should log passive host and service checks (1 = yes, 0 = no)."
+  },
+  "service_inter_check_delay_method": {
+    "type": "string",
+    "default": "s",
+    "description": "The method for initially spreading out service checks (n=none, d=dumb, s=smart).",
+    "enum": [
+      "n",
+      "d",
+      "s"
+    ]
+  },
+  "max_service_check_spread": {
+    "type": "number",
+    "default": 30,
+    "description": "The timeframe (in minutes) from program start that an initial check of all services should be completed."
+  },
+  "service_interleave_factor": {
+    "type": "string",
+    "default": "s",
+    "description": "How service checks are interleaved (s=smart, x=interleave factor)."
+  },
+  "host_inter_check_delay_method": {
+    "type": "string",
+    "default": "s",
+    "description": "The method for initially spreading out host checks (n=none, d=dumb, s=smart).",
+    "enum": [
+      "n",
+      "d",
+      "s"
+    ]
+  },
+  "max_host_check_spread": {
+    "type": "number",
+    "default": 30,
+    "description": "The timeframe (in minutes) from program start that an initial check of all hosts should be completed."
+  },
+  "max_concurrent_checks": {
+    "type": "number",
+    "default": 0,
+    "description": "The maximum number of service checks that can be run in parallel (0 = no restriction)."
+  },
+  "check_result_reaper_frequency": {
+    "type": "number",
+    "default": 10,
+    "description": "The frequency (in seconds) that Nagios will process the results of host and service checks."
+  },
+  "max_check_result_reaper_time": {
+    "type": "number",
+    "default": 30,
+    "description": "The max amount of time (in seconds) that a single check result reaper event will be allowed to run."
+  },
+  "check_result_path": {
+    "type": "string",
+    "default": "/var/lib/icinga/spool/checkresults",
+    "description": "Directory where Nagios stores the results of host and service checks that have not yet been processed."
+  },
+  "max_check_result_file_age": {
+    "type": "number",
+    "default": 3600,
+    "description": "The maximum age (in seconds) which check result files are considered to be valid."
+  },
+  "cached_host_check_horizon": {
+    "type": "number",
+    "default": 15,
+    "description": "The maximum amount of time (in seconds) that the state of a previous host check is considered current."
+  },
+  "cached_service_check_horizon": {
+    "type": "number",
+    "default": 15,
+    "description": "The maximum amount of time (in seconds) that the state of a previous service check is considered current."
+  },
+  "enable_predictive_host_dependency_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will attempt to execute checks of hosts for predictive dependency logic (0 = disable, 1 = enable)."
+  },
+  "enable_predictive_service_dependency_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will attempt to execute checks of service for predictive dependency logic (0 = disable, 1 = enable)."
+  },
+  "soft_state_dependencies": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will use soft state information when checking dependencies (0 = no, 1 = yes)."
+  },
+  "auto_reschedule_checks": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will attempt to automatically reschedule active checks (0 = no, 1 = yes)."
+  },
+  "auto_rescheduling_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "How often (in seconds) Nagios will attempt to automatically reschedule checks."
+  },
+  "auto_rescheduling_window": {
+    "type": "number",
+    "default": 180,
+    "description": "The 'window' of time (in seconds) that Nagios will look at when automatically rescheduling checks."
+  },
+  "sleep_time": {
+    "type": "string",
+    "default": "0.25",
+    "description": "The number of seconds to sleep between checking for system events and service checks."
+  },
+  "service_check_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time allotted for service checks (in seconds)."
+  },
+  "host_check_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time allotted for host checks (in seconds)."
+  },
+  "event_handler_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time allotted for event handlers (in seconds)."
+  },
+  "notification_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time allotted for notifications (in seconds)."
+  },
+  "ocsp_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum time allotted for ocsp command (in seconds)."
+  },
+  "perfdata_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum time allotted for performance data commands (in seconds)."
+  },
+  "retain_state_information": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will save state information for services and hosts before shutting down (0 = no, 1 = yes)."
+  },
+  "state_retention_file": {
+    "type": "string",
+    "default": "/var/cache/icinga/retention.dat",
+    "description": "The file that Nagios should use to store host and service state information before it shuts down."
+  },
+  "retention_update_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "How often (in minutes) that Nagios will automatically save retention data during normal operation."
+  },
+  "use_retained_program_state": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will set program status variables based on values saved in the retention file (0 = no, 1 = yes)."
+  },
+  "use_retained_scheduling_info": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will retain scheduling info based on values saved in the retention file (0 = no, 1 = yes)."
+  },
+  "retained_host_attribute_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Bitmask of host attributes that are not retained by Nagios during program restarts."
+  },
+  "retained_service_attribute_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Bitmask of service attributes that are not retained by Nagios during program restarts."
+  },
+  "retained_process_host_attribute_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Bitmask of process attributes (host options) that are not retained."
+  },
+  "retained_process_service_attribute_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Bitmask of process attributes (service options) that are not retained."
+  },
+  "retained_contact_host_attribute_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Bitmask of contact attributes (host options) that are not retained."
+  },
+  "retained_contact_service_attribute_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Bitmask of contact attributes (service options) that are not retained."
+  },
+  "interval_length": {
+    "type": "number",
+    "default": 60,
+    "description": "The seconds per unit interval as used in the host/contact/service configuration files."
+  },
+  "use_aggressive_host_checking": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether to enable aggressive host checking features (0 = no, 1 = yes)."
+  },
+  "execute_service_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will actively execute service checks when it initially starts (0 = no, 1 = yes)."
+  },
+  "accept_passive_service_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will accept passive service checks results when it initially (re)starts (0 = no, 1 = yes)."
+  },
+  "execute_host_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will actively execute host checks when it initially starts (0 = no, 1 = yes)."
+  },
+  "accept_passive_host_checks": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will accept passive host checks results when it initially (re)starts (0 = no, 1 = yes)."
+  },
+  "enable_notifications": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will send out any host or service notifications when it is initially (re)started (0 = no, 1 = yes)."
+  },
+  "enable_event_handlers": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will run any host or service event handlers when it is initially (re)started (0 = no, 1 = yes)."
+  },
+  "process_performance_data": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will process performance data returned from service and host checks (0 = no, 1 = yes)."
+  },
+  "obsess_over_services": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will obsess over service checks and run the ocsp_command (0 = no, 1 = yes)."
+  },
+  "obsess_over_hosts": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will obsess over host checks and run the ochp_command (0 = no, 1 = yes)."
+  },
+  "translate_passive_host_checks": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will translate DOWN/UNREACHABLE passive host check results into their proper state (0 = no, 1 = yes)."
+  },
+  "passive_host_checks_are_soft": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will treat passive host checks as being HARD or SOFT (0 = HARD, 1 = SOFT)."
+  },
+  "check_for_orphaned_services": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will periodically check for orphaned service checks (0 = no, 1 = yes)."
+  },
+  "check_for_orphaned_hosts": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will periodically check for orphaned host checks (0 = no, 1 = yes)."
+  },
+  "check_service_freshness": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will periodically check the 'freshness' of service results (0 = no, 1 = yes)."
+  },
+  "service_freshness_check_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "How often (in seconds) Nagios will check the 'freshness' of service check results."
+  },
+  "check_host_freshness": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will periodically check the 'freshness' of host results (0 = no, 1 = yes)."
+  },
+  "host_freshness_check_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "How often (in seconds) Nagios will check the 'freshness' of host check results."
+  },
+  "additional_freshness_latency": {
+    "type": "number",
+    "default": 15,
+    "description": "The number of seconds that Nagios will add to any host and service freshness thresholds."
+  },
+  "enable_flap_detection": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will try to detect hosts and services that are 'flapping' (0 = no, 1 = yes)."
+  },
+  "low_service_flap_threshold": {
+    "type": "string",
+    "default": "5.0",
+    "description": "The low threshold for service flap detection."
+  },
+  "high_service_flap_threshold": {
+    "type": "string",
+    "default": "20.0",
+    "description": "The high threshold for service flap detection."
+  },
+  "low_host_flap_threshold": {
+    "type": "string",
+    "default": "5.0",
+    "description": "The low threshold for host flap detection."
+  },
+  "high_host_flap_threshold": {
+    "type": "string",
+    "default": "20.0",
+    "description": "The high threshold for host flap detection."
+  },
+  "date_format": {
+    "type": "string",
+    "default": "iso8601",
+    "description": "How short dates are displayed (us, euro, iso8601, strict-iso8601).",
+    "enum": [
+      "us",
+      "euro",
+      "iso8601",
+      "strict-iso8601"
+    ]
+  },
+  "p1_file": {
+    "type": "string",
+    "default": "/usr/lib/icinga/p1.pl",
+    "description": "The location of the p1.pl perl script."
+  },
+  "enable_embedded_perl": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether the embedded Perl interpreter will be enabled during runtime (0 = no, 1 = yes)."
+  },
+  "use_embedded_perl_implicitly": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will process Perl plugins and scripts with the embedded Perl interpreter implicitly (0 = no, 1 = yes)."
+  },
+  "illegal_object_name_chars": {
+    "type": "string",
+    "default": "`~!$%^&*|'\"<>?,()=",
+    "description": "Illegal characters that cannot be used in host names, service descriptions, or names of other object types."
+  },
+  "illegal_macro_output_chars": {
+    "type": "string",
+    "default": "`~$&|'\"<>",
+    "description": "Illegal characters that are stripped from macros before being used in notifications, event handlers, etc."
+  },
+  "use_regexp_matching": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether regular expression matching takes place in the object config files (0 = no, 1 = yes)."
+  },
+  "use_true_regexp_matching": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether 'true' regular expression matching takes place in the object config files (0 = no, 1 = yes)."
+  },
+  "admin_email": {
+    "type": "string",
+    "default": "root@localhost",
+    "description": "The email address of a global administrator."
+  },
+  "admin_pager": {
+    "type": "string",
+    "default": "pageroot@localhost",
+    "description": "The pager address of a global administrator."
+  },
+  "daemon_dumps_core": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios is allowed to create a core dump when it runs as a daemon (0 = no, 1 = yes)."
+  },
+  "use_large_installation_tweaks": {
+    "type": "number",
+    "default": 0,
+    "description": "Whether Nagios will take some shortcuts to save on memory and CPU usage in large installations (0 = no, 1 = yes)."
+  },
+  "enable_environment_macros": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether Nagios will make all standard macros available as environment variables (0 = no, 1 = yes)."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "How much debugging information will be written to the debug file."
+  },
+  "debug_verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "How verbose the debug log output will be (0 = brief, 1 = more detailed, 2 = very detailed)."
+  },
+  "debug_file": {
+    "type": "string",
+    "default": "/var/log/icinga/icinga.debug",
+    "description": "Where Nagios should write debugging information."
+  },
+  "max_debug_file_size": {
+    "type": "number",
+    "default": 1000000,
+    "description": "The maximum size (in bytes) of the debug file."
   }
 }

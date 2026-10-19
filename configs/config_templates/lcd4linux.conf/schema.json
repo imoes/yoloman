@@ -1,180 +1,3125 @@
 {
- "backend_options": {
-  "description": "Backend-specific key-value options (e.g., for FBv5: 'Gamma=1.0', 'Invert=1').",
-  "type": "object"
- },
- "general": {
-  "default": {
-   "backend": "FBv5",
-   "device": "/dev/fb0",
-   "flip_y": false,
-   "font": "7x13",
-   "height": 64,
-   "update_interval": 500,
-   "width": 128
+  "general.update_interval": {
+    "type": "number",
+    "default": 500,
+    "description": "Global update interval in milliseconds (variable tick)."
   },
-  "description": "Core LCD4Linux settings: which backend/driver to use, device path, display dimensions, font, update frequency, and orientation.",
-  "type": "object"
- },
- "general.backend": {
-  "default": "FBv5",
-  "description": "LCD driver backend (e.g., FBv5, G15, G19, HD44780, LCD2USB, SerialLCD, USBHID, X11).",
-  "type": "string"
- },
- "general.device": {
-  "default": "/dev/fb0",
-  "description": "Device path (e.g., framebuffer, serial port, USB device).",
-  "type": "string"
- },
- "general.flip_y": {
-  "default": false,
-  "description": "Flip the display vertically (useful for inverted mounting).",
-  "type": "bool"
- },
- "general.font": {
-  "default": "7x13",
-  "description": "Font name for text rendering (must be loadable by the backend).",
-  "type": "string"
- },
- "general.height": {
-  "default": 64,
-  "description": "Display height in pixels (or lines).",
-  "type": "number"
- },
- "general.update_interval": {
-  "default": 500,
-  "description": "Global update interval in milliseconds.",
-  "type": "number"
- },
- "general.width": {
-  "default": 128,
-  "description": "Display width in pixels (or characters for text-only displays).",
-  "type": "number"
- },
- "layout": {
-  "default": {
-   "extra_rows": [],
-   "row1": "$date $time",
-   "row2": "$uptime",
-   "row3": "$load",
-   "row4": "$cpu $mem"
+  "tack_default": {
+    "type": "number",
+    "default": 100,
+    "description": "Tack interval variable."
   },
-  "description": "Layout for each LCD line (rows 1–4). For 4-line displays, rows 5–8 are optional.",
-  "type": "object"
- },
- "layout.extra_rows": {
-  "default": [],
-  "description": "Optional rows 5–8 (list of up to 4 strings). Only used on 8-line displays.",
-  "items": {
-   "description": "Content for an extra line.",
-   "type": "string"
+  "minute_default": {
+    "type": "number",
+    "default": 60000,
+    "description": "Minute interval variable."
   },
-  "type": "list"
- },
- "layout.row1": {
-  "default": "$date $time",
-  "description": "Content for the first line (supports widgets like $date, $time, $hostname, etc.).",
-  "type": "string"
- },
- "layout.row2": {
-  "default": "$uptime",
-  "description": "Content for the second line.",
-  "type": "string"
- },
- "layout.row3": {
-  "default": "$load",
-  "description": "Content for the third line.",
-  "type": "string"
- },
- "layout.row4": {
-  "default": "$cpu $mem",
-  "description": "Content for the fourth line.",
-  "type": "string"
- },
- "widgets": {
-  "default": [],
-  "description": "List of widget definitions. Each widget provides dynamic data to the display (e.g., CPU, memory, network).",
-  "items": {
-   "align": {
-    "default": "left",
-    "description": "Text alignment: left, center, or right.",
-    "type": "string"
-   },
-   "bgcolor": {
-    "default": null,
-    "description": "Background color in hex or name.",
-    "type": "string"
-   },
-   "color": {
-    "default": null,
-    "description": "Text/foreground color in hex or name (e.g., #FFFFFF, white).",
-    "type": "string"
-   },
-   "driver": {
+  "g15_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for G15 display."
+  },
+  "g15_contrast": {
+    "type": "number",
+    "default": 10,
+    "description": "Contrast for G15 display."
+  },
+  "g15_inverted": {
+    "type": "number",
+    "default": 0,
+    "description": "Inverted setting for G15."
+  },
+  "g15_uinput": {
+    "type": "string",
+    "default": "/dev/input/uinput",
+    "description": "UInput device path for G15."
+  },
+  "g15_single_key_press": {
+    "type": "number",
+    "default": 1,
+    "description": "Single key press setting for G15."
+  },
+  "serdisplib_port": {
+    "type": "string",
+    "default": "PAR:/dev/parports/0",
+    "description": "Port for serdisplib display."
+  },
+  "serdisplib_port_alternative": {
+    "type": "string",
     "default": "",
-    "description": "Backend driver name (e.g., FBv5, X11) if widget is driver-specific.",
-    "type": "string"
-   },
-   "font": {
-    "default": null,
-    "description": "Override default font for this widget.",
-    "type": "string"
-   },
-   "format": {
-    "default": null,
-    "description": "Format string (e.g., '%.1f%%' for numbers).",
-    "type": "string"
-   },
-   "height": {
-    "default": null,
-    "description": "Height in pixels (optional).",
-    "type": "number"
-   },
-   "name": {
-    "description": "Unique widget identifier (used as [Widget.name] section header).",
-    "type": "string"
-   },
-   "oneline": {
-    "default": null,
-    "description": "Force single-line display (e.g., for scrollable text).",
-    "type": "bool"
-   },
-   "source": {
-    "default": null,
-    "description": "Data source (e.g., file path, command, or internal variable like 'cpu.usage').",
-    "type": "string"
-   },
-   "threshold": {
-    "default": null,
-    "description": "Threshold (e.g., for alerting bars/graphs).",
-    "type": "number"
-   },
-   "type": {
-    "default": "Text",
-    "description": "Widget type (e.g., Text, Bar, Icon, Graph).",
-    "type": "string"
-   },
-   "update_interval": {
-    "default": null,
-    "description": "Widget-specific update interval (ms), overriding the global one.",
-    "type": "number"
-   },
-   "width": {
-    "default": null,
-    "description": "Width in pixels/characters (optional, depends on widget type).",
-    "type": "number"
-   },
-   "x": {
-    "default": null,
-    "description": "Absolute X position in pixels.",
-    "type": "number"
-   },
-   "y": {
-    "default": null,
-    "description": "Absolute Y position in pixels.",
-    "type": "number"
-   }
+    "description": "Alternative port for serdisplib."
   },
-  "type": "list"
- }
+  "serdisplib_options": {
+    "type": "string",
+    "default": "",
+    "description": "Options for serdisplib."
+  },
+  "teaklcm_size": {
+    "type": "string",
+    "default": "20x2",
+    "description": "Size for TeakLCM."
+  },
+  "teaklcm_port": {
+    "type": "string",
+    "default": "/dev/ttyS1",
+    "description": "Port for TeakLCM."
+  },
+  "teaklcm_speed": {
+    "type": "number",
+    "default": 38400,
+    "description": "Speed for TeakLCM."
+  },
+  "teaklcm_backlight": {
+    "type": "number",
+    "default": 1,
+    "description": "Backlight for TeakLCM."
+  },
+  "teaklcm_icons": {
+    "type": "number",
+    "default": 0,
+    "description": "Icons for TeakLCM."
+  },
+  "trefon_size": {
+    "type": "string",
+    "default": "16x2",
+    "description": "Size for Trefon."
+  },
+  "trefon_backlight": {
+    "type": "number",
+    "default": 1,
+    "description": "Backlight for Trefon."
+  },
+  "trefon_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for Trefon."
+  },
+  "lcdlinux_size": {
+    "type": "string",
+    "default": "20x2",
+    "description": "Size for LCD-Linux."
+  },
+  "lcdlinux_use_busy": {
+    "type": "number",
+    "default": 0,
+    "description": "UseBusy for LCD-Linux."
+  },
+  "irlcd_size": {
+    "type": "string",
+    "default": "16x2",
+    "description": "Size for IRLCD."
+  },
+  "irlcd_backlight": {
+    "type": "number",
+    "default": 0,
+    "description": "Backlight for IRLCD."
+  },
+  "irlcd_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for IRLCD."
+  },
+  "lcd2usb_size": {
+    "type": "string",
+    "default": "20x2",
+    "description": "Size for LCD2USB."
+  },
+  "lcd2usb_backlight": {
+    "type": "number",
+    "default": 1,
+    "description": "Backlight for LCD2USB."
+  },
+  "lcd2usb_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for LCD2USB."
+  },
+  "glcd2usb_brightness": {
+    "type": "number",
+    "default": 255,
+    "description": "Brightness for GLCD2USB."
+  },
+  "abp_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for ABP08-16x3."
+  },
+  "abp_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for ABP08-16x3."
+  },
+  "abp_size": {
+    "type": "string",
+    "default": "16x3",
+    "description": "Size for ABP08-16x3."
+  },
+  "lcd2041_model": {
+    "type": "string",
+    "default": "LCD2041",
+    "description": "Model for LCD2041."
+  },
+  "lcd2041_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for LCD2041."
+  },
+  "lcd2041_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for LCD2041."
+  },
+  "lcd2041_contrast": {
+    "type": "number",
+    "default": 160,
+    "description": "Contrast for LCD2041."
+  },
+  "lk202_model": {
+    "type": "string",
+    "default": "LK202-24-USB",
+    "description": "Model for LK202."
+  },
+  "lk202_port": {
+    "type": "string",
+    "default": "/dev/tts/USB0",
+    "description": "Port for LK202."
+  },
+  "lk202_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for LK202."
+  },
+  "lk202_contrast": {
+    "type": "number",
+    "default": 256,
+    "description": "Contrast for LK202."
+  },
+  "lk204_model": {
+    "type": "string",
+    "default": "LK204-24-USB",
+    "description": "Model for LK204."
+  },
+  "lk204_port": {
+    "type": "string",
+    "default": "/dev/usb/tts/0",
+    "description": "Port for LK204."
+  },
+  "lk204_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for LK204."
+  },
+  "lk204_contrast": {
+    "type": "number",
+    "default": 256,
+    "description": "Contrast for LK204."
+  },
+  "mdm166a_brightness": {
+    "type": "number",
+    "default": 1,
+    "description": "Brightness for MDM166A."
+  },
+  "mdm166a_inverted": {
+    "type": "number",
+    "default": 0,
+    "description": "Inverted for MDM166A."
+  },
+  "mdm166a_size": {
+    "type": "string",
+    "default": "96x16",
+    "description": "Size for MDM166A."
+  },
+  "mdm166a_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for MDM166A."
+  },
+  "mi240_model": {
+    "type": "string",
+    "default": "MI240",
+    "description": "Model for MI240."
+  },
+  "mi240_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for MI240."
+  },
+  "mi240_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for MI240."
+  },
+  "cw12232_model": {
+    "type": "string",
+    "default": "CW12232",
+    "description": "Model for CW12232."
+  },
+  "cw12232_port": {
+    "type": "string",
+    "default": "/dev/ttyUSB0",
+    "description": "Port for CW12232."
+  },
+  "cw12232_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for CW12232."
+  },
+  "cw12232_brightness": {
+    "type": "number",
+    "default": 2,
+    "description": "Brightness for CW12232."
+  },
+  "cw12232_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for CW12232."
+  },
+  "null_driver": {
+    "type": "string",
+    "default": "NULL",
+    "description": "Driver for NULL display."
+  },
+  "null_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for NULL display."
+  },
+  "cf631_model": {
+    "type": "string",
+    "default": "631",
+    "description": "Model for CF631."
+  },
+  "cf631_port": {
+    "type": "string",
+    "default": "/dev/tts/USB0",
+    "description": "Port for CF631."
+  },
+  "cf631_speed": {
+    "type": "number",
+    "default": 115200,
+    "description": "Speed for CF631."
+  },
+  "cf631_contrast": {
+    "type": "number",
+    "default": 95,
+    "description": "Contrast for CF631."
+  },
+  "cf631_backlight": {
+    "type": "number",
+    "default": 50,
+    "description": "Backlight for CF631."
+  },
+  "cf631_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for CF631."
+  },
+  "cf632_model": {
+    "type": "string",
+    "default": "632",
+    "description": "Model for CF632."
+  },
+  "cf632_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for CF632."
+  },
+  "cf632_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for CF632."
+  },
+  "cf632_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for CF632."
+  },
+  "cf633_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for CF633."
+  },
+  "cf633_model": {
+    "type": "string",
+    "default": "633",
+    "description": "Model for CF633."
+  },
+  "cf633_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for CF633."
+  },
+  "cf633_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for CF633."
+  },
+  "cf633_contrast": {
+    "type": "number",
+    "default": 16,
+    "description": "Contrast for CF633."
+  },
+  "cf633_backlight": {
+    "type": "number",
+    "default": 50,
+    "description": "Backlight for CF633."
+  },
+  "cf635_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for CF635."
+  },
+  "cf635_model": {
+    "type": "string",
+    "default": "635",
+    "description": "Model for CF635."
+  },
+  "cf635_port": {
+    "type": "string",
+    "default": "/dev/ttyUSB0",
+    "description": "Port for CF635."
+  },
+  "cf635_speed": {
+    "type": "number",
+    "default": 115200,
+    "description": "Speed for CF635."
+  },
+  "cf635_contrast": {
+    "type": "number",
+    "default": 100,
+    "description": "Contrast for CF635."
+  },
+  "cf635_backlight": {
+    "type": "number",
+    "default": 128,
+    "description": "Backlight for CF635."
+  },
+  "curses_size": {
+    "type": "string",
+    "default": "20x6",
+    "description": "Size for Curses."
+  },
+  "hd44780_generic_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for HD44780-generic."
+  },
+  "hd44780_generic_size": {
+    "type": "string",
+    "default": "8x2",
+    "description": "Size for HD44780-generic."
+  },
+  "hd44780_generic_asc255bug": {
+    "type": "number",
+    "default": 0,
+    "description": "asc255bug for HD44780-generic."
+  },
+  "hd44780_generic_gpos": {
+    "type": "number",
+    "default": 8,
+    "description": "GPOs for HD44780-generic."
+  },
+  "hd44780_generic_wire_rw": {
+    "type": "string",
+    "default": "GND",
+    "description": "RW wire for HD44780-generic.",
+    "enum": [
+      "GND",
+      "AUTOFD"
+    ]
+  },
+  "hd44780_generic_wire_rs": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RS wire for HD44780-generic.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "hd44780_generic_wire_enable": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "ENABLE wire for HD44780-generic."
+  },
+  "hd44780_generic_wire_enable2": {
+    "type": "string",
+    "default": "GND",
+    "description": "ENABLE2 wire for HD44780-generic.",
+    "enum": [
+      "GND",
+      "SLCTIN"
+    ]
+  },
+  "hd44780_generic_wire_gpo": {
+    "type": "string",
+    "default": "INIT",
+    "description": "GPO wire for HD44780-generic.",
+    "enum": [
+      "INIT",
+      "GND"
+    ]
+  },
+  "hd44780_generic_wire_power": {
+    "type": "string",
+    "default": "GND",
+    "description": "POWER wire for HD44780-generic."
+  },
+  "hd44780_winamp_use_busy": {
+    "type": "number",
+    "default": 1,
+    "description": "UseBusy for HD44780-winamp."
+  },
+  "hd44780_winamp_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for HD44780-winamp."
+  },
+  "hd44780_winamp_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for HD44780-winamp."
+  },
+  "hd44780_winamp_asc255bug": {
+    "type": "number",
+    "default": 1,
+    "description": "asc255bug for HD44780-winamp."
+  },
+  "hd44780_winamp_wire_rw": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RW wire for HD44780-winamp.",
+    "enum": [
+      "AUTOFD",
+      "GND"
+    ]
+  },
+  "hd44780_winamp_wire_rs": {
+    "type": "string",
+    "default": "INIT",
+    "description": "RS wire for HD44780-winamp.",
+    "enum": [
+      "INIT",
+      "DB4"
+    ]
+  },
+  "hd44780_winamp_wire_enable": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "ENABLE wire for HD44780-winamp."
+  },
+  "hd44780_winamp_wire_enable2": {
+    "type": "string",
+    "default": "GND",
+    "description": "ENABLE2 wire for HD44780-winamp.",
+    "enum": [
+      "GND",
+      "SLCTIN"
+    ]
+  },
+  "hd44780_winamp_wire_gpo": {
+    "type": "string",
+    "default": "GND",
+    "description": "GPO wire for HD44780-winamp.",
+    "enum": [
+      "GND",
+      "INIT"
+    ]
+  },
+  "hd44780_winamp_wire_power": {
+    "type": "string",
+    "default": "GND",
+    "description": "POWER wire for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_fuzz": {
+    "type": "number",
+    "default": 100,
+    "description": "Fuzz timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_cy": {
+    "type": "number",
+    "default": 1000,
+    "description": "CY timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_pw": {
+    "type": "number",
+    "default": 450,
+    "description": "PW timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_as": {
+    "type": "number",
+    "default": 140,
+    "description": "AS timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_ah": {
+    "type": "number",
+    "default": 20,
+    "description": "AH timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_init1": {
+    "type": "number",
+    "default": 4100,
+    "description": "INIT1 timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_init2": {
+    "type": "number",
+    "default": 100,
+    "description": "INIT2 timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_exec": {
+    "type": "number",
+    "default": 80,
+    "description": "EXEC timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_wr_cg": {
+    "type": "number",
+    "default": 120,
+    "description": "WRCG timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_clear": {
+    "type": "number",
+    "default": 2250,
+    "description": "CLEAR timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_home": {
+    "type": "number",
+    "default": 2250,
+    "description": "HOME timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_onoff": {
+    "type": "number",
+    "default": 2250,
+    "description": "ONOFF timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_gpo_st": {
+    "type": "number",
+    "default": 20,
+    "description": "GPO_ST timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_gpo_pw": {
+    "type": "number",
+    "default": 230,
+    "description": "GPO_PW timing for HD44780-winamp."
+  },
+  "hd44780_winamp_timing_power": {
+    "type": "number",
+    "default": 500,
+    "description": "POWER timing for HD44780-winamp."
+  },
+  "hd44780_4bit_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for HD44780-4bit."
+  },
+  "hd44780_4bit_size": {
+    "type": "string",
+    "default": "16x1",
+    "description": "Size for HD44780-4bit."
+  },
+  "hd44780_4bit_bits": {
+    "type": "number",
+    "default": 4,
+    "description": "Bits for HD44780-4bit."
+  },
+  "hd44780_4bit_use_busy": {
+    "type": "number",
+    "default": 0,
+    "description": "UseBusy for HD44780-4bit."
+  },
+  "hd44780_4bit_asc255bug": {
+    "type": "number",
+    "default": 0,
+    "description": "asc255bug for HD44780-4bit."
+  },
+  "hd44780_4bit_wire_rw": {
+    "type": "string",
+    "default": "GND",
+    "description": "RW wire for HD44780-4bit.",
+    "enum": [
+      "GND",
+      "AUTOFD"
+    ]
+  },
+  "hd44780_4bit_wire_rs": {
+    "type": "string",
+    "default": "DB4",
+    "description": "RS wire for HD44780-4bit.",
+    "enum": [
+      "DB4",
+      "INIT"
+    ]
+  },
+  "hd44780_4bit_wire_enable": {
+    "type": "string",
+    "default": "DB6",
+    "description": "ENABLE wire for HD44780-4bit.",
+    "enum": [
+      "DB6",
+      "STROBE"
+    ]
+  },
+  "hd44780_4bit_wire_gpo": {
+    "type": "string",
+    "default": "GND",
+    "description": "GPO wire for HD44780-4bit.",
+    "enum": [
+      "GND",
+      "INIT"
+    ]
+  },
+  "wdc2704m_controllers": {
+    "type": "number",
+    "default": 2,
+    "description": "Controllers for WDC2704M."
+  },
+  "wdc2704m_use_busy": {
+    "type": "number",
+    "default": 1,
+    "description": "UseBusy for WDC2704M."
+  },
+  "wdc2704m_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for WDC2704M."
+  },
+  "wdc2704m_size": {
+    "type": "string",
+    "default": "27x4",
+    "description": "Size for WDC2704M."
+  },
+  "wdc2704m_wire_rw": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RW wire for WDC2704M.",
+    "enum": [
+      "AUTOFD",
+      "GND"
+    ]
+  },
+  "wdc2704m_wire_rs": {
+    "type": "string",
+    "default": "INIT",
+    "description": "RS wire for WDC2704M.",
+    "enum": [
+      "INIT",
+      "DB4"
+    ]
+  },
+  "wdc2704m_wire_enable": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "ENABLE wire for WDC2704M."
+  },
+  "wdc2704m_wire_enable2": {
+    "type": "string",
+    "default": "SLCTIN",
+    "description": "ENABLE2 wire for WDC2704M.",
+    "enum": [
+      "SLCTIN",
+      "GND"
+    ]
+  },
+  "wdc2704m_wire_gpo": {
+    "type": "string",
+    "default": "GND",
+    "description": "GPO wire for WDC2704M.",
+    "enum": [
+      "GND",
+      "INIT"
+    ]
+  },
+  "wdc2704m_wire_power": {
+    "type": "string",
+    "default": "GND",
+    "description": "POWER wire for WDC2704M."
+  },
+  "hd44780_kc_model": {
+    "type": "string",
+    "default": "HD66712",
+    "description": "Model for HD44780-kernelconcepts."
+  },
+  "hd44780_kc_use_busy": {
+    "type": "number",
+    "default": 1,
+    "description": "UseBusy for HD44780-kernelconcepts."
+  },
+  "hd44780_kc_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for HD44780-kernelconcepts."
+  },
+  "hd44780_kc_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for HD44780-kernelconcepts."
+  },
+  "hd44780_kc_wire_rw": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RW wire for HD44780-kernelconcepts.",
+    "enum": [
+      "AUTOFD",
+      "GND"
+    ]
+  },
+  "hd44780_kc_wire_rs": {
+    "type": "string",
+    "default": "INIT",
+    "description": "RS wire for HD44780-kernelconcepts.",
+    "enum": [
+      "INIT",
+      "DB4"
+    ]
+  },
+  "hd44780_kc_wire_enable": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "ENABLE wire for HD44780-kernelconcepts."
+  },
+  "hd44780_kc_wire_enable2": {
+    "type": "string",
+    "default": "GND",
+    "description": "ENABLE2 wire for HD44780-kernelconcepts.",
+    "enum": [
+      "GND",
+      "SLCTIN"
+    ]
+  },
+  "hd44780_kc_wire_gpo": {
+    "type": "string",
+    "default": "GND",
+    "description": "GPO wire for HD44780-kernelconcepts.",
+    "enum": [
+      "GND",
+      "INIT"
+    ]
+  },
+  "hd44780_kc_wire_power": {
+    "type": "string",
+    "default": "GND",
+    "description": "POWER wire for HD44780-kernelconcepts."
+  },
+  "picolcd_size": {
+    "type": "string",
+    "default": "20x2",
+    "description": "Size for picoLCD."
+  },
+  "picolcd_contrast": {
+    "type": "number",
+    "default": 0,
+    "description": "Contrast for picoLCD."
+  },
+  "picolcd_backlight": {
+    "type": "number",
+    "default": 1,
+    "description": "Backlight for picoLCD."
+  },
+  "picolcd_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for picoLCD."
+  },
+  "picolcdgraphic_size": {
+    "type": "string",
+    "default": "256x64",
+    "description": "Size for picoLCDGraphic."
+  },
+  "picolcdgraphic_contrast": {
+    "type": "number",
+    "default": 0,
+    "description": "Contrast for picoLCDGraphic."
+  },
+  "picolcdgraphic_backlight": {
+    "type": "number",
+    "default": 100,
+    "description": "Backlight for picoLCDGraphic."
+  },
+  "sc1602d_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for SC1602D."
+  },
+  "sc1602d_bits": {
+    "type": "string",
+    "default": "8",
+    "description": "Bits for SC1602D."
+  },
+  "sc1602d_size": {
+    "type": "string",
+    "default": "16x2",
+    "description": "Size for SC1602D."
+  },
+  "sc1602d_asc255bug": {
+    "type": "number",
+    "default": 0,
+    "description": "asc255bug for SC1602D."
+  },
+  "sc1602d_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for SC1602D."
+  },
+  "sc1602d_wire_rw": {
+    "type": "string",
+    "default": "GND",
+    "description": "RW wire for SC1602D.",
+    "enum": [
+      "GND",
+      "AUTOFD"
+    ]
+  },
+  "sc1602d_wire_rs": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RS wire for SC1602D.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "sc1602d_wire_enable": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "ENABLE wire for SC1602D."
+  },
+  "sc1602d_wire_gpo": {
+    "type": "string",
+    "default": "INIT",
+    "description": "GPO wire for SC1602D.",
+    "enum": [
+      "INIT",
+      "GND"
+    ]
+  },
+  "sc1602d_wire_power": {
+    "type": "string",
+    "default": "GND",
+    "description": "POWER wire for SC1602D."
+  },
+  "lcm162_model": {
+    "type": "string",
+    "default": "LCM-162",
+    "description": "Model for LCM-162."
+  },
+  "lcm162_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for LCM-162."
+  },
+  "lcm162_size": {
+    "type": "string",
+    "default": "16x2",
+    "description": "Size for LCM-162."
+  },
+  "lcm162_use_busy": {
+    "type": "number",
+    "default": 1,
+    "description": "UseBusy for LCM-162."
+  },
+  "lcm162_asc255bug": {
+    "type": "number",
+    "default": 0,
+    "description": "asc255bug for LCM-162."
+  },
+  "lcm162_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for LCM-162."
+  },
+  "hd44780_i2c_bus": {
+    "type": "string",
+    "default": "i2c",
+    "description": "Bus for HD44780-I2C."
+  },
+  "hd44780_i2c_port": {
+    "type": "string",
+    "default": "/dev/i2c-0",
+    "description": "Port for HD44780-I2C."
+  },
+  "hd44780_i2c_device": {
+    "type": "string",
+    "default": "70",
+    "description": "Device for HD44780-I2C."
+  },
+  "hd44780_i2c_bits": {
+    "type": "string",
+    "default": "4",
+    "description": "Bits for HD44780-I2C."
+  },
+  "hd44780_i2c_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for HD44780-I2C."
+  },
+  "hd44780_i2c_asc255bug": {
+    "type": "number",
+    "default": 0,
+    "description": "asc255bug for HD44780-I2C."
+  },
+  "hd44780_i2c_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for HD44780-I2C."
+  },
+  "hd44780_i2c_wire_rw": {
+    "type": "string",
+    "default": "DB5",
+    "description": "RW wire for HD44780-I2C.",
+    "enum": [
+      "DB5",
+      "GND"
+    ]
+  },
+  "hd44780_i2c_wire_rs": {
+    "type": "string",
+    "default": "DB4",
+    "description": "RS wire for HD44780-I2C.",
+    "enum": [
+      "DB4",
+      "INIT"
+    ]
+  },
+  "hd44780_i2c_wire_enable": {
+    "type": "string",
+    "default": "DB6",
+    "description": "ENABLE wire for HD44780-I2C.",
+    "enum": [
+      "DB6",
+      "STROBE"
+    ]
+  },
+  "hd44780_i2c_wire_gpo": {
+    "type": "string",
+    "default": "GND",
+    "description": "GPO wire for HD44780-I2C.",
+    "enum": [
+      "GND",
+      "INIT"
+    ]
+  },
+  "lcdterm_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for LCDTerm."
+  },
+  "lcdterm_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for LCDTerm."
+  },
+  "lcdterm_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for LCDTerm."
+  },
+  "lcdterm_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for LCDTerm."
+  },
+  "simplelcd_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for SimpleLCD."
+  },
+  "simplelcd_speed": {
+    "type": "number",
+    "default": 1200,
+    "description": "Speed for SimpleLCD."
+  },
+  "simplelcd_options": {
+    "type": "number",
+    "default": 0,
+    "description": "Options for SimpleLCD."
+  },
+  "simplelcd_size": {
+    "type": "string",
+    "default": "20x2",
+    "description": "Size for SimpleLCD."
+  },
+  "phanderson_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for PHAnderson."
+  },
+  "phanderson_speed": {
+    "type": "number",
+    "default": 19200,
+    "description": "Speed for PHAnderson."
+  },
+  "phanderson_size": {
+    "type": "string",
+    "default": "24x2",
+    "description": "Size for PHAnderson."
+  },
+  "phanderson_blacklight": {
+    "type": "number",
+    "default": 100,
+    "description": "Blacklight for PHAnderson."
+  },
+  "phanderson_bootscreen": {
+    "type": "string",
+    "default": "123456789012345678901234ABCDEFGHIJKLMNOPQRSTUVWX",
+    "description": "Bootscreen for PHAnderson."
+  },
+  "ba63_model": {
+    "type": "string",
+    "default": "BA63",
+    "description": "Model for BA63."
+  },
+  "ba63_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for BA63."
+  },
+  "ba63_speed": {
+    "type": "number",
+    "default": 9600,
+    "description": "Speed for BA63."
+  },
+  "ba63_bar_char": {
+    "type": "number",
+    "default": 219,
+    "description": "BarChar for BA63."
+  },
+  "ba63_self_test": {
+    "type": "number",
+    "default": 0,
+    "description": "SelfTest for BA63."
+  },
+  "m50530_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for M50530-24x8."
+  },
+  "m50530_size": {
+    "type": "string",
+    "default": "24x8",
+    "description": "Size for M50530-24x8."
+  },
+  "m50530_font": {
+    "type": "string",
+    "default": "5x7",
+    "description": "Font for M50530-24x8."
+  },
+  "m50530_duty": {
+    "type": "number",
+    "default": 2,
+    "description": "Duty for M50530-24x8."
+  },
+  "m50530_wire_rw": {
+    "type": "string",
+    "default": "INIT",
+    "description": "RW wire for M50530-24x8.",
+    "enum": [
+      "INIT",
+      "GND"
+    ]
+  },
+  "m50530_wire_ex": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "EX wire for M50530-24x8."
+  },
+  "m50530_wire_ioc1": {
+    "type": "string",
+    "default": "SLCTIN",
+    "description": "IOC1 wire for M50530-24x8.",
+    "enum": [
+      "SLCTIN",
+      "INIT"
+    ]
+  },
+  "m50530_wire_ioc2": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "IOC2 wire for M50530-24x8.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "m50530_wire_gpo": {
+    "type": "string",
+    "default": "GND",
+    "description": "GPO wire for M50530-24x8.",
+    "enum": [
+      "GND",
+      "INIT"
+    ]
+  },
+  "m50530_use_busy": {
+    "type": "number",
+    "default": 1,
+    "description": "UseBusy for M50530-24x8."
+  },
+  "m50530_timing_fuzz": {
+    "type": "number",
+    "default": 100,
+    "description": "Timing fuzz for M50530-24x8."
+  },
+  "ct20x4_model": {
+    "type": "string",
+    "default": "CT20x4",
+    "description": "Model for CT20x4."
+  },
+  "ct20x4_port": {
+    "type": "string",
+    "default": "/dev/tts/0",
+    "description": "Port for CT20x4."
+  },
+  "ct20x4_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for CT20x4."
+  },
+  "ula200_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for ULA200."
+  },
+  "ula200_icons": {
+    "type": "number",
+    "default": 0,
+    "description": "Icons for ULA200."
+  },
+  "ula200_backlight": {
+    "type": "number",
+    "default": 1,
+    "description": "Backlight for ULA200."
+  },
+  "usblcd_port": {
+    "type": "string",
+    "default": "libusb",
+    "description": "Port for USBLCD."
+  },
+  "usblcd_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for USBLCD."
+  },
+  "usblcd_asc255bug": {
+    "type": "number",
+    "default": 1,
+    "description": "asc255bug for USBLCD."
+  },
+  "usblcd_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for USBLCD."
+  },
+  "bwct_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for BWCT."
+  },
+  "bwct_contrast": {
+    "type": "number",
+    "default": 220,
+    "description": "Contrast for BWCT."
+  },
+  "bwct_asc255bug": {
+    "type": "number",
+    "default": 1,
+    "description": "asc255bug for BWCT."
+  },
+  "bwct_icons": {
+    "type": "number",
+    "default": 1,
+    "description": "Icons for BWCT."
+  },
+  "t6963_240x64_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for T6963-240x64."
+  },
+  "t6963_240x64_size": {
+    "type": "string",
+    "default": "240x64",
+    "description": "Size for T6963-240x64."
+  },
+  "t6963_240x64_dual_scan": {
+    "type": "number",
+    "default": 0,
+    "description": "DualScan for T6963-240x64."
+  },
+  "t6963_240x64_cell": {
+    "type": "number",
+    "default": 6,
+    "description": "Cell for T6963-240x64."
+  },
+  "t6963_240x64_wire_ce": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "CE wire for T6963-240x64."
+  },
+  "t6963_240x64_wire_cd": {
+    "type": "string",
+    "default": "SLCTIN",
+    "description": "CD wire for T6963-240x64.",
+    "enum": [
+      "SLCTIN",
+      "INIT"
+    ]
+  },
+  "t6963_240x64_wire_rd": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RD wire for T6963-240x64.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "t6963_240x64_wire_wr": {
+    "type": "string",
+    "default": "INIT",
+    "description": "WR wire for T6963-240x64.",
+    "enum": [
+      "INIT",
+      "GND"
+    ]
+  },
+  "t6963_240x64_timing_fuzz": {
+    "type": "number",
+    "default": 120,
+    "description": "Timing fuzz for T6963-240x64."
+  },
+  "t6963_240x64_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for T6963-240x64."
+  },
+  "t6963_240x128_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for T6963-240x128."
+  },
+  "t6963_240x128_size": {
+    "type": "string",
+    "default": "240x128",
+    "description": "Size for T6963-240x128."
+  },
+  "t6963_240x128_dual_scan": {
+    "type": "number",
+    "default": 0,
+    "description": "DualScan for T6963-240x128."
+  },
+  "t6963_240x128_cell": {
+    "type": "number",
+    "default": 6,
+    "description": "Cell for T6963-240x128."
+  },
+  "t6963_240x128_wire_ce": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "CE wire for T6963-240x128."
+  },
+  "t6963_240x128_wire_cd": {
+    "type": "string",
+    "default": "SLCTIN",
+    "description": "CD wire for T6963-240x128.",
+    "enum": [
+      "SLCTIN",
+      "INIT"
+    ]
+  },
+  "t6963_240x128_wire_rd": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RD wire for T6963-240x128.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "t6963_240x128_wire_wr": {
+    "type": "string",
+    "default": "INIT",
+    "description": "WR wire for T6963-240x128.",
+    "enum": [
+      "INIT",
+      "GND"
+    ]
+  },
+  "t6963_240x128_timing_fuzz": {
+    "type": "number",
+    "default": 120,
+    "description": "Timing fuzz for T6963-240x128."
+  },
+  "t6963_240x128_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for T6963-240x128."
+  },
+  "t6963_240x128d_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for T6963-240x128D."
+  },
+  "t6963_240x128d_size": {
+    "type": "string",
+    "default": "240x128",
+    "description": "Size for T6963-240x128D."
+  },
+  "t6963_240x128d_dual_scan": {
+    "type": "number",
+    "default": 1,
+    "description": "DualScan for T6963-240x128D."
+  },
+  "t6963_240x128d_cell": {
+    "type": "number",
+    "default": 6,
+    "description": "Cell for T6963-240x128D."
+  },
+  "t6963_240x128d_wire_ce": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "CE wire for T6963-240x128D."
+  },
+  "t6963_240x128d_wire_cd": {
+    "type": "string",
+    "default": "SLCTIN",
+    "description": "CD wire for T6963-240x128D.",
+    "enum": [
+      "SLCTIN",
+      "INIT"
+    ]
+  },
+  "t6963_240x128d_wire_rd": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "RD wire for T6963-240x128D.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "t6963_240x128d_wire_wr": {
+    "type": "string",
+    "default": "INIT",
+    "description": "WR wire for T6963-240x128D.",
+    "enum": [
+      "INIT",
+      "GND"
+    ]
+  },
+  "t6963_240x128d_timing_fuzz": {
+    "type": "number",
+    "default": 120,
+    "description": "Timing fuzz for T6963-240x128D."
+  },
+  "t6963_240x128d_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for T6963-240x128D."
+  },
+  "lph7508_port": {
+    "type": "string",
+    "default": "/dev/parports/0",
+    "description": "Port for LPH7508."
+  },
+  "lph7508_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for LPH7508."
+  },
+  "lph7508_contrast": {
+    "type": "number",
+    "default": 15,
+    "description": "Contrast for LPH7508."
+  },
+  "lph7508_inverted": {
+    "type": "number",
+    "default": 0,
+    "description": "Inverted for LPH7508."
+  },
+  "lph7508_serdisplib_port": {
+    "type": "string",
+    "default": "PAR:/dev/parports/0",
+    "description": "Port for LPH7508-serdisplib."
+  },
+  "lph7508_serdisplib_model": {
+    "type": "string",
+    "default": "LPH7508",
+    "description": "Model for LPH7508-serdisplib."
+  },
+  "ctinclud_port": {
+    "type": "string",
+    "default": "USB:7c0/1501",
+    "description": "Port for ctinclud."
+  },
+  "ctinclud_model": {
+    "type": "string",
+    "default": "CTINCLUD",
+    "description": "Model for ctinclud."
+  },
+  "ctinclud_options": {
+    "type": "string",
+    "default": "",
+    "description": "Options for ctinclud."
+  },
+  "ctinclud_inverted": {
+    "type": "number",
+    "default": 0,
+    "description": "Inverted for ctinclud."
+  },
+  "astusb_size": {
+    "type": "string",
+    "default": "20x4",
+    "description": "Size for ASTUSB."
+  },
+  "astusb_backlight": {
+    "type": "number",
+    "default": 1,
+    "description": "Backlight for ASTUSB."
+  },
+  "xwindow_size": {
+    "type": "string",
+    "default": "120x32",
+    "description": "Size for XWindow."
+  },
+  "xwindow_font": {
+    "type": "string",
+    "default": "5x8",
+    "description": "Font for XWindow."
+  },
+  "xwindow_pixel": {
+    "type": "string",
+    "default": "4+1",
+    "description": "Pixel for XWindow."
+  },
+  "xwindow_gap": {
+    "type": "string",
+    "default": "-1x-1",
+    "description": "Gap for XWindow."
+  },
+  "xwindow_border": {
+    "type": "number",
+    "default": 20,
+    "description": "Border for XWindow."
+  },
+  "xwindow_buttons": {
+    "type": "number",
+    "default": 2,
+    "description": "Buttons for XWindow."
+  },
+  "xwindow_foreground": {
+    "type": "string",
+    "default": "000000cc",
+    "description": "Foreground for XWindow."
+  },
+  "xwindow_background": {
+    "type": "string",
+    "default": "00000022",
+    "description": "Background for XWindow."
+  },
+  "xwindow_basecolor": {
+    "type": "string",
+    "default": "80d000",
+    "description": "Basecolor for XWindow."
+  },
+  "xwindow_bordercolor": {
+    "type": "string",
+    "default": "90e000",
+    "description": "Bordercolor for XWindow."
+  },
+  "image_format": {
+    "type": "string",
+    "default": "PNG",
+    "description": "Format for Image.",
+    "enum": [
+      "PNG",
+      "PPM"
+    ]
+  },
+  "image_size": {
+    "type": "string",
+    "default": "120x32",
+    "description": "Size for Image."
+  },
+  "image_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for Image."
+  },
+  "image_pixel": {
+    "type": "string",
+    "default": "4+1",
+    "description": "Pixel for Image."
+  },
+  "image_gap": {
+    "type": "string",
+    "default": "-1x-1",
+    "description": "Gap for Image."
+  },
+  "image_border": {
+    "type": "number",
+    "default": 20,
+    "description": "Border for Image."
+  },
+  "image_foreground": {
+    "type": "string",
+    "default": "000000cc",
+    "description": "Foreground for Image."
+  },
+  "image_background": {
+    "type": "string",
+    "default": "00000022",
+    "description": "Background for Image."
+  },
+  "image_basecolor": {
+    "type": "string",
+    "default": "80d000",
+    "description": "Basecolor for Image."
+  },
+  "vnc_driver": {
+    "type": "string",
+    "default": "VNC",
+    "description": "Driver for VNC."
+  },
+  "vnc_font": {
+    "type": "string",
+    "default": "6x8",
+    "description": "Font for VNC."
+  },
+  "vnc_port": {
+    "type": "string",
+    "default": "5900",
+    "description": "Port for VNC."
+  },
+  "vnc_xres": {
+    "type": "string",
+    "default": "320",
+    "description": "Xres for VNC."
+  },
+  "vnc_yres": {
+    "type": "string",
+    "default": "140",
+    "description": "Yres for VNC."
+  },
+  "vnc_bpp": {
+    "type": "string",
+    "default": "4",
+    "description": "Bpp for VNC."
+  },
+  "vnc_maxclients": {
+    "type": "string",
+    "default": "2",
+    "description": "Maxclients for VNC."
+  },
+  "vnc_buttons": {
+    "type": "string",
+    "default": "4",
+    "description": "Buttons for VNC."
+  },
+  "vnc_keypadxofs": {
+    "type": "string",
+    "default": "40",
+    "description": "Keypadxofs for VNC."
+  },
+  "vnc_keypadyofs": {
+    "type": "string",
+    "default": "70",
+    "description": "Keypadyofs for VNC."
+  },
+  "vnc_keypadygap": {
+    "type": "string",
+    "default": "10",
+    "description": "Keypadygap for VNC."
+  },
+  "vnc_keypadcol": {
+    "type": "string",
+    "default": "8745877",
+    "description": "Keypadcol for VNC."
+  },
+  "vnc_osd_showtime": {
+    "type": "string",
+    "default": "2000",
+    "description": "Osd_showtime for VNC."
+  },
+  "vnc_maxfps": {
+    "type": "string",
+    "default": "25",
+    "description": "Maxfps for VNC."
+  },
+  "vnc_http_port": {
+    "type": "string",
+    "default": "5800",
+    "description": "HttpPort for VNC."
+  },
+  "futabavfd_port": {
+    "type": "string",
+    "default": "/dev/parport0",
+    "description": "Port for FutabaVFD."
+  },
+  "futabavfd_size": {
+    "type": "string",
+    "default": "40x2",
+    "description": "Size for FutabaVFD."
+  },
+  "futabavfd_brightness": {
+    "type": "number",
+    "default": 3,
+    "description": "Brightness for FutabaVFD."
+  },
+  "futabavfd_wire_rw": {
+    "type": "string",
+    "default": "STROBE",
+    "description": "RW wire for FutabaVFD.",
+    "enum": [
+      "STROBE",
+      "AUTOFD"
+    ]
+  },
+  "futabavfd_wire_test": {
+    "type": "string",
+    "default": "AUTOFD",
+    "description": "TEST wire for FutabaVFD.",
+    "enum": [
+      "AUTOFD",
+      "INIT"
+    ]
+  },
+  "futabavfd_wire_select": {
+    "type": "string",
+    "default": "SLCTIN",
+    "description": "SELECT wire for FutabaVFD.",
+    "enum": [
+      "SLCTIN",
+      "INIT"
+    ]
+  },
+  "futabavfd_wire_busy": {
+    "type": "string",
+    "default": "BUSY",
+    "description": "BUSY wire for FutabaVFD.",
+    "enum": [
+      "BUSY",
+      "INIT"
+    ]
+  },
+  "seti_directory": {
+    "type": "string",
+    "default": "/root/setiathome-3.08.i686-pc-linux-gnu",
+    "description": "Directory for Seti plugin."
+  },
+  "mysql_server": {
+    "type": "string",
+    "default": "gsmlandia.com",
+    "description": "Server for MySQL plugin."
+  },
+  "mysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Port for MySQL plugin."
+  },
+  "mysql_user": {
+    "type": "string",
+    "default": "lcd4linux",
+    "description": "User for MySQL plugin."
+  },
+  "mysql_password": {
+    "type": "string",
+    "default": "lcd4linux",
+    "description": "Password for MySQL plugin."
+  },
+  "mysql_database": {
+    "type": "string",
+    "default": "lcd4linux",
+    "description": "Database for MySQL plugin."
+  },
+  "pop3_server1": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Server for Pop3 plugin."
+  },
+  "pop3_port1": {
+    "type": "number",
+    "default": 110,
+    "description": "Port for Pop3 plugin."
+  },
+  "pop3_user1": {
+    "type": "string",
+    "default": "michael",
+    "description": "User for Pop3 plugin."
+  },
+  "pop3_password1": {
+    "type": "string",
+    "default": "secret",
+    "description": "Password for Pop3 plugin."
+  },
+  "dbus_signal0sender": {
+    "type": "string",
+    "default": "im.pidgin.purple.PurpleService",
+    "description": "Signal0sender for DBus plugin."
+  },
+  "dbus_signal0path": {
+    "type": "string",
+    "default": "/im/pidgin/purple/PurpleObject",
+    "description": "Signal0path for DBus plugin."
+  },
+  "dbus_signal0interface": {
+    "type": "string",
+    "default": "im.pidgin.purple.PurpleInterface",
+    "description": "Signal0interface for DBus plugin."
+  },
+  "dbus_signal0member": {
+    "type": "string",
+    "default": "DisplayedImMsg",
+    "description": "Signal0member for DBus plugin."
+  },
+  "dbus_signal0eventname": {
+    "type": "string",
+    "default": "got_im",
+    "description": "Signal0eventname for DBus plugin."
+  },
+  "pidgin_width": {
+    "type": "number",
+    "default": 20,
+    "description": "Width for Pidgin widget."
+  },
+  "pidgin_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Pidgin widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "pidgin_event": {
+    "type": "string",
+    "default": "got_im",
+    "description": "Event for Pidgin widget."
+  },
+  "os_width": {
+    "type": "number",
+    "default": 20,
+    "description": "Width for OS widget."
+  },
+  "os_align": {
+    "type": "string",
+    "default": "M",
+    "description": "Align for OS widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "os_style": {
+    "type": "string",
+    "default": "bold",
+    "description": "Style for OS widget.",
+    "enum": [
+      "bold",
+      "norm"
+    ]
+  },
+  "os_speed": {
+    "type": "number",
+    "default": 250,
+    "description": "Speed for OS widget."
+  },
+  "cpu_prefix": {
+    "type": "string",
+    "default": "CPU ",
+    "description": "Prefix for CPU widget."
+  },
+  "cpu_width": {
+    "type": "number",
+    "default": 9,
+    "description": "Width for CPU widget."
+  },
+  "cpu_align": {
+    "type": "string",
+    "default": "L",
+    "description": "Align for CPU widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "cpu_style": {
+    "type": "string",
+    "default": "test::onoff(7)>0?'bold':'norm'",
+    "description": "Style for CPU widget."
+  },
+  "cpuinfo_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix for CPUinfo widget."
+  },
+  "cpuinfo_width": {
+    "type": "number",
+    "default": 20,
+    "description": "Width for CPUinfo widget."
+  },
+  "cpuinfo_align": {
+    "type": "string",
+    "default": "M",
+    "description": "Align for CPUinfo widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "cpuinfo_speed": {
+    "type": "number",
+    "default": 100,
+    "description": "Speed for CPUinfo widget."
+  },
+  "ram_postfix": {
+    "type": "string",
+    "default": " MB RAM",
+    "description": "Postfix for RAM widget."
+  },
+  "ram_width": {
+    "type": "number",
+    "default": 11,
+    "description": "Width for RAM widget."
+  },
+  "ram_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for RAM widget."
+  },
+  "ram_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for RAM widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "busy_prefix": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Prefix for Busy widget."
+  },
+  "busy_postfix": {
+    "type": "string",
+    "default": "%",
+    "description": "Postfix for Busy widget."
+  },
+  "busy_width": {
+    "type": "number",
+    "default": 9,
+    "description": "Width for Busy widget."
+  },
+  "busy_precision": {
+    "type": "number",
+    "default": 1,
+    "description": "Precision for Busy widget."
+  },
+  "busy_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Busy widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "busybar_length": {
+    "type": "number",
+    "default": 10,
+    "description": "Length for BusyBar widget."
+  },
+  "busybar_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for BusyBar widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "load_prefix": {
+    "type": "string",
+    "default": "Load",
+    "description": "Prefix for Load widget."
+  },
+  "load_postfix": {
+    "type": "string",
+    "default": "loadavg(1)>1.0?'!':' '",
+    "description": "Postfix for Load widget."
+  },
+  "load_width": {
+    "type": "number",
+    "default": 10,
+    "description": "Width for Load widget."
+  },
+  "load_precision": {
+    "type": "number",
+    "default": 1,
+    "description": "Precision for Load widget."
+  },
+  "load_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Load widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "loadbar_max": {
+    "type": "number",
+    "default": 2.0,
+    "description": "Max for LoadBar widget."
+  },
+  "loadbar_length": {
+    "type": "number",
+    "default": 10,
+    "description": "Length for LoadBar widget."
+  },
+  "loadbar_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for LoadBar widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "disk_prefix": {
+    "type": "string",
+    "default": "disk",
+    "description": "Prefix for Disk widget."
+  },
+  "disk_postfix": {
+    "type": "string",
+    "default": " ",
+    "description": "Postfix for Disk widget."
+  },
+  "disk_width": {
+    "type": "number",
+    "default": 10,
+    "description": "Width for Disk widget."
+  },
+  "disk_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for Disk widget."
+  },
+  "disk_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Disk widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "diskbar_length": {
+    "type": "number",
+    "default": 14,
+    "description": "Length for DiskBar widget."
+  },
+  "diskbar_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for DiskBar widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "eth0_prefix": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Prefix for Eth0 widget."
+  },
+  "eth0_postfix": {
+    "type": "string",
+    "default": " ",
+    "description": "Postfix for Eth0 widget."
+  },
+  "eth0_width": {
+    "type": "number",
+    "default": 10,
+    "description": "Width for Eth0 widget."
+  },
+  "eth0_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for Eth0 widget."
+  },
+  "eth0_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Eth0 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "eth0bar_length": {
+    "type": "number",
+    "default": 14,
+    "description": "Length for Eth0Bar widget."
+  },
+  "eth0bar_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for Eth0Bar widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "ppp_prefix": {
+    "type": "string",
+    "default": "PPP",
+    "description": "Prefix for PPP widget."
+  },
+  "ppp_width": {
+    "type": "number",
+    "default": 9,
+    "description": "Width for PPP widget."
+  },
+  "ppp_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for PPP widget."
+  },
+  "ppp_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for PPP widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "temp_prefix": {
+    "type": "string",
+    "default": "Temp",
+    "description": "Prefix for Temp widget."
+  },
+  "temp_width": {
+    "type": "number",
+    "default": 9,
+    "description": "Width for Temp widget."
+  },
+  "temp_precision": {
+    "type": "number",
+    "default": 1,
+    "description": "Precision for Temp widget."
+  },
+  "temp_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Temp widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "tempbar_min": {
+    "type": "number",
+    "default": 40,
+    "description": "Min for TempBar widget."
+  },
+  "tempbar_max": {
+    "type": "number",
+    "default": 80,
+    "description": "Max for TempBar widget."
+  },
+  "tempbar_length": {
+    "type": "number",
+    "default": 10,
+    "description": "Length for TempBar widget."
+  },
+  "tempbar_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for TempBar widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "mysqlltest1_width": {
+    "type": "number",
+    "default": 20,
+    "description": "Width for MySQLtest1 widget."
+  },
+  "mysqlltest1_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for MySQLtest1 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "mysqlltest1_prefix": {
+    "type": "string",
+    "default": "MySQL test:",
+    "description": "Prefix for MySQLtest1 widget."
+  },
+  "mysqlltest2_width": {
+    "type": "number",
+    "default": 20,
+    "description": "Width for MySQLtest2 widget."
+  },
+  "mysqlltest2_align": {
+    "type": "string",
+    "default": "M",
+    "description": "Align for MySQLtest2 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "mysqlltest2_prefix": {
+    "type": "string",
+    "default": "Status: ",
+    "description": "Prefix for MySQLtest2 widget."
+  },
+  "uptime_width": {
+    "type": "number",
+    "default": 20,
+    "description": "Width for Uptime widget."
+  },
+  "uptime_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for Uptime widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "uptime_prefix": {
+    "type": "string",
+    "default": "Up ",
+    "description": "Prefix for Uptime widget."
+  },
+  "uptime_update": {
+    "type": "number",
+    "default": 1000,
+    "description": "Update for Uptime widget."
+  },
+  "mpris_trackposition_bar_length": {
+    "type": "number",
+    "default": 40,
+    "description": "Length for mpris_TrackPosition_bar widget."
+  },
+  "mpris_trackposition_bar_min": {
+    "type": "number",
+    "default": 0,
+    "description": "Min for mpris_TrackPosition_bar widget."
+  },
+  "mpris_trackposition_bar_max": {
+    "type": "number",
+    "default": 100,
+    "description": "Max for mpris_TrackPosition_bar widget."
+  },
+  "mpris_trackposition_bar_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for mpris_TrackPosition_bar widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "mpris_trackposition_bar_style": {
+    "type": "string",
+    "default": "H",
+    "description": "Style for mpris_TrackPosition_bar widget."
+  },
+  "mpris_trackposition_bar_update": {
+    "type": "number",
+    "default": 200,
+    "description": "Update for mpris_TrackPosition_bar widget."
+  },
+  "bartest_length": {
+    "type": "number",
+    "default": 8,
+    "description": "Length for BarTest widget."
+  },
+  "bartest_direction": {
+    "type": "string",
+    "default": "E",
+    "description": "Direction for BarTest widget.",
+    "enum": [
+      "E",
+      "N",
+      "S"
+    ]
+  },
+  "bartest_update": {
+    "type": "number",
+    "default": 10,
+    "description": "Update for BarTest widget."
+  },
+  "bartestval_prefix": {
+    "type": "string",
+    "default": "Test ",
+    "description": "Prefix for BarTestVal widget."
+  },
+  "bartestval_width": {
+    "type": "number",
+    "default": 9,
+    "description": "Width for BarTestVal widget."
+  },
+  "bartestval_update": {
+    "type": "number",
+    "default": 200,
+    "description": "Update for BarTestVal widget."
+  },
+  "lightningtest_speed": {
+    "type": "number",
+    "default": 500,
+    "description": "Speed for LightningTest widget."
+  },
+  "heartbeat_speed": {
+    "type": "number",
+    "default": 800,
+    "description": "Speed for Heartbeat widget."
+  },
+  "ekg_speed": {
+    "type": "number",
+    "default": 50,
+    "description": "Speed for EKG widget."
+  },
+  "karo_speed": {
+    "type": "number",
+    "default": 200,
+    "description": "Speed for Karo widget."
+  },
+  "heart_speed": {
+    "type": "number",
+    "default": 250,
+    "description": "Speed for Heart widget."
+  },
+  "blob_speed": {
+    "type": "number",
+    "default": 250,
+    "description": "Speed for Blob widget."
+  },
+  "wave_speed": {
+    "type": "number",
+    "default": 100,
+    "description": "Speed for Wave widget."
+  },
+  "squirrel_speed": {
+    "type": "number",
+    "default": 100,
+    "description": "Speed for Squirrel widget."
+  },
+  "lightning_speed": {
+    "type": "number",
+    "default": 100,
+    "description": "Speed for Lightning widget."
+  },
+  "rain_speed": {
+    "type": "number",
+    "default": 200,
+    "description": "Speed for Rain widget."
+  },
+  "timer_speed": {
+    "type": "number",
+    "default": 50,
+    "description": "Speed for Timer widget."
+  },
+  "test_width": {
+    "type": "number",
+    "default": 40,
+    "description": "Width for Test widget."
+  },
+  "test_foreground": {
+    "type": "string",
+    "default": "ff0000ff",
+    "description": "Foreground for Test widget."
+  },
+  "test1_width": {
+    "type": "number",
+    "default": 40,
+    "description": "Width for Test1 widget."
+  },
+  "test1_align": {
+    "type": "string",
+    "default": "M",
+    "description": "Align for Test1 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "test1_speed": {
+    "type": "number",
+    "default": 100,
+    "description": "Speed for Test1 widget."
+  },
+  "test2_width": {
+    "type": "number",
+    "default": 40,
+    "description": "Width for Test2 widget."
+  },
+  "test2_align": {
+    "type": "string",
+    "default": "M",
+    "description": "Align for Test2 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "test2_speed": {
+    "type": "number",
+    "default": 150,
+    "description": "Speed for Test2 widget."
+  },
+  "gp0_val1_prefix": {
+    "type": "string",
+    "default": "GPO#1",
+    "description": "Prefix for GPO_Val1 widget."
+  },
+  "gp0_val1_width": {
+    "type": "number",
+    "default": 10,
+    "description": "Width for GPO_Val1 widget."
+  },
+  "gp0_val1_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for GPO_Val1 widget."
+  },
+  "gp0_val1_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for GPO_Val1 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "gpi_val1_prefix": {
+    "type": "string",
+    "default": "GPI#1",
+    "description": "Prefix for GPI_Val1 widget."
+  },
+  "gpi_val1_width": {
+    "type": "number",
+    "default": 10,
+    "description": "Width for GPI_Val1 widget."
+  },
+  "gpi_val1_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for GPI_Val1 widget."
+  },
+  "gpi_val1_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for GPI_Val1 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "gp0_val4_prefix": {
+    "type": "string",
+    "default": "GPO#4",
+    "description": "Prefix for GPO_Val4 widget."
+  },
+  "gp0_val4_width": {
+    "type": "number",
+    "default": 10,
+    "description": "Width for GPO_Val4 widget."
+  },
+  "gp0_val4_precision": {
+    "type": "number",
+    "default": 0,
+    "description": "Precision for GPO_Val4 widget."
+  },
+  "gp0_val4_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for GPO_Val4 widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "gp0_test1_expression": {
+    "type": "number",
+    "default": 255,
+    "description": "Expression for GPO_Test1 widget."
+  },
+  "gp0_test1_update": {
+    "type": "number",
+    "default": 300,
+    "description": "Update for GPO_Test1 widget."
+  },
+  "gp0_test255_expression": {
+    "type": "number",
+    "default": 0,
+    "description": "Expression for GPO_Test255 widget."
+  },
+  "gp0_test255_update": {
+    "type": "number",
+    "default": 100,
+    "description": "Update for GPO_Test255 widget."
+  },
+  "imagetest_file": {
+    "type": "string",
+    "default": "tux.png",
+    "description": "File for ImageTest widget."
+  },
+  "imagetest_update": {
+    "type": "number",
+    "default": 1000,
+    "description": "Update for ImageTest widget."
+  },
+  "imagetest_visible": {
+    "type": "number",
+    "default": 1,
+    "description": "Visible for ImageTest widget."
+  },
+  "imagetest_inverted": {
+    "type": "number",
+    "default": 0,
+    "description": "Inverted for ImageTest widget."
+  },
+  "kvv_width": {
+    "type": "number",
+    "default": 11,
+    "description": "Width for KVV widget."
+  },
+  "kvv_align": {
+    "type": "string",
+    "default": "L",
+    "description": "Align for KVV widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "kvv_foreground": {
+    "type": "string",
+    "default": "ffff00",
+    "description": "Foreground for KVV widget."
+  },
+  "kvv_style": {
+    "type": "string",
+    "default": "bold",
+    "description": "Style for KVV widget.",
+    "enum": [
+      "bold",
+      "norm"
+    ]
+  },
+  "kvv_time_width": {
+    "type": "number",
+    "default": 2,
+    "description": "Width for KVV_TIME widget."
+  },
+  "kvv_time_align": {
+    "type": "string",
+    "default": "R",
+    "description": "Align for KVV_TIME widget.",
+    "enum": [
+      "L",
+      "M",
+      "R"
+    ]
+  },
+  "kvv_time_foreground_expression": {
+    "type": "string",
+    "default": "kvv::time(0) < 2 ? 'FF0000' : ( kvv::time(0) < 5 ? 'FFFF00' : '00FF00' )",
+    "description": "Foreground for KVV_TIME widget."
+  },
+  "kvv_time_style": {
+    "type": "string",
+    "default": "bold",
+    "description": "Style for KVV_TIME widget.",
+    "enum": [
+      "bold",
+      "norm"
+    ]
+  },
+  "layout_default_row1_col1": {
+    "type": "string",
+    "default": "OS",
+    "description": "Row1 Col1 for Default layout."
+  },
+  "layout_default_row2_col1": {
+    "type": "string",
+    "default": "CPU",
+    "description": "Row2 Col1 for Default layout."
+  },
+  "layout_default_row2_col10": {
+    "type": "string",
+    "default": "RAM",
+    "description": "Row2 Col10 for Default layout."
+  },
+  "layout_default_row3_col1": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row3 Col1 for Default layout."
+  },
+  "layout_default_row3_col10": {
+    "type": "string",
+    "default": "Rain",
+    "description": "Row3 Col10 for Default layout."
+  },
+  "layout_default_row3_col11": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row3 Col11 for Default layout."
+  },
+  "layout_default_row4_col1": {
+    "type": "string",
+    "default": "Load",
+    "description": "Row4 Col1 for Default layout."
+  },
+  "layout_default_row4_col11": {
+    "type": "string",
+    "default": "LoadBar",
+    "description": "Row4 Col11 for Default layout."
+  },
+  "layout_default_row5_col1": {
+    "type": "string",
+    "default": "Disk",
+    "description": "Row5 Col1 for Default layout."
+  },
+  "layout_default_row5_col11": {
+    "type": "string",
+    "default": "DiskBar",
+    "description": "Row5 Col11 for Default layout."
+  },
+  "layout_default_row6_col1": {
+    "type": "string",
+    "default": "Eth0",
+    "description": "Row6 Col1 for Default layout."
+  },
+  "layout_default_row6_col11": {
+    "type": "string",
+    "default": "Eth0Bar",
+    "description": "Row6 Col11 for Default layout."
+  },
+  "layout_testlayer_row1_col1": {
+    "type": "string",
+    "default": "OS",
+    "description": "Row1 Col1 for TestLayer layout."
+  },
+  "layout_testlayer_row2_col1": {
+    "type": "string",
+    "default": "CPU",
+    "description": "Row2 Col1 for TestLayer layout."
+  },
+  "layout_testlayer_row2_col10": {
+    "type": "string",
+    "default": "RAM",
+    "description": "Row2 Col10 for TestLayer layout."
+  },
+  "layout_testlayer_row3_col1": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row3 Col1 for TestLayer layout."
+  },
+  "layout_testlayer_row3_col10": {
+    "type": "string",
+    "default": "Rain",
+    "description": "Row3 Col10 for TestLayer layout."
+  },
+  "layout_testlayer_row3_col11": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row3 Col11 for TestLayer layout."
+  },
+  "layout_testlayer_row4_col1": {
+    "type": "string",
+    "default": "Load",
+    "description": "Row4 Col1 for TestLayer layout."
+  },
+  "layout_testlayer_row4_col11": {
+    "type": "string",
+    "default": "LoadBar",
+    "description": "Row4 Col11 for TestLayer layout."
+  },
+  "layout_testlayer_row5_col1": {
+    "type": "string",
+    "default": "Disk",
+    "description": "Row5 Col1 for TestLayer layout."
+  },
+  "layout_testlayer_row5_col11": {
+    "type": "string",
+    "default": "DiskBar",
+    "description": "Row5 Col11 for TestLayer layout."
+  },
+  "layout_testlayer_row6_col1": {
+    "type": "string",
+    "default": "Eth0",
+    "description": "Row6 Col1 for TestLayer layout."
+  },
+  "layout_testlayer_row6_col11": {
+    "type": "string",
+    "default": "Eth0Bar",
+    "description": "Row6 Col11 for TestLayer layout."
+  },
+  "layout_testlayer_layer2_x1_y1": {
+    "type": "string",
+    "default": "ImageTest",
+    "description": "Layer 2 X1.Y1 for TestLayer layout."
+  },
+  "layout_testimage_layer2_x1_y1": {
+    "type": "string",
+    "default": "ImageTest",
+    "description": "Layer 2 X1.Y1 for TestImage layout."
+  },
+  "layout_l24x8_row1_col1": {
+    "type": "string",
+    "default": "Load",
+    "description": "Row1 Col1 for L24x8 layout."
+  },
+  "layout_l24x8_row1_col11": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row1 Col11 for L24x8 layout."
+  },
+  "layout_l8x2_row1_col1": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row1 Col1 for L8x2 layout."
+  },
+  "layout_l8x2_row2_col1": {
+    "type": "string",
+    "default": "BarTest",
+    "description": "Row2 Col1 for L8x2 layout."
+  },
+  "layout_l16x1_row1_col1": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row1 Col1 for L16x1 layout."
+  },
+  "layout_l16x1_row1_col11": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row1 Col11 for L16x1 layout."
+  },
+  "layout_l16x2_row1_col1": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row1 Col1 for L16x2 layout."
+  },
+  "layout_l16x2_row1_col11": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row1 Col11 for L16x2 layout."
+  },
+  "layout_l16x2_row2_col1": {
+    "type": "string",
+    "default": "Disk",
+    "description": "Row2 Col1 for L16x2 layout."
+  },
+  "layout_l16x2_row2_col11": {
+    "type": "string",
+    "default": "BarTest",
+    "description": "Row2 Col11 for L16x2 layout."
+  },
+  "layout_l20x2_row1_col1": {
+    "type": "string",
+    "default": "CPUinfo",
+    "description": "Row1 Col1 for L20x2 layout."
+  },
+  "layout_l20x2_row2_col1": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row2 Col1 for L20x2 layout."
+  },
+  "layout_l20x2_row2_col11": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row2 Col11 for L20x2 layout."
+  },
+  "layout_l40x2_row1_col1": {
+    "type": "string",
+    "default": "OS",
+    "description": "Row1 Col1 for L40x2 layout."
+  },
+  "layout_l40x2_row1_col21": {
+    "type": "string",
+    "default": "Busy",
+    "description": "Row1 Col21 for L40x2 layout."
+  },
+  "layout_l40x2_row1_col31": {
+    "type": "string",
+    "default": "BusyBar",
+    "description": "Row1 Col31 for L40x2 layout."
+  },
+  "layout_l40x2_row2_col1": {
+    "type": "string",
+    "default": "CPU",
+    "description": "Row2 Col1 for L40x2 layout."
+  },
+  "layout_l40x2_row2_col10": {
+    "type": "string",
+    "default": "RAM",
+    "description": "Row2 Col10 for L40x2 layout."
+  },
+  "layout_l40x2_row2_col21": {
+    "type": "string",
+    "default": "Load",
+    "description": "Row2 Col21 for L40x2 layout."
+  },
+  "layout_l40x2_row2_col31": {
+    "type": "string",
+    "default": "LoadBar",
+    "description": "Row2 Col31 for L40x2 layout."
+  },
+  "layout_test_row01_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row01 Col1 for Test layout."
+  },
+  "layout_test_row02_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row02 Col1 for Test layout."
+  },
+  "layout_test_row03_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row03 Col1 for Test layout."
+  },
+  "layout_test_row04_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row04 Col1 for Test layout."
+  },
+  "layout_test_row05_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row05 Col1 for Test layout."
+  },
+  "layout_test_row06_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row06 Col1 for Test layout."
+  },
+  "layout_test_row07_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row07 Col1 for Test layout."
+  },
+  "layout_test_row08_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row08 Col1 for Test layout."
+  },
+  "layout_test_row09_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row09 Col1 for Test layout."
+  },
+  "layout_test_row10_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row10 Col1 for Test layout."
+  },
+  "layout_test_row11_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row11 Col1 for Test layout."
+  },
+  "layout_test_row12_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row12 Col1 for Test layout."
+  },
+  "layout_test_row13_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row13 Col1 for Test layout."
+  },
+  "layout_test_row14_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row14 Col1 for Test layout."
+  },
+  "layout_test_row15_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row15 Col1 for Test layout."
+  },
+  "layout_test_row16_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row16 Col1 for Test layout."
+  },
+  "layout_test_row17_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row17 Col1 for Test layout."
+  },
+  "layout_test_row18_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row18 Col1 for Test layout."
+  },
+  "layout_test_row19_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row19 Col1 for Test layout."
+  },
+  "layout_test_row20_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row20 Col1 for Test layout."
+  },
+  "layout_test_row21_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row21 Col1 for Test layout."
+  },
+  "layout_test_row22_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row22 Col1 for Test layout."
+  },
+  "layout_test_row23_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row23 Col1 for Test layout."
+  },
+  "layout_test_row24_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row24 Col1 for Test layout."
+  },
+  "layout_test2_row01_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row01 Col1 for Test2 layout."
+  },
+  "layout_test2_row02_col1": {
+    "type": "string",
+    "default": "Test2",
+    "description": "Row02 Col1 for Test2 layout."
+  },
+  "layout_test2_row03_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row03 Col1 for Test2 layout."
+  },
+  "layout_test2_row04_col1": {
+    "type": "string",
+    "default": "Test2",
+    "description": "Row04 Col1 for Test2 layout."
+  },
+  "layout_test2_row05_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row05 Col1 for Test2 layout."
+  },
+  "layout_test2_row06_col1": {
+    "type": "string",
+    "default": "Test2",
+    "description": "Row06 Col1 for Test2 layout."
+  },
+  "layout_test2_row07_col1": {
+    "type": "string",
+    "default": "Test1",
+    "description": "Row07 Col1 for Test2 layout."
+  },
+  "layout_test2_row08_col1": {
+    "type": "string",
+    "default": "Test2",
+    "description": "Row08 Col1 for Test2 layout."
+  },
+  "layout_testgpo_row1_col1": {
+    "type": "string",
+    "default": "GPO_Val1",
+    "description": "Row1 Col1 for TestGPO layout."
+  },
+  "layout_testgpo_row1_col10": {
+    "type": "string",
+    "default": "GPI_Val1",
+    "description": "Row1 Col10 for TestGPO layout."
+  },
+  "layout_testgpo_row2_col1": {
+    "type": "string",
+    "default": "GPO_Val4",
+    "description": "Row2 Col1 for TestGPO layout."
+  },
+  "layout_testgpo_gpo1": {
+    "type": "string",
+    "default": "GPO_Test255",
+    "description": "GPO1 for TestGPO layout."
+  },
+  "layout_testgpo_gpo4": {
+    "type": "string",
+    "default": "GPO_Test1",
+    "description": "GPO4 for TestGPO layout."
+  },
+  "layout_testicons_row1_col1": {
+    "type": "string",
+    "default": "Timer",
+    "description": "Row1 Col1 for TestIcons layout."
+  },
+  "layout_testicons_row1_col2": {
+    "type": "string",
+    "default": "Rain",
+    "description": "Row1 Col2 for TestIcons layout."
+  },
+  "layout_testicons_row1_col3": {
+    "type": "string",
+    "default": "Squirrel",
+    "description": "Row1 Col3 for TestIcons layout."
+  },
+  "layout_testicons_row1_col4": {
+    "type": "string",
+    "default": "Wave",
+    "description": "Row1 Col4 for TestIcons layout."
+  },
+  "layout_testicons_row1_col5": {
+    "type": "string",
+    "default": "Blob",
+    "description": "Row1 Col5 for TestIcons layout."
+  },
+  "layout_testicons_row1_col6": {
+    "type": "string",
+    "default": "Heart",
+    "description": "Row1 Col6 for TestIcons layout."
+  },
+  "layout_testicons_row1_col7": {
+    "type": "string",
+    "default": "Karo",
+    "description": "Row1 Col7 for TestIcons layout."
+  },
+  "layout_testicons_row1_col8": {
+    "type": "string",
+    "default": "EKG",
+    "description": "Row1 Col8 for TestIcons layout."
+  },
+  "layout_testmysql_row1_col1": {
+    "type": "string",
+    "default": "MySQLtest1",
+    "description": "Row1 Col1 for testMySQL layout."
+  },
+  "layout_testmysql_row2_col1": {
+    "type": "string",
+    "default": "MySQLtest2",
+    "description": "Row2 Col1 for testMySQL layout."
+  },
+  "layout_debug_row09_col1": {
+    "type": "string",
+    "default": "Heartbeat",
+    "description": "Row09 Col1 for Debug layout."
+  },
+  "active_display_name": {
+    "type": "string",
+    "default": "NULL",
+    "description": "Name of the active Display block to use.",
+    "enum": [
+      "ACool",
+      "G15",
+      "SerDispLib",
+      "TeakLCM",
+      "Trefon",
+      "LCD-Linux",
+      "IRLCD",
+      "LCD2USB",
+      "GLCD2USB",
+      "ABP08-16x3",
+      "LCD2041",
+      "LK202",
+      "LK204",
+      "MDM166A",
+      "MI240",
+      "CW12232",
+      "NULL",
+      "CF631",
+      "CF632",
+      "CF633",
+      "CF635",
+      "Curses",
+      "HD44780-generic",
+      "HD44780-winamp",
+      "HD44780-4bit",
+      "WDC2704M",
+      "HD44780-kernelconcepts",
+      "picoLCD",
+      "picoLCDGraphic",
+      "SC1602D",
+      "LCM-162",
+      "HD44780-I2C",
+      "LCDTerm",
+      "SimpleLCD",
+      "PHAnderson",
+      "BA63",
+      "M50530-24x8",
+      "CT20x4",
+      "ULA200",
+      "USBLCD",
+      "BWCT",
+      "T6963-240x64",
+      "T6963-240x128",
+      "T6963-240x128D",
+      "LPH7508",
+      "LPH7508-serdisplib",
+      "ctinclud",
+      "ASTUSB",
+      "XWindow",
+      "Image",
+      "VNC",
+      "FutabaVFD"
+    ]
+  },
+  "active_layout_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Name of the active Layout block to use.",
+    "enum": [
+      "Default",
+      "TestLayer",
+      "TestImage",
+      "L24x8",
+      "L8x2",
+      "L16x1",
+      "L16x2",
+      "L20x2",
+      "L40x2",
+      "Test",
+      "Test2",
+      "TestGPO",
+      "TestIcons",
+      "testMySQL",
+      "Debug"
+    ]
+  }
 }

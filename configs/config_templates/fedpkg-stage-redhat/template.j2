@@ -1,0 +1,131 @@
+; Configuration section for the fedpkg-stage environment.
+; This file configures the fedpkg tool to interact with Staging (STG)
+; instances of Fedora infrastructure services (Distgit, Koji, Bodhi, etc.).
+
+[fedpkg-stage]
+; Base URL for the lookaside cache where source tarballs are stored.
+lookaside = {{ lookaside_url | default('https://src.stg.fedoraproject.org/repo/pkgs') }}
+
+; Hash algorithm used for verifying lookaside uploads (e.g., sha512).
+lookasidehash = {{ lookaside_hash | default('sha512') }}
+
+; URL endpoint for the CGI script that handles lookaside uploads.
+lookaside_cgi = {{ lookaside_cgi_url | default('https://src.stg.fedoraproject.org/repo/pkgs/upload.cgi') }}
+
+; Base URL template for SSH-based Git access.
+; %(user)s and %(repo)s are dynamic placeholders resolved at runtime.
+gitbaseurl = ssh://%(user)s@{{ git_base_host | default('pkgs.stg.fedoraproject.org') }}/%(repo)s
+
+; Base URL template for anonymous HTTPS Git access.
+; %(repo)s is a dynamic placeholder.
+anongiturl = {{ anongit_url | default('https://src.stg.fedoraproject.org') }}/%(repo)s.git
+
+; Regular expression matching valid Fedora release branches (e.g., f38, rawhide).
+branchre = f\d$|f\d\d$|epel\d+(?:\.\d+)?$|olpc\d$|rawhide$
+
+; Koji profile name to use for build interactions.
+kojiprofile = {{ koji_profile | default('stg') }}
+
+; Command-line client tool used to interface with Koji.
+build_client = {{ build_client | default('koji') }}
+
+; Default Bugzilla tracking configuration for RPM package clones.
+clone_config_rpms =
+    bz.default-tracker {{ bz_default_tracker | default('partner-bugzilla.redhat.com') }}
+    bz.default-product {{ bz_default_product_rpms | default('Fedora') }}
+    bz.default-version {{ bz_default_version | default('rawhide') }}
+    bz.default-component %(repo)s
+    sendemail.to {{ bz_default_email_rpms | default('%(repo)s-maintainers@fedoraproject.org') }}
+
+; Default Bugzilla tracking configuration for container image clones.
+clone_config_container =
+    bz.default-tracker {{ bz_default_tracker | default('partner-bugzilla.redhat.com') }}
+    bz.default-product {{ bz_default_product_container | default('Fedora Container Images') }}
+    bz.default-version {{ bz_default_version | default('rawhide') }}
+    bz.default-component %(repo)s
+    sendemail.to {{ bz_default_email_container | default('container-%(repo)s-maintainers@fedoraproject.org') }}
+
+; Enable namespaced directory structure in distgit (e.g., rpms/, containers/).
+distgit_namespaced = {{ distgit_namespaced | default('True') }}
+
+; List of namespaces allowed in distgit, separated by spaces.
+distgit_namespaces = {{ distgit_namespaces | default('rpms container flatpaks') }}
+
+; Enable namespaced directory structure in lookaside cache.
+lookaside_namespaced = {{ lookaside_namespaced | default('True') }}
+
+; Comma-separated list of Kerberos realms for authentication.
+kerberos_realms = {{ kerberos_realms | default('STG.FEDORAPROJECT.ORG') }}
+
+; URL for the OpenID Connect Identity Provider.
+oidc_id_provider = {{ oidc_id_provider | default('https://id.stg.fedoraproject.org/openidc/') }}
+
+; Client ID for OIDC authentication.
+oidc_client_id = {{ oidc_client_id | default('fedpkg') }}
+
+; Client secret for OIDC authentication.
+oidc_client_secret = {{ oidc_client_secret | default('notsecret') }}
+
+; Comma-separated list of OIDC scopes to request.
+oidc_scopes = {{ oidc_scopes | default('openid,https://id.fedoraproject.org/scope/groups,https://src.fedoraproject.org/push') }}
+
+; Git files and directories to exclude from commits/commits.
+git_excludes =
+    i386/
+    i686/
+    x86_64/
+    ppc/
+    ppc64/
+    ia64/
+    mips/
+    arm/
+    noarch/
+    /*.src.rpm
+    /build*.log
+    /.build-*.log
+    /*-build/
+    results/
+    results_*/
+    clog
+
+; Directory setting for build results (often mapped to root or tmp).
+results_dir={{ results_dir | default('root') }}
+
+; Maximum number of attempts for lookaside uploads.
+lookaside_attempts = {{ lookaside_attempts | default('3') }}
+
+; Delay in seconds between lookaside upload retry attempts.
+lookaside_delay = {{ lookaside_delay | default('15') }}
+
+; HTTP protocol version for lookaside transfers: auto, 1.1, or 2.
+lookaside_http_version = {{ lookaside_http_version | default('auto') }}
+
+[fedpkg-stage.bodhi]
+; Enable connection to the Bodhi staging environment for updates.
+staging = {{ bodhi_staging | default('True') }}
+
+; URL template for fetching release information from Bodhi.
+; Includes %(release)s variable resolved at runtime.
+releases_service = {{ bodhi_releases_service | default('https://bodhi.stg.fedoraproject.org/releases/%(release)s') }}
+
+; Base URL for the Bodhi web interface and API.
+url = {{ bodhi_url | default('https://bodhi.stg.fedoraproject.org/') }}
+
+[fedpkg-stage.bugzilla]
+; Base URL for Bugzilla. Production instance is often used for read-only data.
+url = {{ bugzilla_url | default('https://bugzilla.redhat.com/') }}
+
+[fedpkg-stage.forgejo]
+; Base URL for the Forgejo (Git forge) instance.
+url = {{ forgejo_url | default('https://forge.stg.fedoraproject.org/') }}
+
+[fedpkg-stage.greenwave]
+; Base URL for Greenwave (policy evaluation service).
+url = {{ greenwave_url | default('https://greenwave.stg.fedoraproject.org/') }}
+
+[fedpkg-stage.distgit]
+; Base URL for the Distgit API server.
+apibaseurl = {{ distgit_apibaseurl | default('https://src.stg.fedoraproject.org') }}
+
+; Authentication token for Distgit API access.
+token = {{ distgit_token | default('') }}

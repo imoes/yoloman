@@ -1,27 +1,51 @@
-# ==============================================================================
-# grml-rescueboot configuration
-# ==============================================================================
-# This configuration file controls the behavior of the grml-rescueboot package.
-# It defines where rescue ISO images are stored, how they are grouped in the
-# GRUB boot menu, and any default kernel boot parameters to apply.
+# =============================================================================
+# grml-rescueboot Configuration
+# =============================================================================
+# This file configures the grml-rescueboot package, which automatically generates
+# GRUB menu entries for booting rescue ISOs (such as Grml, SystemRescue, etc.)
+# from a specified directory.
 #
-# Variables used:
-#   ISO_LOCATION       (str) Path to the directory containing .iso files
-#   GRUB_SUBMENU       (str) Name of the GRUB submenu, or "" to disable
-#   CUSTOM_BOOTOPTIONS (str) Space-separated kernel parameters to append
-# ==============================================================================
+# See: man 5 grml-rescueboot.conf
+# =============================================================================
 
-# ISO_LOCATION specifies the directory path where ISO files are stored and
-# from which rescue entries are generated. The bootloader will look for
-# valid ISO images in this location.
-ISO_LOCATION="{{ ISO_LOCATION | default('/boot/grml/') }}"
+# ------------------------------------------------------------------------------
+# ISO_LOCATION
+# Description: Directory path where ISO files are stored and from which rescue
+#              entries are generated. The package scans this directory for .iso
+#              files and creates corresponding GRUB menu entries.
+# Default: /boot/grml/ (commented out below if not explicitly set)
+# ------------------------------------------------------------------------------
+{# Check if the variable is defined and non-empty. Handle strings properly. #}
+{% if ISO_LOCATION is defined and ISO_LOCATION is not none and ISO_LOCATION | trim | length > 0 %}
+ISO_LOCATION="{{ ISO_LOCATION }}"
+{% else %}
+# ISO_LOCATION="/boot/grml/"
+{% endif %}
 
-# GRUB_SUBMENU defines the name of the GRUB submenu under which grml rescue
-# entries will be grouped. If set to an empty string, entries will appear
-# directly in the main GRUB menu without a submenu.
-GRUB_SUBMENU="{{ GRUB_SUBMENU | default('Grml Rescue Boot menu') }}"
+# ------------------------------------------------------------------------------
+# GRUB_SUBMENU
+# Description: Name of the GRUB submenu under which grml rescue entries will be
+#              grouped. Set to an empty string to disable submenu creation
+#              (entries appear at the top level). If set, GRUB will create a
+#              nested menu entry with this name.
+# Default: "Grml Rescue Boot menu"
+# ------------------------------------------------------------------------------
+{% if GRUB_SUBMENU is defined and GRUB_SUBMENU is not none and GRUB_SUBMENU | trim | length > 0 %}
+GRUB_SUBMENU='{{ GRUB_SUBMENU }}'
+{% else %}
+# GRUB_SUBMENU='Grml Rescue Boot menu'
+{% endif %}
 
-# CUSTOM_BOOTOPTIONS allows you to append space-separated boot options to all
-# generated kernel command lines for rescue images. Common use cases include
-# enabling ssh access or setting the language. Leave empty to use defaults.
-CUSTOM_BOOTOPTIONS="{{ CUSTOM_BOOTOPTIONS | default('ssh=password lang=de') }}"
+# ------------------------------------------------------------------------------
+# CUSTOM_BOOTOPTIONS
+# Description: Space-separated boot options to append to all generated kernel
+#              command lines for the rescue ISOs. Use this to add parameters
+#              like 'lang=de', 'ssh=password', or specific kernel flags.
+#              Leave empty (or commented out) to use default boot parameters.
+# Default: "ssh=password lang=de"
+# ------------------------------------------------------------------------------
+{% if CUSTOM_BOOTOPTIONS is defined and CUSTOM_BOOTOPTIONS is not none and CUSTOM_BOOTOPTIONS | trim | length > 0 %}
+CUSTOM_BOOTOPTIONS='{{ CUSTOM_BOOTOPTIONS }}'
+{% else %}
+# CUSTOM_BOOTOPTIONS='ssh=password lang=de'
+{% endif %}

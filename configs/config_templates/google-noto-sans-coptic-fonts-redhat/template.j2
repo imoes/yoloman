@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Noto Sans Coptic Font Configuration
+  -----------------------------------
+  This file configures FontConfig (fontconfig) to:
+  1. Substitute fonts for the Coptic language (ISO 639-3: 'cop') using Noto Sans Coptic.
+  2. Provide an alias fallback so applications requesting "Noto Sans Coptic" get "sans-serif" if the font is missing.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Rule 1: Language-based substitution.
+    When an application requests the generic font family specified by `fallback_font_family`
+    for text tagged with language `lang_code`, prepend `target_font_family` to the list.
+  -->
+  <match>
+    <!-- Match if the text language contains the target code -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('cop') }}</string>
+    </test>
+    <!-- Match if the requested font family is the target generic family -->
+    <test name="family">
+      <string>{{ fallback_font_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Insert the specific Noto font at the beginning of the family list -->
+    <edit name="family" mode="prepend">
+      <string>{{ target_font_family | default('Noto Sans Coptic') }}</string>
+    </edit>
+    <!--
+      Disable font hinting for this match.
+      Noto fonts are often designed to look best at their native size/em-square,
+      so explicit hinting can sometimes degrade quality.
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ enable_font_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Rule 2: Alias definition.
+    If an application explicitly asks for "Noto Sans Coptic" but the font is not installed,
+    gracefully fall back to the generic sans-serif family.
+  -->
+  <alias>
+    <family>{{ target_font_family | default('Noto Sans Coptic') }}</family>
+    <default>
+      <family>{{ fallback_font_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

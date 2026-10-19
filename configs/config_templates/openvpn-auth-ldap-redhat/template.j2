@@ -1,0 +1,66 @@
+<LDAP>
+{# LDAP server URL: URL of the LDAP server to connect to #}
+	URL		{{ openvpn_auth_ldap_url | default('ldap://ldap1.example.org') }}
+
+{# Bind DN for LDAP authentication: Distinguished Name used to bind to the LDAP server #}
+{# If not provided or empty, anonymous binding is attempted #}
+{% if openvpn_auth_ldap_bind_dn is defined and openvpn_auth_ldap_bind_dn is not none and openvpn_auth_ldap_bind_dn | string | length > 0 %}	BindDN		{{ openvpn_auth_ldap_bind_dn }}
+{% else %}	# BindDN		(Anonymous bind - no BindDN specified)
+{% endif %}
+
+{# Bind Password for LDAP authentication: Password for the Bind DN #}
+{# Only included if a Bind DN is also specified #}
+{% if openvpn_auth_ldap_password is defined and openvpn_auth_ldap_password is not none and openvpn_auth_ldap_password | string | length > 0 %}	Password	{{ openvpn_auth_ldap_password }}
+{% else %}	# Password	(No password specified - check BindDN is set)
+{% endif %}
+
+{# Network timeout in seconds: Maximum time to wait for a response from the LDAP server #}
+	Timeout		{{ openvpn_auth_ldap_timeout | default('15') }}
+
+{# Enable Start TLS: Upgrade the connection to use TLS encryption #}
+	TLSEnable	{{ openvpn_auth_ldap_tls_enable | default('yes') }}
+
+{# Follow LDAP Referrals: Automatically follow referral URLs returned by the server #}
+	FollowReferrals {{ openvpn_auth_ldap_follow_referrals | default('yes') }}
+
+{# TLS CA Certificate File: Path to the CA certificate file for verifying the server's certificate #}
+	TLSCACertFile	{{ openvpn_auth_ldap_tls_ca_cert_file | default('/usr/local/etc/ssl/ca.pem') }}
+
+{# TLS CA Certificate Directory: Path to the directory containing CA certificates #}
+	TLSCACertDir	{{ openvpn_auth_ldap_tls_ca_cert_dir | default('/etc/ssl/certs') }}
+
+{# Client TLS Certificate File: Path to the client certificate for mutual TLS authentication #}
+	TLSCertFile	{{ openvpn_auth_ldap_tls_cert_file | default('/usr/local/etc/ssl/client-cert.pem') }}
+
+{# Client TLS Key File: Path to the client private key for mutual TLS authentication #}
+	TLSKeyFile	{{ openvpn_auth_ldap_tls_key_file | default('/usr/local/etc/ssl/client-key.pem') }}
+</LDAP>
+
+<Authorization>
+{# Base DN for user authorization: Root DN where user accounts are searched #}
+	BaseDN		{{ openvpn_auth_ldap_authorization_base_dn | default('"ou=People,dc=example,dc=com"') }}
+
+{# User Search Filter: LDAP filter to find the user entry #}
+{# %u is replaced by the OpenVPN username #}
+	SearchFilter	{{ openvpn_auth_ldap_authorization_search_filter | default('"(&(uid=%u)(accountStatus=active))"') }}
+
+{# Require Group Membership: If true, the user must belong to an authorized group #}
+	RequireGroup	{{ openvpn_auth_ldap_authorization_require_group | default('false') }}
+
+{# Support OpenVPN Challenge/Response: Allows password-based auth via CR protocol #}
+{% if openvpn_auth_ldap_authorization_password_is_cr is defined and openvpn_auth_ldap_authorization_password_is_cr %}	PasswordIsCR	{{ openvpn_auth_ldap_authorization_password_is_cr }}
+{% else %}	# PasswordIsCR	false
+{% endif %}
+
+	<Group>
+{# Base DN for group authorization: Root DN where groups are searched #}
+		BaseDN		{{ openvpn_auth_ldap_authorization_group_base_dn | default('"ou=Groups,dc=example,dc=com"') }}
+
+{# Group Search Filter: LDAP filter to find the group entry #}
+{# %g is typically replaced by the group name requested for authorization #}
+		SearchFilter	{{ openvpn_auth_ldap_authorization_group_search_filter | default('"(|(cn=developers)(cn=artists))"') }}
+
+{# Member Attribute for group membership: LDAP attribute containing the list of members #}
+		MemberAttribute	{{ openvpn_auth_ldap_authorization_group_member_attribute | default('uniqueMember') }}
+	</Group>
+</Authorization>

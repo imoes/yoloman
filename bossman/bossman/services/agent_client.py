@@ -32,7 +32,27 @@ class AgentClientError(Exception):
     httpx.AsyncClient(cert=...)'s construction) escaped every per-agent
     try/except in poll_agent/poll_once entirely, defeating the "one bad
     agent's failure is isolated" design and disrupting sibling polls in
-    the same asyncio.gather."""
+    the same asyncio.gather.
+
+    `status` is the agent's own HTTP status when it ANSWERED (None for a transport failure), and `reason` its
+    `{"error": …}` text. A 403 is the host's write gate or ACL refusing — a decision, not a gateway fault —
+    and a caller relays it as such instead of folding it into a 502."""
+
+    def __init__(self, message: str, *, status: int | None = None, reason: str | None = None):
+        super().__init__(message)
+        self.status = status
+        self.reason = reason
+
+
+def _agent_reason(resp: Any) -> str:
+    """The agent's own refusal sentence from an error response (`{"error": "…"}`), else the raw text."""
+    try:
+        body = resp.json()
+        if isinstance(body, dict) and isinstance(body.get("error"), str):
+            return body["error"]
+    except ValueError:
+        pass
+    return resp.text[:4096]
 
 
 def _scrub(value: Any) -> Any:
@@ -65,6 +85,20 @@ def _decode(resp: httpx.Response) -> Any:
     return _scrub(resp.json())
 
 
+#: Tools whose work is installing software or running a program: 30 seconds is a poll's budget, not theirs.
+#: Measured in the Bossman-path package e2e: 12 of 298 catalog roles failed with "no answer within 30s" while
+#: dnf was still installing — the role reported an error for an install that went on to succeed.
+_LONG_TOOLS = frozenset({"package", "apt", "dnf", "yum", "windows_feature", "command", "shell", "script",
+                         "windows_update", "windows_update_facts",
+                         # kernel tuning (docs/kernel-tuning.md): a benchmark run, update-grub / grub2-mkconfig, and
+                         # waiting for a BPF scheduler to attach all outlast the 30 s default.
+                         "yoloman.benchmark", "yoloman.kernel_cmdline", "yoloman.sched_ext", "yoloman.scx_install"})
+_LONG_TOOL_TIMEOUT = 900.0
+#: Longer still: a cumulative Windows update downloads gigabytes and installs for tens of minutes (the agent's own
+#: limit for the install step is 90 min); a search against Microsoft Update takes minutes when uncached.
+_TOOL_TIMEOUTS = {"windows_update": 5700.0}
+
+
 class AgentClient:
     """One agent's REST identity: its address plus the credentials needed
     to poll it (bearer token + Bossman's own mTLS client identity)."""
@@ -88,12 +122,12 @@ class AgentClient:
         # (non-test) caller gets.
         self._transport = transport
 
-    def _client(self) -> httpx.AsyncClient:
+    def _client(self, timeout: float | None = None) -> httpx.AsyncClient:
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
         return httpx.AsyncClient(
             cert=(self._client_cert_path, self._client_key_path),
             verify=False,
-            timeout=self._timeout,
+            timeout=timeout or self._timeout,
             headers=headers,
             transport=self._transport,
             # NEVER THROUGH A FORWARD PROXY. httpx reads http_proxy/https_proxy from the environment by
@@ -104,9 +138,9 @@ class AgentClient:
             # Measured on the live fleet: 3 of 17 agents "had errors" on every cycle —
             #   metrics: 172.21.0.1:8451: request failed: 403 Forbidden
             #   metrics: web07:18051: request failed: 403 Forbidden
-            #   metrics: 10.32.28.130:8051: request failed: 403 Forbidden
+            #   metrics: 192.0.2.130:8051: request failed: 403 Forbidden
             # — and the message named the agent, so it read like three broken hosts rather than one wrong
-            # client. 10.32.28.130 is even inside BOSSMAN_TARGET_NO_PROXY, but that variable governs what
+            # client. 192.0.2.130 is even inside BOSSMAN_TARGET_NO_PROXY, but that variable governs what
             # Bossman tells a TARGET host to use; it never reached httpx's own environment lookup.
             #
             # trust_env=False rather than a NO_PROXY entry per agent: there is no address at which an agent
@@ -115,7 +149,7 @@ class AgentClient:
             trust_env=False,
         )
 
-    def _transport_error(self, what: str, exc: Exception) -> AgentClientError:
+    def _transport_error(self, what: str, exc: Exception, timeout: float | None = None) -> AgentClientError:
         """One place that turns a transport exception into a message an operator can act on.
 
         A TIMEOUT IS NOT A FAILURE, and for a write it is the wrong answer in the one direction that matters.
@@ -129,7 +163,7 @@ class AgentClient:
         """
         if isinstance(exc, httpx.TimeoutException):
             return AgentClientError(
-                f"{self.address}: {what}: no answer within {self._timeout:g}s. The agent may still be "
+                f"{self.address}: {what}: no answer within {timeout or self._timeout:g}s. The agent may still be "
                 f"working and the change may yet complete — re-read the state before retrying, and pass a "
                 f"longer timeout_seconds for an operation that is expected to take minutes."
             )
@@ -289,6 +323,13 @@ class AgentClient:
             params["protocol"] = protocol
         return await self._get_json("/api/v1/l7", params)
 
+    async def tool_listing(self) -> dict[str, Any]:
+        """GET /api/v1/tools, whole: `tools` plus the write gate — `write` (bool) and `withheld`, the write
+        tools a closed gate hides, each with its schema and `reason`. Older agents send only `tools`; then
+        `write` is absent, which a caller must read as "unknown", not as open."""
+        body = await self._get_json("/api/v1/tools", {})
+        return body if isinstance(body, dict) else {"tools": []}
+
     async def list_tools(self) -> list[dict[str, Any]]:
         """GET /api/v1/tools — every module/task/pipeline tool this agent
         currently exposes: [{name, kind, writes}]. Write tools are only
@@ -298,21 +339,24 @@ class AgentClient:
         body = await self._get_json("/api/v1/tools", {})
         return body.get("tools", [])
 
-    async def call_tool(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+    async def call_tool(self, name: str, body: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
         """POST /api/v1/tools/{name} — invoke one module/task/pipeline
         tool (see docs/plan.md's Bossman plan, section B.5's plan engine).
         Raises AgentClientError on any non-200 response or network
         failure — the plan engine wraps each step call so a single failing
         step doesn't crash the whole run."""
         url = f"https://{self.address}/api/v1/tools/{name}"
+        # timeout: the caller's own (call_agent_tool timeout_seconds) wins; else a long tool gets its own ceiling.
+        wait = timeout or (max(self._timeout, _TOOL_TIMEOUTS.get(name, _LONG_TOOL_TIMEOUT)) if name in _LONG_TOOLS else None)
         try:
-            async with self._client() as client:
+            async with self._client(wait) as client:
                 resp = await client.post(url, json=body)
         except (httpx.HTTPError, OSError) as exc:
-            raise self._transport_error(f"tool {name!r}", exc) from exc
+            raise self._transport_error(f"tool {name!r}", exc, wait) from exc
 
         if resp.status_code != 200:
-            raise AgentClientError(f"{self.address}: tool {name!r} returned {resp.status_code}: {resp.text[:4096]}")
+            raise AgentClientError(f"{self.address}: tool {name!r} returned {resp.status_code}: {resp.text[:4096]}",
+                                   status=resp.status_code, reason=_agent_reason(resp))
         try:
             return _decode(resp)
         except ValueError as exc:

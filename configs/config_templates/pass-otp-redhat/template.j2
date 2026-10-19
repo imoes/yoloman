@@ -1,0 +1,67 @@
+# =============================================================================
+# pass-otp-redhat: Bash completion and configuration for the `pass` OTP extension.
+# =============================================================================
+#
+# This template configures the `pass` (password-store) tool to support TOTP
+# (Time-based One-Time Password) generation via the Google Authenticator format.
+# It installs bash completion functions specific to the OTP extension commands.
+#
+# Schema Fields: None (This is a distribution-specific hook/config snippet)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Configure pass to recognize the 'otp' extension command.
+# This line tells `pass` to execute a script or command when `pass otp` is invoked.
+# -----------------------------------------------------------------------------
+PASSWORD_STORE_EXTENSION_COMMANDS+=(otp)
+
+
+# =============================================================================
+# Bash Completion for `pass otp`
+# =============================================================================
+# The following function provides tab-completion for `pass` OTP subcommands.
+# It is sourced by the system's bash-completion framework on Red Hat-based systems.
+
+__password_store_extension_complete_otp() {
+  # Only provide completion if there are enough words in the command line
+  # (pass <subcommand> <password-name>)
+  if [[ $COMP_CWORD -gt 2 ]]; then
+    # Extract the subcommand being completed
+    case "${COMP_WORDS[2]}" in
+      # Completion for 'pass otp insert' and 'pass otp append'
+      insert|append)
+        # Provide options for inserting/appending OTP secrets
+        COMPREPLY+=($(compgen -W "-e --echo -f --force -s --secret -i --issuer -a --account" -- ${cur}))
+        # Delegate to standard pass entry completion
+        _pass_complete_entries
+        ;;
+
+      # Completion for 'pass otp uri' (generating TOTP URIs)
+      uri)
+        # Provide options for URI generation
+        COMPREPLY+=($(compgen -W "-c --clip -q --qrcode" -- ${cur}))
+        # Delegate to standard pass entry completion
+        _pass_complete_entries
+        ;;
+
+      # Completion for 'pass otp validate'
+      validate)
+        # No specific flags for validate in standard pass-otp
+        _pass_complete_entries
+        ;;
+
+      # Fallback for unknown subcommands
+      *)
+        # Show help option
+        COMPREPLY+=($(compgen -W "-h --help" -- ${cur}))
+        # Delegate to standard pass entry completion
+        _pass_complete_entries
+        ;;
+    esac
+  else
+    # If only 'pass' or 'pass otp' is typed, suggest subcommands
+    COMPREPLY+=($(compgen -W "insert append uri validate -h --help -c --clip" -- ${cur}))
+    # Delegate to standard pass entry completion
+    _pass_complete_entries 1
+  fi
+}

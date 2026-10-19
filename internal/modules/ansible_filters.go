@@ -72,7 +72,33 @@ func RegisterAnsibleFilters() {
 				_ = gonja.DefaultEnvironment.Filters.Register(name, fn)
 			}
 		}
+		// Built-ins whose answer differs from Jinja2/Ansible are REPLACED, not skipped: gonja's `int` and `float`
+		// turned a boolean into 0, so `{{ true | int }}` wrote 0. Measured 2026-10-10 by rendering every template
+		// under gonja and jinja2 with its defaults: acmesh wrote AUTO_RENEW="0" for auto_renew=true, ats
+		// `autoconfig INT 0` — the opposite of what the pipeline had checked.
+		for _, name := range []string{"int", "float"} {
+			if orig, ok := gonja.DefaultEnvironment.Filters.Get(name); ok {
+				_ = gonja.DefaultEnvironment.Filters.Replace(name, boolAwareNumber(name, orig))
+			}
+		}
 	})
+}
+
+// boolAwareNumber: Python's int(True) == 1 and float(True) == 1.0; everything else is the built-in's answer.
+func boolAwareNumber(name string, orig exec.FilterFunction) exec.FilterFunction {
+	return func(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+		if in != nil && !in.IsError() && in.IsBool() {
+			one := 0
+			if in.Bool() {
+				one = 1
+			}
+			if name == "float" {
+				return exec.AsValue(float64(one))
+			}
+			return exec.AsValue(one)
+		}
+		return orig(e, in, params)
+	}
 }
 
 func ansibleFilters() map[string]exec.FilterFunction {
@@ -539,11 +565,24 @@ func filterB64Decode(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.V
 }
 
 // quote: shell-safe single quoting, as Ansible's `quote` (shlex.quote) does.
+// shlexSafe: Python's shlex._find_unsafe, inverted — a word of only these ASCII characters needs no quotes.
+var shlexSafe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]+$`)
+
+// quote: Ansible's `quote` is Python's shlex.quote — quotes ONLY when the word needs it. Quoting every value
+// wrote ARGS="-web.listen-address ':9999'" (prometheus-exporter-exporter) and ETCD_TRUSTED_CA_FILE='…', i.e. not
+// what Ansible writes (found by rendering every template under gonja and jinja2).
 func filterQuote(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.Value {
 	if in.IsError() {
 		return in
 	}
-	return exec.AsValue("'" + strings.ReplaceAll(in.String(), "'", `'\''`) + "'")
+	s := in.String()
+	if s == "" {
+		return exec.AsValue("''")
+	}
+	if shlexSafe.MatchString(s) {
+		return exec.AsValue(s)
+	}
+	return exec.AsValue("'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'")
 }
 
 // comment: wrap text as a comment block. Ansible's default style is a decorated C-ish block; the

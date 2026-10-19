@@ -1,0 +1,204 @@
+# Fish shell initialization script for Conda.
+#
+# This script configures the Conda environment within the Fish shell.
+# It sets necessary environment variables, initializes the PATH,
+# defines the `conda` function for package management, and sets up
+# command-line completions.
+#
+# To apply these changes, run `conda init fish` in your shell or source
+# this file manually.
+#
+# Copyright (C) 2012 Anaconda, Inc.
+# SPDX-License-Identifier: BSD-3-Clause
+
+# ==============================================================================
+# Environment Variable Initialization
+# ==============================================================================
+
+# The path to the conda executable binary.
+# Used to invoke conda commands.
+set -gx CONDA_EXE "{{ conda_exe_path | default('/usr/bin/conda') }}"
+
+# The root installation directory for conda.
+# If empty, defaults may apply.
+set -gx _CONDA_ROOT "{{ conda_root_path | default('/usr') }}"
+
+# Internal reference to the conda executable.
+set -gx _CONDA_EXE "{{ conda_exe_path | default('/usr/bin/conda') }}"
+
+# The Python executable used by conda.
+# Hardcoded to the system Python 3.
+set -gx CONDA_PYTHON_EXE "/usr/bin/python3"
+
+# ==============================================================================
+# Conda Shell Initialization
+# ==============================================================================
+
+# Initialize Conda shell integration if not already present.
+# This sets the conda shell level (CONDA_SHLVL) and prepends the conda
+# bin directory to the PATH.
+if not set -q CONDA_SHLVL
+    set -gx CONDA_SHLVL 0
+    # Derive CONDA_ROOT from the executable path if not explicitly set by schema
+    set -g _CONDA_ROOT (dirname (dirname $CONDA_EXE))
+    # Prepend conda's bin directory to PATH
+    set -gx PATH $_CONDA_ROOT/condabin $PATH
+end
+
+# ==============================================================================
+# Prompt Modification
+# ==============================================================================
+
+# Function to add the conda environment name to the shell prompt.
+# It checks for the CONDA_PROMPT_MODIFIER variable and formats it.
+function __conda_add_prompt
+    if set -q CONDA_PROMPT_MODIFIER
+        set_color -o green
+        echo -n $CONDA_PROMPT_MODIFIER
+        set_color normal
+    end
+end
+
+# Backup and replace fish_prompt if it exists.
+if functions -q fish_prompt
+    if not functions -q __fish_prompt_orig
+        functions -c fish_prompt __fish_prompt_orig
+    end
+    functions -e fish_prompt
+else
+    function __fish_prompt_orig
+    end
+end
+
+function fish_prompt
+    set -l last_status $status
+    # Add conda prompt modifier if configured
+    if set -q CONDA_LEFT_PROMPT
+        __conda_add_prompt
+    end
+    # Call original prompt
+    return_last_status $last_status
+    __fish_prompt_orig
+end
+
+# Backup and replace fish_right_prompt if it exists.
+if functions -q fish_right_prompt
+    if not functions -q __fish_right_prompt_orig
+        functions -c fish_right_prompt __fish_right_prompt_orig
+    end
+    functions -e fish_right_prompt
+else
+    function __fish_right_prompt_orig
+    end
+end
+
+function fish_right_prompt
+    # Add conda prompt modifier if not already added to left prompt
+    if not set -q CONDA_LEFT_PROMPT
+        __conda_add_prompt
+    end
+    # Call original right prompt
+    __fish_right_prompt_orig
+end
+
+
+# ==============================================================================
+# Conda Function Definition
+# ==============================================================================
+
+# The main `conda` function wrapper.
+# It handles basic subcommands (activate, deactivate) by invoking
+# `conda shell.fish` and others by direct execution.
+function conda --inherit-variable CONDA_EXE
+    if [ (count $argv) -lt 1 ]
+        # If no arguments, just run conda (might show help or error)
+        $CONDA_EXE
+    else
+        set -l cmd $argv[1]
+        set -e argv[1]
+        switch $cmd
+            case activate deactivate
+                # Use conda's shell integration for environment activation
+                eval ($CONDA_EXE shell.fish $cmd $argv)
+            case install update upgrade remove uninstall
+                # Run command and reactivate shell if successful
+                $CONDA_EXE $cmd $argv
+                and eval ($CONDA_EXE shell.fish reactivate)
+            case '*'
+                # Pass all other commands directly to conda
+                $CONDA_EXE $cmd $argv
+        end
+    end
+end
+
+
+
+
+# ==============================================================================
+# Autocompletions
+# ==============================================================================
+
+# Faster but less tested (?) method to discover conda commands.
+function __fish_conda_commands
+    # Extract commands from conda cli python scripts
+    string replace -r '.*_([a-z]+)\.py$' '$1' $_CONDA_ROOT/lib/python*/site-packages/conda/cli/main_*.py
+    # Extract commands from conda-* binaries
+    for f in $_CONDA_ROOT/bin/conda-*
+        if test -x "$f" -a ! -d "$f"
+            string replace -r '^.*/conda-' '' "$f"
+        end
+    end
+    echo activate
+    echo deactivate
+end
+
+# Discover environment subcommands (env info, env create, etc.)
+function __fish_conda_env_commands
+    string replace -r '.*_([a-z]+)\.py$' '$1' $_CONDA_ROOT/lib/python*/site-packages/conda_env/cli/main_*.py
+end
+
+# List available conda environments.
+function __fish_conda_envs
+    conda config --json --show envs_dirs | python -c "import json, os, sys; from os.path import isdir, join; print('\n'.join(d for ed in json.load(sys.stdin)['envs_dirs'] if isdir(ed) for d in os.listdir(ed) if isdir(join(ed, d))))"
+end
+
+# List installed packages for autocompletion.
+function __fish_conda_packages
+    conda list | awk 'NR > 3 {print $1}'
+end
+
+# Determine if the current command line requires conda completions.
+function __fish_conda_needs_command
+    set cmd (commandline -opc)
+    if [ (count $cmd) -eq 1 -a $cmd[1] = conda ]
+        return 0
+    end
+    return 1
+end
+
+# Determine if the current command matches a specific subcommand.
+function __fish_conda_using_command
+    set cmd (commandline -opc)
+    if [ (count $cmd) -gt 1 ]
+        if [ $argv[1] = $cmd[2] ]
+            return 0
+        end
+    end
+    return 1
+end
+
+# Complete top-level conda commands.
+complete -f -c conda -n __fish_conda_needs_command -a '(__fish_conda_commands)'
+
+# Complete environment subcommands.
+complete -f -c conda -n '__fish_conda_using_command env' -a '(__fish_conda_env_commands)'
+
+# Complete environment names for 'activate' and 'deactivate'.
+complete -f -c conda -n '__fish_conda_using_command activate' -a '(__fish_conda_envs)'
+complete -f -c conda -n '__fish_conda_using_command deactivate' -a '(__fish_conda_envs)'
+
+# Complete package names for management commands.
+complete -f -c conda -n '__fish_conda_using_command remove' -a '(__fish_conda_packages)'
+complete -f -c conda -n '__fish_conda_using_command uninstall' -a '(__fish_conda_packages)'
+complete -f -c conda -n '__fish_conda_using_command upgrade' -a '(__fish_conda_packages)'
+complete -f -c conda -n '__fish_conda_using_command update' -a '(__fish_conda_packages)'

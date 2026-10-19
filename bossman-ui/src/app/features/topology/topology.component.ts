@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { environment } from '../../../environments/environment';
+import { APP_IS_DARK } from '../../shared/bm-colors';
 
 interface TopoNode { id: string; label: string; type: string; status: string; alert_count: number; inactive: boolean; }
 interface TopoEdge { source: string; target: string; kind: string; label?: string; events?: number; latency_ms?: number | null; p99?: number | null; status?: string; }
@@ -85,7 +86,7 @@ export class TopologyComponent implements OnInit, OnDestroy {
   private echart: unknown = null;
   private resizeObs: ResizeObserver | null = null;
 
-  private dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  private dark = APP_IS_DARK;
   private get txt() { return this.dark ? '#cbd5e1' : '#475569'; }
   private get grid() { return this.dark ? '#475569' : '#94a3b8'; }
 

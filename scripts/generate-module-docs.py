@@ -52,9 +52,16 @@ def api(base: str, path: str, token: str | None = None, payload: dict | None = N
         return json.loads(response.read())
 
 
-def pick_agents(base: str, token: str) -> dict[str, dict]:
-    """One agent per OS family: the module set belongs to the agent build, not to the host."""
+def pick_agents(base: str, token: str, prefer: list[str] | None = None) -> dict[str, dict]:
+    """One agent per OS family: the module set belongs to the agent build, not to the host.
+
+    `prefer` names agents to ask FIRST for their family. The fleet's first enrolled Linux host is a proxy
+    that is not always reachable from a developer machine, and a page generated from an older agent build
+    would silently omit the module being documented — so the host running the build under test is named
+    explicitly rather than hoped for."""
     agents = api(base, "/api/v1/agents", token)
+    prefer = [p.lower() for p in (prefer or [])]
+    agents = sorted(agents, key=lambda a: (str(a.get("name", "")).lower() not in prefer))  # type: ignore[arg-type]
     chosen: dict[str, dict] = {}
     for agent in agents:  # type: ignore[union-attr]
         if agent.get("enrollment_state") != "enrolled" or not agent.get("address"):
@@ -168,12 +175,14 @@ def main() -> int:
     parser.add_argument("--bossman", default="http://localhost:8123")
     parser.add_argument("--user", default="admin")
     parser.add_argument("--password", default="admin123")
+    parser.add_argument("--agent", action="append", default=[],
+                        help="ask THIS enrolled agent (by name) for its family's page; repeatable")
     args = parser.parse_args()
 
     token = api(args.bossman, "/api/v1/auth/login",
                 payload={"username": args.user, "password": args.password})["access_token"]  # type: ignore[index]
     catalog = api(args.bossman, "/api/v1/modules", token)
-    agents = pick_agents(args.bossman, token)
+    agents = pick_agents(args.bossman, token, prefer=args.agent)
     if not agents:
         print("no enrolled agent with an address — nothing to generate from", file=sys.stderr)
         return 2

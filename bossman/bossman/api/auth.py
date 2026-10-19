@@ -177,6 +177,25 @@ async def require_admin(identity: Identity = Depends(get_current_identity)) -> I
     return identity
 
 
+async def require_manage_kubernetes_cluster(
+    cluster_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> Identity:
+    """The host ACL applied to a Kubernetes cluster: whoever may manage the cluster's ACCESS HOST
+    (the agent holding kubectl + kubeconfig) may manage the cluster, because every cluster call is
+    a call on that host. 404 with the reason when the cluster does not exist, 403 on denial — the
+    same answers require_manage_agent gives for the host itself."""
+    from bossman.db.models import KubernetesCluster  # local: auth must not import the model graph at load
+
+    cluster = await session.get(KubernetesCluster, cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=404, detail=f"no such Kubernetes cluster {cluster_id}")
+    if not await user_can_manage_agent(session, identity, cluster.agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this cluster's access host")
+    return identity
+
+
 async def require_manage_agent(
     agent_id: UUID,
     session: AsyncSession = Depends(get_session),

@@ -1,89 +1,54 @@
 ; <?php exit; ?> DO NOT REMOVE THIS LINE
 
-; =============================================================================
+; ==============================================================================
 ; RSS-Bridge Configuration Template
-; =============================================================================
-; This file is managed by Ansible. Do not edit manually.
-; It provides host-specific overrides for the default RSS-Bridge configuration.
-; Default configuration source: /usr/share/rss-bridge/config.default.ini.php
-; =============================================================================
+; ==============================================================================
+; This file contains host-specific overrides for RSS-Bridge.
+; It is self-documenting: every setting explains its purpose and default value.
+; Variables are sourced from Ansible facts or playbook variables.
+; ==============================================================================
 
 [cache]
 
-; -----------------------------------------------------------------------------
-; Cache Custom Timeout
-; -----------------------------------------------------------------------------
-; Description: Allow users to specify custom timeout for specific requests.
-; Allowed: true, false
-; Default: false
-; -----------------------------------------------------------------------------
-;
-; Note: The raw boolean value is written as "true" or "false" because this
-; is an INI file read by PHP's parse_ini_file(). Do not quote these values.
-custom_timeout = {{ rss_bridge_cache_custom_timeout | default(false) | ternary('true', 'false') }}
+; Allow users to specify custom timeout for specific requests.
+; true  = enabled
+; false = disabled (default)
+; Schema Default: false
+custom_timeout = {{ rss_bridge_cache_custom_timeout | default('false') }}
 
 [proxy]
 
-; -----------------------------------------------------------------------------
-; Proxy URL
-; -----------------------------------------------------------------------------
-; Description: Sets the proxy url (i.e. "tcp://192.168.0.0:32").
-; Allowed: Any valid URI or empty string
-; Default: '' (empty string means proxy is disabled)
-; -----------------------------------------------------------------------------
-;
-; If empty, RSS-Bridge will connect directly to the source.
+; Sets the proxy url (i.e. "tcp://192.168.0.0:32").
+; Empty string means proxy is disabled.
+; Schema Default: (empty)
 url = "{{ rss_bridge_proxy_url | default('') }}"
 
-; -----------------------------------------------------------------------------
-; Proxy Name
-; -----------------------------------------------------------------------------
-; Description: Sets the proxy name that is shown on the bridge instead of the proxy url.
-; Allowed: Any string
-; Default: 'Hidden proxy name'
-; -----------------------------------------------------------------------------
+; Sets the proxy name that is shown on the bridge interface instead of the raw proxy url.
+; This provides a user-friendly label for the proxy configuration.
+; Schema Default: Hidden proxy name
 name = "{{ rss_bridge_proxy_name | default('Hidden proxy name') }}"
 
-; -----------------------------------------------------------------------------
-; Proxy Per-Bridge Override
-; -----------------------------------------------------------------------------
-; Description: Allow users to disable proxy usage for specific requests.
-; Allowed: true, false
-; Default: false
-; -----------------------------------------------------------------------------
-;
-; Note: The raw boolean value is written as "true" or "false".
-by_bridge = {{ rss_bridge_proxy_by_bridge | default(false) | ternary('true', 'false') }}
+; Allow users to disable proxy usage for specific requests/bridges.
+; true  = enabled (users can opt-out of proxy per request)
+; false = disabled (proxy is forced if URL is set)
+; Schema Default: false
+by_bridge = {{ rss_bridge_proxy_by_bridge | default('false') }}
 
 [authentication]
 
-; -----------------------------------------------------------------------------
-; Authentication Enable
-; -----------------------------------------------------------------------------
-; Description: Enables authentication for all requests to this RSS-Bridge instance.
+; Enables basic authentication for all requests to this RSS-Bridge instance.
 ; Warning: You'll have to upgrade existing feeds after enabling this option!
-; Allowed: true, false
-; Default: false
-; -----------------------------------------------------------------------------
-;
-; Note: The raw boolean value is written as "true" or "false".
-enable = {{ rss_bridge_auth_enable | default(false) | ternary('true', 'false') }}
+; true  = enabled
+; false = disabled (default)
+; Schema Default: false
+enable = {{ rss_bridge_auth_enable | default('false') }}
 
-; -----------------------------------------------------------------------------
-; Authentication Username
-; -----------------------------------------------------------------------------
-; Description: The username for authentication. Insert this name when prompted for login.
-; Allowed: Any string
-; Default: '' (empty string usually implies no username required if auth is off, or falls back to config default)
-; -----------------------------------------------------------------------------
+; The username for authentication. Insert this name when prompted for login.
+; Must be set along with rss_bridge_auth_password when enable=true.
+; Schema Default: (empty)
 username = "{{ rss_bridge_auth_username | default('') }}"
 
-; -----------------------------------------------------------------------------
-; Authentication Password
-; -----------------------------------------------------------------------------
-; Description: The password for authentication. Insert this password when prompted for login.
-; Security: Use a strong password to prevent others from guessing your login!
-; Allowed: Any string
-; Default: '' (empty string usually implies no password required)
-; -----------------------------------------------------------------------------
+; The password for authentication. Insert this password when prompted for login.
+; Use a strong password to prevent others from guessing your login!
+; Schema Default: (empty)
 password = "{{ rss_bridge_auth_password | default('') }}"

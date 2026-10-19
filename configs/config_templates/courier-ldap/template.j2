@@ -1,41 +1,40 @@
-#!/bin/sh
-# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
-# This script is the SysV init wrapper for courier-ldap.
-# It sources the standard Debian init framework and checks for the
-# existence of the Courier LDAP alias configuration file before starting the daemon.
+##VERSION: $Id: f41beac026d5599b606c72b1911db2d1893d1868-20220122121200$
+#
+# ldapaddressbook created from ldapaddressbook.dist by sysconftool
+#
+# Do not alter lines that begin with ##, they are used when upgrading
+# this configuration.
+#
+# This is a global list of LDAP address books provided to Courier IMAP/POP3 clients.
+# Each line defines one address book using <tab> as the delimiter.
+#
+# Format per line:
+# LABEL \t HOST \t PORT \t BASEDN \t SEARCHBASE
+#
+# Example:
+# YourOrganizationName	ldap.example.com	389	ou=member_directory,o=example.com	ou=people,o=example.com
+#
+# Field descriptions:
+# LABEL         - Human-readable name for the address book shown in the client.
+# HOST          - The hostname or IP address of the LDAP server.
+# PORT          - The TCP port number on which the LDAP server listens.
+# BASEDN        - The Base DN for the LDAP search scope.
+# SEARCHBASE    - The specific subtree (RDN) within the Base DN to search for entries.
 
-if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
-    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
-fi
-### BEGIN INIT INFO
-# Provides:          courier-ldap
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Should-Start:      slapd
-# Default-Start:     2 3 4 5
-# Default-Stop:     0 1 6
-# Short-Description: Courier LDAP alias server
-### END INIT INFO
+##NAME: ldapaddressbook:0
 
-# Author: Ondřej Surý <ondrej@debian.org>
-
-# The path to the courierldapaliasd binary.
-DAEMON=/usr/sbin/courierldapaliasd
-
-# Human-readable description of the service.
-DESC="Courier LDAP alias server"
-
-# Path to the Courier LDAP alias configuration file.
-# Defined via the schema field 'conffile' with default '/etc/courier/ldapaliasrc'.
-# This variable controls which configuration file the daemon reads at startup.
-CONFFILE={{ conffile | default('/etc/courier/ldapaliasrc') }}
-
-# Check if the configuration file exists.
-# If the file is present, allow the service to start; otherwise, skip start.
-if test -f "$CONFFILE"; then
-    DO_START=yes
-else
-    DO_START=no
-fi
-
-. /usr/lib/courier/init-d-script-courier
+{#
+  Iterate over the list of LDAP address book entries provided by the user.
+  Expected variable: ldap_address_books
+  Type: List of Maps/Dictionaries.
+  Expected keys in each map: label, host, port, basedn, searchbase
+  If the variable is undefined, output nothing (empty list).
+#}
+{% for abook in (ldap_address_books | default([])) %}
+# Label: Human-readable name for the address book shown in the client.
+# Host: The hostname or IP address of the LDAP server.
+# Port: The TCP port number on which the LDAP server listens.
+# Basedn: The Base DN for the LDAP search scope.
+# Searchbase: The specific subtree (RDN) within the Base DN to search for entries.
+{{ abook.label | default('') }}	{{ abook.host | default('localhost') }}	{{ abook.port | default(389) }}	{{ abook.basedn | default('') }}	{{ abook.searchbase | default('') }}
+{% endfor %}

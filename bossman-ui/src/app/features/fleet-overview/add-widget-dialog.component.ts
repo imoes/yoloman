@@ -11,6 +11,7 @@ import { Agent } from '../../core/models/agent.model';
 import { Graph, GraphItemInput } from '../../core/models/graph.model';
 import { GraphService } from '../../core/services/graph.service';
 import { CreateDashboardWidget, WIDGET_CATALOG, WidgetType } from '../../core/models/dashboard.model';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** Add-widget catalog dialog for the GridStack dashboard (see docs/plan.md's
  * monitoring-cockpit ergänzung Block F5) — mirrors CentralStation's own
@@ -21,7 +22,7 @@ import { CreateDashboardWidget, WIDGET_CATALOG, WidgetType } from '../../core/mo
 @Component({
   selector: 'app-add-widget-dialog',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule],
+  imports: [BlockedReasonDirective, FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule],
   template: `
     <h2 mat-dialog-title>Add widget</h2>
     <mat-dialog-content class="bm-dialog-body">
@@ -129,7 +130,7 @@ import { CreateDashboardWidget, WIDGET_CATALOG, WidgetType } from '../../core/mo
                     }
                   </mat-select>
                 </mat-form-field>
-                <button mat-icon-button (click)="removeItem($index)" [disabled]="items.length === 1"
+                <button mat-icon-button (click)="removeItem($index)" [bmBlocked]="items.length === 1 ? 'A widget needs at least one line' : ''"
                         aria-label="Remove line"><mat-icon>close</mat-icon></button>
               </div>
               <div class="bm-item-row">
@@ -180,7 +181,7 @@ import { CreateDashboardWidget, WIDGET_CATALOG, WidgetType } from '../../core/mo
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="close()">Cancel</button>
-      <button mat-flat-button color="primary" [disabled]="!canSave()" (click)="save()">Add</button>
+      <button mat-flat-button color="primary" [disabled]="saving()" [bmBlocked]="saving() ? '' : !canSave() ? 'Fill in the title and the data source' : ''" (click)="save()">Add</button>
     </mat-dialog-actions>
   `,
   styles: [

@@ -21,6 +21,7 @@ os.environ.setdefault("BOSSMAN_HOUSEKEEPING_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_RECONCILE_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_CONFIG_SYNC_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_COMPLIANCE_ENABLED", "false")
+os.environ.setdefault("BOSSMAN_ROLE_DEPLOYMENT_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_AUDIT_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_BUSINESS_SERVICE_ENABLED", "false")
 # A non-empty JWT secret so tests that mint an operator/admin token (Block M
@@ -310,3 +311,17 @@ async def _drop_leaked_netboot_rows(session, started):
         await session.commit()
     except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
         await session.rollback()
+
+
+@pytest.fixture(autouse=True)
+def _mcp_caller_is_admin():
+    """MCP tools authorise against the host ACL with the identity the bearer middleware sets
+    (bossman.mcp.auth.current_auth_identity) and refuse when there is none. Tests that call the tool
+    closures directly bypass that middleware, so they act as an admin user unless they set another
+    identity themselves (tests/test_mcp_acl.py does)."""
+    from bossman.mcp.auth import current_auth_identity
+    from bossman.services.auth import Identity
+
+    token = current_auth_identity.set(Identity(kind="user", name="test-admin", role="admin"))
+    yield
+    current_auth_identity.reset(token)

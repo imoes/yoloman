@@ -77,10 +77,23 @@ UNIT
 chroot "$PE_ROOT" systemctl enable pe-provision.service
 
 # Rebuild the initramfs so live-boot's hooks are in it, then harvest kernel + initrd for TFTP.
-chroot "$PE_ROOT" update-initramfs -u
+# ONE kernel, the newest: a reused rootfs that went through a Debian point release holds two
+# (vmlinuz-6.12.101 and -6.12.107), and `cp vmlinuz-* target` then failed with "target is not a directory"
+# and took the container down. The initrd is the one built for that same version.
+KVER="$(ls -1 "$PE_ROOT"/boot/vmlinuz-* 2>/dev/null | sed 's#.*/vmlinuz-##' | sort -V | tail -1)"
+if [ -z "$KVER" ]; then
+    echo "build-pe: no kernel in ${PE_ROOT}/boot" >&2
+    exit 1
+fi
+if [ -f "$PE_ROOT/boot/initrd.img-$KVER" ]; then
+    chroot "$PE_ROOT" update-initramfs -u -k "$KVER"
+else
+    chroot "$PE_ROOT" update-initramfs -c -k "$KVER"
+fi
 mkdir -p "$TFTP_ROOT"
-cp -f "$PE_ROOT"/boot/vmlinuz-* "$TFTP_ROOT/pe-kernel"
-cp -f "$PE_ROOT"/boot/initrd.img-* "$TFTP_ROOT/pe-initrd"
+cp -f "$PE_ROOT/boot/vmlinuz-$KVER" "$TFTP_ROOT/pe-kernel"
+cp -f "$PE_ROOT/boot/initrd.img-$KVER" "$TFTP_ROOT/pe-initrd"
+echo "build-pe: PE kernel ${KVER}"
 
 # UEFI netboot loader. grub-mknetdir builds core.efi + its module tree; it needs the grub tools + modules
 # from inside the PE, so run it in the chroot writing to a temp dir, then copy the tree onto the real TFTP

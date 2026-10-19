@@ -1,281 +1,493 @@
-# SpamAssassin FuzzyOcr Plugin Configuration
+# FuzzyOcr Plugin Configuration for SpamAssassin
 #
-# This file configures the FuzzyOcr plugin for SpamAssassin.
-# It handles OCR-based spam detection for images attached to emails.
+# This configuration file controls the behavior of the FuzzyOcr plugin,
+# which enables SpamAssassin to detect spam containing images by performing
+# Optical Character Recognition (OCR) on attached images.
+#
+# Directives are prefixed with 'focr_' to avoid conflicts with other SpamAssassin
+# directives. Lines beginning with '#' are commented out and represent default
+# or disabled values. To enable a setting, uncomment the line and adjust the
+# value provided by Ansible variables.
 
-# Syntax:
-# loadplugin <Plugin_Name> <Location>
-#  <Location> path where Plugin resides.
+###
+### Plugin Loading
+###
 
+# Load the FuzzyOcr plugin module.
+# The path is handled by the system loader; this directive just enables the plugin.
 loadplugin FuzzyOcr
 
+# Begin FuzzyOcr-specific configuration block.
+# All directives below must be inside this block.
 ifplugin FuzzyOcr
 
-# --- Rules ---
+# --- Rules and Scores ---
+# These directives define the SpamAssassin rules triggered by FuzzyOcr
+# and their associated scoring evaluations.
 
-# Trigger: Mail contains an image with common spam text inside.
+# Main detection rule: triggers when FuzzyOcr identifies spam text in an image.
 body     FUZZY_OCR                   eval:fuzzyocr_check()
 
-# Trigger: Mail contains an image with wrong content-type set.
+# Rule for images with incorrect MIME content-type (e.g., JPEG declared as PNG).
 body     FUZZY_OCR_WRONG_CTYPE       eval:dummy_check()
 
-# Trigger: Mail contains a corrupted image.
+# Rule for corrupted image files that could not be processed.
 body     FUZZY_OCR_CORRUPT_IMG       eval:dummy_check()
 
-# Trigger: Mail contains an image with wrong file extension.
+# Rule for images with file extensions that do not match their content-type.
 body     FUZZY_OCR_WRONG_EXTENSION   eval:dummy_check()
 
-# Trigger: Mail contains an image with known hash.
+# Rule for images with hashes previously identified as spam.
 body     FUZZY_OCR_KNOWN_HASH        eval:dummy_check()
 
-# Descriptions for the rules above.
+# Descriptions for the rules defined above, displayed in spam reports.
 describe FUZZY_OCR                   Mail contains an image with common spam text inside
 describe FUZZY_OCR_WRONG_CTYPE       Mail contains an image with wrong content-type set
 describe FUZZY_OCR_WRONG_EXTENSION   Mail contains an image with wrong file extension
 describe FUZZY_OCR_CORRUPT_IMG       Mail contains a corrupted image
 describe FUZZY_OCR_KNOWN_HASH        Mail contains an image with known hash
 
-# Priority for these rules.
+# Priority of the main FuzzyOcr rule. Higher numbers execute later.
 priority FUZZY_OCR 900
 
-###
-### Plugin Configuration 
-###
 
 ###
-### Logging options
+### Logging Options
 ###
 
-# Verbosity level: 0=Errors only, 1=Errors+Warnings, 2=+Info, 3=Full debug
-# Default value: 1
-focr_verbose {{ focr_verbose | default(1) }}
+# Verbosity level for logging output.
+# 0 = Errors only
+# 1 = Errors + Warnings
+# 2 = Errors + Warnings + Info
+# 3 = Full debug output
+# Default: 3 (Full debug) if not specified, though many setups prefer 1 or 2.
+# {{ focr_verbose | default('') }}
+{% if focr_verbose is defined and focr_verbose != '' %}
+focr_verbose {{ focr_verbose }}
+{% else %}
+#focr_verbose 3
+{% endif %}
 
-# Log Message-Id, From, To headers in log entries.
-# Default value: 1
-focr_log_pmsinfo {{ focr_log_pmsinfo | default(1) }}
+# Log Message-Id, From, and To addresses for debugging email context.
+# Default: 0 (Disabled)
+# {{ focr_log_pmsinfo | default('') }}
+{% if focr_log_pmsinfo is defined and focr_log_pmsinfo != '' %}
+focr_log_pmsinfo {{ focr_log_pmsinfo }}
+{% else %}
+#focr_log_pmsinfo 0
+{% endif %}
 
-# Send logging output to stderr.
-# Default value: 1
-focr_log_stderr {{ focr_log_stderr | default(1) }}
+# Send logging output to stderr instead of the logfile.
+# Useful for systemd journal integration or console debugging.
+# Default: 0 (Disabled)
+# {{ focr_log_stderr | default('') }}
+{% if focr_log_stderr is defined and focr_log_stderr != '' %}
+focr_log_stderr {{ focr_log_stderr }}
+{% else %}
+#focr_log_stderr 0
+{% endif %}
 
-# Logfile path (empty = disabled).
-# Default value: ''
-focr_logfile {{ focr_logfile | default('') }}
+# Path to the FuzzyOcr log file.
+# Set to empty to disable logging to a file.
+# Default: /tmp/FuzzyOcr.log
+# {{ focr_logfile | default('') }}
+{% if focr_logfile is defined and focr_logfile != '' %}
+focr_logfile {{ focr_logfile }}
+{% else %}
+#focr_logfile /tmp/FuzzyOcr.log
+{% endif %}
+
 
 ###
-### Wordlists 
+### Wordlist Configuration
 ###
 
-# Path to global wordlist.
-# Default value: /etc/spamassassin/FuzzyOcr.words
-focr_global_wordlist {{ focr_global_wordlist | default('/etc/spamassassin/FuzzyOcr.words') }}
+# Path to the global wordlist file containing common spam OCR strings.
+# Default: /etc/spamassassin/FuzzyOcr.words
+# {{ focr_global_wordlist | default('') }}
+{% if focr_global_wordlist is defined and focr_global_wordlist != '' %}
+focr_global_wordlist {{ focr_global_wordlist }}
+{% else %}
+#focr_global_wordlist /etc/spamassassin/FuzzyOcr.words
+{% endif %}
 
-# Relative or absolute path to personal wordlist.
-# Default value: fuzzyocr.words
-focr_personal_wordlist {{ focr_personal_wordlist | default('fuzzyocr.words') }}
+# Path to the personal (user-specific) wordlist.
+# Can be relative to the user's home directory or absolute.
+# Default: fuzzyocr.words (relative to home)
+# {{ focr_personal_wordlist | default('') }}
+{% if focr_personal_wordlist is defined and focr_personal_wordlist != '' %}
+focr_personal_wordlist {{ focr_personal_wordlist }}
+{% else %}
+#focr_personal_wordlist fuzzyocr.words
+{% endif %}
 
-# Disable personalization (home directory usage).
-# Default value: 0
-focr_no_homedirs {{ focr_no_homedirs | default(0) }}
+# Disable personalization features (home directory usage).
+# Set to 1 if running in an environment without user home directories.
+# Default: 1 (Disabled personalization)
+# {{ focr_no_homedirs | default('') }}
+{% if focr_no_homedirs is defined and focr_no_homedirs != '' %}
+focr_no_homedirs {{ focr_no_homedirs }}
+{% else %}
+#focr_no_homedirs 1
+{% endif %}
 
-# Strip numbers from wordlists and OCR results.
-# Default value: 1
-focr_strip_numbers {{ focr_strip_numbers | default(1) }}
+# Strip numbers from wordlists and OCR results before matching.
+# Can help reduce false positives from numeric spam.
+# Default: 1 (Strip numbers)
+# {{ focr_strip_numbers | default('') }}
+{% if focr_strip_numbers is defined and focr_strip_numbers != '' %}
+focr_strip_numbers {{ focr_strip_numbers }}
+{% else %}
+#focr_strip_numbers 1
+{% endif %}
+
 
 ###
-### Helper Applications
+### Helper Applications (Binaries)
 ###
 
-# Comma-separated list of helper binaries to load (first line).
-# Default value: pnmnorm, pnminvert, ppmtopgm
+# Comma-separated list of helper binaries to load (first line of configuration).
+# These are typically image processing utilities like NetPBM tools.
+# Default: pnmnorm, pnminvert, ppmtopgm
+# {{ focr_bin_helper | default('pnmnorm, pnminvert, ppmtopgm') }}
 focr_bin_helper {{ focr_bin_helper | default('pnmnorm, pnminvert, ppmtopgm') }}
 
-# Comma-separated list of helper binaries to load (second line, e.g. tesseract).
-# Default value: tesseract
+# Comma-separated list of helper binaries (second line).
+# Often used for OCR engines like Tesseract.
+# Default: tesseract
+# {{ focr_bin_helper_2 | default('tesseract') }}
 focr_bin_helper {{ focr_bin_helper_2 | default('tesseract') }}
 
-# Search path for helper binaries.
-# Default value: /usr/local/netpbm/bin:/usr/local/bin:/usr/bin
-focr_path_bin {{ focr_path_bin | default('/usr/local/netpbm/bin:/usr/local/bin:/usr/bin') }}
+# Search path for locating helper applications.
+# The plugin searches these directories in order for the binaries defined above.
+# Default: /usr/local/netpbm/bin:/usr/local/bin:/usr/bin
+# {{ focr_path_bin | default('') }}
+{% if focr_path_bin is defined and focr_path_bin != '' %}
+focr_path_bin {{ focr_path_bin }}
+{% else %}
+#focr_path_bin /usr/local/netpbm/bin:/usr/local/bin:/usr/bin
+{% endif %}
+
 
 ###
-### Scansets 
+### Scansets and Preprocessors
 ###
 
-# Path to preprocessor definitions file.
-# Default value: /etc/spamassassin/FuzzyOcr.preps
-focr_preprocessor_file {{ focr_preprocessor_file | default('/etc/spamassassin/FuzzyOcr.preps') }}
+# Path to the preprocessor definitions file.
+# Preprocessors prepare images for OCR (e.g., noise removal, scaling).
+# Default: /etc/spamassassin/FuzzyOcr.preps
+# {{ focr_preprocessor_file | default('') }}
+{% if focr_preprocessor_file is defined and focr_preprocessor_file != '' %}
+focr_preprocessor_file {{ focr_preprocessor_file }}
+{% else %}
+#focr_preprocessor_file /etc/spamassassin/FuzzyOcr.preps
+{% endif %}
 
-# Path to scanset definitions file.
-# Default value: /etc/spamassassin/FuzzyOcr.scansets
-focr_scanset_file {{ focr_scanset_file | default('/etc/spamassassin/FuzzyOcr.scansets') }}
+# Path to the scanset definitions file.
+# Scansets define which specific scans to perform on images.
+# Default: /etc/spamassassin/FuzzyOcr.scansets
+# {{ focr_scanset_file | default('') }}
+{% if focr_scanset_file is defined and focr_scanset_file != '' %}
+focr_scanset_file {{ focr_scanset_file }}
+{% else %}
+#focr_scanset_file /etc/spamassassin/FuzzyOcr.scansets
+{% endif %}
 
-# Skip remaining scansets after one hits focr_counts_required.
-# Default value: 1
-focr_minimal_scanset {{ focr_minimal_scanset | default(1) }}
+# Skip remaining scansets once the required count of hits is reached.
+# Improves performance by stopping early if spam is highly likely.
+# Default: 0 (Disabled)
+# {{ focr_minimal_scanset | default('') }}
+{% if focr_minimal_scanset is defined and focr_minimal_scanset != '' %}
+focr_minimal_scanset {{ focr_minimal_scanset }}
+{% else %}
+#focr_minimal_scanset 0
+{% endif %}
 
-# Enable autosorting of scansets by effectiveness.
-# Default value: 1
-focr_autosort_scanset {{ focr_autosort_scanset | default(1) }}
+# Enable autosorting of scansets based on effectiveness.
+# Scansets that detect more spam are tried first.
+# Default: 0 (Disabled)
+# {{ focr_autosort_scanset | default('') }}
+{% if focr_autosort_scanset is defined and focr_autosort_scanset != '' %}
+focr_autosort_scanset {{ focr_autosort_scanset }}
+{% else %}
+#focr_autosort_scanset 0
+{% endif %}
 
-# Max value of effectiveness counter per scanset.
-# Default value: 10
-focr_autosort_buffer {{ focr_autosort_buffer | default(10) }}
+# Maximum value for the effectiveness counter in autosorting.
+# Higher values allow more granular sorting but take longer to adapt.
+# Default: 10
+# {{ focr_autosort_buffer | default('') }}
+{% if focr_autosort_buffer is defined and focr_autosort_buffer != '' %}
+focr_autosort_buffer {{ focr_autosort_buffer }}
+{% else %}
+#focr_autosort_buffer 10
+{% endif %}
+
 
 ###
-### Scan Settings
+### Scan Settings (Dimensions and Timeouts)
 ###
 
-# Plugin timeout in seconds.
-# Default value: 10
-focr_timeout {{ focr_timeout | default(10) }}
+# Timeout for the FuzzyOcr plugin in seconds.
+# Maximum runtime allowed for the plugin to process an image.
+# Default: 15
+# {{ focr_timeout | default('') }}
+{% if focr_timeout is defined and focr_timeout != '' %}
+focr_timeout {{ focr_timeout }}
+{% else %}
+#focr_timeout 15
+{% endif %}
 
-# Use global timeout instead of per-helper.
-# Default value: 0
-focr_global_timeout {{ focr_global_timeout | default(0) }}
+# Use a global timeout for all helpers instead of per-helper timeouts.
+# Default: 0 (Disabled, use per-helper timeouts)
+# {{ focr_global_timeout | default('') }}
+{% if focr_global_timeout is defined and focr_global_timeout != '' %}
+focr_global_timeout {{ focr_global_timeout }}
+{% else %}
+#focr_global_timeout 0
+{% endif %}
 
-# Minimum image height to scan.
-# Default value: 4
-focr_min_height {{ focr_min_height | default(4) }}
+# Minimum image height to scan. Smaller images are skipped.
+# Default: 4
+# {{ focr_min_height | default('') }}
+{% if focr_min_height is defined and focr_min_height != '' %}
+focr_min_height {{ focr_min_height }}
+{% else %}
+#focr_min_height 4
+{% endif %}
 
-# Minimum image width to scan.
-# Default value: 4
-focr_min_width {{ focr_min_width | default(4) }}
+# Minimum image width to scan. Smaller images are skipped.
+# Default: 4
+# {{ focr_min_width | default('') }}
+{% if focr_min_width is defined and focr_min_width != '' %}
+focr_min_width {{ focr_min_width }}
+{% else %}
+#focr_min_width 4
+{% endif %}
 
-# Maximum image height to scan.
-# Default value: 800
-focr_max_height {{ focr_max_height | default(800) }}
+# Maximum image height to scan. Larger images are skipped.
+# Default: 800
+# {{ focr_max_height | default('') }}
+{% if focr_max_height is defined and focr_max_height != '' %}
+focr_max_height {{ focr_max_height }}
+{% else %}
+#focr_max_height 800
+{% endif %}
 
-# Maximum image width to scan.
-# Default value: 800
-focr_max_width {{ focr_max_width | default(800) }}
+# Maximum image width to scan. Larger images are skipped.
+# Default: 800
+# {{ focr_max_width | default('') }}
+{% if focr_max_width is defined and focr_max_width != '' %}
+focr_max_width {{ focr_max_width }}
+{% else %}
+#focr_max_width 800
+{% endif %}
 
-# Maximum GIF file size in bytes.
-# Default value: 80000
-focr_max_size_gif {{ focr_max_size_gif | default(80000) }}
 
-# Maximum JPEG file size in bytes.
-# Default value: 100000
-focr_max_size_jpeg {{ focr_max_size_jpeg | default(100000) }}
+###
+### File Size Limits
+###
 
-# Maximum PNG file size in bytes.
-# Default value: 80000
-focr_max_size_png {{ focr_max_size_png | default(80000) }}
+# Maximum allowed file size for GIF images in bytes.
+# Default: 80000
+# {{ focr_max_size_gif | default('') }}
+{% if focr_max_size_gif is defined and focr_max_size_gif != '' %}
+focr_max_size_gif {{ focr_max_size_gif }}
+{% else %}
+#focr_max_size_gif 80000
+{% endif %}
 
-# Maximum BMP file size in bytes.
-# Default value: 500000
-focr_max_size_bmp {{ focr_max_size_bmp | default(500000) }}
+# Maximum allowed file size for JPEG images in bytes.
+# Default: 100000
+# {{ focr_max_size_jpeg | default('') }}
+{% if focr_max_size_jpeg is defined and focr_max_size_jpeg != '' %}
+focr_max_size_jpeg {{ focr_max_size_jpeg }}
+{% else %}
+#focr_max_size_jpeg 100000
+{% endif %}
 
-# Maximum TIFF file size in bytes.
-# Default value: 500000
-focr_max_size_tiff {{ focr_max_size_tiff | default(500000) }}
+# Maximum allowed file size for PNG images in bytes.
+# Default: 80000
+# {{ focr_max_size_png | default('') }}
+{% if focr_max_size_png is defined and focr_max_size_png != '' %}
+focr_max_size_png {{ focr_max_size_png }}
+{% else %}
+#focr_max_size_png 80000
+{% endif %}
 
-# Skip GIF files.
-# Default value: 0
-focr_skip_gif {{ focr_skip_gif | default(0) }}
+# Maximum allowed file size for BMP images in bytes.
+# Default: 500000
+# {{ focr_max_size_bmp | default('') }}
+{% if focr_max_size_bmp is defined and focr_max_size_bmp != '' %}
+focr_max_size_bmp {{ focr_max_size_bmp }}
+{% else %}
+#focr_max_size_bmp 500000
+{% endif %}
 
-# Skip JPEG files.
-# Default value: 0
-focr_skip_jpeg {{ focr_skip_jpeg | default(0) }}
+# Maximum allowed file size for TIFF images in bytes.
+# Default: 500000
+# {{ focr_max_size_tiff | default('') }}
+{% if focr_max_size_tiff is defined and focr_max_size_tiff != '' %}
+focr_max_size_tiff {{ focr_max_size_tiff }}
+{% else %}
+#focr_max_size_tiff 500000
+{% endif %}
 
-# Skip PNG files.
-# Default value: 0
-focr_skip_png {{ focr_skip_png | default(0) }}
 
-# Skip BMP files.
-# Default value: 0
-focr_skip_bmp {{ focr_skip_bmp | default(0) }}
+###
+### Image Type Skipping
+###
 
-# Skip TIFF files.
-# Default value: 0
-focr_skip_tiff {{ focr_skip_tiff | default(0) }}
+# Skip scanning GIF files.
+# Default: 1 (Skip)
+# {{ focr_skip_gif | default('') }}
+{% if focr_skip_gif is defined and focr_skip_gif != '' %}
+focr_skip_gif {{ focr_skip_gif }}
+{% else %}
+#focr_skip_gif 1
+{% endif %}
 
-# Additional score for every additional match after focr_counts_required matches.
-# Default value: 0.375
-focr_add_score {{ focr_add_score | default(0.375) }}
+# Skip scanning JPEG files.
+# Default: 1 (Skip)
+# {{ focr_skip_jpeg | default('') }}
+{% if focr_skip_jpeg is defined and focr_skip_jpeg != '' %}
+focr_skip_jpeg {{ focr_skip_jpeg }}
+{% else %}
+#focr_skip_jpeg 1
+{% endif %}
 
-# Factor for two-pass scoring.
-# Default value: 1.5
-focr_twopass_scoring_factor {{ focr_twopass_scoring_factor | default(1.5) }}
+# Skip scanning PNG files.
+# Default: 1 (Skip)
+# {{ focr_skip_png | default('') }}
+{% if focr_skip_png is defined and focr_skip_png != '' %}
+focr_skip_png {{ focr_skip_png }}
+{% else %}
+#focr_skip_png 1
+{% endif %}
 
+# Skip scanning BMP files.
+# Default: 1 (Skip)
+# {{ focr_skip_bmp | default('') }}
+{% if focr_skip_bmp is defined and focr_skip_bmp != '' %}
+focr_skip_bmp {{ focr_skip_bmp }}
+{% else %}
+#focr_skip_bmp 1
+{% endif %}
+
+# Skip scanning TIFF files.
+# Default: 1 (Skip)
+# {{ focr_skip_tiff | default('') }}
+{% if focr_skip_tiff is defined and focr_skip_tiff != '' %}
+focr_skip_tiff {{ focr_skip_tiff }}
+{% else %}
+#focr_skip_tiff 1
+{% endif %}
+
+
+# =================================================================
+# The following directives are commented out by default.
+# Uncomment and modify them if advanced tuning is required.
+# =================================================================
+
+# PDF Scanning
+# WARNING: Enabling PDF scanning can lead to false positives.
+#focr_scan_pdfs 0
+#focr_pdf_maxpages 1
+
+# Detection Thresholds
+# Lower values make detection more sensitive.
+#focr_threshold 0.20
+
+# Match Counting
+# Minimum matches required before scoring.
+#focr_counts_required 3
+
+# Unique Matches
+# Match each word only once per image.
+#focr_unique_matches 1
+
+# Scoring Factors
+# Base score for a hit.
+#focr_base_score 5
+# Additional score per match after focr_counts_required.
+#focr_add_score 0.375
+# Two-pass scoring factor.
+#focr_twopass_scoring_factor 1.5
 # Score for wrong content-type.
-# Default value: 1.5
-focr_wrongctype_score {{ focr_wrongctype_score | default(1.5) }}
-
-# Score for wrong file extension.
-# Default value: 1.5
-focr_wrongext_score {{ focr_wrongext_score | default(1.5) }}
-
+#focr_wrongctype_score 1.5
+# Score for wrong extension.
+#focr_wrongext_score 1.5
 # Score for corrupted image.
-# Default value: 2.5
-focr_corrupt_score {{ focr_corrupt_score | default(2.5) }}
+#focr_corrupt_score 2.5
+# Score for unfixable corrupted image.
+#focr_corrupt_unfixable_score 5
 
-# Score for corrupted unfixable image.
-# Default value: 5
-focr_corrupt_unfixable_score {{ focr_corrupt_unfixable_score | default(5) }}
+# Auto-Disable Thresholds
+# Disable OCR if score is already above this value.
+#focr_autodisable_score 30
+# Disable OCR if score is below this negative value.
+#focr_autodisable_negative_score -5
 
-# Disable OCR if message has more points than this value.
-# Default value: 30
-focr_autodisable_score {{ focr_autodisable_score | default(30) }}
-
-# Disable OCR if message has less points than this value.
-# Default value: -5
-focr_autodisable_negative_score {{ focr_autodisable_negative_score | default(-5) }}
 
 ###
-### Hashing Options (Optional)
+### Image Hashing Options (Optional)
 ###
 
-# Enable image hashing: 0=disabled, 1=digest_hash, 2=digest_db, 3=mysql.
-# Default value: 0
-focr_enable_image_hashing {{ focr_enable_image_hashing | default(0) }}
+# Enable image hashing to speed up detection of known spam images.
+# 1 = digest_hash (deprecated)
+# 2 = digest_db with import (recommended)
+# 3 = MySQL database (experimental)
+#focr_enable_image_hashing 0
 
-# Skip updating hashing database at startup.
-# Default value: 0
-focr_skip_updates {{ focr_skip_updates | default(0) }}
+# Skip updating the hash database at startup.
+#focr_skip_updates 0
 
-# Automatically add hashes of spam images to database.
-# Default value: 1
-focr_hashing_learn_scanned {{ focr_hashing_learn_scanned | default(1) }}
+# Automatically add hashes of detected spam images to the database.
+#focr_hashing_learn_scanned 1
 
-# Score images with low word count using formula.
-# Default value: 0
-focr_score_ham {{ focr_score_ham | default(0) }}
+# Score images with low word counts using a formula.
+#focr_score_ham 0
 
-# Path to digest_hash database file.
-# Default value: /etc/spamassassin/FuzzyOcr.hashdb
-focr_digest_db {{ focr_digest_db | default('/etc/spamassassin/FuzzyOcr.hashdb') }}
+# Database file paths for hashing (if enabled).
+#focr_digest_db /etc/spamassassin/FuzzyOcr.hashdb
+#focr_db_hash /etc/spamassassin/FuzzyOcr.db
+#focr_db_safe /etc/spamassassin/FuzzyOcr.safe.db
 
-# Path to SPAM hash database file.
-# Default value: /etc/spamassassin/FuzzyOcr.db
-focr_db_hash {{ focr_db_hash | default('/etc/spamassassin/FuzzyOcr.db') }}
+# Auto-prune old records from hash databases (in days).
+#focr_db_max_days 35
 
-# Path to HAM hash database file.
-# Default value: /etc/spamassassin/FuzzyOcr.safe.db
-focr_db_safe {{ focr_db_safe | default('/etc/spamassassin/FuzzyOcr.safe.db') }}
-
-# Auto-prune: Expire records from hashing databases after these many days.
-# Default value: 15
-focr_db_max_days {{ focr_db_max_days | default(15) }}
 
 ###
-### MySQL options (Type 3 Hashing)
+### MySQL Options (For Hashing Type 3)
 ###
 
-# Update database table with different data.
-# Default value: 1
-focr_mysql_update_hash {{ focr_mysql_update_hash | default(1) }}
+# Database connection details for MySQL-backed hashing.
+#focr_mysql_db FuzzyOcr
+#focr_mysql_hash Hash
+#focr_mysql_safe Safe
+#focr_mysql_user fuzzyocr
+#focr_mysql_pass fuzzyocr
+#focr_mysql_host localhost
+#focr_mysql_port 3306
+#focr_mysql_socket /tmp/mysql.sock
+
+# Update database table with hash data.
+#focr_mysql_update_hash 0
+
 
 ###
 ### Miscellaneous Options
 ###
 
-# Keep intermediate bad images for debugging: 0=cleanup, 1=keep on error, 2=always keep.
-# Default value: 1
-focr_keep_bad_images {{ focr_keep_bad_images | default(1) }}
+# Keep intermediate temporary files for debugging.
+# 0 = Cleanup always (default)
+# 1 = Keep only on error
+# 2 = Always keep (Warning: disk space usage!)
+#focr_keep_bad_images 0
 
-#################################################################
-# DO NOT REMOVE THIS LINE, IT IS REQUIRED UNDER ALL CIRCUMSTANCES
+
+# End of FuzzyOcr configuration.
+# DO NOT REMOVE THIS LINE.
 focr_end_config
 
 endif

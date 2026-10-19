@@ -15,7 +15,8 @@ from fastapi.testclient import TestClient
 from tests.metric_helpers import purge_metrics, write_metric
 from bossman.db.models import Agent
 from bossman.main import create_app
-from bossman.services.auth import new_api_token
+from bossman.config import get_settings
+from bossman.services.auth import create_access_token, new_api_token, new_bossman_user
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
@@ -34,6 +35,13 @@ async def _make_api_token(db_session, name="orch-caller"):
     await db_session.flush()
     await db_session.commit()
     return row, raw
+
+
+async def _make_user(db_session, role="admin"):
+    u = new_bossman_user(owned_name("orch-user"), "pw", role)
+    db_session.add(u)
+    await db_session.commit()
+    return u, {"Authorization": f"Bearer {create_access_token(u, get_settings())}"}
 
 
 def _headers(raw):
@@ -292,6 +300,7 @@ async def _set_yolo_mode(client, headers, enabled: bool):
 
 async def test_orchestration_link_approval_gate(db_session):
     api_token, raw = await _make_api_token(db_session)
+    admin, admin_headers = await _make_user(db_session)
     agent = await _make_agent(db_session)
     sfx = run_suffix()
 
@@ -320,10 +329,23 @@ async def test_orchestration_link_approval_gate(db_session):
         assert state["state"]["orchestration"]["roles"] == []
 
         pending = client.get("/api/v1/orchestration/pending-links", headers=_headers(raw)).json()
-        assert any(p["id"] == link["id"] for p in pending)
+        queued = next(p for p in pending if p["id"] == link["id"])
+        # The review queue names what is bound, where, and who asked.
+        assert queued["plan_name"] == plan["name"]
+        assert queued["target_label"] == f"host {agent.name}"
+        assert queued["created_by"] == api_token.name
 
-        # Approve -> active, host's desired state now shows the role.
-        approve = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{link['id']}/approve", headers=_headers(raw))
+        # Four-eyes: an API token is not an administrator, and the requester never approves their own.
+        url = f"/api/v1/orchestration/plans/{plan['id']}/links/{link['id']}/approve"
+        assert client.post(url, headers=_headers(raw)).status_code == 403
+        own = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links",
+                          json={"target_type": "host", "agent_id": str(agent.id)}, headers=admin_headers).json()
+        refused = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{own['id']}/approve", headers=admin_headers)
+        assert refused.status_code == 409 and "four-eyes" in refused.json()["detail"]
+        client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{own['id']}/reject", headers=admin_headers)
+
+        # Approve (by an administrator who did not ask) -> active, host's desired state now shows the role.
+        approve = client.post(url, headers=admin_headers)
         assert approve.status_code == 200
         assert approve.json()["status"] == "active"
 
@@ -331,13 +353,14 @@ async def test_orchestration_link_approval_gate(db_session):
         assert plan["name"] in state_after["state"]["orchestration"]["roles"]
 
         # Re-approving an already-active link is a 409.
-        re_approve = client.post(f"/api/v1/orchestration/plans/{plan['id']}/links/{link['id']}/approve", headers=_headers(raw))
+        re_approve = client.post(url, headers=admin_headers)
         assert re_approve.status_code == 409
 
         client.delete(f"/api/v1/orchestration/plans/{plan['id']}", headers=_headers(raw))
 
     await _delete_agent(db_session, agent)
     await db_session.delete(api_token)
+    await db_session.delete(admin)
     await db_session.commit()
 
 

@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -8,6 +9,9 @@ import * as monaco from 'monaco-editor';
 import { BulkImportResult, PlanDocument, PlanService, PlanVersion, StoredPlan } from '../../core/services/plan.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployment-edges.component';
+import { VersionDiffComponent } from '../../shared/version-diff/version-diff.component';
+import { APP_IS_DARK } from '../../shared/bm-colors';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 (self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
   getWorker() {
@@ -27,7 +31,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
 @Component({
   selector: 'app-plan-library',
   standalone: true,
-  imports: [DeploymentEdgesComponent, FormsModule, MatButtonModule, MatIconModule, MatButtonToggleModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, DeploymentEdgesComponent, VersionDiffComponent, RouterLink, FormsModule, MatButtonModule, MatIconModule, MatButtonToggleModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-pl">
       <aside class="bm-pl-tree">
@@ -80,6 +84,14 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
             <span class="bm-spacer"></span>
             <input class="bm-move" type="text" placeholder="folder (linux/base)" [(ngModel)]="moveFolder" (keyup.enter)="doMove()" />
             <button mat-stroked-button (click)="doMove()" [disabled]="busy()"><mat-icon>drive_file_move</mat-icon> Move</button>
+            <!-- Run: the read-before-run page (/plans/:name) for a plan the runnable catalogue holds; the
+                 catalogue and this store are the same documents (api/plans.py), but only the catalogue runs. -->
+            @if (runnable().has(d.name)) {
+              <a mat-stroked-button [routerLink]="['/plans', d.name]"><mat-icon>play_arrow</mat-icon> Run…</a>
+            } @else {
+              <span class="bm-why" title="Not in the runnable plan catalogue — only catalogue plans can be run"><button
+                mat-stroked-button disabled><mat-icon>play_arrow</mat-icon> Run…</button></span>
+            }
             <button mat-raised-button color="primary" (click)="doSave()" [disabled]="busy()"><mat-icon>save</mat-icon> Save</button>
             <button mat-stroked-button color="warn" (click)="doDelete()" [disabled]="busy()"><mat-icon>delete</mat-icon> Delete</button>
           </div>
@@ -101,9 +113,9 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
               <textarea [(ngModel)]="impText" rows="12" placeholder="paste the {{ importKinds[impKind()].label }} source here"></textarea>
             </label>
             <div class="bm-import-actions">
-              <button mat-raised-button color="primary" (click)="doImport()" [disabled]="impBusy() || !impName.trim() || !impText.trim()">
+              <span class="bm-why"><button mat-raised-button color="primary" (click)="doImport()" [bmBlocked]="importBlocked()">
                 <mat-icon>upload_file</mat-icon> Import
-              </button>
+              </button></span>
               <button mat-stroked-button (click)="importOpen.set(false)" [disabled]="impBusy()">Cancel</button>
             </div>
             @if (impErr()) { <p class="bm-err">{{ impErr() }}</p> }
@@ -128,20 +140,32 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
             @if (bulkFiles().length) {
               <p class="bm-dim">{{ bulkFiles().length }} file(s) selected from <code>{{ bulkRoot() }}</code></p>
               <div class="bm-import-actions">
-                <button mat-stroked-button (click)="runBulk(true)" [disabled]="bulkBusy()">
+                <span class="bm-why" [attr.title]="bulkBusy() ? 'Working…' : null"><button mat-stroked-button (click)="runBulk(true)" [disabled]="bulkBusy()">
                   <mat-icon>preview</mat-icon> Preview
-                </button>
-                <button mat-raised-button color="primary" (click)="runBulk(false)" [disabled]="bulkBusy()">
+                </button></span>
+                <span class="bm-why" [attr.title]="bulkBusy() ? 'Working…' : null"><button mat-raised-button color="primary" (click)="runBulk(false)" [disabled]="bulkBusy()">
                   <mat-icon>drive_folder_upload</mat-icon> Import {{ bulkFiles().length }} file(s)
-                </button>
+                </button></span>
               </div>
             }
             @if (bulkBusy()) { <mat-spinner diameter="22" /> }
             @if (bulkResult(); as r) {
-              <p class="bm-ok">
-                {{ bulkDry() ? 'Preview:' : 'Imported:' }} {{ r.imported.length }} plan(s) ·
-                {{ r.skipped.length }} not a plan · {{ r.failed.length }} refused
+              <p class="bm-ok" role="status">
+                {{ bulkDry() ? 'Preview — nothing was written:' : 'Imported:' }} {{ r.imported.length }} plan(s)
+                ({{ statusCounts(r) }}) · {{ r.skipped.length }} not a plan · {{ r.failed.length }} refused
               </p>
+              @if (r.imported.length) {
+                <!-- Where each file landed, by name: Ansible task files become Sequences (the runbook store),
+                     the other frameworks plans here — an import that does not say where it put things reads as
+                     one that did nothing. -->
+                <ul class="bm-bulk-list">
+                  @for (i of r.imported; track i.path) {
+                    <li><code>{{ i.path }}</code> → {{ i.kind === 'runbook' ? 'Sequence' : 'plan' }} <strong>{{ i.name }}</strong>
+                      @if (i.status) { <span class="bm-dim">· {{ bulkDry() ? 'would be ' : '' }}{{ i.status }}</span> }
+                      @if (i.kind === 'runbook' && !bulkDry()) { · <a routerLink="/runbooks">open in Sequences</a> }</li>
+                  }
+                </ul>
+              }
               @if (r.failed.length) {
                 <!-- Failures are listed in full: an import that silently drops files is worse than one that
                      refuses them loudly, because the operator would ship an incomplete role believing it ran. -->
@@ -160,7 +184,12 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
         <!-- Single, stable editor element (Monaco lives here for the panel's
              lifetime); hidden until a plan is opened or when diffing. -->
         <div class="bm-pl-mon" #editor [style.display]="doc() && !diffMode() ? 'block' : 'none'"></div>
-        <div class="bm-pl-mon" #diffEditor [style.display]="diffMode() ? 'block' : 'none'"></div>
+        @if (diffMode() && diffOriginal() !== null && doc(); as d) {
+          <div class="bm-pl-mon bm-pl-diff">
+            <app-version-diff [original]="diffOriginal()!" [modified]="d.formats.json"
+              [originalLabel]="'v' + diffVersion()" [modifiedLabel]="'v' + d.version + ' (current)'" />
+          </div>
+        }
         <!-- Slice 4 (docs/ui-workspaces.md): the other direction of the deployment edge — where has THIS
              artefact been deployed. Together with the host's "Deployed here" list this is the Library ⇄
              Fleet link the UI was missing. -->
@@ -174,8 +203,10 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
   styles: [
     `.bm-pl-sec { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; opacity: .55; margin: 16px 0 4px; }`,
     `
-      .bm-pl { display: grid; grid-template-columns: 320px 1fr; gap: 12px; height: calc(100vh - 120px); padding: 12px; }
-      @media (max-width: 900px) { .bm-pl { grid-template-columns: 1fr; height: auto; } }
+      /* One bounded row: an auto row grows to the import panel's full content, so the panel never scrolled and
+         its result list sat clipped below the page's edge. */
+      .bm-pl { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; height: calc(100vh - 120px); padding: 12px; }
+      @media (max-width: 900px) { .bm-pl { grid-template-columns: 1fr; grid-template-rows: none; height: auto; } }
       .bm-pl-tree { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: auto; display: flex; flex-direction: column; }
       .bm-pl-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-pl-tree ul { list-style: none; margin: 0; padding: 0; overflow: auto; }
@@ -199,9 +230,15 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
       .bm-move { padding: 5px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-size: 12px; width: 150px; }
       .bm-diff-sel { padding: 5px 7px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 5px; background: var(--mat-sys-surface); color: inherit; font-size: 12px; }
       .bm-pl-mon { flex: 1; min-height: 340px; }
+      .bm-pl-diff { display: flex; flex-direction: column; }
       .bm-ok { color: #2e7d32; font-size: 12px; margin: 4px 10px; }
       .bm-err { color: #c62828; font-size: 12px; margin: 4px 10px; }
-      .bm-import { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+      /* flex: 1 + min-height: 0, or the column clips instead of scrolling: the import result list sat below the
+         editor panel's edge, unreachable (the panel is overflow: hidden). */
+      .bm-import { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+      /* Children keep their height and the panel scrolls: the two result lists are scroll containers (min-height
+         resolves to 0), so in an overflowing column they shrank to nothing — the refused-file list too. */
+      .bm-import > * { flex-shrink: 0; }
       .bm-import h3 { margin: 0; }
       .bm-import label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
       .bm-import select, .bm-import input, .bm-import textarea {
@@ -217,6 +254,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
       .bm-bulk-fails { margin: 0; padding-left: 18px; font-size: 11.5px; opacity: .75;
         max-height: 190px; overflow: auto; }
       .bm-bulk-fails code { font-size: 11px; }
+      .bm-bulk-list { margin: 0; padding-left: 18px; font-size: 12px; max-height: 190px; overflow: auto; }
     `,
   ],
 })
@@ -224,13 +262,15 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   private planService = inject(PlanService);
   private dialog = inject(DialogService);
   @ViewChild('editor') editorEl!: ElementRef<HTMLDivElement>;
-  @ViewChild('diffEditor') diffEditorEl!: ElementRef<HTMLDivElement>;
 
   plans = signal<StoredPlan[]>([]);
+  /** Names in the runnable plan catalogue (GET /plans). */
+  runnable = signal<Set<string>>(new Set());
   versions = signal<PlanVersion[]>([]);
   diffVersion = signal<number | null>(null);
   diffMode = computed(() => this.diffVersion() !== null);
-  private diffEd?: monaco.editor.IStandaloneDiffEditor;
+  /** The older version's canonical JSON, once loaded (null while loading / not diffing). */
+  diffOriginal = signal<string | null>(null);
   loading = signal(false);
   loadErr = signal<string | null>(null);
   expanded = signal<Set<string>>(new Set(['']));
@@ -297,7 +337,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     this.reload();
   }
 
-  ngOnDestroy(): void { this.ed?.dispose(); this.diffEd?.dispose(); }
+  ngOnDestroy(): void { this.ed?.dispose(); }
 
   reload(): void {
     this.loading.set(true);
@@ -306,6 +346,8 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
       next: (r) => { this.plans.set(r.plans ?? []); this.loading.set(false); },
       error: (e) => { this.loading.set(false); this.loadErr.set(e?.error?.detail ?? 'failed to load library'); },
     });
+    // Which names the runnable catalogue holds — those get a Run… link to the read-before-run page.
+    this.planService.list().subscribe({ next: (cat) => this.runnable.set(new Set(cat.map((p) => p.name))), error: () => this.runnable.set(new Set()) });
   }
 
   toggle(path: string): void {
@@ -340,9 +382,10 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     const root = usable[0]?.webkitRelativePath.split('/')[0] ?? '';
     const files = await Promise.all(
       usable.map(async (f) => ({
-        // Strip the directory's own name so paths are relative to the tree root — `tasks/main.yml`, which is
-        // what the classifier expects, not `ansible-role-nginx-3.1.4/tasks/main.yml`.
-        path: f.webkitRelativePath.split('/').slice(1).join('/') || f.name,
+        // Keep the picked directory's own name: names are built from the relative path, and every Ansible role
+        // has a `tasks/main.yml` — without the directory, a second role became `tasks-main` again and replaced
+        // the first one's runbook. The classifier matches the conventional dir at any depth.
+        path: f.webkitRelativePath || f.name,
         text: await f.text(),
       })),
     );
@@ -371,6 +414,13 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  /** "1 created, 2 unchanged" — what the import did (or would do) to the store. */
+  statusCounts(r: BulkImportResult): string {
+    const counts = new Map<string, number>();
+    for (const i of r.imported) counts.set(i.status ?? 'stored', (counts.get(i.status ?? 'stored') ?? 0) + 1);
+    return [...counts].map(([k, n]) => `${n} ${this.bulkDry() && k !== 'stored' ? 'would be ' + k : k}`).join(', ') || 'none';
+  }
+
   isSel(p: StoredPlan): boolean { const d = this.doc(); return !!d && d.prefix === p.prefix && d.name === p.name; }
 
   open(p: { prefix: string; name: string }): void {
@@ -391,23 +441,12 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
    * (JSON both sides). null → back to the normal edit view. */
   onDiff(version: number | null): void {
     this.diffVersion.set(version);
+    this.diffOriginal.set(null);
     const d = this.doc();
     if (version === null) { setTimeout(() => this.ed?.layout(), 0); return; } // back to edit → re-fit
     if (!d) return;
     this.planService.document(d.prefix, d.name, version).subscribe({
-      next: (old) => {
-        if (!this.diffEd) {
-          this.diffEd = monaco.editor.createDiffEditor(this.diffEditorEl.nativeElement, {
-            readOnly: true, automaticLayout: true, fontSize: 12, renderSideBySide: true,
-            theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
-          });
-        }
-        this.diffEd.setModel({
-          original: monaco.editor.createModel(old.formats.json, 'json'),
-          modified: monaco.editor.createModel(d.formats.json, 'json'),
-        });
-        setTimeout(() => this.diffEd?.layout(), 0);
-      },
+      next: (old) => this.diffOriginal.set(old.formats.json),
       error: (e) => this.saveErr.set(e?.error?.detail ?? 'failed to load version'),
     });
   }
@@ -425,7 +464,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
         this.ed = monaco.editor.create(this.editorEl.nativeElement, {
           value: '', language: 'yaml', automaticLayout: true, minimap: { enabled: false },
           fontSize: 12, scrollBeyondLastLine: false,
-          theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
+          theme: APP_IS_DARK ? 'vs-dark' : 'vs',
         });
       }
       this.ed.setValue(d.formats[f] ?? '');
@@ -486,6 +525,13 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     this.doc.set(null);
     this.impErr.set(null);
     this.importOpen.set(true);
+  }
+
+  importBlocked(): string {
+    if (this.impBusy()) return 'Working…';
+    if (!this.impName.trim()) return 'Name the plan first';
+    if (!this.impText.trim()) return 'Paste the source first';
+    return '';
   }
 
   doImport(): void {

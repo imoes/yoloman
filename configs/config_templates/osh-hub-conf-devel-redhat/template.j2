@@ -1,0 +1,215 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: Copyright contributors to the OpenScanHub project.
+
+"""
+Instance-specific settings.
+
+Devel instance
+"""
+
+import os
+
+from osh.hub.other.settings_util import get_secret
+
+# Enable Django debug mode.
+DEBUG = {{ DEBUG | default('True') }}
+
+# Directory where API keys and secrets are stored.
+SECRETS_DIR = "{{ SECRETS_DIR | default('.secrets') }}"
+
+ADMINS = (
+    ('Kamil Dudka', '{{ ADMINS_EMAIL | default("kdudka@redhat.com") }}'),
+)
+
+MANAGERS = ADMINS
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        # Name of the PostgreSQL database.
+        'NAME': '{{ DATABASE_NAME | default("openscanhub") }}',
+        # Username for the PostgreSQL database.
+        'USER': '{{ DATABASE_USER | default("openscanhub") }}',
+        # Default password for the PostgreSQL database if get_secret fails.
+        'PASSWORD': get_secret('db_password', SECRETS_DIR) or '{{ DATABASE_PASSWORD | default("velryba") }}',
+        # Hostname of the PostgreSQL database server.
+        'HOST': '{{ DATABASE_HOST | default("db") }}',
+        # Port of the PostgreSQL database server.
+        'PORT': '{{ DATABASE_PORT | default("5432") }}',
+        'TEST': {
+            # Name of the test database.
+            'NAME': '{{ DATABASE_TEST_NAME | default("openscanhub-test") }}',
+        },
+    },
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)-7s %(asctime)s %(pathname)-50s:%(lineno)d %(funcName)s   %(message)s'
+        },
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'verbose',
+            # Path to the log file.
+            'filename': '{{ LOG_FILENAME | default("/var/tmp/osh.hub.log") }}',
+            # Maximum size of the log file in bytes (10 MB).
+            'maxBytes': {{ LOG_MAX_BYTES | default(10485760) }},
+            # Number of backup log files to keep.
+            'backupCount': {{ LOG_BACKUP_COUNT | default(14) }},
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        }
+    },
+    'loggers': {
+        'osh': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        # 'django.db.backends': {
+        #     'handlers': ['file'],
+        #     'propagate': False,
+        #     'level': 'INFO',
+        # },
+        'kobo': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        }
+    }
+}
+
+# Local time zone for this installation. Choices can be found here:
+# http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
+# although not all choices may be available on all operating systems.
+# On Unix systems, a value of None will cause Django to use the same
+# timezone as the operating system.
+# If running in a Windows environment this must be set to the same as your
+# system time zone.
+TIME_ZONE = '{{ TIME_ZONE | default("Europe/Prague") }}'
+
+# KRB_AUTH_PRINCIPAL =
+# KRB_AUTH_KEYTAB =
+
+# Regular users cannot bind to port 25.
+EMAIL_PORT = {{ EMAIL_PORT | default(8025) }}
+
+###############################################################################
+# OpenScanHub SPECIFIC
+###############################################################################
+
+# Path to task logs and other files
+FILES_PATH = './osh/hub'
+
+# Files for kobo tasks with predefined structure
+TASK_DIR = os.path.join(FILES_PATH, 'tasks')
+
+# Root directory for uploaded files
+UPLOAD_DIR = os.path.join(FILES_PATH, 'upload')
+
+# URL for Bugzilla integration.
+BZ_URL = "{{ BZ_URL | default("https://bugzilla.stage.redhat.com") }}"
+# URL for Jira integration.
+JIRA_URL = "{{ JIRA_URL | default("https://issues.stage.redhat.com") }}"
+
+# URL for Errata Tool integration.
+ET_URL = '{{ ET_URL | default("https://errata-web-01.host.stage.eng.bos.redhat.com") }}'
+
+# First UMB broker URL.
+# Second UMB broker URL.
+# Third UMB broker URL.
+# Fourth UMB broker URL.
+# Fifth UMB broker URL.
+# Sixth UMB broker URL.
+UMB_BROKER_URLS = [
+    '{{ UMB_BROKER_1 | default("amqps://umb-broker01.stage.api.redhat.com:5671") }}',
+    '{{ UMB_BROKER_2 | default("amqps://umb-broker02.stage.api.redhat.com:5671") }}',
+    '{{ UMB_BROKER_3 | default("amqps://umb-broker03.stage.api.redhat.com:5671") }}',
+    '{{ UMB_BROKER_4 | default("amqps://umb-broker04.stage.api.redhat.com:5671") }}',
+    '{{ UMB_BROKER_5 | default("amqps://umb-broker05.stage.api.redhat.com:5671") }}',
+    '{{ UMB_BROKER_6 | default("amqps://umb-broker06.stage.api.redhat.com:5671") }}']
+
+# Path to the UMB client certificate.
+UMB_CLIENT_CERT = '{{ UMB_CLIENT_CERT | default("/etc/osh/hub/msg-client-osh.pem") }}'
+# UMB_TOPIC_PREFIX can be a single string or a collection of strings.
+# Every UMB message will be sent to all defined UMB topic prefixes.
+# Prefix for UMB topics.
+UMB_TOPIC_PREFIX = '{{ UMB_TOPIC_PREFIX | default("topic://VirtualTopic.eng.openscanhub.scan") }}'
+
+# Enable sending bus messages via Kafka.
+SEND_BUS_MESSAGE_KAFKA = {{ SEND_BUS_MESSAGE_KAFKA | default("False") }}
+
+# First Kafka broker URL.
+# Second Kafka broker URL.
+# Third Kafka broker URL.
+KAFKA_BROKER_URLS = [
+    '{{ KAFKA_BROKER_1 | default("b-3.itsandbox.642qp2.c5.kafka.us-east-1.amazonaws.com:9096") }}',
+    '{{ KAFKA_BROKER_2 | default("b-1.itsandbox.642qp2.c5.kafka.us-east-1.amazonaws.com:9096") }}',
+    '{{ KAFKA_BROKER_3 | default("b-2.itsandbox.642qp2.c5.kafka.us-east-1.amazonaws.com:9096") }}',
+]
+
+# Username for Kafka authentication.
+KAFKA_USERNAME = '{{ KAFKA_USERNAME | default("openscanhub_sandbox") }}'
+# Password for Kafka (retrieved from secrets or left empty).
+KAFKA_PASSWORD = get_secret('kafka_password', SECRETS_DIR)
+# Prefix for Kafka topics.
+KAFKA_TOPIC_PREFIX = '{{ KAFKA_TOPIC_PREFIX | default("dev.eng.openscanhub.scan") }}'
+
+# E-mail address used in the From: field of notifications generated by OpenScanHub
+# Email address used in the From: field of notifications.
+NOTIFICATION_EMAIL_ADDRESS = "{{ NOTIFICATION_EMAIL_ADDRESS | default("no-reply@example.org") }}"
+
+# E-mail address where notifications about failed/cancelled tasks are sent
+# Email address for notifications about failed/cancelled tasks.
+DEVEL_EMAIL_ADDRESS = "{{ DEVEL_EMAIL_ADDRESS | default("no-reply@example.org") }}"
+
+# Default e-mail domain name for sending notifications to the user.
+# It is used when `email` field in the user model is not set.
+# Default email domain for user notifications.
+DEFAULT_EMAIL_DOMAIN = "{{ DEFAULT_EMAIL_DOMAIN | default("example.org") }}"
+
+# Footer text for notification emails.
+NOTIFICATION_EMAIL_FOOTER = "{{ NOTIFICATION_EMAIL_FOOTER | default("This is a test footer.") }}"
+
+# Dictionary with extra yum repositories for the special `auto` mock config.
+# The keys are regular expressions that will match the given build tag, e.g.
+# r'f\d+' for Fedora X.  The value is a corresponding repofile which will be
+# then appended to all generated mock configs, e.g.:
+# MOCK_AUTO_EXTRA_REPOS = {r'f\d+': '[repo]\n...'}
+MOCK_AUTO_EXTRA_REPOS = {}
+
+# Enable single-use workers.
+ENABLE_SINGLE_USE_WORKERS = {{ ENABLE_SINGLE_USE_WORKERS | default("False") }}
+
+# This number should be same as the `max` field in the `/etc/resallocserver/pools.yaml`
+# on the resalloc server. Otherwise, we may end up with too few or too many tickets
+# being opened.
+# Maximum number of single-use workers.
+MAX_SINGLE_USE_WORKERS = {{ MAX_SINGLE_USE_WORKERS | default(8) }}
+
+# This user is used to ssh to newly created worker.
+# SSH user for connecting to newly created workers.
+SINGLE_USE_WORKER_SSH_USER = "{{ SINGLE_USE_WORKER_SSH_USER | default("") }}"
+
+# TODO: What should we use here if we want to deploy across multiple clouds?
+# May be, related public key should be copied when a new worker is set up.
+# SSH private key for connecting to newly created workers.
+SINGLE_USE_WORKER_SSH_PRIVATE_KEY = "{{ SINGLE_USE_WORKER_SSH_PRIVATE_KEY | default("") }}"
+
+# This url is used to dynamically generate worker configuration files.
+# URL used to dynamically generate worker configuration files.
+SINGLE_USE_WORKER_OSH_HUB_URL = "{{ SINGLE_USE_WORKER_OSH_HUB_URL | default("") }}"
+
+ALLOWED_HOSTS = ['*']

@@ -2,65 +2,65 @@
 # See man page debfoster(1) for detailed documentation.
 
 # install_cmd: Command used to install packages.
-InstallCmd = {{ install_cmd | default('apt-get install') }}
+{% if install_cmd is defined and install_cmd is not none and install_cmd != '' %}InstallCmd = {{ install_cmd }}{% else %}# InstallCmd = apt-get install{% endif %}
 
 # remove_cmd: Command used to remove packages (with purge).
-RemoveCmd = {{ remove_cmd | default('apt-get --purge remove') }}
+{% if remove_cmd is defined and remove_cmd is not none and remove_cmd != '' %}RemoveCmd = {{ remove_cmd }}{% else %}# RemoveCmd = apt-get --purge remove{% endif %}
 
 # info_cmd: Command used to display package information.
-InfoCmd = {{ info_cmd | default('dpkg -s') }}
+{% if info_cmd is defined and info_cmd is not none and info_cmd != '' %}InfoCmd = {{ info_cmd }}{% else %}# InfoCmd = dpkg -s{% endif %}
 
 # keeper_file: Path to the file storing the list of kept/orphaned packages.
-KeeperFile = {{ keeper_file | default('/var/lib/debfoster/keepers') }}
+{% if keeper_file is defined and keeper_file is not none and keeper_file != '' %}KeeperFile = {{ keeper_file }}{% else %}# KeeperFile = /var/lib/debfoster/keepers{% endif %}
 
 # dpkg_status: Path to dpkg's status file.
-DpkgStatus = {{ dpkg_status | default('/var/lib/dpkg/status') }}
+{% if dpkg_status is defined and dpkg_status is not none and dpkg_status != '' %}DpkgStatus = {{ dpkg_status }}{% else %}# DpkgStatus = /var/lib/dpkg/status{% endif %}
 
 # dpkg_available: Path to dpkg's available file.
-DpkgAvailable = {{ dpkg_available | default('/var/lib/dpkg/available') }}
+{% if dpkg_available is defined and dpkg_available is not none and dpkg_available != '' %}DpkgAvailable = {{ dpkg_available }}{% else %}# DpkgAvailable = /var/lib/dpkg/available{% endif %}
 
 # max_priority: Highest priority level to ask questions about.
 # Possible values: required, important, standard, optional, extra, or ANY.
-MaxPriority = {{ max_priority | default('standard') }}
+{% if max_priority is defined and max_priority is not none and max_priority != '' %}MaxPriority = {{ max_priority }}{% else %}# MaxPriority = standard{% endif %}
 
 # use_hold: Consider packages marked with 'hold' status as keepers.
-UseHold = {{ use_hold | default(True) | lower }}
+{% if use_hold is defined and use_hold is not none and (use_hold is number or use_hold is boolean or use_hold | length > 0) %}UseHold = {{ use_hold | default(True) | lower }}{% else %}# UseHold = yes{% endif %}
 
 # use_essential: Consider packages marked 'Essential: yes' as keepers.
-UseEssential = {{ use_essential | default(True) | lower }}
+{% if use_essential is defined and use_essential is not none and (use_essential is number or use_essential is boolean or use_essential | length > 0) %}UseEssential = {{ use_essential | default(True) | lower }}{% else %}# UseEssential = yes{% endif %}
 
 # use_predepends: Treat 'Pre-Depends' relationships as regular dependencies.
-UsePreDepends = {{ use_predepends | default(True) | lower }}
+{% if use_predepends is defined and use_predepends is not none and (use_predepends is number or use_predepends is boolean or use_predepends | length > 0) %}UsePreDepends = {{ use_predepends | default(True) | lower }}{% else %}# UsePreDepends = yes{% endif %}
 
 # use_recommends: Treat 'Recommends' relationships as dependencies.
-UseRecommends = {{ use_recommends | default(True) | lower }}
+{% if use_recommends is defined and use_recommends is not none and (use_recommends is number or use_recommends is boolean or use_recommends | length > 0) %}UseRecommends = {{ use_recommends | default(True) | lower }}{% else %}# UseRecommends = yes{% endif %}
 
 # use_suggests: Treat 'Suggests' relationships as dependencies.
-UseSuggests = {{ use_suggests | default(False) | lower }}
+{% if use_suggests is defined and use_suggests is not none and (use_suggests is number or use_suggests is boolean or use_suggests | length > 0) %}UseSuggests = {{ use_suggests | default(False) | lower }}{% else %}# UseSuggests = no{% endif %}
 
 # use_tasks: Treat tasksel tasks as regular packages (prefixed 'task-').
-UseTasks = {{ use_tasks | default(False) | lower }}
+{% if use_tasks is defined and use_tasks is not none and (use_tasks is number or use_tasks is boolean or use_tasks | length > 0) %}UseTasks = {{ use_tasks | default(False) | lower }}{% else %}# UseTasks = no{% endif %}
 
 # keep_sections: Comma-separated list of package sections to always keep.
 # Example: libs,utils
-KeepSections = {{ keep_sections | default('') }}
+{% if keep_sections is defined and keep_sections is not none and keep_sections != '' %}KeepSections = {{ keep_sections }}{% else %}# KeepSections ={% endif %}
 
 # nokeep_sections: Comma-separated list of package sections to never keep.
 # Example: science
-NokeepSections = {{ nokeep_sections | default('') }}
+{% if nokeep_sections is defined and nokeep_sections is not none and nokeep_sections != '' %}NokeepSections = {{ nokeep_sections }}{% else %}# NokeepSections ={% endif %}
 
 # guess_depends: Comma-separated list of suffixes to treat as dependencies of the base package name.
 # Example: dev,doc
-GuessDepends = {{ guess_depends | default('') }}
+{% if guess_depends is defined and guess_depends is not none and guess_depends != '' %}GuessDepends = {{ guess_depends }}{% else %}# GuessDepends ={% endif %}
 
 # negative_keepers: Whether to respect negative entries (explicit removals) in the keeper file.
-NegativeKeepers = {{ negative_keepers | default(False) | lower }}
+{% if negative_keepers is defined and negative_keepers is not none and (negative_keepers is number or negative_keepers is boolean or negative_keepers | length > 0) %}NegativeKeepers = {{ negative_keepers | default(False) | lower }}{% else %}# NegativeKeepers = no{% endif %}
 
 # verbose: Enable verbose output (same as -v on command line).
-Verbose = {{ verbose | default(False) | lower }}
+{% if verbose is defined and verbose is not none and (verbose is number or verbose is boolean or verbose | length > 0) %}Verbose = {{ verbose | default(False) | lower }}{% else %}# Verbose = no{% endif %}
 
 # force: Force non-interactive mode, answering 'No' to all questions (same as -f).
-Force = {{ force | default(False) | lower }}
+{% if force is defined and force is not none and (force is number or force is boolean or force | length > 0) %}Force = {{ force | default(False) | lower }}{% else %}# Force = no{% endif %}
 
 # quiet: Suppress all prompts (same as -q).
-Quiet = {{ quiet | default(False) | lower }}
+{% if quiet is defined and quiet is not none and (quiet is number or quiet is boolean or quiet | length > 0) %}Quiet = {{ quiet | default(False) | lower }}{% else %}# Quiet = no{% endif %}

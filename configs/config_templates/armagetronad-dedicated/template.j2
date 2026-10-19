@@ -1,0 +1,50 @@
+# ==============================================================================
+# ArmagetronAD Dedicated Server Service Configuration
+# ==============================================================================
+# This file configures the ArmagetronAD dedicated server wrapper/service script.
+# It controls startup behavior, execution user, file paths, and process priority.
+
+# --- Startup Control ---
+# Whether to start the server when the service is enabled/started.
+# 0 = do not start; 1 = start the server.
+# Default: 0 (disabled by default, often managed by supervisor or manual start)
+ARMAGETRONAD_SERVER_START={{ ARMAGETRONAD_SERVER_START | default('0') }}
+
+# --- Execution Identity ---
+# The system user account under which the ArmagetronAD server process will run.
+# Using a dedicated user improves security by isolating the game server files.
+# Default: 'armagetronad'
+ARMAGETRONAD_USER={{ ARMAGETRONAD_USER | default('armagetronad') }}
+
+# --- Directory Layout ---
+# Base directory for variable data (game maps, configs, player data, etc.).
+# Ensure this directory is writable by ARMAGETRONAD_USER.
+# Default: '/var/games/armagetronad'
+VARDIR={{ VARDIR | default('/var/games/armagetronad') }}
+
+# Directory where the process ID (PID) file is stored.
+# Used by init systems to track the running process.
+# Default: '/var/games/armagetronad'
+PIDDIR={{ PIDDIR | default('/var/games/armagetronad') }}
+
+# Directory where the server's log output is stored.
+# Default: '/var/log'
+LOGDIR={{ LOGDIR | default('/var/log') }}
+
+# --- File Naming ---
+# Base name used for generating the PID file and Logfile paths below.
+# Default: 'armagetronad-dedicated'
+NAME={{ NAME | default('armagetronad-dedicated') }}
+
+# Constructed path to the PID file: $PIDDIR/$NAME.pid
+MAINPIDFILE=$PIDDIR/$NAME.pid
+
+# Constructed path to the Logfile: $LOGDIR/$NAME.log
+LOGFILE=$LOGDIR/$NAME.log
+
+# --- Process Priority ---
+# The niceness level applied to the server process.
+# Range: -20 (highest priority) to 19 (lowest priority).
+# Note: Requires root privileges to set a negative niceness (e.g., "-5").
+# Default: "-5"
+NICENESS={{ NICENESS | default("-5") }}

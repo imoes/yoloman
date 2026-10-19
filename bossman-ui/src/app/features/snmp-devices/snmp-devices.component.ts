@@ -12,6 +12,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { CheckService } from '../../core/services/check.service';
 import { Device } from '../../core/models/agent.model';
 import { CheckCatalogEntry } from '../../core/models/check.model';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /**
  * Block 3 — agent-less devices (SNMP gear, SSH hosts) monitored via the
@@ -26,7 +27,7 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
 @Component({
   selector: 'app-snmp-devices',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule],
+  imports: [BlockedReasonDirective, DatePipe, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTooltipModule],
   template: `
     <div class="bm-page">
       <header class="bm-head">
@@ -152,9 +153,9 @@ import { CheckCatalogEntry } from '../../core/models/check.model';
           } @else {
             <span class="bm-note">Pick one or more checks the poller should run.</span>
           }
-          <button mat-flat-button color="primary" [disabled]="!canCreate() || creating()" (click)="create()">
+          <span class="bm-why"><button mat-flat-button color="primary" [bmBlocked]="createBlocked()" (click)="create()">
             <mat-icon>add</mat-icon> {{ creating() ? 'Adding…' : 'Add device' }}
-          </button>
+          </button></span>
         </div>
         @if (err()) { <p class="bm-err">{{ err() }}</p> }
       </section>
@@ -305,11 +306,19 @@ export class SnmpDevicesComponent implements OnInit {
   onKind(): void {
     this.checkNames = [];
   }
-  canCreate(): boolean {
-    if (this.name.trim().length === 0 || this.target.trim().length === 0) return false;
+  canCreate(): boolean { return !this.missingField(); }
+
+  /** The first required field still empty ('' = none) — what canCreate() decides on, worded for the tooltip. */
+  private missingField(): string {
+    if (this.name.trim().length === 0) return 'Enter a name';
+    if (this.target.trim().length === 0) return 'Enter the target address';
     // SNMPv3 needs a security user; other cases are always fine.
-    if (this.kind === 'snmp' && this.snmpVersion === 'v3' && this.secName.trim().length === 0) return false;
-    return true;
+    if (this.kind === 'snmp' && this.snmpVersion === 'v3' && this.secName.trim().length === 0) return 'SNMPv3 needs a security name';
+    return '';
+  }
+  /** Why Add device is refused ('' = allowed). */
+  createBlocked(): string {
+    return this.creating() ? 'Adding…' : this.missingField();
   }
 
   ngOnInit(): void {

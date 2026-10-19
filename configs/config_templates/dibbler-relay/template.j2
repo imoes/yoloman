@@ -1,104 +1,104 @@
-#! /bin/sh
-#
-# Starts/stops dibbler-relay
-#
-# Description: System V init script for the Dibbler DHCPv6 Relay Agent.
-#              Manages the lifecycle of the DHCPv6 relay daemon, handling
-#              start, stop, restart, and status operations.
-#
-### BEGIN INIT INFO
-# Provides:          {{ name | default('dibbler-relay') }}
-# Required-Start:    $network $remote_fs
-# Required-Stop:     $network $remote_fs
-# Should-Start:      $local_fs
-# Should-Stop:       $local_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Starts DHCPv6 relay
-# Description:       By starting dibbler-relay, this node
-#                    will start relaying DHCPv6 messages between
-#                    server and clients located on different links.
-### END INIT INFO
-#
-#			Based on a script written by Miquel van Smoorenburg <miquels@cistron.nl>.
-#			Modified for Debian by Ian Murdock <imurdock@gnu.ai.mit.edu>.
-#
-# Version:	2007-06-12 Tomasz Mrugalski <thomson@klub.com.pl>
-#
-. /lib/lsb/init-functions
+# ==============================================================================
+# Dibbler Relay Configuration Template
+# ==============================================================================
+# This template configures the Dibbler DHCPv6 Relay agent.
+# See: http://dibbler.info/
+# ==============================================================================
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+# --------------------------------------------------------------------------
+# Logging Configuration
+# --------------------------------------------------------------------------
 
-# DAEMON: The path to the dibbler-relay binary executable.
-#         This is a fixed path in standard Debian/Ubuntu packages.
-DAEMON=/usr/sbin/dibbler-relay
+# log_level: Log level (0-8, where 8 is debug).
+# 0 = emergency, 1 = alert, 2 = critical, 3 = error, 4 = warning,
+# 5 = notice, 6 = information, 7 = debug, 8 = debug extra.
+log-level {{ log_level | default('8') }}
 
-# NAME: The service name used for PID files, log messages, and init script identification.
-#       Derived from the Ansible variable 'name'.
-NAME={{ name | default('dibbler-relay') }}
+# log_mode: Log mode (short or long).
+# 'short' provides a concise format, 'long' provides detailed timestamps.
+log-mode {{ log_mode | default('short') }}
 
-# DESC: A human-readable description of the service, used in log output.
-DESC="DHCPv6 relay"
+# --------------------------------------------------------------------------
+# Optional Global Options (Commented out by default)
+# --------------------------------------------------------------------------
 
-# DAEMON_OPTS: Command-line options passed to the daemon.
-#              'run' is the standard mode for running the relay as a background service.
-DAEMON_OPTS=run
+# Uncomment the following line to force relay to start including remote-id
+# option with enterprise-id 5 and content of 01:02:03:04
+# option remote-id 5-0x01020304
 
-test -x $DAEMON || exit 0
+# Uncomment the following line to force relay to send Echo Request Option
+# asking the server to echo back options 100, 101 and 102
+# option echo-request 100,101,102
 
-# Include dibbler defaults if available.
-# This allows local administrators to override configuration via /etc/default/dibbler.
-if [ -f /etc/default/dibbler ] ; then
-	. /etc/default/dibbler
-fi
+# Uncommenting this option will make relay to insert relay-id option
+# into forwarded RELAY-FORW messages.
+# option relay-id aa:bb:cc:dd:ee:ff
 
-set -e
+# Uncomment this line to tell relay to attempt to insert client link-layer
+# address option. Relay will attempt to get that info from client's DUID
+# or source IPv6 link-layer address. These are not 100% reliable methods!
+# option link-layer
 
-case "$1" in
-  start)
-	echo -n "Starting $DESC: "
-	$DAEMON start 2>&1 > /dev/null
-	echo "$NAME."
-	;;
-  stop)
-	echo -n "Stopping $DESC: "
-	($DAEMON stop 2>&1 > /dev/null; true)
-	echo "$NAME."
-	;;
-  status)
-	echo "Status $DESC: $NAME"
-	$DAEMON status
-	;;
-  #reload)
-	#
-	#	If the daemon can reload its config files on the fly
-	#	for example by sending it SIGHUP, do it here.
-	#
-	#	If the daemon responds to changes in its config file
-	#	directly anyway, make this a do-nothing entry.
-	#
-	# echo "Reloading $DESC configuration files."
-	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
-	# 	/var/run/$NAME.pid --exec $DAEMON
-  #;;
-  restart|force-reload)
-	#
-	#	If the "reload" option is implemented, move the "force-reload"
-	#	option to the "reload" entry above. If not, "force-reload" is
-	#	just the same as "restart".
-	#
-	echo -n "Restarting $DESC: "
-	($DAEMON stop 2>&1 > /dev/null; true)
-	sleep 1
-	$DAEMON start 2>&1 > /dev/null
-	echo "$NAME."
-	;;
-  *)
-	N=/etc/init.d/$NAME
-	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $N {start|stop|restart|force-reload}" >&2
-	exit 1
-	;;
-esac
+# --------------------------------------------------------------------------
+# Interface 1: Client-Facing Interface
+# --------------------------------------------------------------------------
 
-exit 0
+# iface1_name: Name of the client-facing interface.
+# If undefined or empty, the comment indicates the default 'eth1' should be used.
+{% if iface1_name is defined and iface1_name is not none and (iface1_name is number or iface1_name is boolean or iface1_name | length > 0) %}
+The relay should listen on {{ iface1_name }} interface for incoming client's traffic.
+{% else %}
+# The relay should listen on eth1 interface for incoming client's traffic.
+{% endif %}
+
+# Define the client-facing interface block.
+# Uses iface1_name if provided, otherwise defaults to 'eth1' for the config directive.
+iface {{ iface1_name | default('eth1') }} {
+
+    # Clients by default send their traffic to multicast.
+    # iface1_client_multicast: Whether client traffic is multicast.
+    # Allowed values: yes, no.
+    client multicast {{ iface1_client_multicast | default('yes') }}
+
+    # You may uncomment this if you want the relay to also listen on specific
+    # unicast address. Usually you don't need that.
+    # iface1_client_unicast: Unicast address for client traffic (if used).
+    {% if iface1_client_unicast is defined and iface1_client_unicast is not none and (iface1_client_unicast is number or iface1_client_unicast is boolean or iface1_client_unicast | length > 0) %}
+    client unicast {{ iface1_client_unicast }}
+    {% else %}
+    # client unicast 2001:db8::1
+    {% endif %}
+
+    # When forwarding traffic from that interface, please add interface-id
+    # to so the server will know where the clients are connected.
+    # iface1_interface_id: Interface ID for client-facing interface.
+    {% if iface1_interface_id is defined and iface1_interface_id is not none and (iface1_interface_id is number or iface1_interface_id is boolean or iface1_interface_id | length > 0) %}
+    # with value {{ iface1_interface_id }}, so the server will know where the clients are connected.
+    interface-id {{ iface1_interface_id }}
+    {% else %}
+    # with value 5555, so the server will know where the clients are connected.
+    interface-id {{ iface1_interface_id | default('') }}
+    {% endif %}
+}
+
+# --------------------------------------------------------------------------
+# Interface 2: Server-Facing Interface
+# --------------------------------------------------------------------------
+
+# This is a second interface. It is used to reach the server.
+# iface2_name: Name of the server-facing interface.
+iface {{ iface2_name | default('eth2') }} {
+
+    # Send message on this interface to the server multicast (ff05::1:3)
+    # iface2_server_multicast: Whether server traffic is multicast.
+    # Allowed values: yes, no.
+    server multicast {{ iface2_server_multicast | default('yes') }}
+
+    # send messages on this interface to this global address
+    # iface2_server_unicast: Unicast address for server traffic (if used).
+    {% if iface2_server_unicast is defined and iface2_server_unicast is not none and (iface2_server_unicast is number or iface2_server_unicast is boolean or iface2_server_unicast | length > 0) %}
+    server unicast {{ iface2_server_unicast }}
+    {% else %}
+    # server unicast 2001:db8::123
+    {% endif %}
+}

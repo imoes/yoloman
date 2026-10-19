@@ -1,0 +1,167 @@
+;
+; Automatically generated from ../channels/chan_oss.c
+; This template is self-documenting. All variables use their schema defaults
+; to ensure safe rendering even if the Ansible role does not provide a value.
+;
+
+[general]
+    ; General config options, with default values shown.
+    ; You should use one section per device, with [general] being used
+    ; for the first device and also as a template for other devices.
+    ;
+    ; All but 'debug' can go also in the device-specific sections.
+    ;
+    ; debug = 0x0		; misc debug flags, default is 0
+
+    ; Device to use for I/O (e.g., /dev/dsp, /dev/dsp1)
+{% if device is defined and device is not none and device != '' %}    device = {{ device }}{% else %}    ; device = /dev/dsp{% endif %}
+
+    ; Optional mixer command to run upon startup (e.g. to set volume levels, mutes, etc.
+{% if mixer is defined and mixer is not none and (mixer is number or mixer is boolean or mixer | length > 0) %}    mixer = {{ mixer | default('') }}{% else %}    ; mixer ={% endif %}
+
+    ; Software mic volume booster/attenuator in dB (-20.0 to +20.0)
+{% if boost is defined and boost is not none and (boost is number or boost is boolean or boost | length > 0) %}    boost = {{ boost | default('n') }}{% else %}    ; boost = n			; mic volume boost in dB{% endif %}
+
+    ; Caller ID for outgoing calls (e.g., John Doe <555-1234>)
+{% if callerid is defined and callerid is not none and (callerid is number or callerid is boolean or callerid | length > 0) %}    callerid = {{ callerid | default('John Doe <555-1234>') }}{% else %}    ; callerid = John Doe <555-1234>{% endif %}
+
+    ; Enable autoanswer on call
+{% if autoanswer is defined and autoanswer is not none and (autoanswer is number or autoanswer is boolean or autoanswer | length > 0) %}    autoanswer = {{ autoanswer | default('no') }}{% else %}    ; autoanswer = no		; no autoanswer on call{% endif %}
+
+    ; Hangup when other party closes
+{% if autohangup is defined and autohangup is not none and (autohangup is number or autohangup is boolean or autohangup | length > 0) %}    autohangup = {{ autohangup | default('yes') }}{% else %}    ; autohangup = yes		; hangup when other party closes{% endif %}
+
+    ; Default extension to call
+{% if extension is defined and extension is not none and (extension is number or extension is boolean or extension | length > 0) %}    extension = {{ extension | default('s') }}{% else %}    ; extension = s		; default extension to call{% endif %}
+
+    ; Default context for outgoing calls
+{% if context is defined and context is not none and (context is number or context is boolean or context | length > 0) %}    context = {{ context | default('default') }}{% else %}    ; context = default		; default context for outgoing calls{% endif %}
+
+    ; Default language
+{% if language is defined and language is not none and (language is number or language is boolean or language | length > 0) %}    language = "{{ language | default('') }}"{% else %}    ; language = ""		; default language{% endif %}
+
+    ; Interpret whole dial string as extension (no/yes)
+    ; If you set overridecontext to 'yes', then the whole dial string
+    ; will be interpreted as an extension, which is extremely useful
+    ; to dial SIP, IAX and other extensions which use the '@' character.
+    ; The default is 'no' just for backward compatibility, but the
+    ; suggestion is to change it.
+{% if overridecontext is defined and overridecontext is not none and (overridecontext is number or overridecontext is boolean or overridecontext | length > 0) %}    overridecontext = {{ overridecontext | default('no') }}{% else %}    ; overridecontext = no	; if 'no', the last @ will start the context{% endif %}
+
+    ; Frames in device driver
+{% if queuesize is defined and queuesize is not none and (queuesize is number or queuesize is boolean or queuesize | length > 0) %}    queuesize = {{ queuesize | default('10') }}{% else %}    ; queuesize = 10		; frames in device driver{% endif %}
+
+    ; Argument to SETFRAGMENT
+{% if frags is defined and frags is not none and (frags is number or frags is boolean or frags | length > 0) %}    frags = {{ frags | default('8') }}{% else %}    ; frags = 8			; argument to SETFRAGMENT{% endif %}
+
+    ; ----------------------------- JITTER BUFFER CONFIGURATION --------------------------
+    ; Enable jitterbuffer on receiving OSS channel (yes/no)
+{% if jbenable is defined and jbenable is not none and (jbenable is number or jbenable is boolean or jbenable | length > 0) %}    jbenable = {{ jbenable | default('yes') }}{% else %}    ; jbenable = yes              ; Enables the use of a jitterbuffer on the receiving side of an{% endif %}
+
+    ; Max length of the jitterbuffer in milliseconds
+{% if jbmaxsize is defined and jbmaxsize is not none and (jbmaxsize is number or jbmaxsize is boolean or jbmaxsize | length > 0) %}    jbmaxsize = {{ jbmaxsize | default('200') }}{% else %}    ; jbmaxsize = 200             ; Max length of the jitterbuffer in milliseconds.{% endif %}
+
+    ; Jump in frame timestamps over which jitterbuffer is resynchronized
+{% if jbresyncthreshold is defined and jbresyncthreshold is not none and (jbresyncthreshold is number or jbresyncthreshold is boolean or jbresyncthreshold | length > 0) %}    jbresyncthreshold = {{ jbresyncthreshold | default('1000') }}{% else %}    ; jbresyncthreshold = 1000    ; Jump in the frame timestamps over which the jitterbuffer is{% endif %}
+
+    ; Jitterbuffer implementation (fixed/adaptive)
+{% if jbimpl is defined and jbimpl is not none and (jbimpl is number or jbimpl is boolean or jbimpl | length > 0) %}    jbimpl = {{ jbimpl | default('fixed') }}{% else %}    ; jbimpl = fixed              ; Jitterbuffer implementation, used on the receiving side of an OSS{% endif %}
+
+    ; Milliseconds by which adaptive jitter buffer pads its size
+{% if jbtargetextra is defined and jbtargetextra is not none and (jbtargetextra is number or jbtargetextra is boolean or jbtargetextra | length > 0) %}    jbtargetextra = {{ jbtargetextra | default('40') }}{% else %}    ; jbtargetextra = 40          ; This option only affects the jb when 'jbimpl = adaptive' is set.{% endif %}
+
+    ; Enable jitterbuffer frame logging (yes/no)
+{% if jblog is defined and jblog is not none and (jblog is number or jblog is boolean or jblog | length > 0) %}    jblog = {{ jblog | default('no') }}{% else %}    ; jblog = no                  ; Enables jitterbuffer frame logging. Defaults to "no".{% endif %}
+    ; ----------------------------------------------------------------------------------
+
+; below is an entry for a second console channel
+; [card1]
+    ; device = /dev/dsp1	; alternate device
+
+; Below are the settings to support video. You can include them
+; in your general configuration as [general](+,video)
+; The parameters are all available through the CLI as "console name value"
+; Section names used here are only examples.
+
+[{{ my_video_section | default('my_video') }}](!)      ; you can just include in your config
+    ; Video device path (e.g., /dev/video0)
+    videodevice = {{ videodevice | default('/dev/video0') }}
+
+    ; X11 grabber identifier
+    videodevice_x11 = {{ videodevice_x11 | default('X11') }}
+
+    ; Video codec (h261, h263p, h264, mpeg4, etc.)
+    videocodec = {{ videocodec | default('h263		; also h261, h263p, h264, mpeg4, ...') }}
+
+    ; Video geometry WIDTHxHEIGHT
+    ; video_size is the geometry used by the encoder.
+    ; Depending on the codec your choice is restricted.
+    video_size = {{ video_size | default('352x288') }}
+
+    ; Standard video size alias (sqcif, qcif, cif, qvga, vga)
+    video_size_cif = {{ video_size_cif | default('cif') }}
+
+    ; You can also set the geometry used for the camera, local display and remote display.
+    ; The local window is on the right, the remote window is on the left.
+    ; Right clicking with the mouse on a video window increases the size,
+    ; center-clicking reduces the size.
+    camera_size = {{ camera_size | default('cif') }}
+    remote_size = {{ remote_size | default('cif') }}
+    local_size = {{ local_size | default('qcif') }}
+
+    ; Bitrate told to ffmpeg
+    bitrate = {{ bitrate | default('60000             ; rate told to ffmpeg.') }}
+
+    ; Frames per second from source
+    fps = {{ fps | default('5                     ; frames per second from the source.') }}
+
+    ; Quantizer value passed to the encoder
+{% if qmin is defined and qmin is not none and (qmin is number or qmin is boolean or qmin | length > 0) %}    qmin = {{ qmin | default('3') }}{% else %}    ; qmin = 3                  ; quantizer value passed to the encoder.{% endif %}
+
+; The keypad is made of an image (in any format supported by SDL_image)
+; and some configuration entries indicating the location and function of buttons.
+; These entries can also be contained in the comment field of the image,
+; which is a lot more convenient to manage.
+; E.g. for jpeg you can write them with wrjpgcom (part of libjpeg).
+; The format to define keys is
+;	region = <event> <shape> x0 y0 x1 y1 h
+; where <event> is the event to be generated (a digit, pickup, hangup,...)
+; <shape> is the shape of the region (currently 'rect' and 'circle' are
+; supported, the latter is really an ellipse),  x0 y0 x1 y1 are the
+; coordinates of the base of the rectangle or main diameter of the ellipse,
+; (they can be rotated) while h is the height of the rectangle or the other
+; diameter of the ellipse.
+;
+[{{ my_skin_section | default('my_skin') }}](!)
+    ; Path to keypad image file
+    keypad = {{ keypad_path | default('/tmp/keypad.jpg') }}
+    region = 1 rect   19  18    67  18  28
+    region = 2 rect   84  18   133  18  28
+    region = 3 rect  152  18   201  18  28
+    region = 4 rect   19  60    67  60  28
+    region = 5 rect   84  60   133  60  28
+    region = 6 rect  152  60   201  60  28
+    region = 7 rect   19 103    67 103  28
+    region = 8 rect   84 103   133 103  28
+    region = 9 rect  152 103   201 103  28
+    region = * rect   19 146    67 146  28
+    region = 0 rect   84 146   133 146  28
+    region = # rect  152 146   201 146  28
+    region = pickup rect  229 15  267 15 40
+    region = hangup rect  230 66  270 64 40
+    region = mute circle  232 141 264 141 33
+    region = sendvideo circle  235 185 266 185 33
+    region = autoanswer rect 228 212 275 212 50
+
+; another skin with entries for the keypad and a small font
+; to write to the message boards in the skin.
+[{{ skin2_section | default('skin2') }}](!)
+    ; Path to second keypad image file
+    keypad = {{ keypad2_path | default('/tmp/kpad2.jpg') }}
+
+    ; Path to keypad font file
+    keypad_font = {{ keypad_font_path | default('/tmp/font.png') }}
+
+; to add video support, uncomment this and remember to install
+; the keypad and keypad_font files to the right place
+; [general](+,my_video,skin2)

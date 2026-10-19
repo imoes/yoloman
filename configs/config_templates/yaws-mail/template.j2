@@ -1,34 +1,27 @@
-# ============================================================================
-# yaws-mail Configuration Template
-# ============================================================================
-# This file configures the yaws-mail service, a virtual server for webmail access.
-# It defines where the BEAM (Erlang) code lives and exposes a web interface
-# on a specific port and address.
+# Configuration file for yaws-mail
 #
-# Self-documenting: every directive is preceded by its schema description.
-# ============================================================================
+# This template configures the YAWS-Mail application. It defines the location
+# of the Erlang beam files and optionally enables a webmail virtual server.
 
+# ==============================================================================
 # Path to the directory where the mail beam code is placed.
 # The daemon will add this directory to its search path.
-# Default: /usr/lib/yaws-mail/ebin
+# ==============================================================================
+# Path to the directory where the mail beam code is placed.
 ebin_dir = {{ ebin_dir | default('/usr/lib/yaws-mail/ebin') }}
 
-# ============================================================================
-# Virtual Server Definition
-# ============================================================================
-# Uncomment and configure the server block below to enable the webmail application.
-# The server is named 'mail'.
+# ==============================================================================
+# Virtual Server Definition for Webmail Application
 #
-# port: Port number for the virtual server webmail application.
-#       Default: 8080
-# listen: IP address to listen on for the virtual server.
-#         Default: 0.0.0.0
-# docroot: Document root for the virtual server webmail application.
-#          Default: /usr/share/yaws-mail/www
-# ============================================================================
+# To enable the webmail application, configure the port, listen address, and docroot below.
+# If all are omitted or null, the virtual server block is omitted entirely.
+# ==============================================================================
 
-#<server mail>
-# port = {{ port | default(8080) }}
-# listen = {{ listen | default('0.0.0.0') }}
-# docroot = {{ docroot | default('/usr/share/yaws-mail/www') }}
-#</server>
+# IP address to listen on for the virtual server.
+{% if listen is defined and listen is not none and (listen is number or listen is boolean or listen | length > 0) %}listen = {{ listen | default('0.0.0.0') }}{% else %}# listen = 0.0.0.0{% endif %}
+
+# Document root for the virtual server webmail application.
+{% if docroot is defined and docroot is not none and (docroot is number or docroot is boolean or docroot | length > 0) %}docroot = {{ docroot | default('/usr/share/yaws-mail/www') }}{% else %}# docroot = /usr/share/yaws-mail/www{% endif %}
+
+# Port number for the virtual server webmail application.
+{% if port is defined and port is not none and (port is number or port is boolean or port | length > 0) %}port = {{ port | default(8080) }}{% else %}# port = 8080{% endif %}

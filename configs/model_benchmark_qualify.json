@@ -1,0 +1,1127 @@
+{
+  "date": "2026-10-09",
+  "question": "which model runs the RedHat qualify pass",
+  "method": "tools/benchmark_qualify_models: same packages, same pipeline code, metasearch off, each model on its own copy of configs/; evaluated PAIRED on the packages both finished (qwen27b stopped at 12/28 \u2014 at 2.25x the time the sample would have taken ~5 h)",
+  "rule": "faster model wins unless > 5 points worse on invariants+gates or higher enum hallucination rate (fixed before the run)",
+  "paired_packages": [
+    "chrony",
+    "dnsmasq",
+    "bind",
+    "bind9.18",
+    "caddy",
+    "collectd",
+    "dovecot",
+    "drbdlinks",
+    "apcupsd-cgi",
+    "bacula-director",
+    "cachefilesd",
+    "asterisk-mobile"
+  ],
+  "models": {
+    "qwen35b": {
+      "url": "https://llm.example.internal/qwen35b",
+      "model": "Qwen3.6-35B-A3B-UD-Q4_K_XL",
+      "templates": 7,
+      "inv_ok": 1,
+      "inv_and_gates": 1,
+      "rate": 14.3,
+      "enum_proposed": 23,
+      "enum_ungrounded": 2,
+      "halluc": 8.7,
+      "codec": "1/2",
+      "cov": "19/31",
+      "drd_active_lines": 42,
+      "seconds": 1667,
+      "rate_semantic_v2": 14.3
+    },
+    "qwen27b": {
+      "url": "https://llm.example.internal/qwen27b",
+      "model": "qwen3.8-27b",
+      "templates": 7,
+      "inv_ok": 1,
+      "inv_and_gates": 1,
+      "rate": 14.3,
+      "enum_proposed": 545,
+      "enum_ungrounded": 399,
+      "halluc": 73.2,
+      "codec": "1/2",
+      "cov": "10/31",
+      "drd_active_lines": 91,
+      "seconds": 3756,
+      "rate_semantic_v2": 14.3
+    }
+  },
+  "decision": {
+    "winner": "qwen35b",
+    "why": "2.25x faster, equal on invariants+gates (14.3% each), enum hallucination 8.7% vs 73.2%, directive coverage 19/31 vs 10/31"
+  },
+  "full_sample_qwen35b": {
+    "url": "https://llm.example.internal/qwen35b",
+    "model": "Qwen3.6-35B-A3B-UD-Q4_K_XL",
+    "packages": 28,
+    "templates_evaluated": 15,
+    "invariants_ok": 2,
+    "invariants_strict_ok": 0,
+    "enriched": 14,
+    "invariants_and_gates_rate": 13.3,
+    "enum_values_proposed": 277,
+    "enum_values_ungrounded": 147,
+    "enum_hallucination_rate": 53.1,
+    "codec_matches": "2/6",
+    "directive_coverage": "21/114",
+    "llm_failures": 0,
+    "failed_packages": 0,
+    "seconds_median": 62.1,
+    "seconds_total": 3753.4,
+    "wall_seconds": 0.0
+  },
+  "per_package": {
+    "qwen35b": {
+      "httpd-core": {
+        "status": "ok",
+        "seconds": 6.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": "apache2-redhat",
+        "directive_coverage": {
+          "keys": 44,
+          "covered": 0,
+          "extra": 18
+        }
+      },
+      "chrony": {
+        "status": "ok",
+        "seconds": 232.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 9,
+          "covered": 2,
+          "extra": 19
+        }
+      },
+      "postfix": {
+        "status": "ok",
+        "seconds": 73.6,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 32,
+          "covered": 0,
+          "extra": 2
+        }
+      },
+      "openssh-server": {
+        "status": "ok",
+        "seconds": 192.6,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 3,
+          "covered": 2,
+          "extra": 78
+        }
+      },
+      "dnsmasq": {
+        "status": "ok",
+        "seconds": 137.1,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 5,
+          "covered": 0,
+          "extra": 1
+        }
+      },
+      "bind": {
+        "status": "ok",
+        "seconds": 53.7,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 16,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 18,
+          "fields": 19
+        },
+        "default_render_diff": 18,
+        "default_render_diff_active": 2
+      },
+      "bind9.18": {
+        "status": "ok",
+        "seconds": 1.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": "bind-redhat"
+      },
+      "caddy": {
+        "status": "ok",
+        "seconds": 55.0,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": false,
+          "undeclared": [
+            "http_addr"
+          ],
+          "invented_lines": 30,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 3,
+          "fields": 3
+        },
+        "default_render_diff": 30,
+        "default_render_diff_active": 0
+      },
+      "collectd": {
+        "status": "ok",
+        "seconds": 666.4,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": false,
+          "undeclared": [],
+          "invented_lines": 7,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 1,
+          "fields": 1
+        },
+        "default_render_diff": 1407,
+        "default_render_diff_active": 1
+      },
+      "dovecot": {
+        "status": "ok",
+        "seconds": 54.1,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 6,
+          "ungrounded": 1
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 1,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 13,
+          "fields": 13
+        },
+        "default_render_diff": 14,
+        "default_render_diff_active": 13
+      },
+      "exim": {
+        "status": "ok",
+        "seconds": 829.7,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": false,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 1,
+          "invented_active_lines": 1,
+          "substitutes": true,
+          "live_placeholder_lines": 0,
+          "fields": 1
+        },
+        "default_render_diff": 1,
+        "default_render_diff_active": 1
+      },
+      "haproxy": {
+        "status": "ok",
+        "seconds": 107.5,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 203,
+          "ungrounded": 124
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": true,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 74,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 33,
+          "fields": 39
+        },
+        "default_render_diff": 74,
+        "default_render_diff_active": 0
+      },
+      "keepalived": {
+        "status": "ok",
+        "seconds": 278.6,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 24,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 96,
+          "invented_active_lines": 88,
+          "substitutes": true,
+          "live_placeholder_lines": 89,
+          "fields": 98
+        },
+        "default_render_diff": 47,
+        "default_render_diff_active": 39
+      },
+      "lighttpd": {
+        "status": "ok",
+        "seconds": 107.7,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 11,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 20,
+          "fields": 10
+        },
+        "default_render_diff": 24,
+        "default_render_diff_active": 10
+      },
+      "nftables": {
+        "status": "ok",
+        "seconds": 52.7,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "proftpd": {
+        "status": "ok",
+        "seconds": 66.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": false,
+          "undeclared": [],
+          "invented_lines": 126,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 3,
+          "fields": 3
+        },
+        "default_render_diff": 132,
+        "default_render_diff_active": 5
+      },
+      "google-noto-sans-tamil-fonts": {
+        "status": "ok",
+        "seconds": 29.7,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 26,
+          "invented_active_lines": 26,
+          "substitutes": true,
+          "live_placeholder_lines": 6,
+          "fields": 4
+        },
+        "default_render_diff": 26,
+        "default_render_diff_active": 26
+      },
+      "drbdlinks": {
+        "status": "ok",
+        "seconds": 35.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": false,
+          "undeclared": [],
+          "invented_lines": 46,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 3,
+          "fields": 4
+        },
+        "default_render_diff": 49,
+        "default_render_diff_active": 3
+      },
+      "iio-sensor-proxy": {
+        "status": "ok",
+        "seconds": 38.8,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 38,
+          "invented_active_lines": 29,
+          "substitutes": true,
+          "live_placeholder_lines": 14,
+          "fields": 2
+        },
+        "default_render_diff": 42,
+        "default_render_diff_active": 33
+      },
+      "paper": {
+        "status": "ok",
+        "seconds": 19.3,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 3,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": false,
+          "undeclared": [],
+          "invented_lines": 7,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 1,
+          "fields": 4
+        },
+        "default_render_diff": 7,
+        "default_render_diff_active": 0
+      },
+      "apcupsd-cgi": {
+        "status": "ok",
+        "seconds": 54.3,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 2,
+          "ungrounded": 1
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": true,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 28,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 22,
+          "fields": 23
+        },
+        "default_render_diff": 28,
+        "default_render_diff_active": 0
+      },
+      "bacula-director": {
+        "status": "ok",
+        "seconds": 227.4,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 1,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 123,
+          "invented_active_lines": 10,
+          "substitutes": true,
+          "live_placeholder_lines": 44,
+          "fields": 27
+        },
+        "default_render_diff": 137,
+        "default_render_diff_active": 23
+      },
+      "uhd": {
+        "status": "ok",
+        "seconds": 44.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": null,
+          "match": false
+        }
+      },
+      "nss-pam-ldapd": {
+        "status": "ok",
+        "seconds": 150.1,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": "keyvalue",
+          "match": true
+        },
+        "directive_coverage": {
+          "keys": 4,
+          "covered": 0,
+          "extra": 52
+        }
+      },
+      "cachefilesd": {
+        "status": "ok",
+        "seconds": 69.6,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": "keyvalue",
+          "match": true
+        },
+        "directive_coverage": {
+          "keys": 9,
+          "covered": 9,
+          "extra": 4
+        }
+      },
+      "kernel-modules-extra": {
+        "status": "ok",
+        "seconds": 58.0,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": null,
+          "match": false
+        }
+      },
+      "pcp-pmda-sockets": {
+        "status": "ok",
+        "seconds": 31.2,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 24,
+          "ungrounded": 21
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": "none",
+          "match": false
+        }
+      },
+      "asterisk-mobile": {
+        "status": "ok",
+        "seconds": 80.5,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 14,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "ini",
+          "model": null,
+          "match": false
+        },
+        "directive_coverage": {
+          "keys": 8,
+          "covered": 8,
+          "extra": 5
+        }
+      }
+    },
+    "qwen27b": {
+      "httpd-core": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "chrony": {
+        "status": "ok",
+        "seconds": 296.8,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 9,
+          "covered": 2,
+          "extra": 19
+        }
+      },
+      "postfix": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "openssh-server": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 3,
+          "covered": 3,
+          "extra": 96
+        }
+      },
+      "dnsmasq": {
+        "status": "ok",
+        "seconds": 532.7,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "directive_coverage": {
+          "keys": 5,
+          "covered": 0,
+          "extra": 1
+        }
+      },
+      "bind": {
+        "status": "ok",
+        "seconds": 173.0,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 21,
+          "ungrounded": 5
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": true,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 23,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 22,
+          "fields": 24
+        },
+        "default_render_diff": 23,
+        "default_render_diff_active": 0
+      },
+      "bind9.18": {
+        "status": "ok",
+        "seconds": 1.4,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": "bind-redhat"
+      },
+      "caddy": {
+        "status": "ok",
+        "seconds": 52.9,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [
+            "package_name",
+            "role_name"
+          ],
+          "invented_lines": 7,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 2,
+          "fields": 2
+        },
+        "default_render_diff": 10,
+        "default_render_diff_active": 0
+      },
+      "collectd": {
+        "status": "ok",
+        "seconds": 1379.4,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 5,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 17,
+          "invented_active_lines": 3,
+          "substitutes": true,
+          "live_placeholder_lines": 7,
+          "fields": 25
+        },
+        "default_render_diff": 35,
+        "default_render_diff_active": 10
+      },
+      "dovecot": {
+        "status": "ok",
+        "seconds": 141.9,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 4,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 0,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 13,
+          "fields": 13
+        },
+        "default_render_diff": 13,
+        "default_render_diff_active": 13
+      },
+      "exim": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "haproxy": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "keepalived": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "lighttpd": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "nftables": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "proftpd": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "google-noto-sans-tamil-fonts": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "drbdlinks": {
+        "status": "ok",
+        "seconds": 84.2,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": false,
+          "undeclared": [],
+          "invented_lines": 16,
+          "invented_active_lines": 0,
+          "substitutes": true,
+          "live_placeholder_lines": 9,
+          "fields": 10
+        },
+        "default_render_diff": 30,
+        "default_render_diff_active": 7
+      },
+      "iio-sensor-proxy": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "paper": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null
+      },
+      "apcupsd-cgi": {
+        "status": "ok",
+        "seconds": 212.3,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 511,
+          "ungrounded": 394
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 32,
+          "invented_active_lines": 32,
+          "substitutes": true,
+          "live_placeholder_lines": 24,
+          "fields": 25
+        },
+        "default_render_diff": 34,
+        "default_render_diff_active": 34
+      },
+      "bacula-director": {
+        "status": "ok",
+        "seconds": 429.5,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "invariants_ok": false,
+        "invariants_strict_ok": false,
+        "invariants": {
+          "renders": true,
+          "keeps_the_file": true,
+          "undeclared": [],
+          "invented_lines": 119,
+          "invented_active_lines": 15,
+          "substitutes": true,
+          "live_placeholder_lines": 46,
+          "fields": 30
+        },
+        "default_render_diff": 131,
+        "default_render_diff_active": 27
+      },
+      "uhd": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": null,
+          "match": false
+        }
+      },
+      "nss-pam-ldapd": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": null,
+          "match": false
+        },
+        "directive_coverage": {
+          "keys": 4,
+          "covered": 0,
+          "extra": 28
+        }
+      },
+      "cachefilesd": {
+        "status": "ok",
+        "seconds": 154.3,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": "keyvalue",
+          "match": true
+        },
+        "directive_coverage": {
+          "keys": 9,
+          "covered": 0,
+          "extra": 13
+        }
+      },
+      "kernel-modules-extra": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": null,
+          "match": false
+        }
+      },
+      "pcp-pmda-sockets": {
+        "status": "missing",
+        "seconds": null,
+        "llm_errors": 0,
+        "enum_stats": {},
+        "enriched": false,
+        "template_written": false,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "keyvalue",
+          "model": null,
+          "match": false
+        }
+      },
+      "asterisk-mobile": {
+        "status": "ok",
+        "seconds": 297.9,
+        "llm_errors": 0,
+        "enum_stats": {
+          "proposed": 4,
+          "ungrounded": 0
+        },
+        "enriched": true,
+        "template_written": true,
+        "twin_of": null,
+        "owner": null,
+        "codec": {
+          "measured": "ini",
+          "model": null,
+          "match": false
+        },
+        "directive_coverage": {
+          "keys": 8,
+          "covered": 8,
+          "extra": 5
+        }
+      }
+    }
+  },
+  "measurement_note": "rate_semantic_v2: invariants over active lines, whitespace-collapsed, file identity by settings (enrich re-indents and rewrites comments)"
+}

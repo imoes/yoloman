@@ -1,0 +1,24 @@
+# strongswan.conf - strongSwan configuration file
+#
+# This file is the main configuration entry point for the strongSwan IKE daemon (charon).
+# It defines core daemon settings, plugin loading architecture, and includes additional
+# configuration fragments from the strongswan.d directory.
+#
+# For detailed documentation, refer to the strongswan.conf(5) manpage.
+
+charon {
+    # load_modular: Controls whether the modular plugin loading architecture is enabled.
+    # When set to 'yes', strongSwan loads plugins dynamically from the strongswan.d directory.
+    # Default: yes
+    load_modular = {{ load_modular | default('yes') }}
+
+    plugins {
+        # Include all plugin-specific configuration files from the charon subdirectory.
+        # This allows modular configuration of specific features (e.g., eap-radius, certificate verification).
+        include strongswan.d/charon/*.conf
+    }
+}
+
+# Include all other strongSwan configuration files from the main strongswan.d directory.
+# This typically contains system-wide settings, network configurations, and other modules.
+include strongswan.d/*.conf

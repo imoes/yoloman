@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Language-specific font fallback rule.
+    Matches documents where the requested language matches `lang_code`.
+    When matched, it prepends the specific Noto Sans Lao UI font before the generic family.
+  -->
+  <match>
+    <!-- Match the language attribute (e.g., 'lo' for Lao) -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('lo') }}</string>
+    </test>
+
+    <!-- Match the generic font family requested by the application -->
+    <test name="family">
+      <string>{{ generic_family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Prepend the specific font family to the list of available fonts -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Lao UI') }}</string>
+    </edit>
+
+    <!-- Append 'false' to the fonthashint property to disable font hinting adjustments for this rule -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hint_bool | default(false) | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Font alias definition.
+    Defines `alias_family` as an alias that defaults to `default_family`.
+  -->
+  <alias>
+    <!-- The name of the alias font family -->
+    <family>{{ alias_family | default('Noto Sans Lao UI') }}</family>
+    <!-- The fallback font family if the alias is not found or invalid -->
+    <default>
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

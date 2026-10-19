@@ -21,7 +21,7 @@ inventory = {{ inventory_dir | default('/etc/ansible/hosts') }}
 remote_user = {{ remote_user | default('') }}
 
 # Whether to verify SSH host keys before connecting.
-host_key_checking = {{ host_key_checking | default(True) | string | lower }}
+host_key_checking = {{ host_key_checking | default(True) | ternary('True', 'False') }}
 
 # Number of parallel processes to use for task execution. Increase for larger infrastructures.
 forks = {{ forks | default(5) }}
@@ -33,7 +33,10 @@ timeout = {{ timeout | default(10) }}
 interpreter_python = {{ interpreter_python | default('auto_silent') }}
 
 # Enable persistent fact caching (required for 'ansible-inventory' and some plugins).
-fact_caching = {{ fact_caching_enabled | default(False) | string | lower }}
+# Note: The schema field is fact_caching_enabled, but the ansible.cfg directive is typically 'fact_caching'
+# for the backend type, or boolean flags depending on version. Here we map strictly to the schema description
+# which implies enabling the feature.
+fact_caching_enabled = {{ fact_caching_enabled | default(False) | ternary('True', 'False') }}
 
 # Path to directory (for jsonfile plugin) or connection string (e.g., redis://localhost:6379/0) for fact caching.
 fact_caching_connection = {{ fact_caching_connection | default('/var/tmp/ansible_facts') }}
@@ -51,10 +54,10 @@ log_path = {{ log_path | default('') }}
 library = {{ library_path | default([]) | join(':') }}
 
 # List of callback plugins to enable by default (e.g., 'profile_tasks', 'log_plays').
-callbacks_enabled = {{ callbacks_enabled | default([]) | join(', ') }}
+callbacks_enabled = {{ callbacks_enabled | default([]) | join(',') }}
 
 # Whether to save .retry files on failure (to re-run only failed hosts).
-retry_files_enabled = {{ retry_files_enabled | default(False) | string | lower }}
+retry_files_enabled = {{ retry_files_enabled | default(False) | ternary('True', 'False') }}
 
 # Directory to store .retry files when enabled.
 retry_files_save_path = {{ retry_files_save_path | default('~/.ansible/retry') }}
@@ -63,7 +66,7 @@ retry_files_save_path = {{ retry_files_save_path | default('~/.ansible/retry') }
 gathering = {{ gathering | default('smart') }}
 
 # Enable privilege escalation (become) by default.
-become = {{ become | default(False) | string | lower }}
+become = {{ become | default(False) | ternary('True', 'False') }}
 
 # Privilege escalation method to use (sudo, su, pbrun, pfexec, doas, dzdo, ksu, runas).
 become_method = {{ become_method | default('sudo') }}
@@ -72,16 +75,16 @@ become_method = {{ become_method | default('sudo') }}
 become_user = {{ become_user | default('root') }}
 
 # Prompt for SSH password (instead of using keys).
-ask_pass = {{ ask_pass | default(False) | string | lower }}
+ask_pass = {{ ask_pass | default(False) | ternary('True', 'False') }}
 
 # Prompt for privilege escalation password.
-ask_become_pass = {{ ask_become_pass | default(False) | string | lower }}
+ask_become_pass = {{ ask_become_pass | default(False) | ternary('True', 'False') }}
 
 # Verbosity level (0–6); higher shows more detail during runs.
 verbosity = {{ verbosity | default(0) }}
 
 # Whether to show deprecation warnings for outdated features.
-deprecation_warnings = {{ deprecation_warnings | default(True) | string | lower }}
+deprecation_warnings = {{ deprecation_warnings | default(True) | ternary('True', 'False') }}
 
 # Default connection transport (ssh, paramiko, local, docker, etc.).
 transport = {{ transport | default('smart') }}
@@ -90,14 +93,15 @@ transport = {{ transport | default('smart') }}
 ssh_args = {{ ssh_args | default('-C -o ControlMaster=auto -o ControlPersist=60s') }}
 
 # Look for SSH keys in default locations when using paramiko backend.
-paramiko_look_for_keys = {{ paramiko_look_for_keys | default(True) | string | lower }}
+paramiko_look_for_keys = {{ paramiko_look_for_keys | default(True) | ternary('True', 'False') }}
 
-# Custom per-pattern configuration (e.g., for specific host groups like [webservers]).
-{% for host_pattern, pattern_config in (additional_host_patterns | default({})) | dict2items | list %}
-# Host Pattern: {{ host_pattern.value }}
-[{{ host_pattern.value }}:vars]
-{% for key, value in (pattern_config.value | default({})) | dict2items | list %}
-{{ key.value }} = {{ value.value | default('') }}
+{% for host_pattern, pattern_config in (additional_host_patterns | default({})) | dictsort %}
+# Custom per-pattern configuration for: {{ host_pattern.key }}
+# Host Pattern: {{ host_pattern.key }}
+[{{ host_pattern.key }}:vars]
+{% for key, value in (pattern_config.value | default({})) | dictsort %}
+# {{ key.key }} configuration
+{{ key.key }} = {{ value.value | default('') }}
 {% endfor %}
 {% endfor %}
 
@@ -128,13 +132,13 @@ runas_command = {{ runas_command | default('runas -u %s %s') }}
 
 [ssh_connection]
 # Enable SSH pipelining for faster module execution (requires remote user to allow it).
-pipelining = {{ pipelining | default(False) | string | lower }}
+pipelining = {{ pipelining | default(False) | ternary('True', 'False') }}
 
 # Seconds between keepalive messages to prevent SSH timeouts.
 ssh_keepalive_interval = {{ ssh_keepalive_interval | default(15) }}
 
 # Use batch mode for SFTP (faster, but disables interactive prompts).
-sftp_batch_mode = {{ sftp_batch_mode | default(True) | string | lower }}
+sftp_batch_mode = {{ sftp_batch_mode | default(True) | ternary('True', 'False') }}
 
 [galaxy]
 # Default Galaxy server URL for role/collection installation.
@@ -144,17 +148,20 @@ server = {{ galaxy_server | default('https://galaxy.ansible.com') }}
 galaxy_roles_path = {{ galaxy_roles_path | default([]) | join(':') }}
 
 # Skip SSL certificate validation for Galaxy connections (not recommended).
-galaxy_ignore_certs = {{ galaxy_ignore_certs | default(False) | string | lower }}
+galaxy_ignore_certs = {{ galaxy_ignore_certs | default(False) | ternary('True', 'False') }}
 
-{% for server_name, server_details in (galaxy_servers_list | default({})) | dict2items | list %}
-# Named Galaxy Server: {{ server_name.value }}
-[galaxy_server.{{ server_name.value }}]
-url = {{ server_details.value.url | default('') }}
-{% if server_details.value.username is defined %}
-username = {{ server_details.value.username | default('') }}
+{% for server_name, server_details in (galaxy_servers_list | default({})) | dictsort %}
+# Named Galaxy Server: {{ server_name.key }}
+[galaxy_server.{{ server_name.key }}]
+# URL of the Galaxy server
+url = {{ server_details.value['url'] | default('') }}
+{% if server_details.value.get('username') is defined %}
+# Username for the Galaxy server
+username = {{ server_details.value['username'] | default('') }}
 {% endif %}
-{% if server_details.value.token is defined %}
-token = {{ server_details.value.token | default('') }}
+{% if server_details.value.get('token') is defined %}
+# Token for the Galaxy server
+token = {{ server_details.value['token'] | default('') }}
 {% endif %}
 {% endfor %}
 
@@ -163,4 +170,4 @@ token = {{ server_details.value.token | default('') }}
 context = {{ diff_context | default(3) }}
 
 # Always show diffs (even on success) for tasks that support it.
-always = {{ diff_always | default(False) | string | lower }}
+always = {{ diff_always | default(False) | ternary('True', 'False') }}

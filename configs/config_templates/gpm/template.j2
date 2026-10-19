@@ -1,25 +1,18 @@
 #!/bin/sh
-#
-# GPM (General Purpose Mouse) suspend/resume hook
-#
-# This script is intended to be placed in /etc/pm/sleep.d/ (or similar
-# Power Management directory) to handle system suspend/resume events
-# by stopping and starting the GPM mouse daemon.
-#
-# GPM provides a console mouse interface. Stopping it during suspend
-# prevents input conflicts or crashes upon resume.
-#
+# GPM (General Purpose Mouse) Suspend/Resume Hook
+# This script is designed to be called by systemd or pm-utils during suspend/resume cycles.
+# It manages the gpm service to ensure mouse support is available in the console.
 
 case "${1}" in
-suspend|hibernate|hybrid-sleep)
-    # Stop the GPM service before the system suspends.
-    # The service name is configured via the 'service_name' variable.
-    # Using invoke-rc.d ensures compatibility with various init systems.
-    invoke-rc.d {{ service_name | default('gpm') }} stop >/dev/null 2>&1
+suspend)
+    # Stop the GPM service before suspending to prevent state corruption.
+    # The service name is configurable via the service_name variable.
+    invoke-rc.d {{ service_name | default('gpm') }} stop >/dev/null
     ;;
-resume|thaw)
-    # Start the GPM service after the system resumes.
-    invoke-rc.d {{ service_name | default('gpm') }} start >/dev/null 2>&1
+resume)
+    # Start the GPM service after resuming to restore mouse functionality.
+    # The service name is configurable via the service_name variable.
+    invoke-rc.d {{ service_name | default('gpm') }} start >/dev/null
     ;;
 esac
 

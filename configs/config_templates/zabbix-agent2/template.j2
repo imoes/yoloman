@@ -1,62 +1,137 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          zabbix-agent2
-# Required-Start:    $remote_fs $network
-# Required-Stop:     $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start zabbix-agent2 daemon
-# Description: Start zabbix-agent2 daemon
-### END INIT INFO
+# Zabbix Agent 2 Configuration Template
+# This configuration file manages the Zabbix Agent 2 daemon.
+# It defines runtime behavior, connection targets for passive/active checks,
+# and security settings (TLS).
 
-NAME=zabbix_agent2
-DAEMON=/usr/sbin/$NAME
-# Exit if executable is not installed
-[ -x $DAEMON ] || exit 0
+############ GENERAL PARAMETERS #################
 
-DIR={{ zabbix_agent2_run_dir }}
-PID=$DIR/$NAME.pid
-RETRY={{ zabbix_agent2_stop_retry }}
+### Option: PidFile
+# Directory for Zabbix Agent 2 runtime files, including PID file.
+# The full path is constructed as: {{ zabbix_agent2_run_dir | default('/run/zabbix') }}/zabbix_agent2.pid
+PidFile={{ zabbix_agent2_run_dir | default('/run/zabbix') }}/zabbix_agent2.pid
 
-# Load the VERBOSE setting and other rcS variables
-[ -f /etc/default/rcS ] && . /etc/default/rcS
+### Option: LogType
+# Specifies where log messages are written to: system, file, or console.
+# Default is 'file', using the LogFile path below.
 
-# define LSB log_* functions.
-. /lib/lsb/init-functions
+### Option: LogFile
+# Log file name for LogType 'file' parameter.
+LogFile=/var/log/zabbix/zabbix_agent2.log
 
-_ev_ () {
-  [ "$VERBOSE" = "no" ] || eval $@
-}
+### Option: LogFileSize
+# Maximum size of log file in MB.
+# 0 - disable automatic log rotation.
+LogFileSize=0
 
-[ -d "$DIR" ] || mkdir "$DIR"
-chown -R {{ zabbix_agent2_user }}:{{ zabbix_agent2_group }} "$DIR"
-export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+### Option: DebugLevel
+# Specifies debug level (0-5).
+# 3 is standard for error/warning/info.
+# Default: 3
+# DebugLevel=3
 
-case "$1" in
-  start)
-    start-stop-daemon --start --pidfile $PID --exec $DAEMON --test --quiet > /dev/null
-    [ $? -ne 0 ] && log_action_msg "$NAME is already running" && exit 0
-    _ev_ log_action_begin_msg \"$NAME starting\"
-    R=$(start-stop-daemon --start --pidfile $PID --make-pidfile --background --chuid {{ zabbix_agent2_user }}:{{ zabbix_agent2_group }} --exec $DAEMON --oknodo 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  stop)
-    _ev_ log_action_begin_msg "$NAME stopping"
-    R=$(start-stop-daemon --stop --pidfile $PID --exec $DAEMON --oknodo --retry=$RETRY 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  status)
-    ## return status 0 if process is running.
-    status_of_proc -p $PID "$DAEMON" "$NAME"
-  ;;
-  restart|force-reload)
-    $0 stop
-    $0 start
-  ;;
-  *)
-    echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
-    exit 1
-  ;;
-esac
+### Option: SourceIP
+# Source IP address for outgoing connections.
+# SourceIP=
+
+##### Passive checks related
+
+### Option: Server
+# IP address or DNS name of the Zabbix server/proxy for passive checks.
+# Incoming connections will be accepted only from the hosts listed here.
+# If left empty or not set, passive checks are disabled.
+# Example: Server=127.0.0.1,192.168.1.0/24
+Server={{ zabbix_agent2_server | default('127.0.0.1') }}
+
+### Option: ListenPort
+# Agent will listen on this port for connections from the server.
+# Default: 10050
+# ListenPort=10050
+
+### Option: ListenIP
+# List of comma delimited IP addresses that the agent should listen on.
+# Default: 0.0.0.0
+# ListenIP=0.0.0.0
+
+### Option: StatusPort
+# Agent will listen on this port for HTTP status requests.
+# Default: 10050
+# StatusPort=10050
+
+##### Active checks related
+
+### Option: ServerActive
+# IP address or DNS name of the Zabbix server/proxy for active checks.
+# Can include port (e.g., 127.0.0.1:10051).
+# If not specified, active checks are disabled.
+# Supports multiple servers separated by comma, or clusters by semicolon.
+ServerActive={{ zabbix_agent2_server_active | default('127.0.0.1') }}
+
+### Option: Hostname
+# Unique, case sensitive hostname for the agent.
+# Required for active checks and must match the hostname configured on the Zabbix Server.
+# If undefined, the system's hostname is often used as a fallback by the agent binary,
+# but explicit configuration is preferred.
+Hostname={{ zabbix_agent2_hostname | default('Zabbix server') }}
+
+### Option: HostMetadata
+# Optional parameter that defines host metadata for auto-registration.
+# HostMetadata=
+
+####### ADVANCED PARAMETERS #################
+
+### Option: Timeout
+# Specifies how long to wait (in seconds) for establishing connection and exchanging data.
+# Range: 1-30
+# Default: 3
+# Timeout=3
+
+### Option: PluginTimeout
+# Timeout for connections with external plugins.
+# Range: 1-30
+# PluginTimeout=3
+
+### Option: ControlSocket
+# The control socket path, used to send runtime commands with the -R option.
+# Located in the runtime directory.
+ControlSocket={{ zabbix_agent2_run_dir | default('/run/zabbix') }}/agent.sock
+
+####### TLS-RELATED PARAMETERS #######
+
+### Option: TLSConnect
+# How the agent should connect to server or proxy for active checks.
+# Values: unencrypted, psk, cert.
+# Default: unencrypted
+# TLSConnect=unencrypted
+
+### Option: TLSAccept
+# What incoming connections to accept from the server/proxy.
+# Values: unencrypted, psk, cert.
+# Default: unencrypted
+# TLSAccept=unencrypted
+
+### Option: TLSCAFile
+# Full pathname of a file containing the top-level CA(s) certificates for peer certificate verification.
+# TLSCAFile=
+
+### Option: TLSCertFile
+# Full pathname of a file containing the agent certificate or certificate chain (for 'cert' mode).
+# TLSCertFile=
+
+### Option: TLSKeyFile
+# Full pathname of a file containing the agent private key (for 'cert' mode).
+# TLSKeyFile=
+
+### Option: TLSPSKIdentity
+# Unique, case sensitive string used to identify the pre-shared key (for 'psk' mode).
+# TLSPSKIdentity=
+
+### Option: TLSPSKFile
+# Full pathname of a file containing the pre-shared key (for 'psk' mode).
+# TLSPSKFile=
+
+####### Additional configuration files  #######
+
+### Option: Include
+# You may include individual files or all files in a directory in the configuration file.
+# This allows modular configuration of plugins and user parameters.
+Include=/etc/zabbix/zabbix_agent2.d/*.conf

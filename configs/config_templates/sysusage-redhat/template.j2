@@ -1,0 +1,13 @@
+# Cron job configuration for system usage monitoring.
+# This template generates two cron entries: one for standard system usage
+# collection and another for generating jq-style graph data.
+
+# Run standard system usage collection every minute as root.
+# The `command_sysusage` variable specifies the path to the binary.
+# The `redirect_output` variable handles stdout/stderr redirection.
+#* * * * *    root    {{ command_sysusage | default('/usr/bin/sysusage') }} {{ redirect_output | default('>/dev/null 2>&1') }}
+
+# Run jq-graph generation every 5 minutes as root.
+# The `command_sysusagejqgraph` variable specifies the path to the graphing binary.
+# The `redirect_output` variable handles stdout/stderr redirection.
+#*/5 * * * *    root    {{ command_sysusagejqgraph | default('/usr/bin/sysusagejqgraph') }} {{ redirect_output | default('>/dev/null 2>&1') }}

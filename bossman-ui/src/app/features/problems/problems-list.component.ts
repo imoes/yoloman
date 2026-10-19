@@ -12,12 +12,11 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { ServiceState } from '../../core/models/monitoring.model';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
-import { serviceStateBadge } from '../../shared/status.util';
 import { formatMetricValue, thresholdContext } from '../../shared/format.util';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /**
  * The full "unbehandelte Probleme" view (see docs/plan.md's monitoring
@@ -29,7 +28,7 @@ import { formatMetricValue, thresholdContext } from '../../shared/format.util';
 @Component({
   selector: 'app-problems-list',
   standalone: true,
-  imports: [
+  imports: [StatusPillComponent,
     RouterLink,
     DatePipe,
     FormsModule,
@@ -40,7 +39,6 @@ import { formatMetricValue, thresholdContext } from '../../shared/format.util';
     MatFormFieldModule,
     MatInputModule,
     MatCheckboxModule,
-    HostStatusBadgeComponent,
     FilterBarComponent,
   ],
   template: `
@@ -66,7 +64,7 @@ import { formatMetricValue, thresholdContext } from '../../shared/format.util';
               <tr>
                 <th class="bm-cb">
                   <mat-checkbox [checked]="allSelected()" [indeterminate]="someSelected()"
-                                (change)="toggleAll($event.checked)" title="Select all shown" />
+                                (change)="toggleAll($event.checked)" title="Select all shown" aria-label="Select all shown" />
                 </th>
                 <th>Host</th>
                 <th>Service</th>
@@ -81,11 +79,12 @@ import { formatMetricValue, thresholdContext } from '../../shared/format.util';
               @for (p of problems(); track p.id) {
                 <tr [class.bm-row-sel]="isSelected(p.id)">
                   <td class="bm-cb">
-                    <mat-checkbox [checked]="isSelected(p.id)" (change)="toggle(p.id)" />
+                    <mat-checkbox [checked]="isSelected(p.id)" (change)="toggle(p.id)"
+                                  [aria-label]="'Select ' + p.name + ' on ' + p.agent_name" />
                   </td>
                   <td><a [routerLink]="['/hosts', p.agent_id]">{{ p.agent_name }}</a></td>
                   <td>{{ p.name }}</td>
-                  <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
+                  <td><bm-status-pill [status]="p.state" /></td>
                   <td class="bm-detail" [title]="p.output">
                     <div class="bm-detail-value">{{ svcValue(p) }}</div>
                     @if (thresholdOf(p); as t) {
@@ -146,10 +145,10 @@ import { formatMetricValue, thresholdContext } from '../../shared/format.util';
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 10px 12px;
+        padding: var(--bm-cell-py) 12px;
       }
       .bm-table td {
-        padding: 8px 12px;
+        padding: var(--bm-cell-py) 12px;
         border-top: 1px solid var(--mat-sys-outline-variant);
       }
       .bm-actions {
@@ -282,10 +281,6 @@ export class ProblemsListComponent implements OnInit {
   onFilters(values: FilterValues): void {
     this.fvals.set(values);
     this.reload();
-  }
-
-  badgeOf(p: ServiceState) {
-    return serviceStateBadge(p.state);
   }
 
   /** F-17: the tripped value, humane-formatted (mapped label wins if present). */

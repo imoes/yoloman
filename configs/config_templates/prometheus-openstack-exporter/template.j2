@@ -1,96 +1,120 @@
-# Prometheus OpenStack Exporter Configuration
+# Prometheus OpenStack Exporter Configuration Template
 #
-# This file configures the prometheus-openstack-exporter service.
-# It connects to an OpenStack cloud (via Keystone) and exports metrics
-# for Nova, Neutron, Cinder, Swift, and other components.
+# This file configures the prometheus-openstack-exporter, which exposes
+# OpenStack metrics (Nova, Neutron, Cinder, Swift) to Prometheus.
+#
+# All variables use schema defaults to ensure the configuration is valid
+# even when variables are undefined.
 
-# listen_port: Port on which the exporter listens for metrics.
-# Type: integer
+# Port on which the exporter listens for metrics.
+# Type: Integer
 listen_port: {{ listen_port | default(9183) }}
 
-# cache_refresh_interval: Cache refresh interval in seconds.
-# This controls how often the exporter re-fetches data from the OpenStack API.
-# Type: integer
-cache_refresh_interval: {{ cache_refresh_interval | default(300) }}
+# Cache refresh interval in seconds.
+# This controls how often the exporter refreshes its internal cache of
+# OpenStack resource data.
+# Type: Integer
+cache_refresh_interval: {{ cache_refresh_interval | default('300  # In seconds') }}
 
-# cache_file: Path to the cache file.
-# Used to cache authentication tokens and other transient data.
-# Type: string
+# Path to the cache file.
+# Used to persist cache data between restarts or refreshes.
+# Type: String
 cache_file: {{ cache_file | default('/var/cache/prometheus-openstack-exporter/mycloud') }}
 
-# openstack_cloud_name: Name of the OpenStack cloud configuration to use.
-# This refers to the cloud name defined in the clouds.yaml file.
-# Type: string
+# Name of the OpenStack cloud configuration to use.
+# This should match a section in your OpenStack clouds.yaml file.
+# Type: String
 cloud: {{ openstack_cloud_name | default('mycloud') }}
 
-# openstack_allocation_ratio_vcpu: VCPU allocation ratio for OpenStack.
-# Multiplier used to calculate vCPU usage metrics against physical cores.
-# Type: float
+# VCPU allocation ratio for OpenStack.
+# Used to calculate schedulable instances based on allocated vCPUs.
+# Type: Float
 openstack_allocation_ratio_vcpu: {{ openstack_allocation_ratio_vcpu | default(2.5) }}
 
-# openstack_allocation_ratio_ram: RAM allocation ratio for OpenStack.
-# Multiplier used to calculate RAM usage metrics against physical RAM.
-# Type: float
+# RAM allocation ratio for OpenStack.
+# Used to calculate schedulable instances based on allocated RAM.
+# Type: Float
 openstack_allocation_ratio_ram: {{ openstack_allocation_ratio_ram | default(1.1) }}
 
-# openstack_allocation_ratio_disk: Disk allocation ratio for OpenStack.
-# Multiplier used to calculate disk usage metrics against physical disk.
-# Type: float
+# Disk allocation ratio for OpenStack.
+# Used to calculate schedulable instances based on allocated disk space.
+# Type: Float
 openstack_allocation_ratio_disk: {{ openstack_allocation_ratio_disk | default(1.0) }}
 
-# log_level: Logging level (e.g., DEBUG, INFO, WARNING, ERROR).
+# Logging level (e.g., DEBUG, INFO, WARNING, ERROR).
 # Controls the verbosity of the exporter's logs.
-# Type: string
-log_level: {{ log_level | default('INFO') | upper }}
+# Type: String
+log_level: {{ log_level | default('INFO') }}
 
-# enabled_collectors: List of enabled collectors.
-# Selectors determine which OpenStack services to scrape metrics for.
-# Type: list
+# List of enabled collectors.
+# Defines which OpenStack services to scrape metrics from.
+# Valid items: cinder, neutron, nova, swift, swift-account-usage, etc.
+# Type: List
 enabled_collectors:
 {% for collector in enabled_collectors | default(['cinder', 'neutron', 'nova', 'swift']) %}
   - {{ collector }}
 {% endfor %}
 #  - swift-account-usage
 
-# schedulable_instance_size: Configuration for the hypervisor_schedulable_instances metric.
-# Defines the hypothetical instance size used to calculate schedulable capacity.
-# Type: object
+# To export hypervisor_schedulable_instances metric set desired instance size.
+# This block defines the resource limits considered "schedulable".
 schedulable_instance_size:
+    # RAM size in MB for schedulable instance size.
     ram_mbs: {{ schedulable_instance_size_ram_mbs | default(4096) }}
+    
+    # VCPU count for schedulable instance size.
     vcpu: {{ schedulable_instance_size_vcpu | default(2) }}
+    
+    # Disk size in GB for schedulable instance size.
     disk_gbs: {{ schedulable_instance_size_disk_gbs | default(20) }}
 
-# swift_hosts: List of Swift hosts.
-# Explicit list of Swift proxy nodes to query for metrics.
-# Required if the cloud doesn't expose Swift endpoints via standard APIs.
-# Type: list
+# Uncomment if the cloud doesn't provide cinder / nova volumes:
+#use_nova_volumes: False
+
+## Swift Configuration
+
+# List of Swift hosts.
+# These are the Swift proxy nodes from which the exporter retrieves metrics.
+# There is no way to retrieve them using OpenStack APIs, so they must be
+# explicitly configured here.
+# Type: List
 swift_hosts:
 {% for host in swift_hosts | default(['host1.example.com', 'host2.example.com']) %}
-  - {{ host }}
+    - {{ host }}
 {% endfor %}
 
-# keystone_tenants_map: Path to the file mapping tenant names to IDs.
-# OpenStack APIs often return tenant IDs, but metrics are easier to read with names.
-# This file should contain lines: <tenant_name> <tenant_id>.
-# Type: string
+# Path to the file mapping tenant names to IDs.
+# There is no API to ask Swift for a list of accounts it knows about.
+# Even if there were, Swift (in common case of Keystone auth, at least)
+# only knows them by the corresponding tenant ID, which would be a less
+# than useful label without post-processing.
+# The following should point to a file containing one line per tenant,
+# with the tenant name first, then whitespace, followed by the tenant ID.
+# Type: String
 keystone_tenants_map: {{ keystone_tenants_map_path | default('') }}
 
-# reseller_prefix: Reseller prefix for Swift middleware.
-# Used by Swift middleware to separate accounts from different providers.
-# Type: string
+# Reseller prefix for Swift middleware.
+# The reseller prefix is typically used by the Swift middleware to
+# keep accounts with different providers separate.
+# We would ideally look this up dynamically from the Swift configuration,
+# but the Keystone middleware defaults to the following value.
+# Type: String
 reseller_prefix: {{ reseller_prefix | default('AUTH_') }}
 
-# ring_path: Path to the Swift rings directory.
-# Directory containing the Swift account, container, and object rings.
-# Type: string
+# Path to the Swift rings directory.
+# The exporter needs access to Swift ring files to interpret ring data.
+# Type: String
 ring_path: {{ ring_path | default('/etc/swift') }}
 
-# hash_path_prefix: Hash path prefix for Swift.
-# Prefix used in Swift's path hashing algorithm.
-# Type: string
+# Hash path prefix for Swift.
+# These will typically be read from /etc/swift/swift.conf.
+# If that file cannot be opened, then the Swift library will log an error
+# and try to exit. To run p-s-a-e as a user other than Swift, these
+# settings must be set to the same values as Swift itself, and the
+# above [ring_path] must point to an always-current readable copy of the rings.
+# Type: String
 hash_path_prefix: {{ hash_path_prefix | default('') }}
 
-# hash_path_suffix: Hash path suffix for Swift.
-# Suffix used in Swift's path hashing algorithm.
-# Type: string
+# Hash path suffix for Swift.
+# Type: String
 hash_path_suffix: {{ hash_path_suffix | default('') }}

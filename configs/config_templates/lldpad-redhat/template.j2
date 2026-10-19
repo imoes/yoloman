@@ -1,0 +1,63 @@
+# ============================================================================
+# LLDP Daemon (lldpad) Bash Completion Configuration
+# ============================================================================
+#
+# This file provides bash completion for the `lldpad` command-line utility.
+# It is typically installed to /etc/bash_completion.d/lldpad or similar.
+#
+# The `lldpad` package schema provided contains no configurable fields,
+# so this template renders static bash completion logic based on the
+# standard lldpad usage options.
+#
+# Usage: lldpad [-hdksv] [-f configfile]
+#
+# Options:
+#   -h          Show this usage help message
+#   -f          Use configfile instead of default
+#   -d          Run daemon in the background (daemonize)
+#   -k          Terminate current running daemon instance
+#   -s          Remove lldpad state records (cleanup)
+#   -v          Show version information
+#   -V          Set syslog level (verbose/debug)
+#
+# ============================================================================
+
+have lldpad && _lldpad_options()
+{
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    
+    # List of supported short options for lldpad
+    opts="-h -f -d -k -s -v -V"
+
+    case "${cur}" in
+        *)
+            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+            ;;
+    esac
+
+    # If previous argument was -f, offer file completion
+    case "${prev}" in
+        -f)
+            _filedir
+            return 0
+            ;;
+    esac
+
+    return 0
+}
+
+# Register the completion function for the lldpad command
+complete -F _lldpad_options lldpad
+
+# ============================================================================
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:
+# ex: ts=4 sw=4 et filetype=sh
+# ============================================================================

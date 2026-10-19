@@ -1,0 +1,299 @@
+# i3 config file (v4)
+#
+# Please see https://i3wm.org/docs/userguide.html for a complete reference!
+#
+# This config file uses keycodes (bindsym) and was written for the QWERTY
+# layout.
+#
+# To get a config file with the same key positions, but for your current
+# layout, use the i3-config-wizard
+
+# Font for window titles. Will also be used by the bar unless a different font
+# is used in the bar {} block below.
+font pango:{{ i3_font_name | default('monospace 8') }}
+
+# Start XDG autostart .desktop files using dex. See also
+# https://wiki.archlinux.org/index.php/XDG_Autostart
+# Command to start XDG autostart applications using dex.
+exec --no-startup-id {{ i3_dex_autostart_command | default('dex-autostart --autostart --environment i3') }}
+
+# class                 border  bground text    indicator child_border
+# Border color for focused client.
+client.focused          {{ i3_client_focused_border | default('#83CAFA') }} {{ i3_client_focused_bg | default('#51A2DA') }} {{ i3_client_focused_text | default('#FFFFFF') }} {{ i3_client_focused_indicator | default('#83CAFA') }} {{ i3_client_focused_child_border | default('#51A2DA') }}
+# Border color for focused but inactive client.
+client.focused_inactive {{ i3_client_focused_inactive_border | default('#8C8C8C') }} {{ i3_client_focused_inactive_bg | default('#4C4C4C') }} {{ i3_client_focused_inactive_text | default('#FFFFFF') }} {{ i3_client_focused_inactive_indicator | default('#4C4C4C') }} {{ i3_client_focused_inactive_child_border | default('#8C8C8C') }}
+# Border color for unfocused client.
+client.unfocused        {{ i3_client_unfocused_border | default('#4C4C4C') }} {{ i3_client_unfocused_bg | default('#222222') }} {{ i3_client_unfocused_text | default('#888888') }} {{ i3_client_unfocused_indicator | default('#292D2E') }} {{ i3_client_unfocused_child_border | default('#222222') }}
+# Border color for urgent client.
+client.urgent           {{ i3_client_urgent_border | default('#EC69A0') }} {{ i3_client_urgent_bg | default('#DB3279') }} {{ i3_client_urgent_text | default('#FFFFFF') }} {{ i3_client_urgent_indicator | default('#DB3279') }} {{ i3_client_urgent_child_border | default('#DB3279') }}
+# Border color for placeholder.
+client.placeholder      {{ i3_client_placeholder_border | default('#000000') }} {{ i3_client_placeholder_bg | default('#0C0C0C') }} {{ i3_client_placeholder_text | default('#FFFFFF') }} {{ i3_client_placeholder_indicator | default('#000000') }} {{ i3_client_placeholder_child_border | default('#0C0C0C') }}
+
+# Background color for client containers.
+client.background       {{ i3_client_background | default('#FFFFFF') }}
+
+# This font is widely installed, provides lots of unicode glyphs, right-to-left
+# text rendering and scalability on retina/hidpi displays (thanks to pango).
+#font pango:DejaVu Sans Mono 8
+
+# The combination of xss-lock, nm-applet and pactl is a popular choice, so
+# they are included here as an example. Modify as you see fit.
+
+# xss-lock grabs a logind suspend inhibit lock and will use i3lock to lock the
+# screen before suspend. Use loginctl lock-session to lock your screen.
+# Command to lock screen before suspend using xss-lock and i3lock.
+exec --no-startup-id {{ i3_xss_lock_command | default('xss-lock --transfer-sleep-lock -- i3lock --nofork') }}
+
+# NetworkManager is the most popular way to manage wireless networks on Linux,
+# and nm-applet is a desktop environment-independent system tray GUI for it.
+# Command to start NetworkManager applet.
+exec --no-startup-id {{ i3_nm_applet_command | default('nm-applet') }}
+
+# Use pactl to adjust volume in PulseAudio.
+# Command to refresh i3status status bar.
+set $refresh_i3status {{ i3_refresh_i3status_command | default('killall -SIGUSR1 i3status') }}
+# Command to raise volume using pactl.
+bindsym XF86AudioRaiseVolume exec --no-startup-id {{ i3_pactl_raise_volume_command | default('pactl set-sink-volume @DEFAULT_SINK@ +10%') }} && $refresh_i3status
+# Command to lower volume using pactl.
+bindsym XF86AudioLowerVolume exec --no-startup-id {{ i3_pactl_lower_volume_command | default('pactl set-sink-volume @DEFAULT_SINK@ -10%') }} && $refresh_i3status
+# Command to toggle mute using pactl.
+bindsym XF86AudioMute exec --no-startup-id {{ i3_pactl_mute_command | default('pactl set-sink-mute @DEFAULT_SINK@ toggle && $refresh_i3status') }}
+# Command to toggle mic mute using pactl.
+bindsym XF86AudioMicMute exec --no-startup-id {{ i3_pactl_mic_mute_command | default('pactl set-source-mute @DEFAULT_SOURCE@ toggle && $refresh_i3status') }}
+
+# Use brightnessctl to adjust screen brightness
+# Command to increase brightness using brightnessctl.
+bindsym XF86MonBrightnessUp exec --no-startup-id {{ i3_brightnessctl_up_command | default('brightnessctl -s 5%+') }}
+# Command to decrease brightness using brightnessctl.
+bindsym XF86MonBrightnessDown exec --no-startup-id {{ i3_brightnessctl_down_command | default('brightnessctl -s 5%-') }}
+
+# Use Display key to call Arandr
+# Command to open Arandr for display configuration.
+bindsym XF86Display exec --no-startup-id {{ i3_arandr_command | default('arandr') }}
+
+# use these keys for focus, movement, and resize directions when reaching for
+# the arrows is not convenient
+# Key binding for up direction (vim-like).
+set $up {{ i3_set_up | default('l') }}
+# Key binding for down direction (vim-like).
+set $down {{ i3_set_down | default('k') }}
+# Key binding for left direction (vim-like).
+set $left {{ i3_set_left | default('j') }}
+# Key binding for right direction (vim-like).
+set $right {{ i3_set_right | default('semicolon') }}
+
+# use Mouse+Mod1 to drag floating windows to their wanted position
+# Modifier key for dragging floating windows.
+floating_modifier {{ i3_floating_modifier | default('Mod1') }}
+
+# start a terminal
+# Command to start the default terminal.
+bindsym Mod1+Return exec {{ i3_terminal_command | default('i3-sensible-terminal') }}
+
+# kill focused window
+bindsym Mod1+Shift+q kill
+
+# start dmenu (a program launcher)
+# Command to launch dmenu with specified colors and font.
+bindsym Mod1+d exec {{ i3_dmenu_command | default('"dmenu_run -nf \'#BBBBBB\' -nb \'#222222\' -sb \'#005577\' -sf \'#EEEEEE\' -fn \'monospace-10\'"') }}
+# A more modern dmenu replacement is rofi:
+# bindsym Mod1+d exec "rofi -modi drun,run -show drun"
+# There also is i3-dmenu-desktop which only displays applications shipping a
+# .desktop file. It is a wrapper around dmenu, so you need that installed.
+# bindsym Mod1+d exec --no-startup-id i3-dmenu-desktop
+
+# change focus
+bindsym Mod1+$left focus left
+bindsym Mod1+$down focus down
+bindsym Mod1+$up focus up
+bindsym Mod1+$right focus right
+
+# alternatively, you can use the cursor keys:
+bindsym Mod1+Left focus left
+bindsym Mod1+Down focus down
+bindsym Mod1+Up focus up
+bindsym Mod1+Right focus right
+
+# move focused window
+bindsym Mod1+Shift+$left move left
+bindsym Mod1+Shift+$down move down
+bindsym Mod1+Shift+$up move up
+bindsym Mod1+Shift+$right move right
+
+# alternatively, you can use the cursor keys:
+bindsym Mod1+Shift+Left move left
+bindsym Mod1+Shift+Down move down
+bindsym Mod1+Shift+Up move up
+bindsym Mod1+Shift+Right move right
+
+# split in horizontal orientation
+bindsym Mod1+h split h
+
+# split in vertical orientation
+bindsym Mod1+v split v
+
+# enter fullscreen mode for the focused container
+bindsym Mod1+f fullscreen toggle
+
+# change container layout (stacked, tabbed, toggle split)
+bindsym Mod1+s layout stacking
+bindsym Mod1+w layout tabbed
+bindsym Mod1+e layout toggle split
+
+# toggle tiling / floating
+bindsym Mod1+Shift+space floating toggle
+
+# change focus between tiling / floating windows
+bindsym Mod1+space focus mode_toggle
+
+# focus the parent container
+bindsym Mod1+a focus parent
+
+# focus the child container
+#bindsym Mod1+d focus child
+
+# move the currently focused window to the scratchpad
+bindsym Mod1+Shift+minus move scratchpad
+
+# Show the next scratchpad window or hide the focused scratchpad window.
+# If there are multiple scratchpad windows, this command cycles through them.
+bindsym Mod1+minus scratchpad show
+
+# Define names for default workspaces for which we configure key bindings later on.
+# We use variables to avoid repeating the names in multiple places.
+# Name for workspace 1.
+set $ws1 "{{ i3_ws1 | default('1') }}"
+# Name for workspace 2.
+set $ws2 "{{ i3_ws2 | default('2') }}"
+# Name for workspace 3.
+set $ws3 "{{ i3_ws3 | default('3') }}"
+# Name for workspace 4.
+set $ws4 "{{ i3_ws4 | default('4') }}"
+# Name for workspace 5.
+set $ws5 "{{ i3_ws5 | default('5') }}"
+# Name for workspace 6.
+set $ws6 "{{ i3_ws6 | default('6') }}"
+# Name for workspace 7.
+set $ws7 "{{ i3_ws7 | default('7') }}"
+# Name for workspace 8.
+set $ws8 "{{ i3_ws8 | default('8') }}"
+# Name for workspace 9.
+set $ws9 "{{ i3_ws9 | default('9') }}"
+# Name for workspace 10.
+set $ws10 "{{ i3_ws10 | default('10') }}"
+
+# switch to workspace
+bindsym Mod1+1 workspace number $ws1
+bindsym Mod1+2 workspace number $ws2
+bindsym Mod1+3 workspace number $ws3
+bindsym Mod1+4 workspace number $ws4
+bindsym Mod1+5 workspace number $ws5
+bindsym Mod1+6 workspace number $ws6
+bindsym Mod1+7 workspace number $ws7
+bindsym Mod1+8 workspace number $ws8
+bindsym Mod1+9 workspace number $ws9
+bindsym Mod1+0 workspace number $ws10
+
+# move focused container to workspace
+bindsym Mod1+Shift+1 move container to workspace number $ws1
+bindsym Mod1+Shift+2 move container to workspace number $ws2
+bindsym Mod1+Shift+3 move container to workspace number $ws3
+bindsym Mod1+Shift+4 move container to workspace number $ws4
+bindsym Mod1+Shift+5 move container to workspace number $ws5
+bindsym Mod1+Shift+6 move container to workspace number $ws6
+bindsym Mod1+Shift+7 move container to workspace number $ws7
+bindsym Mod1+Shift+8 move container to workspace number $ws8
+bindsym Mod1+Shift+9 move container to workspace number $ws9
+bindsym Mod1+Shift+0 move container to workspace number $ws10
+
+# reload the configuration file
+bindsym Mod1+Shift+c reload
+# restart i3 inplace (preserves your layout/session, can be used to upgrade i3)
+bindsym Mod1+Shift+r restart
+# exit i3 (logs you out of your X session)
+# Command to show exit confirmation dialog.
+bindsym Mod1+Shift+e exec {{ i3_exit_dialog_command | default('"i3-nagbar -t warning -m \'You pressed the exit shortcut. Do you really want to exit i3? This will end your X session.\' -B \'Yes, exit i3\' \'i3-msg exit\'"') }}
+
+# resize window (you can also use the mouse for that)
+mode "resize" {
+        # These bindings trigger as soon as you enter the resize mode
+
+        # Pressing left will shrink the window’s width.
+        # Pressing right will grow the window’s width.
+        # Pressing up will shrink the window’s height.
+        # Pressing down will grow the window’s height.
+        # Pixel/ppt increment for resizing windows in resize mode.
+        bindsym $left       resize shrink width {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+        bindsym $down       resize grow height {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+        bindsym $up         resize shrink height {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+        bindsym $right      resize grow width {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+
+        # same bindings, but for the arrow keys
+        bindsym Left        resize shrink width {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+        bindsym Down        resize grow height {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+        bindsym Up          resize shrink height {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+        bindsym Right       resize grow width {{ i3_resize_pixels | default('10') }} px or {{ i3_resize_pixels | default('10') }} ppt
+
+        # back to normal: Enter or Escape or Mod1+r
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+        bindsym Mod1+r mode "default"
+}
+
+bindsym Mod1+r mode "resize"
+
+# class                 border  bground text    indicator child_border
+# Border color for focused client.
+client.focused          {{ i3_client_focused_border | default('#83CAFA') }} {{ i3_client_focused_bg | default('#51A2DA') }} {{ i3_client_focused_text | default('#FFFFFF') }} {{ i3_client_focused_indicator | default('#83CAFA') }} {{ i3_client_focused_child_border | default('#51A2DA') }}
+# Border color for focused but inactive client.
+client.focused_inactive {{ i3_client_focused_inactive_border | default('#8C8C8C') }} {{ i3_client_focused_inactive_bg | default('#4C4C4C') }} {{ i3_client_focused_inactive_text | default('#FFFFFF') }} {{ i3_client_focused_inactive_indicator | default('#4C4C4C') }} {{ i3_client_focused_inactive_child_border | default('#8C8C8C') }}
+# Border color for unfocused client.
+client.unfocused        {{ i3_client_unfocused_border | default('#4C4C4C') }} {{ i3_client_unfocused_bg | default('#222222') }} {{ i3_client_unfocused_text | default('#888888') }} {{ i3_client_unfocused_indicator | default('#292D2E') }} {{ i3_client_unfocused_child_border | default('#222222') }}
+# Border color for urgent client.
+client.urgent           {{ i3_client_urgent_border | default('#EC69A0') }} {{ i3_client_urgent_bg | default('#DB3279') }} {{ i3_client_urgent_text | default('#FFFFFF') }} {{ i3_client_urgent_indicator | default('#DB3279') }} {{ i3_client_urgent_child_border | default('#DB3279') }}
+# Border color for placeholder.
+client.placeholder      {{ i3_client_placeholder_border | default('#000000') }} {{ i3_client_placeholder_bg | default('#0C0C0C') }} {{ i3_client_placeholder_text | default('#FFFFFF') }} {{ i3_client_placeholder_indicator | default('#000000') }} {{ i3_client_placeholder_child_border | default('#0C0C0C') }}
+
+# Background color for client containers.
+client.background       {{ i3_client_background | default('#FFFFFF') }}
+
+# Start i3bar to display a workspace bar (plus the system information i3status
+# finds out, if available)
+bar {
+  colors {
+    # Background color for the i3bar.
+    background {{ i3_bar_background | default('#000000') }}
+    # Statusline text color for the i3bar.
+    statusline {{ i3_bar_statusline | default('#FFFFFF') }}
+    # Separator color for the i3bar.
+    separator  {{ i3_bar_separator | default('#666666') }}
+
+    # Border color for focused workspace in bar.
+    focused_workspace  {{ i3_bar_focused_workspace_border | default('#83CAFA') }} {{ i3_bar_focused_workspace_bg | default('#51A2DA') }} {{ i3_bar_focused_workspace_text | default('#FFFFFF') }}
+    # Border color for active workspace in bar.
+    active_workspace   {{ i3_bar_active_workspace_border | default('#3C6EB4') }} {{ i3_bar_active_workspace_bg | default('#294172') }} {{ i3_bar_active_workspace_text | default('#FFFFFF') }}
+    # Border color for inactive workspace in bar.
+    inactive_workspace {{ i3_bar_inactive_workspace_border | default('#8C8C8C') }} {{ i3_bar_inactive_workspace_bg | default('#4C4C4C') }} {{ i3_bar_inactive_workspace_text | default('#888888') }}
+    # Border color for urgent workspace in bar.
+    urgent_workspace   {{ i3_bar_urgent_workspace_border | default('#EC69A0') }} {{ i3_bar_urgent_workspace_bg | default('#DB3279') }} {{ i3_bar_urgent_workspace_text | default('#FFFFFF') }}
+    # Border color for binding mode in bar.
+    binding_mode       {{ i3_bar_binding_mode_border | default('#b691d3') }} {{ i3_bar_binding_mode_bg | default('#A07CBC') }} {{ i3_bar_binding_mode_text | default('#FFFFFF') }}
+  }
+  # Command to run for the status bar content.
+  status_command {{ i3_status_command | default('i3status') }}
+}
+
+# Command to update XDG user directories.
+exec --no-startup-id {{ i3_xdg_user_dirs_update_command | default('xdg-user-dirs-update') }}
+#######################################################################
+# automatically start i3-config-wizard to offer the user to create a
+# keysym-based config which used their favorite modifier (alt or windows)
+#
+# i3-config-wizard will not launch if there already is a config file
+# in ~/.config/i3/config (or $XDG_CONFIG_HOME/i3/config if set) or
+# ~/.i3/config.
+#
+# Please remove the following exec line:
+#######################################################################
+# Command to automatically launch the i3 configuration wizard on first run.
+exec {{ i3_config_wizard_exec | default('i3-config-wizard') }}

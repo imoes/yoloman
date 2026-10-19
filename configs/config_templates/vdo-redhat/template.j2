@@ -1,0 +1,47 @@
+# ==============================================================================
+# VDO (Virtual Data Optimizer) Statistics Bash Completion Configuration
+# ==============================================================================
+#
+# Purpose:
+#   Provides bash tab-completion for the `vdostats` command. It defines the
+#   set of command-line options that are valid for `vdostats`, allowing the
+#   shell to auto-complete flags like `--help`, `--human-readable`, etc.
+#
+# Self-Documenting Note:
+#   All configuration is derived from the Ansible variable `vdostats_completion_opts`.
+#   This variable should be a whitespace-separated string of flags.
+#   The default value includes common options: --help, --all, --human-readable,
+#   --si, --verbose, and --version.
+#
+# ==============================================================================
+
+_vdostats()
+{
+    local opts cur
+
+    # Initialize bash completion helper functions
+    _init_completion || return
+
+    # Clear previous completions
+    COMPREPLY=()
+
+    # Define available completion options
+    # Source: Ansible variable 'vdostats_completion_opts'
+    # Default: --help --all --human-readable --si --verbose --version
+    opts="{{ vdostats_completion_opts | default('--help --all --human-readable --si --verbose --version') }}"
+
+    # Get the current word being completed
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # Attempt to match the current word against the defined options
+    case "${cur}" in
+        *)
+            # Generate completion candidates using compgen
+            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+            ;;
+    esac
+}
+
+# Register the completion function for the 'vdostats' command
+# This makes the completion active in the current shell session
+complete -F _vdostats vdostats

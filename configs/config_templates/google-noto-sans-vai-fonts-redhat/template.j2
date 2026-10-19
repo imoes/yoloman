@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- Match fonts based on language script and family, then inject the specific Noto Sans Vai font. -->
+  <!-- This section configures font substitution for the Vai script. -->
+  <match>
+    <!-- Test if the 'lang' attribute contains the specified language script code. -->
+    <test name="lang" compare="contains">
+      <!-- The language script code to match against the 'lang' fontconfig attribute. -->
+      <string>{{ lang_script | default('vai') }}</string>
+    </test>
+
+    <!-- Test if the requested font family matches the generic family target. -->
+    <test name="family">
+      <!-- The generic font family to match and substitute. -->
+      <string>{{ target_family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Prepend the specific font family to the list of candidates. -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name to prepend or alias. -->
+      <string>{{ font_family | default('Noto Sans Vai') }}</string>
+    </edit>
+
+    <!-- Enable or disable font hinting for this match. Note: 'fonthashint' is deprecated in newer fontconfig versions; 'hinting' is preferred but kept for compatibility with specific legacy configs if required. -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hinting (true) or disable it (false). -->
+      <bool>{{ hinting_enabled | default(false) }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias configuration: define the default fallback for the specific font family. -->
+  <alias>
+    <!-- The font family name that will be aliased. -->
+    <family>{{ font_family | default('Noto Sans Vai') }}</family>
+    <default>
+      <!-- The generic family to use as the default fallback. -->
+      <family>{{ target_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

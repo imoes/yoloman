@@ -1,0 +1,48 @@
+{
+  // *** ATTENTION : This file is in JSON format so the keys are case sensitive. Don't change them.
+
+  // PCCS server address for quote verification collateral and PCK certificate retrieval.
+  // Default: https://localhost:8081/sgx/certification/v4
+  "pccs_url": "{{ pccs_url | default('https://localhost:8081/sgx/certification/v4') | trim }}/",
+
+  // Whether to accept insecure HTTPS certificates. Set to false to allow self-signed or invalid certs.
+  // Default: true
+  "use_secure_cert": {{ use_secure_cert | default(true) }},
+
+  // Alternative PCCS or Intel PCS service URL for retrieving quote verification collateral.
+  // If empty, uses pccs_url.
+  // Default: https://api.trustedservices.intel.com/sgx/certification/v4
+  // "collateral_service": "{{ collateral_service | default('https://api.trustedservices.intel.com/sgx/certification/v4') | trim }}/",
+
+  // Type of TCB Info update: 'standard' for normal access or 'early' for early access during recovery events.
+  // Default: standard
+  // "tcb_update_type": "{{ tcb_update_type | default('standard') }}",
+
+  // PCCS API version to use (3.0 or 3.1). Ignored if collateral_service is Intel PCS.
+  // Default: 3.1
+  // "pccs_api_version": "{{ pccs_api_version | default('3.1') }}",
+
+  // Maximum retry times for QCNL. Set to 0 to disable retries.
+  // Default: 6
+  "retry_times": {{ retry_times | default(6) }},
+
+  // Seconds to sleep before each retry when a transfer fails with a transient error.
+  // Default: 10
+  "retry_delay": {{ retry_delay | default(10) }},
+
+  // Local URL to retrieve PCK cert chain from first. If empty, fails over to pccs_url.
+  // Default: http://localhost:8081/sgx/certification/v4
+  // "local_pck_url": "{{ local_pck_url | default('http://localhost:8081/sgx/certification/v4') | trim }}/",
+
+  // Hours before PCK cache entries expire. Set to 0 to disable caching.
+  // Default: 168
+  "pck_cache_expire_hours": {{ pck_cache_expire_hours | default(168) }},
+
+  // Hours before quote verification collateral cache entries expire.
+  // Default: 168
+  "verify_collateral_cache_expire_hours": {{ verify_collateral_cache_expire_hours | default(168) }},
+
+  // If true, exclusively use PCK certificates from local cache files and do not request from providers.
+  // Default: false
+  "local_cache_only": {{ local_cache_only | default(false) }}
+}

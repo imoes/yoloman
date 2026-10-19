@@ -19,54 +19,25 @@ bantime_maxtime = {{ bantime_maxtime }}
 # Retry limit (max failures before ban)
 maxretry = {{ maxretry }}
 # Action to perform on ban (e.g., send email, log, unban on reset)
-action = {{ action }}
+{# A shortcut defined in jail.conf (action_, action_mw, action_mwl, …) is referenced as %(name)s; anything else is
+   an action file name used as is. Written bare, "action_mwl" made fail2ban look for action.d/action_mwl.conf. #}
+{% set _action = action | default('%(action_)s') %}action = {{ '%(' ~ _action ~ ')s' if _action in ['action_', 'action_mw', 'action_mwl', 'action_xarf', 'action_cf_mwl', 'action_blocklist_de', 'action_abuseipdb'] else _action }}
 
 # PER-JAIL DEFINITIONS
-{% for jail in jails %}
-# Jail: {{ jail.name }} — monitors {{ jail.service }}
+{% for jail in jails | default([]) %}
+# Jail: {{ jail.name }}{% if jail.service is defined and jail.service %} — {{ jail.service }}{% endif %}
+
 [{{ jail.name }}]
-enabled = {{ jail.enabled | lower }}
-port = {{ jail.port | join(', ') }}
-filter = {{ jail.filter }}
-{% if jail.logpath is defined and jail.logpath %}
-logpath = {{ jail.logpath | join('\nlogpath = ') | join(' ') }}
-{% endif %}
-maxretry = {{ jail.maxretry }}
-findtime = {{ jail.findtime }}
-bantime = {{ jail.bantime }}
-banaction = {{ jail.banaction }}
-{% if jail.action_overrides is defined and jail.action_overrides %}
-{% for action in jail.action_overrides %}
-action_{{ action.name }} = {{ action.value }}
-{% endfor %}
-{% endif %}
-{% if jail.addaction is defined and jail.addaction %}
-{% for action in jail.addaction %}
-action += {{ action }}
-{% endfor %}
-{% endif %}
-{% if jail.destemail is defined and jail.destemail %}
-destemail = {{ jail.destemail }}
-{% endif %}
-{% if jail.sendername is defined and jail.sendername %}
-sendername = {{ jail.sendername }}
-{% endif %}
-{% if jail.sender is defined and jail.sender %}
-sender = {{ jail.sender }}
-{% endif %}
-{% if jail.mta is defined and jail.mta %}
-mta = {{ jail.mta }}
-{% endif %}
-{% if jail.datadir is defined and jail.datadir %}
-datadir = {{ jail.datadir }}
-{% endif %}
-{% if jail.ignoreip is defined and jail.ignoreip %}
-ignoreip = {{ jail.ignoreip | join(' ') }}
-{% endif %}
-{% if jail.backend is defined and jail.backend %}
-backend = {{ jail.backend }}
-{% endif %}
-{% if jail.protocol is defined and jail.protocol %}
-protocol = {{ jail.protocol }}
-{% endif %}
+enabled = {{ jail.enabled | default(false) | string | lower }}
+{# Only what the jail sets: a key left out inherits [DEFAULT] (an empty `findtime =` overrode it with nothing).
+   Several log files are continuation lines (fail2ban's multi-line value); fail2ban has no `action +=`, extra
+   actions are continuation lines of `action`. #}
+{% for key in ['filter', 'maxretry', 'findtime', 'bantime', 'banaction', 'destemail', 'sendername', 'sender', 'mta', 'datadir', 'backend', 'protocol'] %}{% if jail[key] is defined and jail[key] is not none and jail[key] != '' %}{{ key }} = {{ jail[key] }}
+{% endif %}{% endfor %}{% if jail.port is defined and jail.port %}port = {{ jail.port | join(',') if jail.port is not string else jail.port }}
+{% endif %}{% if jail.ignoreip is defined and jail.ignoreip %}ignoreip = {{ jail.ignoreip | join(' ') if jail.ignoreip is not string else jail.ignoreip }}
+{% endif %}{% if jail.logpath is defined and jail.logpath %}logpath = {{ jail.logpath | join('\n          ') if jail.logpath is not string else jail.logpath }}
+{% endif %}{% for o in jail.action_overrides | default([]) %}action_{{ o.name }} = {{ o.value }}
+{% endfor %}{% if jail.addaction is defined and jail.addaction %}action = %(action_)s
+{% for x in jail.addaction %}         {{ x }}
+{% endfor %}{% endif %}
 {% endfor %}

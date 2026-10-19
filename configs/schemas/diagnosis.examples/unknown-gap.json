@@ -1,0 +1,60 @@
+{
+  "schema": "yoloman.diagnosis/v1",
+  "diagnosis_id": "9e21d4b7-0c6a-4a55-b1f8-3d7e2c9a6f02",
+  "host": "bossman-wintest",
+  "platform": "windows",
+  "target": {
+    "kind": "service",
+    "name": "yoloman-probe-quiet",
+    "display_name": "yoloman probe (quiet)"
+  },
+  "collected_at": "2026-10-17T14:30:00Z",
+  "status": "stopped",
+  "summary": "yoloman-probe-quiet is not running and no rule explains why: it ended with error 1067 (the process terminated unexpectedly) and the logs since 2026-10-17T14:25:11Z hold no event for it.",
+  "evidence": [
+    {
+      "id": "scm:status:yoloman-probe-quiet",
+      "source": "QueryServiceStatusEx",
+      "observed": null,
+      "fact": "yoloman-probe-quiet is stopped, Win32ExitCode 1067 (the process terminated unexpectedly).",
+      "raw": {
+        "current_state": "stopped",
+        "win32_exit_code": 1067,
+        "service_specific_exit_code": 0,
+        "process_id": 0
+      }
+    },
+    {
+      "id": "evtquery:System:yoloman-probe-quiet",
+      "source": "EventLog/System",
+      "observed": null,
+      "fact": "No Service Control Manager event in the System log and no application error in the Application log mention yoloman probe (quiet); the oldest System record is from 2026-10-17T14:25:11Z.",
+      "raw": {
+        "query": "*[System[Provider[@Name='Service Control Manager']]]",
+        "matches": 0,
+        "oldest_record": "2026-10-17T14:25:11Z"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "svc.unexplained",
+      "claim": "yoloman-probe-quiet is not running and no rule explains why.",
+      "certainty": "Unknown",
+      "evidence_ids": [
+        "scm:status:yoloman-probe-quiet",
+        "evtquery:System:yoloman-probe-quiet"
+      ],
+      "precedent": null,
+      "remedy": null,
+      "gap": "The process ended with error 1067 (terminated unexpectedly), but neither the System log (oldest record 2026-10-17T14:25:11Z, the log was cleared or rolled over) nor the Application log holds an event for it — whether it crashed, was killed or exited on its own is not measurable from what remains."
+    }
+  ],
+  "timeline": [],
+  "gaps": [
+    {
+      "what": "Reliability records (Win32_ReliabilityRecords)",
+      "why": "the Reliability Analysis data collection is disabled on this host"
+    }
+  ]
+}

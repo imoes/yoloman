@@ -1,32 +1,21 @@
 {
-  "multicast": {
-    "address": "239.192.148.15",
-    "port": 1229,
-    "interface": "br0"
-  },
   "listeners": [
     {
-      "type": "libvirt",
-      "path": "/var/run/fence_virt.sock",
-      "mode": "0660",
-      "group": "libvirt",
-      "timeout": 25
+      "name": "multicast"
     }
   ],
-  "auth": {
-    "type": "keyfile",
-    "keyfile": "/etc/fence_virt.key"
-  },
-  "logging": {
-    "level": "info",
-    "file": "syslog"
-  },
-  "drivers": [
+  "listener_blocks": [
+    {
+      "name": "multicast",
+      "key_file": "/etc/fence_virt.key",
+      "address": "225.0.0.12",
+      "interface": "virbr0"
+    }
+  ],
+  "backends": [
     {
       "name": "libvirt",
-      "timeout": 30,
-      "retry": 3,
-      "retry_sleep": 5
+      "uri": "qemu:///system"
     }
   ]
 }

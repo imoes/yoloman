@@ -1,0 +1,32 @@
+# see "man logrotate" for details
+
+# global options do not affect preceding include directives
+
+# rotate log files weekly
+# rotation_frequency: The frequency of log rotation (e.g., weekly, daily, monthly).
+{{ rotation_frequency | default('weekly') }}
+
+# keep N weeks worth of backlogs
+# rotation_count: The number of weeks worth of backup logs to keep.
+{% if rotation_count | default(None) is defined and rotation_count | default(None) is not none %}
+rotate {{ rotation_count | default(4) }}
+{% else %}
+# keep 4 weeks worth of backlogs
+{% endif %}
+
+# create new (empty) log files after rotating old ones
+# create_new_logs: Directive to create new empty log files after rotating old ones.
+{{ create_new_logs | default('create') }}
+
+# use date as a suffix of the rotated file
+# date_extension: Directive to use date as a suffix of the rotated file.
+{{ date_extension | default('dateext') }}
+
+# uncomment this if you want your log files compressed
+# compress_logs: Directive to enable log file compression. Commented out in default config.
+#{{ compress_logs | default('compress') }}
+
+# packages drop log rotation information into this directory
+include /etc/logrotate.d
+
+# system-specific logs may be also be configured here.

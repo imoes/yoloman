@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig configuration for google-tinos-fonts-redhat.
+  
+  This template configures font aliases so that applications requesting
+  "Times New Roman" receive the Tinos font instead, and vice-versa.
+  Tinos is a metric-compatible clone of Times New Roman.
+-->
+<fontconfig>
+    <!--
+      Alias 1: Map original Times New Roman to Tinos.
+      When an application requests the family defined in `times_new_roman_family`,
+      fontconfig will accept `tinos_family` as the substitute.
+    -->
+    <alias binding="same">
+        <!-- The original font family name to be replaced. Default: 'Times New Roman' -->
+        <family>{{ times_new_new_roman_family | default('Times New Roman') }}</family>
+        <accept>
+            <!-- The substitute font family name. Default: 'Tinos' -->
+            <family>{{ tinos_family | default('Tinos') }}</family>
+        </accept>
+    </alias>
+
+    <!--
+      Alias 2: Map Tinos back to original Times New Roman.
+      This ensures bidirectional compatibility. If an application explicitly
+      requests Tinos, it will get Times New Roman (useful for fallback chains).
+    -->
+    <alias binding="same">
+        <!-- The substitute font family name. Default: 'Tinos' -->
+        <family>{{ tinos_family | default('Tinos') }}</family>
+        <default>
+            <!-- The original font family name to be replaced. Default: 'Times New Roman' -->
+            <family>{{ times_new_roman_family | default('Times New Roman') }}</family>
+        </default>
+    </alias>
+</fontconfig>

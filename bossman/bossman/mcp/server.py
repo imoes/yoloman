@@ -328,8 +328,8 @@ def build_mcp_server(
     @mcp.tool()
     async def capability_match(host: str) -> dict[str, Any]:
         """For a host, list what each of its unmet service requirements needs and WHO in the inventory
-        provides it — the deterministic Lego matcher (same logic as the REST /capabilities/match and the
-        Blueprint editor). Returns, per open requirement: the capability + accepted backends, the matching
+        provides it — the deterministic Lego matcher (same logic as the REST /capabilities/match).
+        Returns, per open requirement: the capability + accepted backends, the matching
         provider hosts (address/port) with a proposed field wiring, and — when nothing provides it yet —
         the catalog role a NEW server would need. No LLM: pure inventory set-logic over host_capabilities.
         """
@@ -360,12 +360,28 @@ def build_mcp_server(
                 out.append(entry)
         return {"host": host, "requirements": out}
 
+    async def _authorize_host(session: AsyncSession, agent: Agent) -> None:
+        """The host ACL, exactly as REST's require_manage_agent applies it: admin users bypass, every api
+        token needs a grant (all, host, or a host_group the host is in). Applied to every tool that
+        contacts a host's agent or runs something against it — before this, MCP checked no ACL at all, so a
+        token REST refuses with 403 could run `command` and `reboot` through call_agent_tool. Reading
+        Bossman's own records (host_status, list_problems, recent_diagnoses, ...) stays open, as it is over
+        REST. Fails closed: a call that did not pass the bearer middleware has no identity and is refused."""
+        from bossman.mcp.auth import current_auth_identity
+        from bossman.services.auth import user_can_manage_agent
+
+        identity = current_auth_identity.get()
+        if identity is None or not await user_can_manage_agent(session, identity, agent.id):
+            raise ValueError(f"not authorized to manage {agent.name!r}: the API token needs a host, host_group or "
+                             "all grant (POST /api/v1/access-grants)")
+
     async def _addressed_agent_or_raise(session: AsyncSession, host: str) -> Agent:
         agent = await session.scalar(select(Agent).where(Agent.name == host))
         if agent is None:
             raise ValueError(f"no such host {host!r}")
         if not agent.address:
             raise ValueError(f"host {host!r} has no reachable address (satellite/unenrolled)")
+        await _authorize_host(session, agent)
         return agent
 
     @mcp.tool()
@@ -396,14 +412,21 @@ def build_mcp_server(
 
     @mcp.tool()
     async def call_agent_tool(
-        host: str, tool: str, params: dict[str, Any] | None = None, dry_run: bool = False
+        host: str, tool: str, params: dict[str, Any] | None = None, dry_run: bool = False,
+        timeout_seconds: int | None = None,
     ) -> dict[str, Any]:
         """Router: invoke one tool on a managed agent by host name, proxied
         through Bossman to the agent's own tool endpoint. `params` are the
         tool's parameters; `dry_run=true` is forwarded so write modules run in
         check_mode. The agent's write gate + ACL + audit are the enforcement
         point — a read-only agent rejecting a write tool raises the agent's
-        error. Discover tools first with list_agent_tools."""
+        error. Discover tools first with list_agent_tools.
+
+        timeout_seconds (1–7200): how long to wait for the agent's answer. Default: 30 s, or 900 s for the
+        tools known to run long (package installs, benchmarks, update-grub, scx builds). A timeout does not mean
+        the tool failed — re-read the state before retrying."""
+        if timeout_seconds is not None and not 1 <= int(timeout_seconds) <= 7200:
+            raise ValueError("timeout_seconds must be between 1 and 7200")
         body = dict(params or {})
         if dry_run:
             body["dry_run"] = True
@@ -411,9 +434,510 @@ def build_mcp_server(
             agent = await _addressed_agent_or_raise(session, host)
             client = client_factory(agent, settings)
         try:
-            return await client.call_tool(tool, body)
+            extra = {"timeout": float(timeout_seconds)} if timeout_seconds else {}
+            return await client.call_tool(tool, body, **extra)
         except AgentClientError as exc:
             raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def update_agent(host: str, dry_run: bool = True) -> dict[str, Any]:
+        """Update one host's agent to the package Bossman ships (.deb for Debian/Ubuntu, .rpm for
+        RHEL/Fedora/SUSE, chosen by the host's OS family). dry_run=true (default) says which package would
+        be pushed (path, size, sha256) and the version the host reports now; dry_run=false pushes it, the
+        agent installs it and restarts (it is back within a few seconds — check with
+        call_agent_tool(host, "setup")). Needs the same host grant as the REST route
+        (POST /api/v1/agents/{id}/update-bundled); a host whose OS family is unknown is refused rather
+        than being sent the wrong package."""
+        from bossman.services.agent_update import AgentUpdateRefused, bundled_package, push_bundled
+
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            await _authorize_host(session, agent)
+            try:
+                if dry_run:
+                    pkg = bundled_package(agent, settings)
+                    return {"dry_run": True, "host": host, "current_version": agent.agent_version, **pkg.as_dict()}
+                return {"dry_run": False, "host": host, "previous_version": agent.agent_version,
+                        **await push_bundled(agent, settings, client_factory)}
+            except AgentUpdateRefused as exc:
+                raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def vm_hosts(placement: bool = False) -> dict[str, Any]:
+        """The hypervisors Bossman can create VMs on (Proxmox/vCenter), the golden images it can restore onto them,
+        and the network installs (fedora, alma, debian, ubuntu — default packages, minimum memory). placement=true also asks each hypervisor for its nodes and, per node, the storages that can
+        hold a disk and the bridges a NIC can attach to — what deploy_vm needs."""
+        from bossman.db.models import DiskImage, VmHost
+        from bossman.services import hypervisor as _hv
+        from bossman.services import vm_provision as vp
+
+        async with session_factory() as session:
+            from bossman.services import netinstall as _ni
+
+            images = [{"name": i.name, "status": i.status, "description": i.description}
+                      for i in (await session.scalars(select(DiskImage).order_by(DiskImage.name))).all()]
+            installs = _ni.catalog()
+            out = []
+            for h in (await session.scalars(select(VmHost).order_by(VmHost.name))).all():
+                row: dict[str, Any] = {"name": h.name, "kind": h.kind, "host": h.host}
+                if placement:
+                    try:
+                        row["placement"] = await vp.client_for(h).placement()
+                    except _hv.HypervisorError as exc:
+                        row["placement_error"] = str(exc)[:300]
+                out.append(row)
+            return {"images": images, "installs": installs, "vm_hosts": out}
+
+    @mcp.tool()
+    async def check_ip(addresses: list[str], prefix_len: int = 24) -> list[dict[str, Any]]:
+        """Is an IPv4 address free? Asks three sources and names each answer: Bossman's own records (agents,
+        their inventory, planned hosts' static addresses), NetBox when configured, and a live ping + ARP from an
+        enrolled agent in the same subnet. verdict = in_use | free | unknown — free only when the live probe ran
+        and saw nothing and no record holds it (NetBox alone is not trusted: it listed live addresses as free)."""
+        from bossman.services import ip_check
+
+        async with session_factory() as session:
+            return await ip_check.check(session, settings, client_factory, addresses, prefix_len)
+
+    @mcp.tool()
+    async def suggest_free_ips(prefix: str, count: int = 5) -> dict[str, Any]:
+        """Up to `count` addresses in `prefix` (e.g. 192.0.2.0/24) that every source agrees are free — the
+        candidates come from NetBox's available-ips when configured, each is verified with check_ip; the
+        rejected ones are listed with the reason."""
+        from bossman.services import ip_check
+
+        async with session_factory() as session:
+            return await ip_check.suggest(session, settings, client_factory, prefix, count)
+
+    @mcp.tool()
+    async def deploy_vm(name: str, address: str, gateway: str, dns: list[str], vm_host: str = "", node: str = "",
+                        storage: str = "", bridge: str = "", image: str | None = None, install: str | None = None,
+                        vlan: int | None = None, hostname: str | None = None, cores: int = 2, memory_mb: int = 2048,
+                        disk_gib: int = 32, uefi: bool = False, roles: list[Any] | None = None,
+                        packages: list[str] | None = None, write: bool = True, finalize_runbook: str | None = None,
+                        finalize_variables: dict[str, Any] | None = None, finalize_apply: bool = False,
+                        target: str = "vm", mac: str = "", grow_policy: dict[str, int] | None = None,
+                        grow_mode: str = "percent", production_vlan: int | None = None,
+                        production_bridge: str | None = None, dry_run: bool = True) -> dict[str, Any]:
+        """Deploy a host with a static `address` (CIDR, e.g. 192.0.2.134/24), its agent enrolled.
+        target="vm" (default) creates the VM on a registered hypervisor (vm_host, node, storage, bridge, vlan —
+        see vm_hosts); target="bare_metal" takes an existing machine by its `mac` (required for install; for an
+        image an empty mac arms a job the next PXE-booting machine claims). Give exactly one of:
+        * image=<golden image> — PXE-restore of a captured image (Debian family); grow_policy + grow_mode size its
+          growable volumes for THIS deployment (keys: mountpoint like "/var" or role like "root"; percent: each
+          but the last takes its share, the last takes the rest; absolute: GiB, one 0 fills the rest);
+          production_vlan (Proxmox tag on the same bridge) / production_bridge (vCenter portgroup) move the VM's
+          NIC there after imaging;
+        * install="<distro>[-<release>]" — the distribution's own network installer, newest stable/LTS when no
+          release is given: fedora, alma (AlmaLinux), debian (stable), ubuntu (newest LTS; needs memory_mb >= 8192).
+          `packages` replaces the distribution's default set (vm_hosts lists it); every package is checked against
+          the distribution's repositories before the VM exists.
+        roles (names, or {"name", "params"}) are bound to the new host as desired state and converge after its
+        first report — approval-gated unless YOLO mode is on. finalize_runbook (a stored runbook, see list_runbooks)
+        runs once the new host's agent first reports, with
+        finalize_variables; finalize_apply=false runs it in check mode — applying needs YOLO mode for an AI caller,
+        the same gate as run_runbook. The VM's MAC comes from the hypervisor and the PXE DHCP answers ONLY that
+        MAC. dry_run=true (default) runs every pre-flight check and creates nothing; dry_run=false refuses while a
+        check fails, then creates the VM and arms the restore or install; follow it with deployment_status."""
+        from bossman.services import vm_provision as vp
+
+        req = {"vm_host": vm_host, "node": node, "name": name, "storage": storage, "bridge": bridge, "address": address,
+               "gateway": gateway, "dns": dns, "image": image, "install": install, "vlan": vlan, "hostname": hostname,
+               "cores": cores, "memory_mb": memory_mb, "disk_gib": disk_gib, "uefi": uefi, "roles": roles,
+               "packages": packages, "write": write, "finalize_runbook": finalize_runbook,
+               "finalize_variables": finalize_variables, "finalize_apply": finalize_apply, "target": target,
+               "mac": mac, "grow_policy": grow_policy, "grow_mode": grow_mode, "production_vlan": production_vlan,
+               "production_bridge": production_bridge, "dry_run": dry_run}
+        async with session_factory() as session:
+            try:
+                return await vp.deploy(session, settings, client_factory, req=req,
+                                       requested_by="ai:" + (current_identity.get() or "mcp"), ai=True)
+            except vp.ProvisionError as exc:
+                raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def experiment_start(host: str, tunable: str, params: dict[str, Any], profile: str, runs: int = 5,
+                               hypothesis: str = "", snapshot: bool = False) -> dict[str, Any]:
+        """MEASURE whether a kernel tunable helps, instead of guessing (docs/kernel-tuning.md, block 5).
+        tunable is a tunable resource name (sched_ext, systemd_resource:<unit>, blockdev_tuning:<device>,
+        cpu_governor, kernel_cmdline); params are the candidate's module parameters (what resource_apply's
+        desired.params would be); profile a yoloman.benchmark profile (sched_latency, sched_throughput, cpu, memory,
+        io_randread); runs per side (3–20, default 5). Runs alternate A (the host as it is) and B (the candidate);
+        the candidate is undone after each B run and the host ends at A. snapshot=true (block 6, a VM Bossman
+        deployed): a hypervisor snapshot is taken first and the VM rolled back to it at the end — required for a
+        tunable that needs a reboot. Refused before anything changes when the host refuses the candidate or it is
+        what the host already has. Returns the experiment id; follow it with experiment_status(id, wait_s=300).
+        The verdict is better | worse | no_difference | inconclusive | aborted, with every number it rests on —
+        report it as it is; a change inside the noise band is no_difference, never better."""
+        from bossman.services import experiment as ex
+
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            try:
+                return await ex.start(session, agent=agent, tunable=tunable, params=params, profile=profile, runs=runs,
+                                      hypothesis=hypothesis, requested_by="ai:" + (current_identity.get() or "mcp"),
+                                      session_factory=session_factory, settings=settings, client_factory=client_factory,
+                                      snapshot=snapshot)
+            except ex.ExperimentError as exc:
+                raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def experiment_status(experiment_id: str, wait_s: int = 0) -> dict[str, Any]:
+        """One experiment: status (running | done | aborted), verdict, summary (medians, IQR, noise band, delta,
+        reason, whether the host is back at A), every measurement, the undo used. wait_s (0–900) waits until it
+        finishes or records a new run instead of polling in a loop."""
+        from bossman.services import experiment as ex
+
+        async with session_factory() as session:
+            try:
+                return await ex.status(session, experiment_id, wait_s=wait_s)
+            except ex.ExperimentError as exc:
+                raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def experiments(host: str = "", limit: int = 20) -> list[dict[str, Any]]:
+        """Recent tuning experiments, newest first — of one host, or of all hosts when host is empty."""
+        from bossman.services import experiment as ex
+
+        async with session_factory() as session:
+            agent = None
+            if host:
+                agent = await session.scalar(select(Agent).where(Agent.name == host))
+                if agent is None:
+                    raise ValueError(f"no such host {host!r}")
+            return await ex.list_for(session, agent, limit=max(1, min(int(limit), 200)))
+
+    @mcp.tool()
+    async def set_netboot(enabled: bool) -> dict[str, Any]:
+        """Switch PXE netboot on or off (the WebUI's netboot toggle, same implementation). While on, the PXE
+        DHCP answers ONLY the MACs of armed restore/install jobs (a job without a MAC opens it to everyone for a
+        bounded window) — see deploy_vm. Fleet-wide, so it needs an all-hosts grant, not a host grant. When no
+        secret exists yet a random one is generated (the operator can rotate it in the WebUI)."""
+        import secrets as _secrets
+
+        from bossman.api.system_settings import _get_or_seed, apply_netboot
+        from bossman.services import netboot_dhcp
+
+        async with session_factory() as session:
+            await _require_fleet_grant(session, "set_netboot")
+            row = await _get_or_seed(session)
+            secret = None if (row.netboot_secret or settings.netboot_secret or not enabled) else _secrets.token_urlsafe(24)
+            try:
+                row = await apply_netboot(session, enabled=enabled, secret=secret,
+                                          who="ai:" + (current_identity.get() or "mcp"))
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+            pol = await netboot_dhcp.policy(session, enabled=enabled, open_minutes=settings.netboot_open_dhcp_minutes)
+            return {"netboot_enabled": row.netboot_enabled, "secret_generated": secret is not None,
+                    "updated_by": row.updated_by, **pol}
+
+    async def _require_fleet_grant(session: AsyncSession, what: str) -> None:
+        from bossman.mcp.auth import current_auth_identity
+        from bossman.services.auth import grants_of
+
+        identity = current_auth_identity.get()
+        ok = identity is not None and ((identity.kind == "user" and identity.role == "admin")
+                                       or any(g.scope == "all" for g in await grants_of(session, identity)))
+        if not ok:
+            raise ValueError(f"{what} is fleet-wide: the API token needs an 'all' grant (POST /api/v1/access-grants)")
+
+    @mcp.tool()
+    async def vm_status(vm_host: str, vmid: str = "", name: str = "", node: str | None = None) -> dict[str, Any]:
+        """A VM's power state and how it boots: status (running|stopped), qmpstatus, uptime, and its config's
+        name, net0 (MAC, bridge, VLAN tag), boot order, bios, memory, cores, disk. By vmid or by the VM's name;
+        node is looked up when omitted."""
+        from bossman.services import hypervisor as _hv
+        from bossman.services import vm_provision as vp
+
+        async with session_factory() as session:
+            try:
+                host = await vp.vm_host_by_name(session, vm_host)
+            except vp.ProvisionError as exc:
+                raise ValueError(str(exc)) from exc
+        try:
+            return await vp.client_for(host).vm_status(vmid, node, name)
+        except (_hv.HypervisorError, AttributeError) as exc:
+            raise ValueError(f"vm_status on {vm_host}: {exc}") from exc
+
+    @mcp.tool()
+    async def vm_power(vm_host: str, vmid: str, action: str, node: str | None = None) -> dict[str, Any]:
+        """start | stop | reset | shutdown a VM on a registered hypervisor. Needs an all-hosts grant (it can take
+        any VM on that hypervisor down)."""
+        from bossman.services import hypervisor as _hv
+        from bossman.services import vm_provision as vp
+
+        async with session_factory() as session:
+            await _require_fleet_grant(session, "vm_power")
+            try:
+                host = await vp.vm_host_by_name(session, vm_host)
+            except vp.ProvisionError as exc:
+                raise ValueError(str(exc)) from exc
+        try:
+            return await vp.client_for(host).vm_power(vmid, action, node)
+        except (_hv.HypervisorError, AttributeError) as exc:
+            raise ValueError(f"vm_power on {vm_host}: {exc}") from exc
+
+    @mcp.tool()
+    async def vm_delete(vm_host: str, vmid: str, remove_host: bool = False) -> dict[str, Any]:
+        """Destroy a VM and its disks — ONLY a VM Bossman created through deploy_vm (an install or restore job
+        names its vmid); anything else is refused. Its deployment becomes vm_deleted. Its host (agent row) is
+        removed when it never reported; remove_host=true removes it also when it did, with its history — the VM
+        is gone, so is the host. Needs an all-hosts grant."""
+        from bossman.services import vm_provision as vp
+
+        async with session_factory() as session:
+            await _require_fleet_grant(session, "vm_delete")
+            try:
+                host = await vp.vm_host_by_name(session, vm_host)
+                return await vp.delete_vm(session, host, vmid, remove_host=remove_host)
+            except vp.ProvisionError as exc:
+                raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def deployment_status(hostname: str, wait_s: int = 0) -> dict[str, Any]:
+        """Where a deploy_vm stands: `install` (network install: pending → installing → done | failed | vm_deleted)
+        or `restore` (golden image: status, step n/m, error, log tail), `host` (enrolment, address, agent version,
+        last report) and `finalize` (playbook: waiting → running → done | failed | cancelled).
+
+        wait_s (0–600): wait up to that many seconds for something to change (a status, the step, the first
+        report, the finalization) before answering, instead of polling in a loop. The answer says `waited_s` and
+        `changed`. An install takes 4–15 minutes, so wait_s=300 per call is a good rhythm."""
+        import asyncio
+        import time
+
+        from bossman.services import finalize as fin
+        from bossman.services import vm_provision as vp
+
+        def mark(st: dict[str, Any]) -> tuple:
+            i, r, h, f = (st.get(k) or {} for k in ("install", "restore", "host", "finalize"))
+            return (i.get("status"), r.get("status"), r.get("step"), h.get("last_seen_at") is not None, f.get("status"))
+
+        async def once() -> dict[str, Any]:
+            async with session_factory() as session:
+                await fin.kick(session, session_factory=session_factory, settings=settings, client_factory=client_factory)
+                try:
+                    return await vp.status(session, hostname)
+                except vp.ProvisionError as exc:
+                    raise ValueError(str(exc)) from exc
+
+        wait_s = max(0, min(int(wait_s or 0), 600))
+        t0 = time.monotonic()
+        st = await once()
+        first = mark(st)
+        while wait_s and time.monotonic() - t0 < wait_s:
+            await asyncio.sleep(min(10.0, wait_s - (time.monotonic() - t0)))
+            st = await once()
+            if mark(st) != first:
+                break
+        if wait_s:
+            st = {**st, "waited_s": round(time.monotonic() - t0), "changed": mark(st) != first}
+        return st
+
+    @mcp.tool()
+    async def diagnose_service(host: str, name: str) -> dict[str, Any]:
+        """WHY DOES A SERVICE NOT RUN? Asks the host's own diagnosis (`service_diagnose`, Windows service or
+        systemd unit) and returns the stored document: `summary`, `findings` (rule_id, claim, certainty,
+        evidence_ids, precedent, remedy, gap), `evidence` (each measurement with its id, source, fact, raw),
+        `timeline`, `gaps`, plus `contract_status` (ok | violation, with reasons).
+
+        HOW TO USE IT HONESTLY: the certainty is the agent's, measured — Proven (read directly), Likely (inferred),
+        Unknown (with the gap that names what could not be measured). Repeat it, never raise it. Cite evidence ids
+        for every statement. A `precedent` is the most recent change before the failure — a correlation, not a
+        cause. A `remedy` is data (before/after/rollback/verify): propose it, do not apply it on your own.
+        contract_status "violation" means the document does not hold — say so and why. Read-only on the host."""
+        from bossman.services import diagnosis as diag
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+            try:
+                row = await diag.diagnose(session, agent, client, name)
+            except diag.DiagnosisUnavailable as exc:
+                raise ValueError(str(exc)) from exc
+            return diag.row_dict(row)
+
+    @mcp.tool()
+    async def diagnose_updates(host: str) -> dict[str, Any]:
+        """WHY IS A HOST BEHIND ON UPDATES, OR WHY DID AN UPDATE FAIL? Asks the host's own update diagnosis
+        (`update_diagnose`, Windows Update on Windows / apt·dnf on Linux) and returns the stored document: `summary`,
+        `findings` (upd.install_failed, upd.reboot_pending, upd.wsus_unreachable, upd.held, upd.dpkg_interrupted,
+        upd.behind, upd.up_to_date — each with a certainty and evidence_ids), `evidence`, `timeline`, `gaps`, and
+        `contract_status`. Same honesty rules as diagnose_service: the certainty is the agent's, measured — repeat it,
+        never raise it; cite evidence ids; a remedy is a proposal, not an action. Read-only on the host."""
+        from bossman.services import diagnosis as diag
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+            try:
+                row = await diag.diagnose_updates(session, agent, client)
+            except diag.DiagnosisUnavailable as exc:
+                raise ValueError(str(exc)) from exc
+            return diag.row_dict(row)
+
+    @mcp.tool()
+    async def recent_diagnoses(host: str, name: str = "", limit: int = 10) -> dict[str, Any]:
+        """The diagnoses already stored for a host (optionally one service), newest first, without the documents:
+        when, which service, status, leading rule + certainty, summary, contract_status. Use it to see whether a
+        problem is new or recurring before asking for a fresh diagnose_service."""
+        from bossman.services import diagnosis as diag
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            rows = await diag.recent(session, agent, name, max(1, min(limit, 100)))
+            return {"host": host, "items": [diag.row_dict(r, with_document=False) for r in rows]}
+
+    @mcp.tool()
+    async def export_diagnosis(id: str, format: str) -> dict[str, Any]:
+        """A stored diagnosis (the `id` diagnose_service returned) in another tool's format: `checkmk`, `gelf`,
+        `ansible`, `dsc` or `powershell`. The last three carry the remedies as `apply` and their `rollback`; what a
+        format cannot express is in `not_expressible`, with the reason. Nothing is executed — show it to a person."""
+        from bossman.db.models import Diagnosis
+        from bossman.services import diagnosis_export as dx
+        async with session_factory() as session:
+            try:
+                row = await session.get(Diagnosis, UUID(id))
+            except ValueError as exc:
+                raise ValueError(f"not a diagnosis id: {id!r}") from exc
+            if row is None:
+                raise ValueError(f"no stored diagnosis {id!r}")
+            return {"id": str(row.id), **dx.export(row.document, format, row.contract_violations)}
+
+    @mcp.tool()
+    async def send_diagnosis_gelf(id: str) -> dict[str, Any]:
+        """Send a stored diagnosis (`id` from diagnose_service) to the configured Graylog over GELF — one message per
+        finding and per evidence, correlated by the diagnosis id. The target is BOSSMAN_GELF_HOST/_PORT/_PROTOCOL;
+        with none set this refuses with the reason rather than dropping silently, and a connection error says so too.
+        Read-only on the diagnosis — it changes nothing, it only forwards what export_diagnosis(format='gelf') shows."""
+        from bossman.db.models import Diagnosis
+        from bossman.services import diagnosis_export as dx, gelf_send
+        if not settings.gelf_host:
+            raise ValueError("no GELF target configured (set BOSSMAN_GELF_HOST)")
+        async with session_factory() as session:
+            try:
+                row = await session.get(Diagnosis, UUID(id))
+            except ValueError as exc:
+                raise ValueError(f"not a diagnosis id: {id!r}") from exc
+            if row is None:
+                raise ValueError(f"no stored diagnosis {id!r}")
+            messages = dx.export(row.document, "gelf", row.contract_violations)["content"]
+        try:
+            result = gelf_send.send(messages, settings.gelf_host, settings.gelf_port, settings.gelf_protocol)
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"GELF send failed: {exc}") from exc
+        return {"id": str(row.id), "diagnosis_id": row.diagnosis_id, **result}
+
+    @mcp.tool()
+    async def propose_remedy(id: str, finding: int = 0) -> dict[str, Any]:
+        """File the remedy of one finding of a stored diagnosis (`id` from diagnose_service, `finding` its index)
+        as a change proposal for a person to review. Nothing is executed — not now, not on approval: approval
+        needs a second person and attaches the Ansible/DSC/PowerShell artifacts for them to run. Refused, with the
+        reason, when the finding has no remedy or the diagnosis does not hold."""
+        from bossman.db.models import Diagnosis
+        from bossman.services import proposals as proposals_svc
+        async with session_factory() as session:
+            try:
+                row = await session.get(Diagnosis, UUID(id))
+            except ValueError as exc:
+                raise ValueError(f"not a diagnosis id: {id!r}") from exc
+            if row is None:
+                raise ValueError(f"no stored diagnosis {id!r}")
+            p = await proposals_svc.create_remedy_proposal(session, row, finding,
+                                                           "ai:" + (current_identity.get() or "mcp"))
+            return {"proposal_id": str(p.id), "status": p.status, "title": p.title,
+                    "next": "a person reviews it under change proposals; approving executes nothing"}
+
+    @mcp.tool()
+    async def check_explanation(id: str, sentences: list[dict[str, Any]]) -> dict[str, Any]:
+        """Check YOUR explanation of a stored diagnosis before you give it to a person. Pass `sentences` as
+        [{"text": "...", "evidence_ids": ["..."]}]. Each comes back with `backed` and, if false, `why`: it cites no
+        evidence, cites an id that is not in the diagnosis, states a certainty (the finding's certainty is not yours to
+        phrase), or names a name/number/code/time that the cited evidence does not contain. Rewrite or drop every
+        unbacked sentence. `header` is what must be said verbatim (certainty, claim, precedent, remedy, gaps)."""
+        from bossman.db.models import Diagnosis
+        from bossman.services import diagnosis_explain as dex
+        async with session_factory() as session:
+            try:
+                row = await session.get(Diagnosis, UUID(id))
+            except ValueError as exc:
+                raise ValueError(f"not a diagnosis id: {id!r}") from exc
+            if row is None:
+                raise ValueError(f"no stored diagnosis {id!r}")
+            checked = dex.check(row.document, sentences)
+            return {"id": id, "header": dex.header(row.document), "sentences": checked,
+                    "unbacked": sum(1 for s in checked if not s["backed"])}
+
+    @mcp.tool()
+    async def create_patch_ring(name: str, scope_type: str, accept_list: list[str] | None = None,
+                                category_names: list[str] | None = None, reboot: str = "never",
+                                agent: str = "", host_group: str = "", dry_run: bool = True) -> dict[str, Any]:
+        """Plan a Windows patch ring: install updates across the fleet in ordered waves (canary → rings) with a health
+        gate, as a staged rollout whose action is windows_update. `scope_type` is host|group|global; `agent` names the
+        host for scope_type=host, `host_group` the group. `accept_list` picks exact KBs, else `category_names` (default
+        the security set). Only Windows hosts are kept; others come back in `skipped`. NOTHING installs until the
+        returned rollout is started (start_rollout / the Rollouts UI); dry_run=true (default) only reports what each
+        ring would install. reboot never|if_required."""
+        from bossman.db.models import Agent, HostGroup
+        from bossman.services import patch_ring
+        from bossman.services.compiler import affected_agent_ids
+        from bossman.services.rollout import plan_waves
+        from bossman.db.models import DEFAULT_TENANT_ID, Rollout
+        from sqlalchemy import select as _select
+        if scope_type not in ("host", "group", "global"):
+            raise ValueError("scope_type must be host|group|global")
+        if reboot not in ("never", "if_required"):
+            raise ValueError("reboot must be never|if_required")
+        async with session_factory() as session:
+            agent_id = host_group_id = None
+            if scope_type == "host":
+                a = await session.scalar(_select(Agent).where(Agent.name == agent))
+                if a is None:
+                    raise ValueError(f"no such host {agent!r}")
+                agent_id = a.id
+            elif scope_type == "group":
+                g = await session.scalar(_select(HostGroup).where(HostGroup.name == host_group))
+                if g is None:
+                    raise ValueError(f"no such host group {host_group!r}")
+                host_group_id = g.id
+            candidates = [str(a) for a in await affected_agent_ids(session, scope_type, agent_id=agent_id,
+                                                                   host_group_id=host_group_id, tenant_id=DEFAULT_TENANT_ID)]
+            if not candidates:
+                raise ValueError("scope matched no hosts")
+            windows, skipped = await patch_ring.windows_only(session, candidates)
+            if not windows:
+                raise ValueError(f"scope matched no Windows hosts ({len(skipped)} non-Windows skipped)")
+            runbook_name = await patch_ring.ensure_patch_runbook(session, categories=category_names or [],
+                                                                 accept=accept_list or [], reboot=reboot)
+            r = Rollout(tenant_id=DEFAULT_TENANT_ID, name=name, runbook_name=runbook_name, variables={},
+                        dry_run=dry_run, waves=plan_waves(windows, [1, "25%", "rest"]),
+                        health_gate={"wait_seconds": 300, "max_fail_pct": 0.0}, status="pending",
+                        created_by="ai:" + (current_identity.get() or "mcp"))
+            session.add(r)
+            await session.commit()
+            await session.refresh(r)
+            return {"rollout_id": str(r.id), "name": r.name, "runbook": runbook_name, "waves": r.waves,
+                    "windows_hosts": len(windows), "skipped": skipped, "dry_run": dry_run,
+                    "next": "start it with start_rollout or the Rollouts UI; nothing installs until then"}
+
+    @mcp.tool()
+    async def man_search(
+        host: str, query: str = "", page: str = "", section: str = "", heading: str = "", grep: str = "",
+        full_text: bool = False, max_chars: int = 8000, limit: int = 20,
+    ) -> dict[str, Any]:
+        """Look things up in the manual pages installed on a managed host — the documentation of exactly the
+        versions that run there. Use it BEFORE changing a configuration you are not sure about. Two steps:
+        (1) search with `query` (a few words, e.g. "ssh daemon"; full_text=true finds an option or directive name
+        inside the pages, e.g. "PermitRootLogin"); (2) read with `page` (+ `section`: 5 file formats, 8 daemons and
+        admin commands, 1 user commands), narrowed by `heading` (OPTIONS, FILES, EXAMPLES) or `grep` (a word — the
+        paragraph that defines it comes first). A host without manual pages says so in `note`."""
+        from bossman.services.manpages import man_lookup
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        return await man_lookup(client, {"query": query, "page": page, "section": section, "heading": heading,
+                                         "grep": grep, "full_text": full_text, "max_chars": max_chars,
+                                         "limit": limit})
 
     @mcp.tool()
     async def disk_layout(host: str) -> dict[str, Any]:
@@ -656,6 +1180,155 @@ def build_mcp_server(
             agent = await _addressed_agent_or_raise(session, host)
             return await helm_app.uninstall_release(agent, client_factory, settings, name=name, namespace=namespace)
 
+    # ── Kubernetes objects: the AI drives a cluster through its ACCESS HOST ──
+    # (project kubernetes-console). cluster = the registered Kubernetes cluster's
+    # NAME; every call runs kubectl on that cluster's access host, never on etcd.
+    # Reads are live; writes are server-side applies behind the approval gate.
+
+    async def _k8s_cluster_or_raise(session: AsyncSession, cluster: str):
+        from bossman.db.models import KubernetesCluster
+        row = await session.scalar(select(KubernetesCluster).where(KubernetesCluster.name == cluster))
+        if row is None:
+            names = [c.name for c in (await session.scalars(select(KubernetesCluster))).all()]
+            raise ValueError(f"no such Kubernetes cluster {cluster!r} — registered: {', '.join(names) or 'none'}")
+        agent = await session.get(Agent, row.agent_id)
+        if agent is None or not agent.address:
+            raise ValueError(f"Kubernetes cluster {cluster!r}: its access host has no reachable address")
+        return row, agent, client_factory(agent, settings)
+
+    @mcp.tool()
+    async def k8s_clusters() -> list[dict[str, Any]]:
+        """The registered Kubernetes clusters: name, access host, reachability (reachable | unreachable |
+        never) with the reason, server version, node/namespace counts, when last observed."""
+        from bossman.db.models import KubernetesCluster
+        async with session_factory() as session:
+            rows = (await session.scalars(select(KubernetesCluster))).all()
+            out = []
+            for c in rows:
+                agent = await session.get(Agent, c.agent_id)
+                out.append({"name": c.name, "access_host": agent.name if agent else None, "reachability": c.reachability,
+                            "unreachable_reason": c.unreachable_reason, "server_version": c.server_version,
+                            "node_count": c.node_count, "namespace_count": c.namespace_count,
+                            "observed_at": c.observed_at.isoformat() if c.observed_at else None})
+            return out
+
+    @mcp.tool()
+    async def k8s_inventory(cluster: str, refresh: bool = False) -> dict[str, Any]:
+        """A cluster's inventory — nodes, namespaces (with Pod Security labels), api-resources, a per-namespace
+        workload summary and the latest Warning events — from Bossman's cache (poller-refreshed every 15 min).
+        refresh=true fetches live. Start here before listing objects."""
+        from datetime import datetime, timezone
+        from bossman.services import kubernetes as k
+        async with session_factory() as session:
+            row, _agent, client = await _k8s_cluster_or_raise(session, cluster)
+            if refresh or not row.inventory:
+                result = await k.refresh_inventory(session, row, client, datetime.now(timezone.utc))
+                await session.commit()
+                if not result.get("ok"):
+                    return {"reachability": "unreachable", "reason": result.get("reason"), "inventory": row.inventory or None}
+            return {"reachability": row.reachability, "observed_at": row.observed_at.isoformat() if row.observed_at else None,
+                    "inventory": row.inventory}
+
+    @mcp.tool()
+    async def k8s_objects(cluster: str, kind: str, namespace: str = "", all_namespaces: bool = False,
+                          selector: str = "") -> dict[str, Any]:
+        """List objects of one kind (kubectl resource name: pods, deployments, svc, configmaps, …) as rows with an
+        EXHAUSTIVE state (healthy | progressing | degraded | failed | completed | suspended | pending | terminating |
+        unknown | static), the Kubernetes reason and its plain-language explanation and fix. Live."""
+        from bossman.services import kubernetes as k
+        async with session_factory() as session:
+            row, _agent, client = await _k8s_cluster_or_raise(session, cluster)
+            return await k.list_objects(client, row, kind, namespace=namespace or None, all_namespaces=all_namespaces,
+                                        selector=selector or None)
+
+    @mcp.tool()
+    async def k8s_object(cluster: str, kind: str, name: str, namespace: str = "") -> dict[str, Any]:
+        """One object with spec (desired) and status (observed) separated, its state, generation vs
+        observedGeneration, field managers and the etcd key it is stored under (informational)."""
+        from bossman.services import kubernetes as k
+        async with session_factory() as session:
+            row, _agent, client = await _k8s_cluster_or_raise(session, cluster)
+            return await k.get_object(client, row, kind, name, namespace=namespace or None)
+
+    @mcp.tool()
+    async def k8s_events(cluster: str, namespace: str = "", name: str = "", kind: str = "",
+                         all_namespaces: bool = False) -> dict[str, Any]:
+        """Events — the WHY behind a state — for a namespace or one object (name + kind), Warnings first,
+        newest first, each Warning explained. Read this before deciding what to change."""
+        from bossman.services import kubernetes as k
+        async with session_factory() as session:
+            row, _agent, client = await _k8s_cluster_or_raise(session, cluster)
+            return await k.events_for(client, row, namespace or None, name=name or None, kind=kind or None,
+                                      all_namespaces=all_namespaces)
+
+    @mcp.tool()
+    async def k8s_logs(cluster: str, namespace: str, pod: str, container: str = "", tail: int = 200,
+                       previous: bool = False) -> dict[str, Any]:
+        """A container's last `tail` log lines. previous=true reads the crashed predecessor — the first thing
+        to read on CrashLoopBackOff."""
+        from bossman.services import kubernetes as k
+        async with session_factory() as session:
+            row, _agent, client = await _k8s_cluster_or_raise(session, cluster)
+            return await k.logs(client, row, namespace, pod, container=container or None, tail=tail, previous=previous)
+
+    def _k8s_resource(session, row, agent, manifest: dict[str, Any], requested_by: str = "mcp"):
+        from bossman.services.resources.kubernetes_object import KubernetesObjectResource
+        md = manifest.get("metadata") or {}
+        if not manifest.get("kind") or not md.get("name"):
+            raise ValueError("manifest needs kind and metadata.name")
+        return KubernetesObjectResource(session, agent, client_factory, settings, md["name"], cluster=row,
+                                        namespace=md.get("namespace") or None, api_version=manifest.get("apiVersion") or "v1",
+                                        kind=manifest["kind"], requested_by=requested_by)
+
+    @mcp.tool()
+    async def k8s_plan(cluster: str, manifest: dict[str, Any]) -> dict[str, Any]:
+        """What applying this manifest WOULD do: a server-side dry run (admission, validation, Pod Security,
+        quota — nothing persisted) plus the diff. action = create | update | noop | refused (with the server's
+        reason). Always call before k8s_apply."""
+        async with session_factory() as session:
+            row, agent, _client = await _k8s_cluster_or_raise(session, cluster)
+            return await _k8s_resource(session, row, agent, manifest).plan({"manifest": manifest})
+
+    @mcp.tool()
+    async def k8s_apply(cluster: str, manifest: dict[str, Any], dry_run: bool = True, note: str = "") -> dict[str, Any]:
+        """Server-side apply of one object's manifest (field manager "bossman", strict validation), recorded as a
+        Bossman generation. dry_run defaults to true. Outside global YOLO mode this files a ChangeProposal
+        with the preview instead of applying — the answer says awaiting_approval and names the proposal for a
+        human to approve. Rollback = k8s_rollback with a generation from the answer's history."""
+        async with session_factory() as session:
+            row, agent, _client = await _k8s_cluster_or_raise(session, cluster)
+            return await _k8s_resource(session, row, agent, manifest, requested_by="ai:mcp").apply(
+                {"manifest": manifest, "require_approval": True}, dry_run=dry_run, note=note or None)
+
+    @mcp.tool()
+    async def k8s_generations(cluster: str, kind: str, name: str, namespace: str = "", api_version: str = "v1") -> dict[str, Any]:
+        """Bossman's history of applied manifests for one object (rollback points). Kubernetes' own rollout
+        revisions are a separate numbering — see k8s_object."""
+        async with session_factory() as session:
+            row, agent, _client = await _k8s_cluster_or_raise(session, cluster)
+            r = _k8s_resource(session, row, agent, {"apiVersion": api_version, "kind": kind, "metadata": {"name": name, "namespace": namespace or None}})
+            return {"resource_key": r.resource_key, "generations": await r.generations()}
+
+    @mcp.tool()
+    async def k8s_rollback(cluster: str, kind: str, name: str, generation: int, namespace: str = "", api_version: str = "v1") -> dict[str, Any]:
+        """Re-apply an earlier generation's manifest as a NEW generation (forward-converge), through the same
+        approval gate as k8s_apply. Rolling back to a generation that recorded a deletion deletes again."""
+        async with session_factory() as session:
+            row, agent, _client = await _k8s_cluster_or_raise(session, cluster)
+            r = _k8s_resource(session, row, agent, {"apiVersion": api_version, "kind": kind, "metadata": {"name": name, "namespace": namespace or None}}, requested_by="ai:mcp")
+            return await r.rollback(generation)
+
+    @mcp.tool()
+    async def k8s_delete(cluster: str, kind: str, name: str, namespace: str = "", api_version: str = "v1",
+                         preview: bool = True) -> dict[str, Any]:
+        """Delete one object. preview=true (default) only lists what goes with it (dependents by ownerReference)
+        and what STAYS (PersistentVolumeClaims, with the reason). preview=false deletes and records the deletion
+        as a generation, so the object shows as vanished in its history."""
+        async with session_factory() as session:
+            row, agent, _client = await _k8s_cluster_or_raise(session, cluster)
+            r = _k8s_resource(session, row, agent, {"apiVersion": api_version, "kind": kind, "metadata": {"name": name, "namespace": namespace or None}}, requested_by="ai:mcp")
+            return await r.delete(preview=preview)
+
     # --- Systems / rehearsal plane (clone-a-prod-system, AI-autonomous) -------
 
     async def _system_by_name_or_raise(session: AsyncSession, name: str):
@@ -819,68 +1492,87 @@ def build_mcp_server(
     # One uniform lifecycle the AI drives across tiers: observe / plan / apply /
     # generations / rollback. kind = docker | helm (config/role fold in later).
 
-    def _make_resource(session, agent, kind: str, name: str, namespace: str):
-        if kind == "docker":
-            from bossman.services.resources.docker_container import DockerContainerResource
-            return DockerContainerResource(session, agent, client_factory, settings, name)
-        if kind == "helm":
-            from bossman.services.resources.helm_release import HelmReleaseResource
-            return HelmReleaseResource(session, agent, client_factory, settings, name, namespace=namespace)
-        if kind == "config":
-            from bossman.services.resources.config_file import ConfigResource
-            return ConfigResource(session, agent, client_factory, settings, name)  # name = file path
-        if kind == "role":
-            from bossman.services.resources.role import RoleResource
-            return RoleResource(session, agent, client_factory, settings, name, requested_by="mcp")
-        raise ValueError(f"unknown resource kind: {kind!r} (use docker|helm|config|role)")
+    async def _make_resource(session, host: str, kind: str, name: str, namespace: str = "default",
+                             cluster: str = "", api_version: str = "", object_kind: str = ""):
+        """The ONE construction path, shared with the REST routes: services.resources.build reads the
+        registry. This used to be a private if-chain that knew only docker|helm|config|role, so package,
+        service, k8s (and later tunable) existed over REST but not over MCP — two ways to the same object,
+        and one of them incomplete."""
+        import types as _types
+
+        from bossman.services import resources as _reg
+
+        try:
+            _reg.spec_for(kind)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        agent = await session.scalar(select(Agent).where(Agent.name == host))
+        if agent is None:
+            raise ValueError(f"no such host {host!r}")
+        await _authorize_host(session, agent)
+        identity = _types.SimpleNamespace(name=current_identity.get() or "mcp")
+        try:
+            return await _reg.build(kind, agent_id=agent.id, name=name, session=session, settings=settings,
+                                    client_factory=client_factory, identity=identity, namespace=namespace,
+                                    cluster=cluster, api_version=api_version, object_kind=object_kind)
+        except (_reg.NoSuchResource, _reg.ResourceUnreachable) as exc:
+            raise ValueError(str(exc)) from exc
 
     @mcp.tool()
-    async def resource_observe(host: str, kind: str, name: str, namespace: str = "default") -> dict[str, Any]:
-        """Observe a Resource's current state. kind=docker|helm|config|role."""
+    async def resource_observe(host: str, kind: str, name: str, namespace: str = "default", cluster: str = "",
+                               api_version: str = "", object_kind: str = "") -> dict[str, Any]:
+        """Observe a Resource's current state, with its schema. kind = config|docker|helm|k8s|package|role|
+        service|tunable; a tunable is named <tunable>[:<target>] (sched_ext, cpu_governor, kernel_cmdline,
+        systemd_resource:<unit>, blockdev_tuning:<device>)."""
+        from bossman.services import resources as _reg
+
         async with session_factory() as session:
-            agent = await _addressed_agent_or_raise(session, host)
-            r = _make_resource(session, agent, kind, name, namespace)
-            # config/role derive their schema behind I/O (per-directive fields /
-            # the role's parameters); docker/helm answer synchronously.
-            schema_async = getattr(r, "schema_async", None)
-            schema = await schema_async() if schema_async else r.schema()
+            r = await _make_resource(session, host, kind, name, namespace, cluster, api_version, object_kind)
+            spec = _reg.spec_for(kind)
+            schema = None
+            if spec.has_schema or spec.observe_includes_schema:
+                schema = await r.schema_async() if (spec.schema_is_async or spec.observe_includes_schema) else r.schema()
             return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": schema}
 
     @mcp.tool()
-    async def resource_plan(host: str, kind: str, name: str, desired: dict[str, Any],
-                            namespace: str = "default") -> dict[str, Any]:
-        """Diff a desired spec against the observed state (no write). desired for
-        docker = {image,ports,env,volumes,restart}; for helm = {chart,values}."""
+    async def resource_plan(host: str, kind: str, name: str, desired: dict[str, Any], namespace: str = "default",
+                            cluster: str = "", api_version: str = "", object_kind: str = "") -> dict[str, Any]:
+        """Diff a desired spec against the observed state (no write). desired for docker =
+        {image,ports,env,volumes,restart}; helm = {chart,values}; package = {state,version}; service =
+        {enabled,state}; tunable = {params:{...the yoloman.<tunable> module's parameters}} — its plan
+        carries before/after, persistence (live|persistent|pending_reboot) and the undo, or
+        action=refused with refusal.kind unsupported|tool_unavailable|conflict and the reason."""
         async with session_factory() as session:
-            agent = await _addressed_agent_or_raise(session, host)
-            return await _make_resource(session, agent, kind, name, namespace).plan(desired)
+            r = await _make_resource(session, host, kind, name, namespace, cluster, api_version, object_kind)
+            return await r.plan(desired)
 
     @mcp.tool()
     async def resource_apply(host: str, kind: str, name: str, desired: dict[str, Any],
-                             dry_run: bool = True, note: str | None = None,
-                             namespace: str = "default") -> dict[str, Any]:
+                             dry_run: bool = True, note: str | None = None, namespace: str = "default",
+                             cluster: str = "", api_version: str = "", object_kind: str = "") -> dict[str, Any]:
         """Apply a desired spec (records a generation). dry_run=true returns the
         plan without writing — preview first for anything non-trivial."""
         async with session_factory() as session:
-            agent = await _addressed_agent_or_raise(session, host)
-            return await _make_resource(session, agent, kind, name, namespace).apply(
-                desired, dry_run=dry_run, note=note)
+            r = await _make_resource(session, host, kind, name, namespace, cluster, api_version, object_kind)
+            return await r.apply(desired, dry_run=dry_run, note=note)
 
     @mcp.tool()
-    async def resource_generations(host: str, kind: str, name: str, namespace: str = "default") -> list[dict[str, Any]]:
+    async def resource_generations(host: str, kind: str, name: str, namespace: str = "default", cluster: str = "",
+                                   api_version: str = "", object_kind: str = "") -> list[dict[str, Any]]:
         """The Resource's applied-generation history (rollback points)."""
         async with session_factory() as session:
-            agent = await _addressed_agent_or_raise(session, host)
-            return await _make_resource(session, agent, kind, name, namespace).generations()
+            r = await _make_resource(session, host, kind, name, namespace, cluster, api_version, object_kind)
+            return await r.generations()
 
     @mcp.tool()
-    async def resource_rollback(host: str, kind: str, name: str, generation: int,
-                                namespace: str = "default") -> dict[str, Any]:
+    async def resource_rollback(host: str, kind: str, name: str, generation: int, namespace: str = "default",
+                                cluster: str = "", api_version: str = "", object_kind: str = "") -> dict[str, Any]:
         """Roll a Resource back to an earlier generation (re-applied as a NEW
-        generation — forward-converge, uniform across tiers)."""
+        generation — forward-converge, uniform across tiers). For a tunable, generation 0 is
+        the named state "before yoloman managed it": generation 1's recorded undo is applied."""
         async with session_factory() as session:
-            agent = await _addressed_agent_or_raise(session, host)
-            return await _make_resource(session, agent, kind, name, namespace).rollback(generation)
+            r = await _make_resource(session, host, kind, name, namespace, cluster, api_version, object_kind)
+            return await r.rollback(generation)
 
     @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
@@ -929,6 +1621,7 @@ def build_mcp_server(
                 raise ValueError(f"no such host {host!r}")
             if not agent.address:
                 raise ValueError(f"host {host!r} has no reachable address")
+            await _authorize_host(session, agent)
 
             # From the DATABASE, GPO-merged (see services/scope_vars) — the filesystem host_vars layer is
             # gone; it was a second source for the same fact.
@@ -1455,6 +2148,7 @@ def build_mcp_server(
                 raise ValueError(f"no such host {host!r}")
             if not agent.address:
                 raise ValueError(f"host {host!r} has no reachable address")
+            await _authorize_host(session, agent)
 
             check_mode = not apply
             if apply and not await is_yolo_mode(session):
@@ -1895,4 +2589,35 @@ def build_mcp_server(
                 await session.commit()
         return {"link_id": str(link.id), "plan": plan, "status": status}
 
+    reject_unknown_arguments(mcp)
     return mcp
+
+
+def reject_unknown_arguments(mcp: FastMCP) -> None:
+    """Every tool refuses an argument it does not declare, instead of dropping it silently.
+
+    FastMCP's argument models ignore extra keys: `call_agent_tool(..., arguments={...})` (the field is `params`) ran
+    with no params at all and failed later with a misleading "missing required parameter" from the agent (measured
+    2026-10-18). Now the call fails at once, names the unknown key, the closest declared one and all declared ones,
+    and each tool's input schema says `additionalProperties: false` so a client can know before calling."""
+    import difflib
+
+    for tool in mcp._tool_manager.list_tools():
+        meta = tool.fn_metadata
+        declared = {f.alias or name for name, f in meta.arg_model.model_fields.items()}
+        if isinstance(tool.parameters, dict):
+            tool.parameters["additionalProperties"] = False
+        original = meta.call_fn_with_arg_validation
+
+        async def checked(fn, fn_is_async, arguments_to_validate, arguments_to_pass_directly,
+                          _original=original, _declared=declared, _name=tool.name):
+            unknown = sorted(set(arguments_to_validate or {}) - _declared)
+            if unknown:
+                hints = []
+                for key in unknown:
+                    close = difflib.get_close_matches(key, sorted(_declared), n=1, cutoff=0.5)
+                    hints.append(f"{key!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
+                raise ValueError(f"{_name}: unknown parameter {', '.join(hints)}; it takes: {', '.join(sorted(_declared))}")
+            return await _original(fn, fn_is_async, arguments_to_validate, arguments_to_pass_directly)
+
+        object.__setattr__(meta, "call_fn_with_arg_validation", checked)

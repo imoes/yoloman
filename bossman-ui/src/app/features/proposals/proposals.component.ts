@@ -3,6 +3,11 @@ import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/auth/auth.service';
+import { OrchestrationPlanLink } from '../../core/models/orchestration.model';
+import { OrchestrationService } from '../../core/services/orchestration.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 interface ProposalRow {
   id: string;
@@ -14,6 +19,8 @@ interface ProposalRow {
   created_at: string;
   decided_by: string | null;
   decided_at: string | null;
+  can_approve?: boolean;               // for the current caller; false comes with the reason
+  cannot_approve_reason?: string | null;
 }
 interface ProposalDetail extends ProposalRow {
   payload: Record<string, unknown>;
@@ -31,7 +38,7 @@ interface ProposalDetail extends ProposalRow {
 @Component({
   selector: 'app-proposals',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [StatusPillComponent, BlockedReasonDirective, MatIconModule, MatButtonModule],
   template: `
     <div class="pr">
       <div class="pr-hd">
@@ -40,16 +47,41 @@ interface ProposalDetail extends ProposalRow {
           @for (f of filters; track f.key) {
             <button class="pr-segbtn" [class.on]="filter() === f.key" (click)="setFilter(f.key)">{{ f.label }}</button>
           }
-          <button mat-stroked-button (click)="reload()" [disabled]="busy()"><mat-icon>refresh</mat-icon></button>
+          <button mat-stroked-button (click)="reload(); reloadLinks()" [disabled]="busy()" aria-label="Reload" title="Reload"><mat-icon>refresh</mat-icon></button>
         </div>
       </div>
       <p class="pr-dim">AI-decided changes land here as a dry-run preview — nothing touches a host until a human approves. (In YOLO mode the AI applies directly and nothing queues here.)</p>
 
+      <!-- Role bindings (orchestration plan links) wait for the same human decision: one approval inbox, two kinds
+           of request. A binding is approved by an administrator other than the one who asked (four-eyes). -->
+      <section class="pr-links" aria-labelledby="pr-links-h">
+        <h2 id="pr-links-h">Role bindings awaiting approval <span class="pr-count">{{ links().length }}</span></h2>
+        @if (linksErr()) { <p class="pr-err">{{ linksErr() }}</p> }
+        @for (l of links(); track l.id) {
+          <div class="pr-link" [attr.data-link]="l.id">
+            <bm-status-pill status="pending" />
+            <div class="pr-main">
+              <div class="pr-title">{{ l.plan_name || l.plan_id }} → {{ l.target_label || l.target_type }}</div>
+              <div class="pr-sub">
+                <span class="pr-who"><mat-icon class="pr-i">person</mat-icon>{{ l.created_by || 'unknown requester' }}</span>
+                <span>{{ paramSummary(l) }}</span>
+                <span class="pr-when">{{ when(l.created_at) }}</span>
+              </div>
+            </div>
+            <span class="bm-why"><button mat-flat-button color="primary"
+              (click)="approveLink(l)" [bmBlocked]="approveLinkBlocked(l)" bmBlockedMode="tip"><mat-icon>check</mat-icon> Approve</button></span>
+            <span class="bm-why"><button mat-stroked-button color="warn"
+              (click)="rejectLink(l)" [bmBlocked]="rejectLinkBlocked(l)" bmBlockedMode="tip"><mat-icon>close</mat-icon> Reject</button></span>
+          </div>
+        } @empty { <p class="pr-dim">No role binding awaits approval.</p> }
+        @if (linkMsg()) { <p class="pr-dim" role="status">{{ linkMsg() }}</p> }
+      </section>
+
       <div class="pr-body">
-        <div class="pr-list">
+        <div class="pr-list" tabindex="0" role="region" aria-label="Change proposals">
           @for (p of rows(); track p.id) {
             <div class="pr-row" [class.sel]="selected()?.id === p.id" (click)="select(p)">
-              <span class="pr-badge" [class]="'st-' + p.status">{{ p.status }}</span>
+              <bm-status-pill [status]="p.status" />
               <div class="pr-main">
                 <div class="pr-title">{{ p.title }}</div>
                 <div class="pr-sub">
@@ -65,7 +97,7 @@ interface ProposalDetail extends ProposalRow {
         <div class="pr-detail">
           @if (detail(); as d) {
             <div class="pr-dhd">
-              <span class="pr-badge big" [class]="'st-' + d.status">{{ d.status }}</span>
+              <bm-status-pill [status]="d.status" />
               <h2>{{ d.title }}</h2>
             </div>
             <div class="pr-meta">
@@ -77,12 +109,29 @@ interface ProposalDetail extends ProposalRow {
 
             @if (d.status === 'pending') {
               <div class="pr-actions">
-                <button mat-flat-button color="primary" (click)="approve(d)" [disabled]="busy()"><mat-icon>check</mat-icon> Approve & apply</button>
-                <button mat-stroked-button color="warn" (click)="reject(d)" [disabled]="busy()"><mat-icon>close</mat-icon> Reject</button>
+                <span class="bm-why"><button mat-flat-button color="primary" (click)="approve(d)" [bmBlocked]="approveBlocked(d)" bmBlockedMode="tip"><mat-icon>check</mat-icon> {{ d.kind === 'remedy' ? 'Approve (does not run it)' : 'Approve & apply' }}</button></span>
+                <span class="bm-why" [attr.title]="busy() ? 'Working…' : null"><button mat-stroked-button color="warn" (click)="reject(d)" [disabled]="busy()"><mat-icon>close</mat-icon> Reject</button></span>
               </div>
             }
 
-            <h3>Preview (dry run)</h3>
+            @if (d.kind === 'remedy') {
+              <!-- A diagnosis remedy: what was found, how sure, how it is checked — and the artifacts a person runs.
+                   Approving records the second pair of eyes; Bossman never executes it. -->
+              <h3>Finding</h3>
+              <p>{{ str(d.preview['claim']) }} <span class="pr-badge">{{ str(d.preview['certainty']) }}</span></p>
+              <p class="pr-dim">Verified afterwards by a new diagnosis: {{ str(rec(d.preview['verify'])['rule_absent']) }} must be gone.
+                Approving executes nothing — run one of the artifacts below, or hand it to a pipeline.</p>
+              @for (fmt of ['powershell', 'ansible', 'dsc']; track fmt) {
+                @let ex = rec(rec(d.preview['exports'])[fmt]);
+                <details class="pr-payload" [open]="fmt === 'powershell'">
+                  <summary>{{ fmt }}{{ ex['apply'] ? '' : ' — not expressible' }}</summary>
+                  @if (ex['apply']) { <pre class="pr-json">{{ str(ex['apply']) }}</pre>
+                    <p class="pr-dim">Rollback:</p><pre class="pr-json">{{ str(ex['rollback']) }}</pre> }
+                  @for (m of list(ex['not_expressible']); track m) { <p class="pr-dim">{{ m }}</p> }
+                </details>
+              }
+            }
+            <h3>{{ d.kind === 'remedy' ? 'Preview (evidence, before/after, rollback)' : 'Preview (dry run)' }}</h3>
             <pre class="pr-json">{{ json(d.preview) }}</pre>
 
             @if (d.apply_result && objKeys(d.apply_result).length) {
@@ -115,14 +164,9 @@ interface ProposalDetail extends ProposalRow {
     .pr-main { min-width: 0; flex: 1; }
     .pr-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pr-sub { display: flex; align-items: center; gap: 10px; font-size: 11.5px; opacity: 0.75; margin-top: 2px; flex-wrap: wrap; }
-    .pr-who.ai { color: #7c4dff; font-weight: 600; opacity: 1; }
+    .pr-who.ai { color: color-mix(in srgb, #7c4dff 55%, #fff); font-weight: 600; opacity: 1; }
     .pr-when { margin-left: auto; }
     .pr-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; flex: 0 0 auto; letter-spacing: .3px; }
-    .pr-badge.big { font-size: 12px; padding: 3px 12px; }
-    .st-pending { background: color-mix(in srgb, #f9a825 30%, transparent); color: #7a5300; }
-    .st-approved, .st-applied { background: color-mix(in srgb, #2e7d32 22%, transparent); color: #1b5e20; }
-    .st-rejected, .st-failed { background: color-mix(in srgb, #e53935 30%, transparent); color: #8e0000; }
-    @media (prefers-color-scheme: dark) { .st-pending{color:#ffd54f} .st-approved,.st-applied{color:#a5d6a7} .st-rejected,.st-failed{color:#ff8a80} }
     .pr-detail { flex: 1; min-width: 0; }
     .pr-dhd { display: flex; align-items: center; gap: 10px; } .pr-dhd h2 { margin: 0; }
     .pr-meta { display: flex; gap: 16px; font-size: 12.5px; opacity: 0.8; margin: 6px 0 4px; flex-wrap: wrap; align-items: center; }
@@ -131,6 +175,11 @@ interface ProposalDetail extends ProposalRow {
     .pr-actions { display: flex; gap: 10px; margin: 10px 0; }
     .pr-json { padding: 8px; background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); border-radius: 6px; font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
     .pr-json.err { background: color-mix(in srgb, #e53935 12%, transparent); }
+    .pr-links { margin: 6px 0 18px; display: flex; flex-direction: column; gap: 6px; }
+    .pr-links h2 { font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+    .pr-count { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+    .pr-link { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 10px; }
+    .pr-err { color: var(--bm-red); font-size: 13px; }
     .pr-payload { margin-top: 10px; } .pr-payload summary { cursor: pointer; font-size: 13px; opacity: .8; }
   `],
 })
@@ -148,7 +197,57 @@ export class ProposalsComponent {
   filter = signal('pending');
   busy = signal(false);
 
-  constructor() { this.reload(); }
+  private orchestration = inject(OrchestrationService);
+  private auth = inject(AuthService);
+  links = signal<OrchestrationPlanLink[]>([]);
+  linksErr = signal('');
+  linkMsg = signal('');
+  linkBusy = signal<string | null>(null);
+
+  constructor() { this.reload(); this.reloadLinks(); }
+
+  reloadLinks(): void {
+    this.orchestration.pendingLinks().subscribe({
+      next: (r) => { this.links.set(r || []); this.linksErr.set(''); },
+      error: (e) => this.linksErr.set(e?.error?.detail || 'could not load pending role bindings'),
+    });
+  }
+
+  // Why Approve / Reject are refused for a binding ('' = allowed) — the same rules the API enforces, said first.
+  approveLinkBlocked(l: OrchestrationPlanLink): string {
+    if (this.linkBusy() === l.id) return 'Working…';
+    if (this.auth.role() !== 'admin') return 'Only an administrator can approve a role binding';
+    if (l.created_by && l.created_by === this.auth.username()) {
+      return 'Four-eyes: another administrator must approve — you requested this binding';
+    }
+    return '';
+  }
+  rejectLinkBlocked(l: OrchestrationPlanLink): string {
+    if (this.linkBusy() === l.id) return 'Working…';
+    if (this.auth.role() !== 'admin' && l.created_by !== this.auth.username()) {
+      return 'Only an administrator (or the requester) can reject a role binding';
+    }
+    return '';
+  }
+  approveLink(l: OrchestrationPlanLink): void { this.decideLink(l, 'approve'); }
+  rejectLink(l: OrchestrationPlanLink): void { this.decideLink(l, 'reject'); }
+  private decideLink(l: OrchestrationPlanLink, verb: 'approve' | 'reject'): void {
+    this.linkBusy.set(l.id); this.linkMsg.set('');
+    const call = verb === 'approve' ? this.orchestration.approveLink(l.plan_id, l.id) : this.orchestration.rejectLink(l.plan_id, l.id);
+    const what = `${l.plan_name || l.plan_id} → ${l.target_label || l.target_type}`;
+    call.subscribe({
+      next: () => {
+        this.linkBusy.set(null);
+        this.linkMsg.set(verb === 'approve' ? `Approved: ${what} is now active.` : `Rejected: ${what} (kept as rejected, applies to nothing).`);
+        this.reloadLinks();
+      },
+      error: (e) => { this.linkBusy.set(null); this.linksErr.set(e?.error?.detail || `${verb} failed`); },
+    });
+  }
+  paramSummary(l: OrchestrationPlanLink): string {
+    const keys = Object.keys(l.parameters || {});
+    return keys.length ? keys.map((k) => `${k}=${JSON.stringify(l.parameters[k])}`).join(', ') : 'default parameters';
+  }
 
   reload(): void {
     this.busy.set(true);
@@ -163,8 +262,16 @@ export class ProposalsComponent {
     this.selected.set(p); this.detail.set(null);
     this.http.get<ProposalDetail>(`${environment.apiUrl}/change-proposals/${p.id}`).subscribe((d) => this.detail.set(d));
   }
+  approveBlocked(d: ProposalDetail): string {
+    if (this.busy()) return 'Working…';
+    if (d.can_approve === false) return d.cannot_approve_reason || 'You cannot approve this proposal';
+    return '';
+  }
   approve(d: ProposalDetail): void {
-    if (!confirm(`Approve and APPLY "${d.title}" on ${d.host}?`)) return;
+    const ask = d.kind === 'remedy'
+      ? `Approve the repair "${d.title}"? Bossman does not run it — the artifacts are attached for a person or pipeline.`
+      : `Approve and APPLY "${d.title}" on ${d.host}?`;
+    if (!confirm(ask)) return;
     this.busy.set(true);
     this.http.post<ProposalDetail>(`${environment.apiUrl}/change-proposals/${d.id}/approve`, {}).subscribe({
       next: (r) => { this.busy.set(false); this.detail.set(r); this.reload(); },
@@ -184,4 +291,7 @@ export class ProposalsComponent {
   when(iso: string): string { try { return new Date(iso).toLocaleString(); } catch { return iso; } }
   json(o: unknown): string { try { return JSON.stringify(o, null, 2); } catch { return String(o); } }
   objKeys(o: Record<string, unknown> | null | undefined): string[] { return o ? Object.keys(o) : []; }
+  rec(o: unknown): Record<string, unknown> { return o && typeof o === 'object' ? o as Record<string, unknown> : {}; }
+  str(o: unknown): string { return o == null ? '' : String(o); }
+  list(o: unknown): string[] { return Array.isArray(o) ? o.map(String) : []; }
 }

@@ -1,61 +1,159 @@
-# Ansible-managed configuration for AHCPd (Ad-Hoc Configuration Protocol Daemon)
-# This script is sourced by the init.d initscript /etc/init.d/ahcpd.
-# It defines shell variables that control the ahcpd daemon behavior.
+#!/bin/sh
+#
+# AHCP (Ad-hoc Configuration Protocol) Daemon Service Script
+#
+# This script manages the lifecycle of the AHCP daemon, specifically
+# handling interface configuration (IP address assignment) and
+# DNS resolver configuration via resolvconf or direct modification.
+#
+# Configuration is driven by environment variables, primarily
+# AHCP_DEBUG_LEVEL which controls logging verbosity.
+#
 
-# List of network interfaces on which the AHCP protocol should operate.
-# If empty, the daemon uses default routing to discover interfaces.
-# Example: 'eth0 wlan0'
-INTERFACES="{{ interfaces | default([]) | join(' ') }}"
+die() {
+    echo "$@" >&2
+    exit 1
+}
 
-# Additional command-line arguments passed to the ahcpd daemon.
-# These arguments configure the daemon's operation mode, logging, address pooling,
-# and the DNS/NTP information provided to clients.
-DAEMON_ARGS="
-    # Daemon ID for uniqueness
-    -i /var/lib/ahcpd/unique-id
+findcmd() {
+    type "$1" > /dev/null 2>&1 || \
+        die "Couldn't find $1, please install ${2:-it} or fix your path."
+}
 
-    # Logging verbosity: debug, info, notice, warning, error, crit, alert, emerg
-    -l {{ log_level | default('info') }}
+first() {
+    echo "$1"
+}
 
-    # Operation mode: server (active), auto (detect), none (disabled)
-    -m {{ mode | default('server') }}
+nl='
+'
 
-    # IPv6 Prefix Delegation (PD) prefix to assign to clients
-    -p {{ pool_prefix | default('2001:db8::/32') }}
+usage="Usage: $0 (start|stop)"
 
-    # Lifetime (seconds) for delegated prefixes
-    -L {{ prefix_lifetime | default(2592000) }}
+# --------------------------------------------------------------------------
+# log_level: Verbosity level for server logs. Options: debug, info, notice,
+#            warning, error, crit, alert, emerg.
+# Default: 1 (info)
+# --------------------------------------------------------------------------
+debuglevel=${AHCP_DEBUG_LEVEL:-{{ log_level | default('1') }}}
 
-    # Preferred lifetime (seconds) for delegated prefixes (before deprecation)
-    -P {{ prefix_preferred_lifetime | default(604800) }}
+if [ $debuglevel -ge 2 ]; then
+    env | grep ^AHCP
+fi
 
-    # Static IPv6 address ranges for specific clients/subnets
-    # Format: start-end (e.g., '2001:db8:1::1-2001:db8:1::10')
-    -a {{ address_ranges | default([]) | join(' ') }}
+[ $debuglevel -ge 3 ] && set -x
 
-    # DNS server addresses provided to AHCP clients
-    -d {{ dns_servers | default([]) | join(' ') }}
+interfaces="$AHCP_INTERFACES"
+if [ -z "$interfaces" ]; then die "No interface set"; fi
+first_if=$(first $interfaces)
 
-    # NTP server addresses/hosts provided to AHCP clients
-    -n {{ ntp_servers | default([]) | join(' ') }}
+ipv4_address="$AHCP_IPv4_ADDRESS"
+ipv6_address="$AHCP_IPv6_ADDRESS"
 
-    # DNS search domains for client resolution
-    -s {{ domain_search | default([]) | join(' ') }}
+platform=`uname`
 
-    # Path to the state file for lease persistence
-    -f {{ lease_file | default('/var/lib/ahcpd/ahcpd.state') }}
+if [ "$platform" = "Linux" ]; then
 
-    # IPv4 fallback behavior: auto (enable if IPv6 down), off (IPv6 only)
-    -4 {{ ipv4_fallback | default('auto') }}
+    findcmd ip iproute
 
-    # Explicit interface binding arguments (-i <interface>) for each interface
-    {{ interfaces | default([]) | map('regex_replace', '^(.*)$', '-i \\1') | join(' ') }}
-"
-# Note: DAEMON_ARGS is a multi-line string in shell, but the initscript
-# likely expects it as a single quoted string or expanded carefully.
-# The raw template joined these on one line. We preserve the single-line
-# semantic but formatted for readability in the source.
-# For strict compatibility with the original initscript sourcing, we ensure
-# the variable assignment is valid shell.
+    (ip -6 addr show dev lo | grep -q 'inet6') || \
+	die "No IPv6 address on lo, please modprobe ipv6"
 
-DAEMON_ARGS="-i /var/lib/ahcpd/unique-id -l {{ log_level | default('info') }} -m {{ mode | default('server') }} -p {{ pool_prefix | default('2001:db8::/32') }} -L {{ prefix_lifetime | default(2592000) }} -P {{ prefix_preferred_lifetime | default(604800) }} -a {{ address_ranges | default([]) | join(' ') }} -d {{ dns_servers | default([]) | join(' ') }} -n {{ ntp_servers | default([]) | join(' ') }} -s {{ domain_search | default([]) | join(' ') }} -f {{ lease_file | default('/var/lib/ahcpd/ahcpd.state') }} -4 {{ ipv4_fallback | default('auto') }} {{ interfaces | default([]) | map('regex_replace', '^(.*)$', '-i \\1') | join(' ') }}"
+    add_ipv6_address() {
+        ip -6 addr add "$2/$3" dev "$1"
+    }
+
+    del_ipv6_address() {
+        ip -6 addr del "$2/$3" dev "$1"
+    }
+
+    add_ipv4_address() {
+        ip addr add "$2/$3" dev "$1"
+    }
+
+    del_ipv4_address() {
+        ip addr del "$2/$3" dev "$1"
+    }
+else
+
+    add_ipv6_address() {
+        ifconfig "$1" inet6 "$2/$3"
+    }
+
+    del_ipv6_address() {
+        ifconfig "$1" inet6 "$2/$3" delete
+    }
+
+    add_ipv4_address() {
+        ifconfig "$1" inet "$2/$3"
+    }
+
+    del_ipv4_address() {
+        ifconfig "$1" inet "$2/$3" delete
+    }
+
+fi
+
+add_addresses() {
+    for i in $interfaces; do
+        for a in $ipv6_address; do
+            add_ipv6_address $i $a 128
+        done
+        for a in $ipv4_address; do
+            add_ipv4_address $i $a 32
+        done
+    done
+}
+
+del_addresses() {
+    for i in $interfaces; do
+        for a in $ipv6_address; do
+            del_ipv6_address $i $a 128
+        done
+        for a in $ipv4_address; do
+            del_ipv4_address $i $a 32
+        done
+    done
+}
+
+nameserver_start() {
+    if [ ! -z "$AHCP_NAMESERVER" ]; then
+        info=''
+        for n in $AHCP_NAMESERVER; do
+            info="${info}nameserver $n$nl"
+        done
+        if [ -x /sbin/resolvconf ]; then
+            echo -n "$info" | /sbin/resolvconf -a "$first_if"
+        else
+            mv /etc/resolv.conf /etc/resolv.conf.orig
+            echo -n "$info" > /etc/resolv.conf
+        fi
+    fi
+}
+
+nameserver_stop() {
+    if [ ! -z "$AHCP_NAMESERVER" ]; then
+        if [ -x /sbin/resolvconf ]; then
+            /sbin/resolvconf -d "$first_if"
+        else
+            mv /etc/resolv.conf.orig /etc/resolv.conf
+        fi
+    fi
+}
+
+case $1 in
+    start)
+        add_addresses
+        nameserver_start
+        ;;
+    stop)
+        nameserver_stop
+        del_addresses
+        ;;
+    *)
+        die "$usage"
+        ;;
+esac
+
+[ -x /etc/ahcp/ahcp-local.sh ] && /etc/ahcp/ahcp-local.sh $1
+
+exit 0

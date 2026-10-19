@@ -13,6 +13,7 @@ import {
   NotificationRuleInput,
   NotificationScope,
 } from '../../../core/models/notification.model';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** Everything the scope pickers need, plus optional presets for the scope the
  * dialog was opened from (an OU in the console, a host/service in host-detail). */
@@ -47,7 +48,7 @@ const SCOPES: { value: NotificationScope; label: string }[] = [
 @Component({
   selector: 'app-notification-ou-dialog',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatAutocompleteModule, MatSlideToggleModule, MatButtonModule,
   ],
@@ -137,7 +138,7 @@ const SCOPES: { value: NotificationScope; label: string }[] = [
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid || !scopeValid()" (click)="save()">
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : !scopeValid() ? 'Pick the scope target' : ''" (click)="save()">
         {{ data.rule ? 'Save' : 'Create' }}
       </button>
     </mat-dialog-actions>

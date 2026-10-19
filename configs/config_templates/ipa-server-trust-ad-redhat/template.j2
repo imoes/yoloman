@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<oddjobconfig>
+  <!-- Root element for oddjob configuration -->
+  <service name="com.redhat.idm.trust">
+    <!-- Allow root user access to the D-Bus service -->
+    <allow user="root"/>
+    
+    <!-- Allow the configured secondary user access to the D-Bus service. 
+         Default is 'ipaapi' as per schema definition. -->
+    <allow user="{{ user_name | default('ipaapi') }}"/>
+    
+    <object name="/">
+      <interface name="org.freedesktop.DBus.Introspectable">
+        <!-- 
+          Define UID range allowed for D-Bus introspection.
+          min_uid: Minimum UID allowed (default 0, meaning all users if max_uid is also 0 or high).
+          max_uid: Maximum UID allowed.
+        -->
+        <allow min_uid="{{ min_uid | default('0') }}" max_uid="{{ max_uid | default('0') }}"/>
+        <!-- <method name="Introspect"/> -->
+      </interface>
+      
+      <interface name="com.redhat.idm.trust">
+        <method name="fetch_domains">
+          <!-- 
+            Configuration for the trust-fetch-domains helper script.
+            helper: Path to the executable script.
+            arguments: The timeout value passed to the helper.
+            argument_passing_method: How arguments are passed (cmdline).
+            prepend_user_name: Whether to prepend the user name to the arguments.
+          -->
+          <helper exec="/usr/libexec/ipa/oddjob/com.redhat.idm.trust-fetch-domains"
+                  arguments="{{ timeout | default('30') }}"
+                  argument_passing_method="cmdline"
+                  prepend_user_name="{{ prepend_user_name | default('no') }}"/>
+        </method>
+      </interface>
+    </object>
+  </service>
+</oddjobconfig>

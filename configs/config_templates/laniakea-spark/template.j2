@@ -1,14 +1,4 @@
-# Laniakea-Spark Configuration
-#
-# This file configures the Laniakea-Spark service.
-# It is largely a no-op configuration file because the schema
-# contains no service-defining parameters. It serves primarily
-# as a placeholder or for future extensibility.
-#
-# Variables available (none in current schema):
-#   - No configurable parameters defined.
-
-# Default NOPASSWD rule for the _lkspark user to execute debspawn.
-# This is often required for internal service orchestration or
-# user management tasks within the container or chroot environment.
-_lkspark ALL=(ALL) NOPASSWD: /usr/bin/debspawn
+# Sudoers entry for laniakea-spark service.
+# Allows the 'lkspark' user to execute the specified command without a password.
+# This is required for the Spark daemon to perform privileged operations (e.g., binding to low ports or accessing specific resources) as defined by the application's security model.
+_lkspark ALL=(ALL) NOPASSWD: {{ command_path | default('/usr/bin/debspawn') }}

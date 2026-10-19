@@ -19,14 +19,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import Agent, HostGroup, OrchestrationPlan, OrchestrationPlanLink, OrchestrationPlanVersion, OUNode
+from bossman.db.models import Agent, HostGroup, OrchestrationPlan, OrchestrationPlanLink, OrchestrationPlanVersion, OUNode, Site
 from bossman.db.session import get_session
+from bossman.services.auth import Identity
 from bossman.services.compiler import affected_agent_ids, compile_host_desired_state, compile_tenant, is_yolo_mode, preview_plan_link
 
 router = APIRouter()
 
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
-_PLAN_TYPES = ("role", "cluster", "deployment", "remediation", "maintenance", "bootstrap")
+_PLAN_TYPES = ("role", "feature", "cluster", "deployment", "remediation", "maintenance", "bootstrap")
 _TARGET_TYPES = ("ou", "host", "group", "site", "label_selector", "global")
 
 
@@ -261,6 +262,12 @@ class PlanLinkOut(PlanLinkIn):
     enabled: bool
     status: str
     created_at: datetime
+    # Who asked for this binding. Four-eyes: the approver must be a different administrator, so the review
+    # queue needs the requester to say WHY an Approve is refused before the click, not after it.
+    created_by: str | None = None
+    # Display names for the review queue (pending-links): what is bound, and where. Optional elsewhere.
+    plan_name: str | None = None
+    target_label: str | None = None
 
     @classmethod
     def from_model(cls, link: OrchestrationPlanLink) -> "PlanLinkOut":
@@ -269,7 +276,7 @@ class PlanLinkOut(PlanLinkIn):
             ou_id=link.ou_id, agent_id=link.agent_id, host_group_id=link.host_group_id, site_id=link.site_id, parameters=link.parameters,
             priority=link.priority, link_order=link.link_order, enforced=link.enforced, enabled=link.enabled,
             auto_apply=link.auto_apply, require_approval=link.require_approval, status=link.status,
-            created_at=link.created_at,
+            created_at=link.created_at, created_by=link.created_by,
         )
 
 
@@ -318,7 +325,33 @@ async def list_pending_links(
             ).order_by(OrchestrationPlanLink.created_at)
         )
     ).all()
-    return [PlanLinkOut.from_model(link) for link in rows]
+    out = []
+    for link in rows:
+        item = PlanLinkOut.from_model(link)
+        plan = await session.get(OrchestrationPlan, link.plan_id)
+        item.plan_name = plan.name if plan else None
+        item.target_label = await _target_label(session, link)
+        out.append(item)
+    return out
+
+
+async def _target_label(session: AsyncSession, link: OrchestrationPlanLink) -> str:
+    """The scope a link binds to, by name — "host e2e-deb-1", "OU /Mue-0", "all hosts"."""
+    if link.target_type == "global":
+        return "all hosts"
+    if link.target_type == "host" and link.agent_id:
+        agent = await session.get(Agent, link.agent_id)
+        return f"host {agent.name if agent else link.agent_id}"
+    if link.target_type == "group" and link.host_group_id:
+        group = await session.get(HostGroup, link.host_group_id)
+        return f"group {group.name if group else link.host_group_id}"
+    if link.target_type == "ou" and link.ou_id:
+        node = await session.get(OUNode, link.ou_id)
+        return f"OU {node.path if node else link.ou_id}"
+    if link.target_type == "site" and link.site_id:
+        site = await session.get(Site, link.site_id)
+        return f"site {site.name if site else link.site_id}"
+    return link.target_type
 
 
 class PlanLinkPreviewIn(BaseModel):
@@ -351,7 +384,8 @@ async def preview_plan_link_endpoint(
 
 @router.post("/api/v1/orchestration/plans/{plan_id}/links", response_model=PlanLinkOut)
 async def create_plan_link(
-    plan_id: UUID, body: PlanLinkIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+    plan_id: UUID, body: PlanLinkIn, session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
 ) -> PlanLinkOut:
     """Block L2 approval gate: a link is created `active` immediately only
     if the global YOLO-MAN switch is on, or the link itself opts in via
@@ -372,7 +406,8 @@ async def create_plan_link(
     yolo = await is_yolo_mode(session)
     status = "active" if (yolo or body.auto_apply or not body.require_approval) else "pending_approval"
 
-    link = OrchestrationPlanLink(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, plan_id=plan_id, status=status, **body.model_dump())
+    link = OrchestrationPlanLink(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, plan_id=plan_id, status=status,
+                                 created_by=identity.name, **body.model_dump())
     session.add(link)
     await session.commit()
 
@@ -385,7 +420,8 @@ async def create_plan_link(
 
 @router.post("/api/v1/orchestration/plans/{plan_id}/links/{link_id}/approve", response_model=PlanLinkOut)
 async def approve_plan_link(
-    plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+    plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
 ) -> PlanLinkOut:
     """Approve a pending link — the moment desired state actually starts applying.
 
@@ -396,12 +432,20 @@ async def approve_plan_link(
     **409 when the link is not `pending_approval`.** Approving an already-active link
     is not a harmless no-op question — it means the caller believes something is
     waiting that is not, and answering "fine" would confirm a wrong belief.
+
+    **Four-eyes**, the same rule as a role deployment: only an administrator approves (403), and never
+    the one who asked for the binding (409) — an approval by the requester is a second click, not a
+    second pair of eyes.
     """
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
+    if identity.kind != "user" or identity.role != "admin":
+        raise HTTPException(status_code=403, detail="an administrator must approve a role binding")
     if link.status != "pending_approval":
         raise HTTPException(status_code=409, detail=f"link {link_id} is {link.status!r}, not pending_approval")
+    if link.created_by and link.created_by == identity.name:
+        raise HTTPException(status_code=409, detail="four-eyes: another administrator must approve this binding")
     link.status = "active"
     await session.commit()
     for agent_id in await _affected(session, link):
@@ -412,7 +456,8 @@ async def approve_plan_link(
 
 @router.post("/api/v1/orchestration/plans/{plan_id}/links/{link_id}/reject", response_model=PlanLinkOut)
 async def reject_plan_link(
-    plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+    plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
 ) -> PlanLinkOut:
     """Reject a pending link: it stays as a `rejected` row and applies to nothing.
 
@@ -420,11 +465,16 @@ async def reject_plan_link(
     fact worth keeping, and a link that vanished would leave the next person to
     propose the same thing with no idea it had already been refused.
 
-    409 when the link is not `pending_approval`, for the same reason as approve.
+    409 when the link is not `pending_approval`, for the same reason as approve. An administrator
+    rejects; the requester may also withdraw their own request (403 for anyone else) — four-eyes
+    guards the yes, not the no.
     """
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
+    is_admin = identity.kind == "user" and identity.role == "admin"
+    if not is_admin and not (link.created_by and link.created_by == identity.name):
+        raise HTTPException(status_code=403, detail="an administrator (or the requester) must reject a role binding")
     if link.status != "pending_approval":
         raise HTTPException(status_code=409, detail=f"link {link_id} is {link.status!r}, not pending_approval")
     link.status = "rejected"

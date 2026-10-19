@@ -10,9 +10,8 @@ import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { FleetHost } from '../../core/models/monitoring.model';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { PerfOMeterComponent } from '../../shared/components/perf-o-meter/perf-o-meter.component';
-import { serviceStateBadge } from '../../shared/status.util';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 interface HostRow extends FleetHost {
   indent: boolean;
@@ -30,7 +29,7 @@ interface HostRow extends FleetHost {
 @Component({
   selector: 'app-hosts-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, MatIconModule, MatButtonModule, HostStatusBadgeComponent, PerfOMeterComponent],
+  imports: [StatusPillComponent, RouterLink, DatePipe, MatCardModule, MatIconModule, MatButtonModule, PerfOMeterComponent],
   template: `
     <div class="bm-page">
       <div class="bm-page-head">
@@ -60,7 +59,7 @@ interface HostRow extends FleetHost {
                   }
                   {{ host.name }}
                 </td>
-                <td><app-status-badge [status]="badgeOf(host)" [label]="host.state_rollup" /></td>
+                <td><bm-status-pill [status]="host.state_rollup" /></td>
                 <td>{{ host.cpu_load !== null ? host.cpu_load.toFixed(2) : '—' }}</td>
                 <td><app-perf-o-meter [value]="host.mem_used_pct" [warn]="80" [crit]="90" /></td>
                 <td><app-perf-o-meter [value]="host.disk_used_pct_max" [warn]="80" [crit]="90" /></td>
@@ -152,10 +151,10 @@ interface HostRow extends FleetHost {
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 10px 12px;
+        padding: var(--bm-cell-py) 12px;
       }
       .bm-table td {
-        padding: 10px 12px;
+        padding: var(--bm-cell-py) 12px;
         border-top: 1px solid var(--mat-sys-outline-variant);
         vertical-align: middle;
       }
@@ -313,10 +312,6 @@ export class HostsListComponent implements OnInit {
 
   private reload(): void {
     this.monitoringService.fleetHosts().subscribe((hosts) => this.hosts.set(hosts));
-  }
-
-  badgeOf(host: FleetHost) {
-    return serviceStateBadge(host.state_rollup);
   }
 
   /** Update button: Bossman pushes the bundled package it ships, choosing

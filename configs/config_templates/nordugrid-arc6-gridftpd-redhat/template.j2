@@ -1,0 +1,40 @@
+# Logrotate configuration for NorduGrid ARC GridFTP Daemon logs.
+#
+# This file manages rotation of the main gridftpd log file located at
+# /var/log/arc/gridftpd.log. It ensures logs are compressed, rotated daily,
+# and the daemon is signaled to reopen log files after rotation.
+
+/var/log/arc/gridftpd.log {
+    # Do not error if the log file is missing (e.g., on first boot or if logging is disabled).
+    missingok
+
+    # Compress rotated log files to save disk space.
+    compress
+
+    # Delay compression of the most recently rotated file by one rotation cycle.
+    # This allows long-running processes (or the postrotate script) to still
+    # write to the uncompressed rotated file if necessary.
+    delaycompress
+
+    # Rotate the log file once every day.
+    daily
+
+    # Keep the specified number of rotated log files before deleting them.
+    # Default: {{ rotate_count | default('14') }}
+    rotate {{ rotate_count | default('14') }}
+
+    # Create new, empty log files with default permissions (640) after rotation.
+    # Owner/group is inherited from the original file.
+    create
+
+    # Execute the following script after the log file is rotated.
+    # This sends a HUP signal to the gridftpd process to force it to reopen
+    # the log file, ensuring new entries go to the fresh log file.
+    postrotate
+        # Read the PID from the file specified by pid_file.
+        # The file path default is: {{ pid_file | default('/run/gridftpd.pid') }}
+        # We suppress errors if the PID file doesn't exist yet (2>/dev/null).
+        # If the kill command fails (e.g., process gone), ignore it (|| true).
+        kill -HUP `cat {{ pid_file | default('/run/gridftpd.pid') }} 2> /dev/null` 2> /dev/null || true
+    endscript
+}

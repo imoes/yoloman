@@ -10,12 +10,12 @@ the row's actual identity, `series_id`, and that turned out to matter a great de
 
 The Metric ORM class is mapped onto this view with primary key (time, agent_id, metric).
 The agent stamps every point of one sampling tick with the identical timestamp, so
-vpp0221 writes its 5 disk mounts at exactly the same microsecond (verified: all five
+pve1 writes its 5 disk mounts at exactly the same microsecond (verified: all five
 disk_used_pct rows read 15:05:25.000000). Those five rows therefore share the mapped
 primary key, and SQLAlchemy's identity map folded them into ONE object: `select(Metric)`
 returned five results that were the same Python object five times, every one of them
 reporting mount "/". `evaluate_host` builds a dict keyed by mount from that, so it saw a
-single mount and 4 of vpp0221's 5 filesystems were never checked against a threshold
+single mount and 4 of pve1's 5 filesystems were never checked against a threshold
 rule. A filling /var/lib/vz would not have warned. It looked monitored only because the
 agent's own checks write services under the same names.
 

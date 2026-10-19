@@ -1,0 +1,70 @@
+# GConf2 Configuration Paths
+# This file defines the search order for GConf configuration sources.
+# Sources are scanned from top to bottom. The first source containing a value
+# for a specific key (or the first writeable source) is used.
+#
+# Format:
+#   type:permission:path
+#   type:permission:$(VARIABLE)
+#   include path
+
+# =============================================================================
+# System-wide Mandatory Settings
+# =============================================================================
+# Look first in the systemwide mandatory settings directory.
+# These settings cannot be overridden by users.
+xml:readonly:/etc/gconf/gconf.xml.mandatory
+
+# =============================================================================
+# Administrator-defined Mandatory Settings
+# =============================================================================
+# Include a file specified by the administrator to read any mandatory settings
+# created prior to a desktop system upgrade or defined centrally.
+# The path to this file is defined in the schema field `mandatory_path`.
+{% if mandatory_path is defined and mandatory_path is not none %}
+include {{ mandatory_path | default('/etc/gconf/2/local-mandatory.path') }}
+{% endif %}
+
+# =============================================================================
+# User-defined Configuration Paths (Legacy/Standard)
+# =============================================================================
+# Allow users to insert arbitrary sources via their config directory.
+# Note: $(USERCONFIGDIR) and $(HOME) are runtime variables resolved by GConf.
+# These lines are typically populated by the user's runtime environment.
+
+# Standard user config location
+include "$(USERCONFIGDIR)/gconf/path"
+# Legacy file location for backward compatibility
+include "$(HOME)/.gconf.path"
+
+# =============================================================================
+# User-default Storage Location
+# =============================================================================
+# Provide a default storage location for user configurations.
+# $(DEFAULTUSERSOURCE) resolves to the user's default config directory.
+# This is the primary write location for user preferences.
+xml:readwrite:$(DEFAULTUSERSOURCE)
+
+# =============================================================================
+# System-wide System Settings
+# =============================================================================
+# Location for system-wide settings that are set by the defaults mechanism.
+# These are read-only for users but can be managed by the system.
+xml:readonly:/etc/gconf/gconf.xml.system
+
+# =============================================================================
+# Administrator-defined Defaults
+# =============================================================================
+# Include a file specified by the administrator to read any defaults settings
+# created prior to a desktop system upgrade or defined centrally.
+# The path to this file is defined in the schema field `defaults_path`.
+{% if defaults_path is defined and defaults_path is not none %}
+include {{ defaults_path | default('/etc/gconf/2/local-defaults.path') }}
+{% endif %}
+
+# =============================================================================
+# System-wide Defaults
+# =============================================================================
+# Finally, look at the global systemwide defaults.
+# These act as the fallback values if no other source provides a value.
+xml:readonly:/etc/gconf/gconf.xml.defaults

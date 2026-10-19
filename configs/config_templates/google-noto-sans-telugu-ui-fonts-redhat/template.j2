@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Google Noto Sans Telugu UI (Red Hat package).
+  This template generates a fontconfig XML snippet that:
+  1. Injects the font as a preferred match for Telugu language scripts.
+  2. Registers an alias so applications requesting 'sans-serif' may consider it.
+-->
+<fontconfig>
+  <!-- Rule: Match Telugu language requests -->
+  <match>
+    <!-- Test if the requested language contains the target ISO 639 code -->
+    <test name="lang" compare="contains">
+      <!-- lang_code: The ISO 639 language code to match against (e.g., 'te' for Telugu). -->
+      <string>{{ lang_code | default('te') }}</string>
+    </test>
+    <!-- Also ensure we are looking at sans-serif family preferences -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+
+    <!-- Action: Prepend this font family to the list of candidates -->
+    <edit name="family" mode="prepend">
+      <!-- font_family_name: The name of the font family to prepend for matching. -->
+      <string>{{ font_family_name | default('Noto Sans Telugu UI') }}</string>
+    </edit>
+
+    <!-- Action: Disable font hinting for this specific font to avoid artifacts -->
+    <edit name="fonthashint" mode="append">
+      <!-- enable_font_hinting: Whether to append 'false' to the fonthashint property, disabling hinting for this font. -->
+      <!-- Note: fontconfig expects 'false' or 'true' as string literals in append mode for this property -->
+      <bool>{{ enable_font_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias: Register the font family globally -->
+  <alias>
+    <!-- font_family_name: The name of the font family to prepend for matching. -->
+    <family>{{ font_family_name | default('Noto Sans Telugu UI') }}</family>
+    <default>
+      <family>sans-serif</family>
+    </default>
+  </alias>
+</fontconfig>

@@ -1,0 +1,283 @@
+# ==============================================================================
+# Sysusage Configuration Template
+# ==============================================================================
+# This file configures the Sysusage monitoring system. It is divided into four
+# main sections: General settings, Alarm/Notification settings, Monitoring
+# targets, and Plugin/Remote definitions.
+#
+# Each variable is documented below its corresponding directive. If a variable
+# is not provided by Ansible, the schema default (listed in the comment) will be used.
+# ==============================================================================
+
+# [GENERAL]
+# Core configuration for system resource monitoring behavior and paths.
+#
+# DEBUG: Debug mode flag. Default: '0' (0 to disable, 1 to enable)
+DEBUG = {{ DEBUG | default('0') }}
+
+# DATA_DIR: Directory where monitoring data is stored. Default: '/var/lib/sysusage'
+DATA_DIR = {{ DATA_DIR | default('/var/lib/sysusage') }}
+
+# PID_DIR: Directory where PID files are stored. Default: '/var/run'
+PID_DIR = {{ PID_DIR | default('/var/run') }}
+
+# DEST_DIR: Document root or destination directory for web output. Default: '/var/www/sysusage'
+DEST_DIR = {{ DEST_DIR | default('/var/www/sysusage') }}
+
+# SAR_BIN: Path to the sar binary. Default: '/usr/bin/sar'
+SAR_BIN = {{ SAR_BIN | default('/usr/bin/sar') }}
+
+# UPTIME: Path to the uptime binary. Default: '/usr/bin/uptime'
+UPTIME = {{ UPTIME | default('/usr/bin/uptime') }}
+
+# HOSTNAME: Path to the hostname binary. Default: '/usr/bin/hostname'
+HOSTNAME = {{ HOSTNAME | default('/usr/bin/hostname') }}
+
+# INTERVAL: Monitoring interval in seconds. Default: '60'
+INTERVAL = {{ INTERVAL | default('60') }}
+
+# SKIP: General skip list (comma separated items). Default: '' (empty)
+SKIP = {{ SKIP | default('') }}
+
+# HDDTEMP_BIN: Path to hddtemp binary. Empty to disable. Default: ''
+HDDTEMP_BIN = {{ HDDTEMP_BIN | default('') }}
+
+# SENSORS_BIN: Path to sensors binary. Empty to disable. Default: ''
+SENSORS_BIN = {{ SENSORS_BIN | default('') }}
+
+# DAEMON: Run as daemon flag. Default: '0' (0 to disable, 1 to enable)
+DAEMON = {{ DAEMON | default('0') }}
+
+# GRAPH_WIDTH: Width of generated graphs in pixels. Default: '800'
+GRAPH_WIDTH = {{ GRAPH_WIDTH | default('800') }}
+
+# GRAPH_HEIGHT: Height of generated graphs in pixels. Default: '350'
+GRAPH_HEIGHT = {{ GRAPH_HEIGHT | default('350') }}
+
+# FLAMING: Flaming effect flag. Default: '0' (0 to disable, 1 to enable)
+FLAMING = {{ FLAMING | default('0') }}
+
+# HIRES: High resolution flag. Default: '0' (0 to disable, 1 to enable)
+HIRES = {{ HIRES | default('0') }}
+
+# LINE_SIZE: Line width for graphs. Default: '1'
+LINE_SIZE = {{ LINE_SIZE | default('1') }}
+
+# PROC_QSIZE: Process/Queue size limit. Default: '4'
+PROC_QSIZE = {{ PROC_QSIZE | default('4') }}
+
+# RESRC_URL: Resource URL for remote access. Default: ''
+RESRC_URL = {{ RESRC_URL | default('') }}
+
+# SSH_BIN: Path to SSH binary. Default: 'ssh'
+SSH_BIN = {{ SSH_BIN | default('ssh') }}
+
+# SSH_OPTIONS: SSH connection options string. Default: '-o ConnectTimeout=5 -o PreferredAuthentications=hostbased,publickey'
+SSH_OPTIONS = {{ SSH_OPTIONS | default('-o ConnectTimeout=5 -o PreferredAuthentications=hostbased,publickey') }}
+
+# SSH_USER: SSH username for remote monitoring. Empty to use default. Default: ''
+SSH_USER = {{ SSH_USER | default('') }}
+
+# SSH_IDENTITY: Path to SSH identity key. Empty to use default. Default: ''
+SSH_IDENTITY = {{ SSH_IDENTITY | default('') }}
+
+
+# [ALARM]
+# Configuration for SMTP alarm reports and Nagios message reports.
+# Alarms trigger when monitored thresholds are exceeded.
+# WARN_MODE must be set to '1' to enable alarm processing.
+#
+# UPPER_LEVEL: Upper alarm level (Nagios: 0=OK, 1=WARNING, 2=Critical, 3=Unknown). Default: '1'
+# LOWER_LEVEL: Lower alarm level. Default: '2'
+#
+# Typically, a high load average triggers a WARNING (upper), and a daemon shutdown triggers CRITICAL (lower).
+
+# WARN_MODE: Alarm warning mode. Default: '0' (0 to disable, 1 to enable)
+WARN_MODE = {{ WARN_MODE | default('0') }}
+
+# ALARM_PROG: Path to the alarm program. Default: '/usr/bin/sysusagewarn'
+ALARM_PROG = {{ ALARM_PROG | default('/usr/bin/sysusagewarn') }}
+
+# SMTP: SMTP server hostname or IP. Default: 'localhost'
+SMTP = {{ SMTP | default('localhost') }}
+
+# FROM: Email sender address for alarms. Default: 'root@localhost'
+FROM = {{ FROM | default('root@localhost') }}
+
+# TO: Email recipient address for alarms. Default: 'root@localhost'
+TO = {{ TO | default('root@localhost') }}
+
+# NAGIOS: Path to Nagios submit_check_result binary. Empty to disable. Default: ''
+NAGIOS = {{ NAGIOS | default('') }}
+
+# UPPER_LEVEL: Upper alarm level (Nagios: 0=OK, 1=WARNING, 2=Critical, 3=Unknown). Default: '1'
+UPPER_LEVEL = {{ UPPER_LEVEL | default('1') }}
+
+# LOWER_LEVEL: Lower alarm level. Default: '2'
+LOWER_LEVEL = {{ LOWER_LEVEL | default('2') }}
+
+# URL: URL for alarm notification. Default: ''
+URL = {{ URL | default('') }}
+
+# SKIP_ALARM: Skip list for alarm monitoring. Default: ''
+# Note: The schema calls this field SKIP_ALARM, but the config directive is SKIP in this section.
+SKIP = {{ SKIP_ALARM | default('') }}
+
+
+# [MONITOR]
+# Defines which system metrics to monitor.
+#
+# Format 1 (Standard): type:ThresholdMax:ThresholdMin
+#   - ThresholdMax: Value above which to warn. 0 or omitted disables warning.
+#   - ThresholdMin: Value below which to warn. Omitted disables warning.
+#   - Optional Attempts: type:what:Max(attempts):Min(attempts)
+#     - Example: load:12(3):  (Warn if load > 12 for 3 consecutive intervals)
+#
+# Format 2 (Process/Queue): type:what:ThresholdMax:ThresholdMin
+#   - type: 'proc' (process name in 'what') or 'queue' (directory path in 'what')
+#
+# Format 3 (Disk): disk:ThresholdMax:exclusion
+#   - exclusion: Semicolon-separated mount points to ignore.
+#
+# Special Note: 'cpu' reports per-CPU stats. Use 'cpuall' to limit to total CPU stats only.
+
+# MONITOR_LOAD: Load monitoring entry. Default: 'load:'
+{{ MONITOR_LOAD | default('load:') }}
+
+# MONITOR_BLOCKED: Blocked processes monitoring entry. Default: 'blocked:'
+{{ MONITOR_BLOCKED | default('blocked:') }}
+
+# MONITOR_CPU: CPU monitoring entry. Default: 'cpu:'
+{{ MONITOR_CPU | default('cpu:') }}
+
+# MONITOR_CSWCH: Context switches monitoring entry. Default: 'cswch:'
+{{ MONITOR_CSWCH | default('cswch:') }}
+
+# MONITOR_INTR: Interrupts monitoring entry. Default: 'intr:'
+{{ MONITOR_INTR | default('intr:') }}
+
+# MONITOR_MEM: Memory monitoring entry. Default: 'mem:'
+{{ MONITOR_MEM | default('mem:') }}
+
+# MONITOR_DIRTY: Dirty pages monitoring entry. Default: 'dirty:'
+{{ MONITOR_DIRTY | default('dirty:') }}
+
+# MONITOR_SHARE: Shared memory monitoring entry. Default: 'share:'
+{{ MONITOR_SHARE | default('share:') }}
+
+# MONITOR_SWAP: Swap monitoring entry. Default: 'swap:'
+{{ MONITOR_SWAP | default('swap:') }}
+
+# MONITOR_WORK: Workload monitoring entry. Default: 'work:'
+{{ MONITOR_WORK | default('work:') }}
+
+# MONITOR_SOCK: Socket monitoring entry. Default: 'sock:'
+{{ MONITOR_SOCK | default('sock:') }}
+
+# MONITOR_SOCKTW: Socket two monitoring entry. Default: 'socktw:'
+{{ MONITOR_SOCKTW | default('socktw:') }}
+
+# MONITOR_IO: I/O monitoring entry. Default: 'io:'
+{{ MONITOR_IO | default('io:') }}
+
+# MONITOR_FILE: File monitoring entry. Default: 'file:'
+{{ MONITOR_FILE | default('file:') }}
+
+# MONITOR_PAGE: Page monitoring entry. Default: 'page:'
+{{ MONITOR_PAGE | default('page:') }}
+
+# MONITOR_PCREA: Process creation monitoring entry. Default: 'pcrea:'
+{{ MONITOR_PCREA | default('pcrea:') }}
+
+# MONITOR_PSWAP: Process swap monitoring entry. Default: 'pswap:'
+{{ MONITOR_PSWAP | default('pswap:') }}
+
+# MONITOR_NET: Network monitoring entry. Default: 'net:'
+{{ MONITOR_NET | default('net:') }}
+
+# MONITOR_ERR: Error monitoring entry. Default: 'err:'
+{{ MONITOR_ERR | default('err:') }}
+
+# MONITOR_DISK: Disk monitoring entry. Default: 'disk:'
+{{ MONITOR_DISK | default('disk:') }}
+
+# MONITOR_TCP: TCP monitoring entry. Default: 'tcp:'
+{{ MONITOR_TCP | default('tcp:') }}
+
+# MONITOR_PROC: Process monitoring entry. Default: 'proc:'
+{{ MONITOR_PROC | default('proc:') }}
+
+# MONITOR_TPROC: Total process monitoring entry. Default: 'tproc:'
+{{ MONITOR_TPROC | default('tproc:') }}
+
+# MONITOR_QUEUE: Queue monitoring entry. Default: 'queue:'
+{{ MONITOR_QUEUE | default('queue:') }}
+
+# MONITOR_DEV: Device monitoring entry. Default: 'dev:'
+{{ MONITOR_DEV | default('dev:') }}
+
+# MONITOR_HUGE: Huge pages monitoring entry. Default: 'huge:'
+{{ MONITOR_HUGE | default('huge:') }}
+
+# Unused/Hardcoded entries kept for compatibility with legacy script expectations
+# hddtemp:
+# sensors:
+# temp:
+# fan:
+
+
+# [PLUGIN testplug1]
+# Example plugin definition for custom monitoring scripts.
+# Plugins must return 3 space-separated numbers: exit_code, value, description.
+[PLUGIN testplug1]
+title:WWW response time plugin
+menu:Web servers
+enable:no
+multi:no
+program:/usr/share/sysusage/plugins/plugin-sample1.pl
+minThreshold:0
+maxThreshold:10
+delayThreshold:1
+verticallabel:Number of seconds
+label1:www.server.test response time
+label2:
+label3:
+legend1:seconds
+legend2:
+legend3:
+remote:yes
+
+# [PLUGIN testplug2]
+# Example plugin definition for ICMP latency monitoring.
+[PLUGIN testplug2]
+title:ICMP servers response time
+menu:Network latency
+enable:no
+multi:no
+program:/usr/share/sysusage/plugins/plugin-sample2.pl
+minThreshold:
+maxThreshold:
+delayThreshold:
+verticallabel:Response time in milliseconds
+label1:Server1
+label2:Server2
+label3:Server3
+legend1:ms
+legend2:ms
+legend3:ms
+remote:yes
+
+
+# [REMOTE hostname1]
+# Remote host monitoring configuration via SSH.
+[REMOTE hostname1]
+enable:no
+ssh_user:monitor
+ssh_identity:/home/monitor/.ssh/id_rsa
+#ssh_options:
+#ssh_command:
+remote_sysusage:/usr/bin/rsysusage
+
+#[GROUP Web Servers]
+#hostname1
+#hostname2

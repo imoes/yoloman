@@ -1,0 +1,160 @@
+# ============================================================================
+# Rush Configuration Template
+# ============================================================================
+# Rush is a tool for managing access to version control systems via SSH.
+# This template is self-documenting: every directive is preceded by a comment
+# derived from the schema definition.
+#
+# Syntax:
+#   - Lines beginning with # are comments.
+#   - Empty lines are ignored.
+#   - Directives use specific keywords (global, rule, set, etc.).
+# ============================================================================
+
+# Version identifier for the configuration format.
+rush 2.0
+
+# ---------------------------------------------------------------------------
+# Global Settings
+# ---------------------------------------------------------------------------
+global
+  # debug_level: Global debug/verbosity level for rush.
+  # Default: '1'
+  debug {{ debug_level | default('1') }}
+
+# ---------------------------------------------------------------------------
+# Default Rule
+# ---------------------------------------------------------------------------
+# Applies to all connections that do not match a more specific rule.
+rule default
+  # limits: Connection rate limiting strategy.
+  limits t10r20
+  
+  # default_umask: Default umask for the default rule.
+  # Default: '002'
+  umask {{ default_umask | default('002') }}
+  
+  # clrenv: Clear environment variables for security.
+  clrenv
+  
+  # keepenv: Whitelist of environment variables to preserve.
+  keepenv USER LOGNAME HOME PATH
+  
+  # default_extra_bin_path: Additional directory appended to PATH in the default rule.
+  # Default: '/usr/local/bin'
+  setenv PATH="$PATH:{{ default_extra_bin_path | default('/usr/local/bin') }}"
+  
+  # fall-through: Continue processing rules if this one doesn't exit.
+  fall-through
+
+# ---------------------------------------------------------------------------
+# CVS Rule
+# ---------------------------------------------------------------------------
+# Handles CVS server requests.
+rule cvs
+  # Match commands starting with "cvs server".
+  match $command ~ "^cvs server"
+  
+  # cvs_bin_path: Full path to the cvs executable used in the cvs rule.
+  # Default: '/usr/bin/cvs'
+  set [0] = "{{ cvs_bin_path | default('/usr/bin/cvs') }}"
+
+# ---------------------------------------------------------------------------
+# SCP-to Rule
+# ---------------------------------------------------------------------------
+# Allows incoming secure copy (upload) to specific directories.
+rule scp-to
+  # Match incoming scp transfer commands targeting /incoming/alpha or /incoming/ftp.
+  match $command ~ "^scp (-v )?-t /incoming/(alpha|ftp)"
+  
+  # scp_bin_path: Full path to the scp executable used in the scp-to rule.
+  # Default: '/bin/scp'
+  set [0] = "{{ scp_bin_path | default('/bin/scp') }}"
+  
+  # sftp_upload_chroot: Chroot directory for incoming scp/sftp uploads.
+  # Default: '/var/spool/sftp-upload'
+  chroot "{{ sftp_upload_chroot | default('/var/spool/sftp-upload') }}"
+  
+  # Change working directory within the chroot.
+  chdir "/incoming"
+
+# ---------------------------------------------------------------------------
+# SCP-from Rule
+# ---------------------------------------------------------------------------
+# Trap rule to prevent outgoing secure copy (download) operations.
+rule scp-from
+  # Match outgoing scp retrieval commands.
+  match $command ~ "^scp (-v )?-f"
+  
+  # Deny the request with an error message.
+  exit "Error: Secure copy from this server is not allowed"
+
+# ---------------------------------------------------------------------------
+# SVN Rule
+# ---------------------------------------------------------------------------
+# Handles Subversion server requests via svnserve.
+rule svn
+  # Match svnserve tunnel requests.
+  match $command ~ "^svnserve -t"
+  
+  # svnserve_bin_path: Full path to the svnserve executable used in the svn rule.
+  # Default: '/usr/bin/svnserve'
+  set program = "{{ svnserve_bin_path | default('/usr/bin/svnserve') }}"
+  
+  # Parse options.
+  remopt r:
+  
+  # Insert arguments to specify the repository root.
+  insert [1] = "-r"
+  
+  # svn_root_dir: Root directory for svn repositories passed as -r argument.
+  # Default: '/svnroot'
+  insert [2] = "{{ svn_root_dir | default('/svnroot') }}"
+
+# ---------------------------------------------------------------------------
+# Git Rule
+# ---------------------------------------------------------------------------
+# Allows access to git repositories located under /vcs-roots/git.
+rule git
+  # Match git pack-transfer commands.
+  match $command ~ "^git-(receive|upload)-pack"
+  
+  # Ensure the repository path matches the expected structure.
+  match $1 ~ "^/vcs-roots/git/[^ ]+\\.git$"
+  
+  # git_bin_path: Path prefix to prepend to git commands in the git rule.
+  # Default: '/usr/bin/'
+  set command =~ "s|^|{{ git_bin_path | default('/usr/bin/') }}|"
+
+# ---------------------------------------------------------------------------
+# Git-trap Rule
+# ---------------------------------------------------------------------------
+# Trap rule to deny unauthorized or unmatched git requests.
+rule git-trap
+  # Catch any git commands not handled by the 'git' rule.
+  match $command ~ "^git-(receive|upload)-pack"
+  
+  # Deny with an explicit fatal error.
+  exit "fatal: access to this repository is denied."
+
+# ---------------------------------------------------------------------------
+# SFTP Rule
+# ---------------------------------------------------------------------------
+# Handles SFTP server requests, chrooting into the user's home directory.
+rule sftp
+  # Match sftp-server execution requests.
+  match $program ~ "^.*/sftp-server"
+  
+  # sftp_server_bin: Relative path to the sftp-server binary executed in the sftp rule.
+  # Default: 'bin/sftp-server'
+  set [0] = "{{ sftp_server_bin | default('bin/sftp-server') }}"
+  
+  # sftp_umask: Umask set for the sftp rule.
+  # Default: '002'
+  umask {{ sftp_umask | default('002') }}
+  
+  # Chroot into the user's home directory.
+  chroot "~"
+  
+  # Change to root of the chroot.
+  chdir "/"

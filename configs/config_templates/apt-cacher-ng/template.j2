@@ -7,8 +7,9 @@
 
 # Optional: specify hostname to appear in error messages and links.
 # If left empty or unset, the default behavior is used.
-# HOSTNAME={{ hostname | default('') }}
-# export HOSTNAME
+{% if hostname is defined and hostname is not none and (hostname is number or hostname is boolean or hostname | length > 0) %}HOSTNAME={{ hostname | default('') }}
+{% else %}# HOSTNAME=externallyVisibleHostName
+{% endif %}# export HOSTNAME
 
 # Ensure the acngtool binary exists and is executable before proceeding.
 test -x /usr/lib/apt-cacher-ng/acngtool || exit 0

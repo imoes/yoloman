@@ -210,12 +210,15 @@ class RoleResource:
             existing.parameters = params
             existing.plan_version = plan_row.current_version
             existing.status = status
+            # A re-bind is a new request: its requester is who the four-eyes approval is measured against.
+            existing.created_by = self._requested_by
             link = existing
         else:
             link = OrchestrationPlanLink(
                 id=uuid4(), tenant_id=plan_row.tenant_id, plan_id=plan_row.id,
                 plan_version=plan_row.current_version, target_type="host",
                 agent_id=self._agent.id, parameters=params, status=status,
+                created_by=self._requested_by,
             )
             self._session.add(link)
         await self._session.commit()

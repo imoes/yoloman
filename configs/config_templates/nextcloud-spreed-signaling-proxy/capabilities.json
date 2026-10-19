@@ -1,16 +1,64 @@
 {
   "provides": [
     {
-      "capability": "reverse_proxy",
-      "backend": "generic",
+      "capability": "web_server",
+      "backends": [
+        "nginx",
+        "apache",
+        "caddy",
+        "traefik"
+      ],
       "port_field": "http_listen",
-      "default_port": 9090,
-      "provisionable": {
-        "endpoints": "etcd_endpoints"
+      "default_port": null
+    },
+    {
+      "capability": "reverse_proxy",
+      "backends": [
+        "nginx",
+        "haproxy",
+        "traefik",
+        "caddy"
+      ],
+      "fields": {
+        "upstream_host": null,
+        "upstream_port": null
+      },
+      "port_field": "http_listen",
+      "default_port": null
+    }
+  ],
+  "requires": [
+    {
+      "capability": "cache",
+      "backends": [
+        "redis",
+        "memcached",
+        "valkey"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": null,
+        "port": null,
+        "password": null,
+        "socket": null
+      }
+    },
+    {
+      "capability": "message_queue",
+      "backends": [
+        "redis",
+        "nats"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": null,
+        "port": null,
+        "user": null,
+        "password": null,
+        "vhost": null
       }
     }
   ],
-  "requires": [],
   "peer_injection": [],
-  "confidence": "review"
+  "confidence": "high"
 }

@@ -1,0 +1,153 @@
+{#
+  globus-gfork-progs-redhat Configuration Template
+  ================================================
+  This package provides the Globus GridFTP Server (gfork) configuration.
+  Globus GridFTP is a robust implementation of the GridFTP protocol for high-performance data transfer.
+  
+  This template generates the main configuration file for the `globus-gridftp-server` service.
+  It is designed to be self-documenting, with every setting described by its schema definition.
+#}
+
+# ==============================================================================
+# Globus GridFTP Server Configuration
+# ==============================================================================
+
+# Global section for the GridFTP server
+[Global]
+
+{# Description: Enable or disable the GridFTP server #}
+{# Default: true #}
+enabled = {{ globus_gfork_global_enabled | default(true) | lower }}
+
+{# Description: The user account under which the server runs (security context) #}
+{# Default: nobody #}
+user = {{ globus_gfork_global_user | default("nobody") }}
+
+{# Description: The group account for the server process #}
+{# Default: nogroup #}
+group = {{ globus_gfork_global_group | default("nogroup") }}
+
+{# Description: Enable debugging output for troubleshooting #}
+{# Default: false #}
+debug = {{ globus_gfork_global_debug | default(false) | lower }}
+
+{# Description: Log file path for GridFTP server logs #}
+{# Default: /var/log/globus/gridftp.log #}
+log_file = {{ globus_gfork_global_log_file | default("/var/log/globus/gridftp.log") }}
+
+{# Description: Verbosity level of the log (0-3) #}
+{# Default: 1 #}
+log_verbosity = {{ globus_gfork_global_log_verbosity | default(1) | int }}
+
+# ==============================================================================
+# Server Listener Configuration
+# ==============================================================================
+# Define the listeners (ports/interfaces) the server binds to.
+
+[Listener]
+
+{# Description: The IP address to bind the GridFTP server to #}
+{# Default: 0.0.0.0 #}
+listen_address = {{ globus_gfork_listener_listen_address | default("0.0.0.0") }}
+
+{# Description: The primary port number for GridFTP data transfer #}
+{# Default: 2811 #}
+port = {{ globus_gfork_listener_port | default(2811) | int }}
+
+{# Description: Maximum number of simultaneous connections #}
+{# Default: 100 #}
+max_connections = {{ globus_gfork_listener_max_connections | default(100) | int }}
+
+{# Description: Timeout in seconds for idle connections #}
+{# Default: 300 #}
+timeout = {{ globus_gfork_listener_timeout | default(300) | int }}
+
+{# Description: Enable TLS/SSL encryption for data transfer #}
+{# Default: true #}
+ssl_enabled = {{ globus_gfork_listener_ssl_enabled | default(true) | lower }}
+
+{# Description: Path to the SSL certificate file #}
+{# Default: /etc/grid-security/gridftp-server-cert.pem #}
+ssl_cert = {{ globus_gfork_listener_ssl_cert | default("/etc/grid-security/gridftp-server-cert.pem") }}
+
+{# Description: Path to the SSL private key file #}
+{# Default: /etc/grid-security/gridftp-server-key.pem #}
+ssl_key = {{ globus_gfork_listener_ssl_key | default("/etc/grid-security/gridftp-server-key.pem") }}
+
+{# Description: Path to the SSL CA certificate file #}
+{# Default: /etc/grid-security/gridftp-server-ca.pem #}
+ssl_ca = {{ globus_gfork_listener_ssl_ca | default("/etc/grid-security/gridftp-server-ca.pem") }}
+
+# ==============================================================================
+# Data Transfer Configuration
+# ==============================================================================
+
+[Transfer]
+
+{# Description: Minimum port for passive mode data connections #}
+{# Default: 20000 #}
+passive_port_min = {{ globus_gfork_transfer_passive_port_min | default(20000) | int }}
+
+{# Description: Maximum port for passive mode data connections #}
+{# Default: 20999 #}
+passive_port_max = {{ globus_gfork_transfer_passive_port_max | default(20999) | int }}
+
+{# Description: Enable data connection encryption #}
+{# Default: true #}
+data_connection_ssl = {{ globus_gfork_transfer_data_connection_ssl | default(true) | lower }}
+
+{# Description: Enable checksum verification for transfers #}
+{# Default: true #}
+checksum_enabled = {{ globus_gfork_transfer_checksum_enabled | default(true) | lower }}
+
+{# Description: Enable resume capability for interrupted transfers #}
+{# Default: true #}
+resume_enabled = {{ globus_gfork_transfer_resume_enabled | default(true) | lower }}
+
+# ==============================================================================
+# Authentication and Authorization
+# ==============================================================================
+
+[Auth]
+
+{# Description: Enable Kerberos authentication #}
+{# Default: false #}
+kerberos_enabled = {{ globus_gfork_auth_kerberos_enabled | default(false) | lower }}
+
+{# Description: Kerberos principal for the service #}
+{# Default: gridftp/hostname.example.com @ EXAMPLE.COM #}
+kerberos_principal = {{ globus_gfork_auth_kerberos_principal | default("gridftp/hostname.example.com @ EXAMPLE.COM") }}
+
+{# Description: Enable X509 certificate-based authentication #}
+{# Default: true #}
+x509_enabled = {{ globus_gfork_auth_x509_enabled | default(true) | lower }}
+
+{# Description: Map X509 DN to system users #}
+{# Default: false #}
+x509_map_users = {{ globus_gfork_auth_x509_map_users | default(false) | lower }}
+
+{# Description: Path to the grid-mapfile for user mapping #}
+{# Default: /etc/grid-security/grid-mapfile #}
+grid_mapfile = {{ globus_gfork_auth_grid_mapfile | default("/etc/grid-security/grid-mapfile") }}
+
+# ==============================================================================
+# Logging and Monitoring
+# ==============================================================================
+
+[Logging]
+
+{# Description: Enable detailed transaction logging #}
+{# Default: false #}
+transaction_logging = {{ globus_gfork_logging_transaction_logging | default(false) | lower }}
+
+{# Description: Log file for transaction details #}
+{# Default: /var/log/globus/gridftp_transactions.log #}
+transaction_log_file = {{ globus_gfork_logging_transaction_log_file | default("/var/log/globus/gridftp_transactions.log") }}
+
+{# Description: Enable performance metrics collection #}
+{# Default: true #}
+metrics_enabled = {{ globus_gfork_logging_metrics_enabled | default(true) | lower }}
+
+{# Description: Path to write metrics data #}
+{# Default: /var/lib/globus/gridftp_metrics #}
+metrics_path = {{ globus_gfork_logging_metrics_path | default("/var/lib/globus/gridftp_metrics") }}

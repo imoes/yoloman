@@ -16,7 +16,7 @@ export interface OrchestrationPlanVersion {
   generated_notifications: { routes?: string[] };
 }
 
-export type OrchestrationPlanType = 'role' | 'cluster' | 'deployment' | 'remediation' | 'maintenance' | 'bootstrap';
+export type OrchestrationPlanType = 'role' | 'feature' | 'cluster' | 'deployment' | 'remediation' | 'maintenance' | 'bootstrap';
 
 /** Matches bossman/api/orchestration.py's PlanOut. */
 export interface OrchestrationPlan {
@@ -73,6 +73,11 @@ export interface OrchestrationPlanLink {
   require_approval: boolean;
   status: PlanLinkStatus;
   created_at: string;
+  /** Who asked for the binding — four-eyes: never the one who approves it. */
+  created_by?: string | null;
+  /** Review-queue display names (GET /orchestration/pending-links only). */
+  plan_name?: string | null;
+  target_label?: string | null;
 }
 
 /** Matches bossman/api/orchestration.py's PlanLinkIn. Leaving auto_apply

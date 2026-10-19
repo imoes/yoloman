@@ -1,0 +1,228 @@
+{#
+  accel-config-redhat configuration template.
+  This configuration defines the DSA (Data Streaming Architecture) device bindings,
+  workqueues, and engines for Intel FPGA acceleration.
+#}
+
+{# Root configuration object for the accel-config service. #}
+[
+  {#
+    dev: The DSA device identifier.
+    Identifies the specific DSA hardware device to configure.
+  #}
+  "dev": "{{ dev | default('dsa0') }}",
+
+  {#
+    read_buffer_limit: Read buffer limit.
+    Sets the limit for read buffers associated with the device.
+  #}
+  "read_buffer_limit": {{ read_buffer_limit | default('0') }},
+
+  {#
+    groups: List of acceleration groups configured for this device.
+    Each group contains workqueues and engines.
+  #}
+  "groups": [
+    {#
+      --- Group 0 Configuration ---
+      group_0_dev: Device identifier for the first group.
+      Identifies the specific group instance.
+    #}
+    {
+      "dev": "{{ group_0_dev | default('group0.0') }}",
+
+      {#
+        grouped_workqueues: List of workqueues within this group.
+        Workqueues handle the execution of acceleration tasks.
+      #}
+      "grouped_workqueues": [
+        {
+          {#
+            group_0_wq_0_dev: Device identifier for the first workqueue in the first group.
+            Unique ID for this workqueue instance.
+          #}
+          "dev": "{{ group_0_wq_0_dev | default('wq0.0') }}",
+
+          {#
+            group_0_wq_0_mode: Workqueue mode.
+            Options: 'shared' or 'exclusive'. Determines access policy.
+          #}
+          "mode": "{{ group_0_wq_0_mode | default('shared') }}",
+
+          {#
+            group_0_wq_0_size: Workqueue size.
+            Number of entries/buffers in the workqueue ring.
+          #}
+          "size": {{ group_0_wq_0_size | default(8) }},
+
+          {#
+            group_0_group_id: Group ID for the first group.
+            Logical identifier for the group this workqueue belongs to.
+          #}
+          "group_id": {{ group_0_group_id | default(0) }},
+
+          {#
+            group_0_wq_0_priority: Workqueue priority.
+            Scheduling priority for tasks in this workqueue.
+          #}
+          "priority": {{ group_0_wq_0_priority | default('10') }},
+
+          {#
+            group_0_wq_0_block_on_fault: Whether to block on fault.
+            If '1', the driver blocks when a fault occurs; if '0', it may handle asynchronously.
+          #}
+          "block_on_fault": {{ group_0_wq_0_block_on_fault | default('0') }},
+
+          {#
+            group_0_wq_0_max_batch_size: Maximum batch size for the workqueue.
+            Max number of descriptors per submission batch.
+          #}
+          "max_batch_size": {{ group_0_wq_0_max_batch_size | default('32') }},
+
+          {#
+            group_0_wq_0_max_transfer_size: Maximum transfer size for the workqueue.
+            Max bytes per single transfer operation.
+          #}
+          "max_transfer_size": {{ group_0_wq_0_max_transfer_size | default(16384) }},
+
+          {#
+            group_0_wq_0_type: Workqueue type.
+            e.g., 'user' for user-space access, or kernel types.
+          #}
+          "type": "{{ group_0_wq_0_type | default('user') }}",
+
+          {#
+            group_0_wq_0_driver_name: Driver name for the workqueue.
+            Specifies the driver binding this workqueue.
+          #}
+          "driver_name": "{{ group_0_wq_0_driver_name | default('user') }}",
+
+          {#
+            group_0_wq_0_name: Name for the workqueue.
+            Human-readable identifier for this workqueue.
+          #}
+          "name": "{{ group_0_wq_0_name | default('app1') }}",
+
+          {#
+            group_0_wq_0_threshold: Threshold for the workqueue.
+            Trigger threshold for interrupts or notifications.
+          #}
+          "threshold": {{ group_0_wq_0_threshold | default(6) }}
+        }
+      ],
+
+      {#
+        grouped_engines: List of engines within this group.
+        Engines are the physical acceleration units.
+      #}
+      "grouped_engines": [
+        {
+          {#
+            group_0_engine_0_dev: Device identifier for the first engine in the first group.
+            Unique ID for this engine instance.
+          #}
+          "dev": "{{ group_0_engine_0_dev | default('engine0.0') }}",
+
+          {#
+            group_id: Group ID for the engine.
+            Must match the group this engine belongs to.
+          #}
+          "group_id": {{ group_0_group_id | default(0) }}
+        }
+      ]
+    },
+
+    {#
+      --- Group 1 Configuration ---
+      group_1_dev: Device identifier for the second group.
+      Identifies the second group instance.
+    #}
+    {
+      "dev": "{{ group_1_dev | default('group0.1') }}",
+
+      {#
+        grouped_workqueues: List of workqueues within the second group.
+      #}
+      "grouped_workqueues": [
+        {
+          {#
+            group_1_wq_0_dev: Device identifier for the first workqueue in the second group.
+          #}
+          "dev": "{{ group_1_wq_0_dev | default('wq0.1') }}",
+
+          {#
+            group_1_wq_0_mode: Workqueue mode for the second group.
+          #}
+          "mode": "{{ group_1_wq_0_mode | default('shared') }}",
+
+          {#
+            group_1_wq_0_size: Workqueue size for the second group.
+          #}
+          "size": {{ group_1_wq_0_size | default(32) }},
+
+          {#
+            group_1_group_id: Group ID for the second group.
+          #}
+          "group_id": {{ group_1_group_id | default(1) }},
+
+          {#
+            group_1_wq_0_priority: Workqueue priority for the second group.
+          #}
+          "priority": {{ group_1_wq_0_priority | default('10') }},
+
+          {#
+            group_1_wq_0_block_on_fault: Whether to block on fault for the second group.
+          #}
+          "block_on_fault": {{ group_1_wq_0_block_on_fault | default('0') }},
+
+          {#
+            group_1_wq_0_max_batch_size: Maximum batch size for the second group workqueue.
+          #}
+          "max_batch_size": {{ group_1_wq_0_max_batch_size | default('32') }},
+
+          {#
+            group_1_wq_0_max_transfer_size: Maximum transfer size for the second group workqueue.
+          #}
+          "max_transfer_size": {{ group_1_wq_0_max_transfer_size | default(2097152) }},
+
+          {#
+            group_1_wq_0_type: Workqueue type for the second group.
+          #}
+          "type": "{{ group_1_wq_0_type | default('user') }}",
+
+          {#
+            group_1_wq_0_driver_name: Driver name for the second group workqueue.
+          #}
+          "driver_name": "{{ group_1_wq_0_driver_name | default('user') }}",
+
+          {#
+            group_1_wq_0_name: Name for the second group workqueue.
+          #}
+          "name": "{{ group_1_wq_0_name | default('app2') }}",
+
+          {#
+            group_1_wq_0_threshold: Threshold for the second group workqueue.
+          #}
+          "threshold": {{ group_1_wq_0_threshold | default(28) }}
+        }
+      ],
+
+      {#
+        grouped_engines: List of engines within the second group.
+      #}
+      "grouped_engines": [
+        {
+          {#
+            group_1_engine_0_dev: Device identifier for the first engine in the second group.
+          #}
+          "dev": "{{ group_1_engine_0_dev | default('engine0.1') }}",
+
+          {#
+            group_id: Group ID for the engine in the second group.
+          #}
+          "group_id": {{ group_1_group_id | default(1) }}
+        }
+      ]
+    }
+  ]
+}

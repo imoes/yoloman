@@ -10,11 +10,13 @@
 # ---------------------------------------------------------------------------
 # The operating system user account under which the groonga HTTP server runs.
 # Set to 'groonga' to use the dedicated service account, or leave commented to use defaults.
-#USER={{ groonga_server_http_user | default('groonga') }}
-
+{% if groonga_server_http_user is defined and groonga_server_http_user is not none and (groonga_server_http_user is number or groonga_server_http_user is boolean or groonga_server_http_user | length > 0) %}USER={{ groonga_server_http_user | default('groonga') }}
+{% else %}#USER=groonga
+{% endif %}
 # The operating system group associated with the daemon user.
-#GROUP={{ groonga_server_http_group | default('groonga') }}
-
+{% if groonga_server_http_group is defined and groonga_server_http_group is not none and (groonga_server_http_group is number or groonga_server_http_group is boolean or groonga_server_http_group | length > 0) %}GROUP={{ groonga_server_http_group | default('groonga') }}
+{% else %}#GROUP=groonga
+{% endif %}
 # ---------------------------------------------------------------------------
 # Network Binding
 # ---------------------------------------------------------------------------
@@ -93,7 +95,6 @@ GRN_MECAB_CHUNKED_TOKENIZE_ENABLED={{ groonga_server_http_grn_mecab_chunked_toke
 {% if groonga_server_http_grn_mecab_chunk_size_threshold is defined %}
 GRN_MECAB_CHUNK_SIZE_THRESHOLD={{ groonga_server_http_grn_mecab_chunk_size_threshold | default(8192) }}
 {% endif %}
-
 # Set the max N segments for tiny index column (default: 512)
 # Uncomment to override: #GRN_II_MAX_N_SEGMENTS_TINY=512
 

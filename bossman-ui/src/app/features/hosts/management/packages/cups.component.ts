@@ -2,6 +2,7 @@ import { Component, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 interface Printer { name: string; uri: string; state: string; isDefault: boolean; }
 
@@ -16,7 +17,7 @@ interface Printer { name: string; uri: string; state: string; isDefault: boolean
 @Component({
   selector: 'app-cups',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, MatIconModule, MatButtonModule],
   template: `
     <div class="bm-cups">
       @if (loading()) { <p class="bm-dim">Loading printers…</p> }
@@ -70,7 +71,7 @@ interface Printer { name: string; uri: string; state: string; isDefault: boolean
               </datalist>
             </label>
             <label class="bm-fld">Location<input [value]="nLoc()" (input)="nLoc.set($any($event.target).value)" placeholder="optional" /></label>
-            <button mat-raised-button color="primary" (click)="add()" [disabled]="busy() || !nName().trim() || !nUri().trim()">Add printer</button>
+            <button mat-raised-button color="primary" (click)="add()" [disabled]="busy()" [bmBlocked]="!nName().trim() || !nUri().trim() ? 'Enter a printer name and a device URI' : ''">Add printer</button>
           </div>
           <p class="bm-hint">Driver: <code>everywhere</code> = driverless IPP (modern network printers); or a PPD/model name from the driver DB (click “Load driver DB” for the dropdown), or <code>raw</code> for a passthrough queue. @if (devMsg()) { <span class="bm-dim">— {{ devMsg() }}</span> } @if (modelMsg()) { <span class="bm-dim">— {{ modelMsg() }}</span> }</p>
         </section>
@@ -85,8 +86,8 @@ interface Printer { name: string; uri: string; state: string; isDefault: boolean
     .bm-card > header, .bm-cardhead { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); display: flex; align-items: center; justify-content: space-between; }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }
-    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: 5px 8px; }
-    .bm-t td { padding: 5px 8px; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; vertical-align: middle; }
+    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); vertical-align: middle; }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
     .bm-star { color: #f5a623; font-size: 18px; width: 18px; height: 18px; }
     .bm-link { border: 0; background: none; color: var(--mat-sys-primary); cursor: pointer; font-size: 12px; padding: 0; }

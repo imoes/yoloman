@@ -1,0 +1,100 @@
+# ============================================================================
+# Cacti: Apache HTTPD Configuration for the Cacti Web Interface
+# ============================================================================
+#
+# This template configures Apache access controls for the Cacti installation
+# located at /usr/share/cacti. It supports both Apache 2.4 (mod_authz_core)
+# and legacy 2.2 access models.
+#
+# Self-Documenting Variables:
+# - cacti_access_host: Defines the hosts allowed to access the Cacti web UI.
+#   Default is 'localhost' for security. Use 'all' or specific IPs/hostnames
+#   to allow remote access.
+# ============================================================================
+
+# Alias directive mapping the URL path /cacti to the filesystem path.
+Alias /cacti    /usr/share/cacti
+
+# -----------------------------------------------------------------------------
+# Main Cacti Directory Access Control
+# -----------------------------------------------------------------------------
+# Controls access to the main Cacti application directory.
+<Directory /usr/share/cacti/>
+	{# Determine the access host. Use the variable if defined and not empty, otherwise default to localhost. #}
+	{% set access_host = (cacti_access_host | default('localhost')) %}
+	
+	{# If a specific host is configured (and not just the default 'localhost' without explicit intent, 
+	   but here we simply follow the schema: if the variable is provided, use it. 
+	   To allow 'all' or specific IPs, we use the variable value directly. 
+	   If the variable is empty/null, we fall back to the safe default. #}
+	{% if access_host %}
+		<IfModule mod_authz_core.c>
+			# Apache 2.4+: Restrict access to the specified host(s).
+			# The variable cacti_access_host determines who is allowed.
+			# If 'all' is set, it allows everyone. If an IP/hostname, it restricts to that.
+			Require host {{ access_host | default('localhost') }}
+		</IfModule>
+		<IfModule !mod_authz_core.c>
+			# Apache 2.2 Legacy: Restrict access using Order/Allow/Deny.
+			Order deny,allow
+			Deny from all
+			Allow from {{ access_host | default('localhost') }}
+		</IfModule>
+	{% else %}
+		<IfModule mod_authz_core.c>
+			# Default secure configuration: Only localhost allowed.
+			Require host {{ 'localhost' | default('localhost') }}
+		</IfModule>
+		<IfModule !mod_authz_core.c>
+			# Default secure configuration: Only localhost allowed.
+			Order deny,allow
+			Deny from all
+			Allow from {{ 'localhost' | default('localhost') }}
+		</IfModule>
+	{% endif %}
+</Directory>
+
+# -----------------------------------------------------------------------------
+# Install Directory Access Control
+# -----------------------------------------------------------------------------
+# Controls access to the Cacti installer directory.
+<Directory /usr/share/cacti/install>
+	# mod_security overrides.
+	# Uncomment these if you use mod_security to allow the installer to function.
+	# allow POST of application/x-www-form-urlencoded during install
+	#SecRuleRemoveById 960010
+	# permit the specification of the rrdtool paths during install
+	#SecRuleRemoveById 900011
+</Directory>
+
+# -----------------------------------------------------------------------------
+# Log Directory Access Control (Hardened)
+# -----------------------------------------------------------------------------
+# Prevents external access to Cacti log files for security.
+# These sections marked "Require all denied" (or "Deny from all")
+# should not be modified. They are in place to harden Cacti.
+<Directory /usr/share/cacti/log>
+	<IfModule mod_authz_core.c>
+		Require all denied
+	</IfModule>
+	<IfModule !mod_authz_core.c>
+		Order deny,allow
+		Deny from all
+	</IfModule>
+</Directory>
+
+# -----------------------------------------------------------------------------
+# RRA Directory Access Control (Hardened)
+# -----------------------------------------------------------------------------
+# Prevents external access to the RRD (Round Robin Archive) data files.
+# These sections marked "Require all denied" (or "Deny from all")
+# should not be modified. They are in place to harden Cacti.
+<Directory /usr/share/cacti/rra>
+	<IfModule mod_authz_core.c>
+		Require all denied
+	</IfModule>
+	<IfModule !mod_authz_core.c>
+		Order deny,allow
+		Deny from all
+	</IfModule>
+</Directory>

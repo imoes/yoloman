@@ -1,0 +1,20 @@
+[Unit]
+Description=Enroll this test host with Bossman (package e2e)
+After=network-online.target
+Before=yoloman-agent.service
+ConditionPathExists=!/etc/e2e/registered
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/e2e/env
+# RETRY UNTIL BOSSMAN ANSWERS. A pod restart (the workstation rebooted) re-runs the enrollment — the marker below
+# lives in the container's writable layer and is gone — and Bossman may not be up yet: one "connection refused"
+# failed this unit, and the agent, which Requires= it, never started (all five long-lived test hosts, found
+# 2026-10-17 by the agent's own service_diagnose). The unit now only finishes once enrolled.
+TimeoutStartSec=infinity
+ExecStart=/bin/sh -c 'until /usr/bin/agentic-mcpd register --enroll-url ${E2E_ENROLL_URL} --name ${E2E_NAME} --address ${E2E_ADDRESS} --no-restart --write=${E2E_WRITE}; do echo "e2e-register: Bossman not reachable yet, retrying in 15 s"; sleep 15; done'
+
+ExecStartPost=/usr/bin/touch /etc/e2e/registered
+
+[Install]
+WantedBy=multi-user.target

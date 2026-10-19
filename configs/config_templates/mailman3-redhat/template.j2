@@ -1,0 +1,51 @@
+# =============================================================================
+# Mailman 3 Core Configuration
+# =============================================================================
+# This template configures the core behavior and filesystem layout for Mailman 3.
+# It follows the FHS (Filesystem Hierarchy Standard) layout as defined in the
+# schema. All variable references are safeguarded with defaults matching the
+# schema definitions to ensure idempotent rendering in Ansible.
+
+[mailman]
+# The email address for the site owner. This address is used for undeliverable
+# messages and general administrative contact. If the variable is not defined,
+# it defaults to 'root@localhost'.
+site_owner: {{ site_owner | default('root@localhost') }}
+
+# -----------------------------------------------------------------------------
+# Directory Layout
+# -----------------------------------------------------------------------------
+# This section defines the filesystem paths for Mailman's operational directories.
+# The 'layout' directive ensures the service adheres to standard FHS conventions.
+
+layout: fhs
+
+[paths.fhs]
+# Directory containing Mailman binary executables (e.g., mailman, postorius).
+# Defaults to '/usr/libexec/mailman3' on Red Hat-based systems.
+bin_dir: {{ bin_dir | default('/usr/libexec/mailman3') }}
+
+# Variable data directory for Mailman state (archives, database files, etc.).
+# Defaults to '/var/lib/mailman3'.
+var_dir: {{ var_dir | default('/var/lib/mailman3') }}
+
+# Directory for Mailman message queues (pending deliveries, bounces, etc.).
+# Defaults to '/var/spool/mailman3'.
+queue_dir: {{ queue_dir | default('/var/spool/mailman3') }}
+
+# Directory for Mailman log files.
+# Defaults to '/var/log/mailman3'.
+log_dir: {{ log_dir | default('/var/log/mailman3') }}
+
+# Directory for Mailman lock files to prevent concurrent access issues.
+# Defaults to '/run/lock/mailman3'.
+lock_dir: {{ lock_dir | default('/run/lock/mailman3') }}
+
+# Directory for extension configurations (additional plugins or customizations).
+# Defaults to '/etc/mailman3.d'.
+ext_dir: {{ ext_dir | default('/etc/mailman3.d') }}
+
+# Path to the master process PID file, used by the service manager to track the
+# main Mailman process.
+# Defaults to '/run/mailman3/master.pid'.
+pid_file: {{ pid_file | default('/run/mailman3/master.pid') }}

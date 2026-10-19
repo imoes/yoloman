@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- -*- XML -*- -->
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!--
+    D-Bus Policy Configuration for SELinux Management Interface
+    This policy file restricts D-Bus service ownership to the root user
+    while allowing any local user to invoke methods via PolicyKit.
+  -->
+
+  <!--
+    Allow 'root' user to own the specified D-Bus service.
+    Variable: dbus_service_name
+    Default: 'org.selinux'
+    Description: The D-Bus service name that the SELinux management interface listens on.
+  -->
+  <policy user="root">
+    <allow own="{{ (dbus_service_name | default('org.selinux')) }}"/>
+  </policy>
+
+  <!--
+    Default policy context: Allow any user to send messages to the service.
+    Note: Actual authorization is delegated to PolicyKit (polkit).
+  -->
+  <policy context="default">
+    <allow send_destination="{{ (dbus_service_name | default('org.selinux')) }}"/>
+  </policy>
+
+</busconfig>

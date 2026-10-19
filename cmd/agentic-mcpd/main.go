@@ -21,9 +21,11 @@ import (
 	"github.com/mutkluge/agentic-mcp/internal/collect"
 	"github.com/mutkluge/agentic-mcp/internal/config"
 	"github.com/mutkluge/agentic-mcp/internal/desiredstate"
+	"github.com/mutkluge/agentic-mcp/internal/diagnosis"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 	"github.com/mutkluge/agentic-mcp/internal/fleet"
 	"github.com/mutkluge/agentic-mcp/internal/inventory"
+	"github.com/mutkluge/agentic-mcp/internal/kernelcaps"
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/piggyback"
 	"github.com/mutkluge/agentic-mcp/internal/pipeline"
@@ -151,6 +153,17 @@ func run(args []string) error {
 		return err
 	}
 
+	// Let service_diagnose look back on recent eBPF incidents (OOM kills, fatal signals) for a unit — the Linux half
+	// of the incident ring (plan E4). Read-only: it reads the collector's bounded in-memory rings and writes nothing
+	// to the metrics store. No collector (eBPF off) → the diagnosis simply has no past-incident history.
+	if collector != nil {
+		if m, ok := comps.modReg.Get("service_diagnose"); ok {
+			if sd, ok := m.(*modules.ServiceDiagnose); ok {
+				sd.Incidents = func() []diagnosis.Incident { return server.RecentIncidents(collector, 200) }
+			}
+		}
+	}
+
 	acl, err := authz.OpenACL(cfg.ACLPath)
 	if err != nil {
 		return fmt.Errorf("opening ACL store: %w", err)
@@ -244,13 +257,16 @@ func run(args []string) error {
 // capability keeps working without it, per docs/plan.md.
 func startEBPFCollector(cfg config.Config) *ebpf.Collector {
 	if !cfg.EBPF.Enabled {
+		kernelcaps.SetCollectorStatus("disabled", "ebpf.enabled=false in the agent config")
 		return nil
 	}
 	c, err := ebpf.New(0)
 	if err != nil {
 		slog.Warn("eBPF collector unavailable, continuing without it", "error", err)
+		kernelcaps.SetCollectorStatus("failed", err.Error())
 		return nil
 	}
+	kernelcaps.SetCollectorStatus("loaded", "")
 	go c.Run(context.Background())
 	slog.Info("eBPF collector attached (TCP connection tracking + exec events)")
 	return c
@@ -576,6 +592,21 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				store.Point{Metric: "tcp_connect_failed_total", Timestamp: now, Value: float64(failed)},
 				store.Point{Metric: "tcp_retransmit_total", Timestamp: now, Value: float64(retrans)},
 			)
+			// Scheduler and OOM signals as per-interval series, so a tuning change can be judged by the
+			// window before against the window after it (docs/kernel-tuning.md, block 2). Bounded
+			// cardinality: ~30 log2 buckets, one OOM series, one series per notable signal — never per PID.
+			if runq, rerr := collector.SnapshotRunqLatency(); rerr != nil {
+				slog.Debug("runq latency snapshot failed", "error", rerr)
+			} else {
+				for le, n := range runq {
+					points = append(points, store.Point{Metric: "runq_latency_us_bucket", Timestamp: now, Value: float64(n), Labels: map[string]string{"le": le}})
+				}
+			}
+			oom, signals := collector.SnapshotEventCounters()
+			points = append(points, store.Point{Metric: "oom_kill_total", Timestamp: now, Value: float64(oom)})
+			for sig, n := range signals {
+				points = append(points, store.Point{Metric: "signal_total", Timestamp: now, Value: float64(n), Labels: map[string]string{"signal": sig}})
+			}
 			// Passive L7 RED metrics (Tier-2), gated OFF by default via
 			// collect.l7_metrics — see the flag's comment in internal/config.
 			// The earlier "cardinality-safe" note here was wrong: `destination`

@@ -1,6 +1,21 @@
-/var/log/{{ log_path | basename }} { { if log_path | dirname == '/var/log/deluged' } }    weekly
-    rotate {{ log_rotate_count }}
+# Logrotate configuration for Deluge daemon logs.
+# This template configures rotation for the main deluged log file.
+
+{{ log_path | default('/var/log/deluged/daemon.log') }} {
+    # Rotate logs weekly
+    weekly
+
+    # Keep {{ log_rotate_count | default('8') }} rotated log files
+    # Schema: log_rotate_count - Number of rotated log files to keep
+    rotate {{ log_rotate_count | default('8') }}
+
+    # Compress old log files to save disk space
     compress
+
+    # Do not raise an error if the log file is missing
     missingok
+
+    # Copy the log file and then truncate the original,
+    # ensuring the daemon keeps writing to the same file descriptor
     copytruncate
-{ { endif } }
+}

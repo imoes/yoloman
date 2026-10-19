@@ -1,0 +1,66 @@
+{
+  "schema": "yoloman.diagnosis/v1",
+  "diagnosis_id": "5c8a1f0e-2d47-4b9b-a3e5-91f6c0d2e8b4",
+  "host": "e2e-deb-1",
+  "platform": "linux",
+  "target": {
+    "kind": "service",
+    "name": "probe-exec.service",
+    "display_name": null
+  },
+  "collected_at": "2026-10-17T14:20:44Z",
+  "status": "failed",
+  "summary": "probe-exec.service does not start because the program it runs, /usr/local/bin/probe-missing, does not exist.",
+  "evidence": [
+    {
+      "id": "systemd:show:probe-exec.service",
+      "source": "systemctl show",
+      "observed": "2026-10-17T14:20:39Z",
+      "fact": "probe-exec.service is failed with Result=exit-code, ExecMainStatus=203 (EXEC).",
+      "raw": {"LoadState": "loaded", "ActiveState": "failed", "SubState": "failed", "Result": "exit-code", "ExecMainCode": "1", "ExecMainStatus": "203", "NRestarts": "0", "FragmentPath": "/etc/systemd/system/probe-exec.service", "User": "", "UnitFileState": "disabled"}
+    },
+    {
+      "id": "file:stat:/usr/local/bin/probe-missing",
+      "source": "stat",
+      "observed": null,
+      "fact": "/usr/local/bin/probe-missing does not exist.",
+      "raw": {"path": "/usr/local/bin/probe-missing", "exists": false}
+    },
+    {
+      "id": "journal:s=8c1e7f2a;i=1b4;b=3f2d;m=91a2;t=63f1;x=7c4e",
+      "source": "journalctl",
+      "observed": "2026-10-17T14:20:39Z",
+      "fact": "journal: probe-exec.service: Failed to locate executable /usr/local/bin/probe-missing: No such file or directory",
+      "raw": {"message": "probe-exec.service: Failed to locate executable /usr/local/bin/probe-missing: No such file or directory", "unit": "probe-exec.service", "invocation_id": "a1b2c3d4e5f60718293a4b5c6d7e8f90", "priority": 3}
+    },
+    {
+      "id": "file:changed:/etc/systemd/system/probe-exec.service",
+      "source": "stat",
+      "observed": "2026-10-17T14:19:02Z",
+      "fact": "The unit file /etc/systemd/system/probe-exec.service last changed on this host at 2026-10-17T14:19:02Z.",
+      "raw": {"path": "/etc/systemd/system/probe-exec.service", "role": "unit file", "changed": "2026-10-17T14:19:02Z", "mtime": "2026-10-17T14:19:02Z"}
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "svc.image_missing",
+      "claim": "probe-exec.service does not start because the program it runs, /usr/local/bin/probe-missing, does not exist.",
+      "certainty": "Proven",
+      "evidence_ids": ["systemd:show:probe-exec.service", "file:stat:/usr/local/bin/probe-missing", "journal:s=8c1e7f2a;i=1b4;b=3f2d;m=91a2;t=63f1;x=7c4e"],
+      "precedent": {
+        "evidence_id": "file:changed:/etc/systemd/system/probe-exec.service",
+        "change": "the unit file /etc/systemd/system/probe-exec.service changed",
+        "observed": "2026-10-17T14:19:02Z",
+        "gap_seconds": 97
+      },
+      "remedy": null,
+      "gap": null
+    }
+  ],
+  "timeline": [
+    {"observed": "2026-10-17T14:19:02Z", "evidence_id": "file:changed:/etc/systemd/system/probe-exec.service"},
+    {"observed": "2026-10-17T14:20:39Z", "evidence_id": "systemd:show:probe-exec.service"},
+    {"observed": "2026-10-17T14:20:39Z", "evidence_id": "journal:s=8c1e7f2a;i=1b4;b=3f2d;m=91a2;t=63f1;x=7c4e"}
+  ],
+  "gaps": []
+}

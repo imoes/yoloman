@@ -1,0 +1,38 @@
+# Configuration for logrotate handling of below-redhat service logs.
+# This block applies to all files matching /var/log/below/error_*.log.
+
+/var/log/below/error_*.log {
+    # Rotate logs on a daily basis
+    daily
+
+    # Number of rotated log files to keep.
+    rotate {{ rotate_count | default('14') }}
+
+    # Maximum age in days for log files to be kept.
+    maxage {{ max_age | default('14') }}
+
+    # Truncate the log file instead of rotating it
+    copytruncate
+
+    # Compress rotated log files to save disk space
+    compress
+
+    # Do not rotate if the log file is empty
+    notifempty
+
+    # Do not error if the log file is missing
+    missingok
+
+    # Create new (empty) log files after rotating old ones,
+    # using the specified permission mode, user, and group.
+    # log_perm: Octal permission mode for newly created log files.
+    # log_user: User owner for newly created log files.
+    # log_group: Group owner for newly created log files.
+    create {{ log_perm | default('0644') }} {{ log_user | default('root') }} {{ log_group | default('root') }}
+
+    # Run logrotate as the specified user and group to access files
+    # that might have restricted permissions.
+    # su_user: User to run logrotate as.
+    # su_group: Group to run logrotate as.
+    su {{ su_user | default('root') }} {{ su_group | default('root') }}
+}

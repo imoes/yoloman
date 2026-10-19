@@ -1,21 +1,21 @@
-# debusine-client configuration
-#
-# This file configures the debusine-client tool.
-# Fields:
-#   allow_dcut: boolean - Whether to allow Debian Copy-Under Test builds.
-#   codenames: list of strings - Comma-separated list of valid Debian codenames.
-#   valid_commands: list of strings - List of allowed commands for the client.
+# Debusine Client Configuration
+# This file configures the behavior of the debusine client tool.
+# It defines allowed operations, valid Debian distributions (codenames),
+# and permitted command sets.
 
 {
     # allow_dcut: Whether to allow DCUT (Debian Copy-Under Test) builds.
-    # Default: False
-    "allow_dcut": {{ allow_dcut | default(false) | lower }},
+    # Type: Boolean-like string ('true' or 'false')
+    # Default: 'false'
+    "allow_dcut": "{{ allow_dcut | default('false') }}",
 
     # codenames: Comma-separated list of Debian codenames the client should consider valid.
-    # Default: debian
-    "codenames": {{ (codenames | default(['debian'])) | map('tojson') | join(', ') }},
+    # This restricts which release streams the client interacts with.
+    # Default: 'debian'
+    "codenames": "{{ codenames | default('debian') }}",
 
-    # hooks: [Internal/Hardcoded] Fixed list of hooks managed by the package.
+    # hooks: List of pre-defined hooks executed during workflow operations.
+    # These are internal to debusine and typically static, but included for completeness.
     "hooks": [
         "debusine-check-workflow",
         "checksum",
@@ -25,6 +25,7 @@
     ],
 
     # valid_commands: List of valid commands for the debusine client.
-    # Default: [] (empty list)
+    # This restricts the CLI interface to specific subcommands for security or policy reasons.
+    # Default: Empty list []
     "valid_commands": {{ valid_commands | default([]) | tojson }}
 }

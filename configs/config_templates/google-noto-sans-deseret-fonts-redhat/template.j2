@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Noto Sans Deseret Font Configuration
+  This XML file configures Fontconfig to alias the generic sans-serif font
+  to the specific Noto Sans Deseret font family.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Match block: When an application requests the generic 'sans-serif' family,
+    prepend the Noto Sans Deseret font as a preferred option.
+  -->
+  <match>
+    <test name="family">
+      <!-- Generic sans-serif family name used in matching and aliasing. -->
+      <string>{{ sans_serif_family | default('sans-serif') }}</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <!-- The font family name to be used and aliased. -->
+      <string>{{ font_name | default('Noto Sans Deseret') }}</string>
+    </edit>
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hash hinting for the family. -->
+      <bool>{{ font_hash_hint | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias block: Explicitly declare that 'font_name' should default to 'sans_serif_family'.
+    This ensures consistent fallback behavior.
+  -->
+  <alias>
+    <family>{{ font_name | default('Noto Sans Deseret') }}</family>
+    <default>
+      <family>{{ sans_serif_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

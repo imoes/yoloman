@@ -1,0 +1,30 @@
+# Logrotate configuration for Globus Gatekeeper access logs.
+# This block defines how /var/log/globus-gatekeeper.log is rotated.
+
+/var/log/globus-gatekeeper.log {
+    # Rotate the log file daily
+    daily
+
+    # Compress old log files using gzip to save disk space
+    compress
+
+    # Do not raise an error if the log file is missing
+    missingok
+
+    # Do not rotate the log file if it is empty
+    notifempty
+
+    # Do not create a new empty log file after rotation (copytruncate handles this)
+    nocreate
+
+    # Keep the specified number of rotated log files before removing the oldest
+    # Schema default: 4
+    rotate {{ rotate_count | default('4') }}
+
+    # Run the postrotate script (if defined) only once for all logs in the block
+    sharedscripts
+
+    # Copy the log file to create the new log, then truncate the original.
+    # This ensures the running Globus Gatekeeper process keeps writing to the same file descriptor.
+    copytruncate
+}

@@ -1,0 +1,66 @@
+# ==============================================================================
+# pcp-pmda-lustre Configuration Template
+# ==============================================================================
+# This template configures the Performance Co-Pilot (PCP) Metadata Domain Agent
+# (PMDA) for Lustre filesystems. It defines the paths to the kernel interfaces
+# used to gather metrics.
+#
+# IMPORTANT: This file uses shell-like variable assignments ($VAR).
+# Any uncommented line here will override the PMDA's built-in defaults.
+# The built-in defaults are usually sufficient; uncomment only if necessary
+# for your specific Lustre version or testing environment.
+#
+# For more details, refer to the man page: pmdalustre(1)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Section: Lustre v2.12 or Later Interfaces
+# ------------------------------------------------------------------------------
+# Use these paths for modern Lustre installations (v2.12+).
+# The agent will read from the debugfs interface.
+# Note: The trailing slash is preserved in the default schema value.
+
+# Path to the Lustre LLITE (Local Layout Intent Target Engine) debug interface.
+# This provides file-system level metrics (IO stats, inode info, etc.).
+# Schema field: llite_path_v212
+# Default: /sys/kernel/debug/lustre/llite
+$LLITE_PATH="{{ llite_path_v212 | default('/sys/kernel/debug/lustre/llite') }}/";
+
+# Path to the Lustre LNET (Lustre Network) debug interface.
+# This provides network-layer metrics (peer connections, packets, errors, etc.).
+# Schema field: lnet_path_v212
+# Default: /sys/kernel/debug/lustre/lnet
+$LNET_PATH="{{ lnet_path_v212 | default('/sys/kernel/debug/lustre/lnet') }}/";
+
+
+# ------------------------------------------------------------------------------
+# Section: Legacy Lustre Interfaces (v2.11 or Earlier)
+# ------------------------------------------------------------------------------
+# Use these paths ONLY if you are running a very old Lustre version (<= v2.11).
+# These rely on procfs which was removed in newer kernels/Lustre versions.
+# Do NOT use these for modern Lustre clusters.
+
+# Legacy LLITE path (procfs)
+# Schema field: llite_path_old
+# Default: /proc/fs/lustre/llite
+# $LLITE_PATH="{{ llite_path_old | default('/proc/fs/lustre/llite') }}";
+
+# Legacy LNET path (procfs)
+# Schema field: lnet_path_old
+# Default: /proc/sys/lnet
+# $LNET_PATH="{{ lnet_path_old | default('/proc/sys/lnet') }}";
+
+
+# ------------------------------------------------------------------------------
+# Section: QA / Developer Testing Interfaces
+# ------------------------------------------------------------------------------
+# Use these paths ONLY for internal QA testing or development.
+# These are NOT valid paths on a production system.
+# Schema fields: llite_path_qa, lnet_path_qa
+# Defaults: qa/lustre/llite, qa/lustre/lnet
+
+# QA LLITE path
+# $LLITE_PATH="{{ llite_path_qa | default('qa/lustre/llite') }}/";
+
+# QA LNET path
+# $LNET_PATH="{{ lnet_path_qa | default('qa/lustre/lnet') }}/";

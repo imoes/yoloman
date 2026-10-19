@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SeverityLabel, ValueMap, ValueMapInput } from '../../core/models/monitoring.model';
 import { MonitoringService } from '../../core/services/monitoring.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface Pair { key: string; label: string }
 
@@ -28,7 +29,7 @@ interface Pair { key: string; label: string }
 @Component({
   selector: 'app-measurement-display',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule],
   template: `
     <mat-card>
       <mat-card-header><mat-card-title>State names and colours</mat-card-title></mat-card-header>
@@ -44,17 +45,18 @@ interface Pair { key: string; label: string }
               <tr>
                 <td class="bm-mono">{{ s.state }}</td>
                 <td>
-                  <input class="bm-in" [ngModel]="s.label" (ngModelChange)="patchSeverity(s.state, { label: $event })" />
+                  <input class="bm-in" [ngModel]="s.label" (ngModelChange)="patchSeverity(s.state, { label: $event })"
+                         [attr.aria-label]="'Name shown for ' + s.state" />
                 </td>
                 <td>
-                  <input class="bm-color" type="color" [ngModel]="s.color"
+                  <input class="bm-color" type="color" [ngModel]="s.color" [attr.aria-label]="'Colour for ' + s.state"
                          (ngModelChange)="patchSeverity(s.state, { color: $event })" />
                   <span class="bm-mono bm-dim">{{ s.color }}</span>
                 </td>
                 <td><span class="bm-chip" [style.background]="s.color">{{ s.label || s.state }}</span></td>
                 <td class="bm-right">
-                  <button mat-stroked-button [disabled]="!severityDirty(s.state) || !s.label.trim()"
-                          (click)="saveSeverity(s.state)">Save</button>
+                  <span class="bm-why"><button mat-stroked-button
+                          [bmBlocked]="severitySaveBlocked(s)" bmBlockedMode="tip" (click)="saveSeverity(s.state)">Save</button></span>
                 </td>
               </tr>
             }
@@ -97,9 +99,9 @@ interface Pair { key: string; label: string }
                     @for (p of draftPairs(); track $index) {
                       <tr>
                         <td><input class="bm-in bm-mono" [ngModel]="p.key"
-                                   (ngModelChange)="patchPair($index, { key: $event })" /></td>
+                                   (ngModelChange)="patchPair($index, { key: $event })" aria-label="Raw value" /></td>
                         <td><input class="bm-in" [ngModel]="p.label"
-                                   (ngModelChange)="patchPair($index, { label: $event })" /></td>
+                                   (ngModelChange)="patchPair($index, { label: $event })" aria-label="Shown as" /></td>
                         <td class="bm-right">
                           <button mat-icon-button (click)="removePair($index)" aria-label="Remove mapping">
                             <mat-icon>close</mat-icon>
@@ -120,9 +122,9 @@ interface Pair { key: string; label: string }
                   <p class="bm-err">At least one complete mapping is required (the API refuses an empty map).</p>
                 }
                 <div class="bm-vm-actions">
-                  <button mat-flat-button [disabled]="!canSave()" (click)="save(vm)">
+                  <span class="bm-why"><button mat-flat-button [bmBlocked]="saveBlocked()" (click)="save(vm)">
                     <mat-icon>save</mat-icon> Save
-                  </button>
+                  </button></span>
                   <button mat-button (click)="editing.set(null)">Cancel</button>
                   <button mat-stroked-button class="bm-danger" (click)="remove(vm)">
                     <mat-icon>delete</mat-icon> Delete
@@ -149,9 +151,9 @@ interface Pair { key: string; label: string }
                   @for (p of draftPairs(); track $index) {
                     <tr>
                       <td><input class="bm-in bm-mono" [ngModel]="p.key"
-                                 (ngModelChange)="patchPair($index, { key: $event })" placeholder="0" /></td>
+                                 (ngModelChange)="patchPair($index, { key: $event })" placeholder="0" aria-label="Raw value" /></td>
                       <td><input class="bm-in" [ngModel]="p.label"
-                                 (ngModelChange)="patchPair($index, { label: $event })" placeholder="Down" /></td>
+                                 (ngModelChange)="patchPair($index, { label: $event })" placeholder="Down" aria-label="Shown as" /></td>
                       <td class="bm-right">
                         <button mat-icon-button (click)="removePair($index)" aria-label="Remove mapping">
                           <mat-icon>close</mat-icon>
@@ -166,9 +168,9 @@ interface Pair { key: string; label: string }
                 <p class="bm-err">The raw value “{{ dup }}” is mapped twice.</p>
               }
               <div class="bm-vm-actions">
-                <button mat-flat-button [disabled]="!canSave()" (click)="create()">
+                <span class="bm-why"><button mat-flat-button [bmBlocked]="saveBlocked()" (click)="create()">
                   <mat-icon>add</mat-icon> Create
-                </button>
+                </button></span>
                 <button mat-button (click)="creating.set(false)">Cancel</button>
               </div>
             </div>
@@ -187,8 +189,8 @@ interface Pair { key: string; label: string }
       .bm-mono { font-family: monospace; }
       .bm-right { text-align: right; }
       .bm-tbl { width: 100%; border-collapse: collapse; }
-      .bm-tbl th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: 3px 12px 3px 0; }
-      .bm-tbl td { padding: 5px 12px 5px 0; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-tbl th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; }
+      .bm-tbl td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-in { width: 100%; max-width: 260px; background: transparent; color: inherit; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; padding: 5px 8px; font: inherit; }
       .bm-in:focus { outline: 2px solid var(--bm-green); outline-offset: -1px; }
       .bm-color { width: 42px; height: 26px; vertical-align: middle; margin-right: 8px; background: transparent; border: none; }
@@ -239,6 +241,12 @@ export class MeasurementDisplayComponent implements OnInit {
 
   patchSeverity(state: string, patch: Partial<SeverityLabel>): void {
     this.severities.update((rows) => rows.map((r) => (r.state === state ? { ...r, ...patch } : r)));
+  }
+
+  /** Why a state row's Save is refused ('' = allowed). */
+  severitySaveBlocked(s: SeverityLabel): string {
+    if (!s.label.trim()) return 'The name shown cannot be empty';
+    return this.severityDirty(s.state) ? '' : 'Nothing changed since the last save';
   }
 
   severityDirty(state: string): boolean {
@@ -306,8 +314,17 @@ export class MeasurementDisplayComponent implements OnInit {
     return null;
   });
 
+  /** Why a value map cannot be saved ('' = it can) — the button's [disabled] and its tooltip read this one answer. */
+  saveBlocked(): string {
+    if (!this.draftName().trim()) return 'Name the value map first';
+    if (!this.filledPairs().length) return 'Add at least one complete mapping';
+    const dup = this.duplicateKey();
+    if (dup !== null) return `The raw value “${dup}” is mapped twice`;
+    return '';
+  }
+
   canSave(): boolean {
-    return !!this.draftName().trim() && this.filledPairs().length > 0 && this.duplicateKey() === null;
+    return !this.saveBlocked();
   }
 
   private body(): ValueMapInput {

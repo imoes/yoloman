@@ -1,0 +1,273 @@
+# ==============================================================================
+# Master libvirt daemon configuration file (virtinterfaced)
+#
+# This file configures the libvirt interface driver daemon. It manages UNIX socket
+# access, authentication, resource limits, logging, and host identification.
+# ==============================================================================
+
+#################################################################
+#
+# UNIX socket access controls
+#
+# These settings control how local clients connect to the libvirt daemon via
+# UNIX domain sockets. Note: These settings are ignored if using systemd
+# socket activation, which manages permissions via its own unit files.
+#
+#################################################################
+
+# UNIX domain socket group ownership.
+# Set this to a group name (e.g., 'libvirt') to allow users in that group
+# to access the socket without being root.
+# Default: '' (empty, implying root-only or default system behavior)
+{% if unix_sock_group is defined and unix_sock_group is not none and (unix_sock_group is number or unix_sock_group is boolean or unix_sock_group | length > 0) %}unix_sock_group = "{{ unix_sock_group | default('') }}"{% else %}#unix_sock_group = "libvirt"{% endif %}
+
+# UNIX socket permissions for the R/O (Read-Only) socket.
+# The R/O socket is typically used for monitoring VM status.
+# Format: Octal string (e.g., "0777").
+# Default: '' (empty, defaults to 0777 usually)
+{% if unix_sock_ro_perms is defined and unix_sock_ro_perms is not none and (unix_sock_ro_perms is number or unix_sock_ro_perms is boolean or unix_sock_ro_perms | length > 0) %}unix_sock_ro_perms = "{{ unix_sock_ro_perms | default('') }}"{% else %}#unix_sock_ro_perms = "0777"{% endif %}
+
+# UNIX socket permissions for the R/W (Read/Write) socket.
+# The R/W socket allows full management of VMs (start/stop/configure).
+# Format: Octal string (e.g., "0770").
+# Default: '' (empty, defaults to 0770 or polkit-controlled)
+{% if unix_sock_rw_perms is defined and unix_sock_rw_perms is not none and (unix_sock_rw_perms is number or unix_sock_rw_perms is boolean or unix_sock_rw_perms | length > 0) %}unix_sock_rw_perms = "{{ unix_sock_rw_perms | default('') }}"{% else %}#unix_sock_rw_perms = "0770"{% endif %}
+
+# UNIX socket permissions for the admin interface socket.
+# This socket is reserved for administrative tasks.
+# Format: Octal string (e.g., "0700").
+# Default: '' (empty, defaults to 0700)
+{% if unix_sock_admin_perms is defined and unix_sock_admin_perms is not none and (unix_sock_admin_perms is number or unix_sock_admin_perms is boolean or unix_sock_admin_perms | length > 0) %}unix_sock_admin_perms = "{{ unix_sock_admin_perms | default('') }}"{% else %}#unix_sock_admin_perms = "0700"{% endif %}
+
+# Directory in which sockets will be found/created.
+# This is where libvirt places the .sock files.
+# Default: '' (empty, defaults to /run/libvirt)
+{% if unix_sock_dir is defined and unix_sock_dir is not none and (unix_sock_dir is number or unix_sock_dir is boolean or unix_sock_dir | length > 0) %}unix_sock_dir = "{{ unix_sock_dir | default('') }}"{% else %}#unix_sock_dir = "/run/libvirt"{% endif %}
+
+
+#################################################################
+#
+# Authentication and Access Control
+#
+# Defines how clients are authenticated and what access they have
+# once connected.
+#
+#################################################################
+
+# Authentication scheme for UNIX read-only sockets.
+# Options:
+#   - 'polkit': Use PolicyKit. Users must authenticate (sudo-like) for write ops,
+#     read access is generally open.
+#   - 'sasl': Use SASL infrastructure. Controlled by /etc/sasl2/libvirt.conf.
+#   - 'none': No checks. Anyone with socket access can connect.
+# Default: 'polkit'
+{% if auth_unix_ro is defined and auth_unix_ro is not none and (auth_unix_ro is number or auth_unix_ro is boolean or auth_unix_ro | length > 0) %}auth_unix_ro = "{{ auth_unix_ro | default('polkit') }}"{% else %}#auth_unix_ro = "polkit"{% endif %}
+
+# Authentication scheme for UNIX read-write sockets.
+# Same options as above. Crucial for security; if set to 'none', ensure
+# socket permissions (unix_sock_rw_perms) are restrictive (e.g., 0600).
+# Default: 'polkit'
+{% if auth_unix_rw is defined and auth_unix_rw is not none and (auth_unix_rw is number or auth_unix_rw is boolean or auth_unix_rw | length > 0) %}auth_unix_rw = "{{ auth_unix_rw | default('polkit') }}"{% else %}#auth_unix_rw = "polkit"{% endif %}
+
+# API access control scheme.
+# Defines which drivers handle access control decisions.
+# Common values: 'polkit', 'nop' (no-op, trust auth layer), or a list.
+# Default: 'nop'
+{% if access_drivers is defined and access_drivers is not none and (access_drivers is number or access_drivers is boolean or access_drivers | length > 0) %}access_drivers = "{{ access_drivers | default('nop') }}"{% else %}#access_drivers = [ "polkit" ]{% endif %}
+
+
+#################################################################
+#
+# Authorization Controls
+#
+# Specific lists for SASL authentication.
+#
+#################################################################
+
+# An access control list of allowed SASL usernames.
+# Format: ["username1", "username2"]
+# Wildcards are supported (e.g., "*@EXAMPLE.COM").
+# If this list is empty, no SASL clients are allowed (comment out to disable).
+# Note: This template provides a mechanism for two explicit entries.
+# To use more, adjust the list logic in the template or use the first field as
+# a comma-separated list if your version supports it.
+# Default: ['joe@EXAMPLE.COM', ''] (effectively one user if second is empty)
+{# Build the SASL username list dynamically to handle empty/undefined vars safely #}
+{%- set sasl_users = [] -%}
+{%- if sasl_allowed_username_list_0 | default('') is not none and sasl_allowed_username_list_0 | default('') != '' -%}
+    {%- set _ = sasl_users.append(sasl_allowed_username_list_0 | default('')) -%}
+{%- endif -%}
+{%- if sasl_allowed_username_list_1 | default('') is not none and sasl_allowed_username_list_1 | default('') != '' -%}
+    {%- set _ = sasl_users.append(sasl_allowed_username_list_1 | default('')) -%}
+{%- endif -%}
+{%- if sasl_users | length > 0 -%}
+sasl_allowed_username_list = ["{{ sasl_users | join('", "') }}"]
+{%- else -%}
+#sasl_allowed_username_list = ["joe@EXAMPLE.COM"]
+{%- endif -%}
+
+
+#################################################################
+#
+# Processing Controls
+#
+# Limits on concurrent connections and worker threads.
+#
+#################################################################
+
+# Maximum number of concurrent client connections across all sockets.
+# Default: '' (empty, defaults to 5000)
+{% if max_clients is defined and max_clients is not none and (max_clients is number or max_clients is boolean or max_clients | length > 0) %}max_clients = "{{ max_clients | default('') }}"{% else %}#max_clients = 5000{% endif %}
+
+# Maximum length of queue of connections waiting to be accepted.
+# Default: '' (empty, defaults to 1000)
+{% if max_queued_clients is defined and max_queued_clients is not none and (max_queued_clients is number or max_queued_clients is boolean or max_queued_clients | length > 0) %}max_queued_clients = "{{ max_queued_clients | default('') }}"{% else %}#max_queued_clients = 1000{% endif %}
+
+# Maximum length of queue of accepted but not yet authenticated clients.
+# Default: '' (empty, defaults to 20)
+{% if max_anonymous_clients is defined and max_anonymous_clients is not none and (max_anonymous_clients is number or max_anonymous_clients is boolean or max_anonymous_clients | length > 0) %}max_anonymous_clients = "{{ max_anonymous_clients | default('') }}"{% else %}#max_anonymous_clients = 20{% endif %}
+
+# Minimum number of worker threads to start up initially.
+# Default: '' (empty, defaults to 5)
+{% if min_workers is defined and min_workers is not none and (min_workers is number or min_workers is boolean or min_workers | length > 0) %}min_workers = "{{ min_workers | default('') }}"{% else %}#min_workers = 5{% endif %}
+
+# Maximum number of worker threads.
+# Default: '' (empty, defaults to 20)
+{% if max_workers is defined and max_workers is not none and (max_workers is number or max_workers is boolean or max_workers | length > 0) %}max_workers = "{{ max_workers | default('') }}"{% else %}#max_workers = 20{% endif %}
+
+# Number of priority workers.
+# Used for high-priority tasks (e.g., domainDestroy) if standard workers are busy.
+# Default: '' (empty, defaults to 5)
+{% if prio_workers is defined and prio_workers is not none and (prio_workers is number or prio_workers is boolean or prio_workers | length > 0) %}prio_workers = "{{ prio_workers | default('') }}"{% else %}#prio_workers = 5{% endif %}
+
+# Limit on concurrent requests from a single client connection.
+# Prevents one client from monopolizing the server.
+# Default: '' (empty, defaults to 5)
+{% if max_client_requests is defined and max_client_requests is not none and (max_client_requests is number or max_client_requests is boolean or max_client_requests | length > 0) %}max_client_requests = "{{ max_client_requests | default('') }}"{% else %}#max_client_requests = 5{% endif %}
+
+
+# --- Admin Interface Processing Controls ---
+# Specific limits for the dedicated admin interface socket.
+
+# Admin interface minimum workers.
+# Default: '' (empty, defaults to 1)
+{% if admin_min_workers is defined and admin_min_workers is not none and (admin_min_workers is number or admin_min_workers is boolean or admin_min_workers | length > 0) %}admin_min_workers = "{{ admin_min_workers | default('') }}"{% else %}#admin_min_workers = 1{% endif %}
+
+# Admin interface maximum workers.
+# Default: '' (empty, defaults to 5)
+{% if admin_max_workers is defined and admin_max_workers is not none and (admin_max_workers is number or admin_max_workers is boolean or admin_max_workers | length > 0) %}admin_max_workers = "{{ admin_max_workers | default('') }}"{% else %}#admin_max_workers = 5{% endif %}
+
+# Admin interface maximum clients.
+# Default: '' (empty, defaults to 5)
+{% if admin_max_clients is defined and admin_max_clients is not none and (admin_max_clients is number or admin_max_clients is boolean or admin_max_clients | length > 0) %}admin_max_clients = "{{ admin_max_clients | default('') }}"{% else %}#admin_max_clients = 5{% endif %}
+
+# Admin interface maximum queued clients.
+# Default: '' (empty, defaults to 5)
+{% if admin_max_queued_clients is defined and admin_max_queued_clients is not none and (admin_max_queued_clients is number or admin_max_queued_clients is boolean or admin_max_queued_clients | length > 0) %}admin_max_queued_clients = "{{ admin_max_queued_clients | default('') }}"{% else %}#admin_max_queued_clients = 5{% endif %}
+
+# Admin interface maximum client requests.
+# Default: '' (empty, defaults to 5)
+{% if admin_max_client_requests is defined and admin_max_client_requests is not none and (admin_max_client_requests is number or admin_max_client_requests is boolean or admin_max_client_requests | length > 0) %}admin_max_client_requests = "{{ admin_max_client_requests | default('') }}"{% else %}#admin_max_client_requests = 5{% endif %}
+
+
+#################################################################
+#
+# Logging Controls
+#
+#################################################################
+
+# Logging level: 4 (errors), 3 (warnings), 2 (information), 1 (debug).
+# WARNING: Level 1 (debug) generates massive output and is strongly discouraged
+# in production. Use log_filters for selective debugging instead.
+# Default: '' (empty, defaults to 3)
+{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}log_level = "{{ log_level | default('') }}"{% else %}#log_level = 3{% endif %}
+
+
+##################################################################
+#
+# Auditing
+#
+# Controls interaction with the system auditing subsystem.
+#
+##################################################################
+
+# Auditing level:
+#   0: Disable all auditing.
+#   1: Enable auditing, only if enabled on the host.
+#   2: Enable auditing; exit if host auditing is disabled.
+# Default: '' (empty, defaults to 2)
+audit_level = "{{ audit_level | default('') }}"
+
+# Send audit messages via libvirt logging infrastructure.
+# If 1, audit messages go to the log file/stderr/syslog configured above.
+# Default: '' (empty, defaults to 1)
+{% if audit_logging is defined and audit_logging is not none and (audit_logging is number or audit_logging is boolean or audit_logging | length > 0) %}audit_logging = "{{ audit_logging | default('') }}"{% else %}#audit_logging = 1{% endif %}
+
+
+###################################################################
+#
+# Host Identification
+#
+###################################################################
+
+# UUID of the host.
+# If empty, libvirt may generate one or read it from the source.
+# Format: Standard UUID string.
+# Default: '' (empty)
+{% if host_uuid is defined and host_uuid is not none and (host_uuid is number or host_uuid is boolean or host_uuid | length > 0) %}host_uuid = "{{ host_uuid | default('') }}"{% else %}#host_uuid = "00000000-0000-0000-0000-000000000000"{% endif %}
+
+# Source for host UUID.
+# Options:
+#   - 'smbios': Read from dmidecode/system BIOS.
+#   - 'machine-id': Read from /etc/machine-id.
+# Default: 'smbios'
+{% if host_uuid_source is defined and host_uuid_source is not none and (host_uuid_source is number or host_uuid_source is boolean or host_uuid_source | length > 0) %}host_uuid_source = "{{ host_uuid_source | default('smbios') }}"{% else %}#host_uuid_source = "smbios"{% endif %}
+
+
+###################################################################
+#
+# Keepalive Protocol
+#
+# Detects broken or dead client connections.
+#
+###################################################################
+
+# Keepalive interval in seconds.
+# Time of inactivity before sending a keepalive probe.
+# -1: Never send keepalives.
+# Default: '' (empty, defaults to 5)
+{% if keepalive_interval is defined and keepalive_interval is not none and (keepalive_interval is number or keepalive_interval is boolean or keepalive_interval | length > 0) %}keepalive_interval = "{{ keepalive_interval | default('') }}"{% else %}#keepalive_interval = 5{% endif %}
+
+# Maximum number of keepalive messages.
+# Max probes sent without response before closing the connection.
+# Default: '' (empty, defaults to 5)
+{% if keepalive_count is defined and keepalive_count is not none and (keepalive_count is number or keepalive_count is boolean or keepalive_count | length > 0) %}keepalive_count = "{{ keepalive_count | default('') }}"{% else %}#keepalive_count = 5{% endif %}
+
+# Keepalive required flag (legacy/less effective).
+# Default: '' (empty, defaults to 1)
+{% if keepalive_required is defined and keepalive_required is not none and (keepalive_required is number or keepalive_required is boolean or keepalive_required | length > 0) %}keepalive_required = "{{ keepalive_required | default('') }}"{% else %}#keepalive_required = 1{% endif %}
+
+# Admin keepalive required flag.
+# Default: '' (empty, defaults to 1)
+{% if admin_keepalive_required is defined and admin_keepalive_required is not none and (admin_keepalive_required is number or admin_keepalive_required is boolean or admin_keepalive_required | length > 0) %}admin_keepalive_required = "{{ admin_keepalive_required | default('') }}"{% else %}#admin_keepalive_required = 1{% endif %}
+
+# Admin keepalive interval in seconds.
+# Default: '' (empty, defaults to 5)
+{% if admin_keepalive_interval is defined and admin_keepalive_interval is not none and (admin_keepalive_interval is number or admin_keepalive_interval is boolean or admin_keepalive_interval | length > 0) %}admin_keepalive_interval = "{{ admin_keepalive_interval | default('') }}"{% else %}#admin_keepalive_interval = 5{% endif %}
+
+# Admin maximum number of keepalive messages.
+# Default: '' (empty, defaults to 5)
+{% if admin_keepalive_count is defined and admin_keepalive_count is not none and (admin_keepalive_count is number or admin_keepalive_count is boolean or admin_keepalive_count | length > 0) %}admin_keepalive_count = "{{ admin_keepalive_count | default('') }}"{% else %}#admin_keepalive_count = 5{% endif %}
+
+
+###################################################################
+#
+# Open vSwitch (OVS) Timeout
+#
+###################################################################
+
+# Timeout for Open vSwitch calls (in seconds).
+# Used by the ovs-vsctl utility. Prevents libvirt from hanging
+# if OVS tools are unresponsive.
+# Default: '' (empty, defaults to 5)
+{% if ovs_timeout is defined and ovs_timeout is not none and (ovs_timeout is number or ovs_timeout is boolean or ovs_timeout | length > 0) %}ovs_timeout = "{{ ovs_timeout | default('') }}"{% else %}#ovs_timeout = 5{% endif %}

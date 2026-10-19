@@ -261,7 +261,7 @@ Every one of these was found by running against a real host, and every one had a
 - **PowerShell binds `,` looser than `+`** in an array literal, so `"A=" + $x` became two entries and produced
   a read-only agent.
 - **`ToString()` on a JSON array** turns every list parameter into JSON text. Pass `JsonElement` through.
-- **Windows normalises `10.32.0.0/16` to `/255.255.0.0`**, so an un-normalised comparison reports "changed"
+- **Windows normalises `192.0.2.0/24` to `/255.255.0.0`**, so an un-normalised comparison reports "changed"
   forever.
 - **`-RepetitionInterval` without `-RepetitionDuration` repeats for one day** and then stops, quietly.
 - **`gpresult /X` as LocalSystem writes no file** for the default scope; pass `/SCOPE COMPUTER` and capture

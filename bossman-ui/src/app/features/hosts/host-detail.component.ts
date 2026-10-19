@@ -51,10 +51,12 @@ import { WindowsEventlogComponent } from './windows-eventlog.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { CompiledHostState } from '../../core/models/orchestration.model';
-import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { agentHealthStatus, availabilityColor, runStatusBadge } from '../../shared/status.util';
 import { HostConfigScopeService } from './host-config-scope.service';
 import { driftRows as driftRowsOf } from './management/drift-rows';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
 
@@ -103,7 +105,7 @@ function familyMembers(metric: string): string[] {
 @Component({
   selector: 'app-host-detail',
   standalone: true,
-  imports: [
+  imports: [StatusPillComponent, BlockedReasonDirective,
     RouterLink,
     DatePipe,
     DecimalPipe,
@@ -139,7 +141,7 @@ function familyMembers(metric: string): string[] {
           <app-status-badge [status]="healthStatus()" [label]="agent.enrollment_state" />
         </div>
 
-        <mat-tab-group class="bm-host-tabs" [selectedIndex]="initialTabIndex" (selectedTabChange)="onTabChange($event)">
+        <mat-tab-group class="bm-host-tabs" [selectedIndex]="initialTabIndex()" (selectedTabChange)="onTabChange($event)">
           <mat-tab label="Overview"><ng-template matTabContent>
             <div class="bm-tab-content">
               <!-- Cockpit view (same component as the standalone console): live
@@ -195,7 +197,7 @@ function familyMembers(metric: string): string[] {
                         (click)="toggleService(svc)"
                       >
                         <td class="bm-col-state">
-                          <app-status-badge [status]="serviceBadge(svc)" [label]="svc.state" />
+                          <bm-status-pill [status]="svc.state" />
                           @if (svc.state !== 'OK' && svc.state_type === 'soft') {
                             <span class="bm-flag bm-flag--soft" title="soft state — not yet confirmed as a problem">
                               soft {{ svc.attempt }}/{{ svc.max_attempts }}
@@ -314,7 +316,7 @@ function familyMembers(metric: string): string[] {
                                 <ul class="bm-history-list">
                                   @for (h of serviceHistory(); track h.time) {
                                     <li>
-                                      <app-status-badge [status]="historyBadge(h)" [label]="h.state" />
+                                      <bm-status-pill [status]="h.state" />
                                       <span>{{ h.time | date: 'medium' }}</span>
                                       @if (h.value !== null) {
                                         <span class="bm-history-value">{{ formatValue(selectedService()?.metric ?? '', h.value) }}</span>
@@ -383,7 +385,7 @@ function familyMembers(metric: string): string[] {
                         <tr class="bm-group-row">
                           <td class="bm-col-state">
                             @if (grp.state) {
-                              <app-status-badge [status]="stateBadge(grp.state)" [label]="grp.state" />
+                              <bm-status-pill [status]="grp.state" />
                             }
                           </td>
                           <td colspan="4" class="bm-group-name">{{ grp.group }}</td>
@@ -396,7 +398,7 @@ function familyMembers(metric: string): string[] {
                           >
                             <td class="bm-col-state">
                               @if (row.state) {
-                                <app-status-badge [status]="stateBadge(row.state)" [label]="row.state" />
+                                <bm-status-pill [status]="row.state" />
                               } @else {
                                 <span class="bm-nostate" title="No check covers this metric">—</span>
                               }
@@ -491,7 +493,7 @@ function familyMembers(metric: string): string[] {
                   <span class="bm-tag-add">
                     <input type="text" placeholder="key" [value]="newTagKey()" (input)="newTagKey.set($any($event.target).value)" class="bm-tag-k" />
                     <input type="text" placeholder="value" [value]="newTagVal()" (input)="newTagVal.set($any($event.target).value)" class="bm-tag-v" />
-                    <button mat-button (click)="addTag(agent)" [disabled]="classBusy() || !newTagKey().trim()">Add</button>
+                    <button mat-button (click)="addTag(agent)" [disabled]="classBusy()" [bmBlocked]="!newTagKey().trim() ? 'Enter a tag key' : ''" bmBlockedMode="tip">Add</button>
                   </span>
                 </div>
                 @if (classMsg()) { <span class="bm-classify-ok">{{ classMsg() }}</span> }
@@ -751,9 +753,9 @@ function familyMembers(metric: string): string[] {
                   (input)="svcName.set($any($event.target).value)"
                   [disabled]="svcBusy()"
                 />
-                <button mat-stroked-button (click)="controlService('restart')" [disabled]="svcBusy() || !svcName().trim()">Restart</button>
-                <button mat-stroked-button (click)="controlService('stop')" [disabled]="svcBusy() || !svcName().trim()">Stop</button>
-                <button mat-stroked-button (click)="controlService('start')" [disabled]="svcBusy() || !svcName().trim()">Start</button>
+                <button mat-stroked-button (click)="controlService('restart')" [disabled]="svcBusy()" [bmBlocked]="!svcName().trim() ? 'Enter a service name' : ''" bmBlockedMode="tip">Restart</button>
+                <button mat-stroked-button (click)="controlService('stop')" [disabled]="svcBusy()" [bmBlocked]="!svcName().trim() ? 'Enter a service name' : ''" bmBlockedMode="tip">Stop</button>
+                <button mat-stroked-button (click)="controlService('start')" [disabled]="svcBusy()" [bmBlocked]="!svcName().trim() ? 'Enter a service name' : ''">Start</button>
                 @if (svcMsg()) {
                   <span class="bm-svc-ok">{{ svcMsg() }}</span>
                 }
@@ -897,7 +899,7 @@ function familyMembers(metric: string): string[] {
                       <tr [routerLink]="run.link" [class.bm-row-link]="run.link">
                         <td><span class="bm-type bm-type-{{ run.type }}">{{ run.type }}</span></td>
                         <td>{{ run.name }}</td>
-                        <td><app-status-badge [status]="badge(run.status)" [label]="run.status" /></td>
+                        <td><bm-status-pill [status]="run.status" /></td>
                         <td>{{ run.dryRun ? 'yes' : 'no' }}</td>
                         <td>{{ run.when | date: 'medium' }}</td>
                       </tr>
@@ -1514,10 +1516,10 @@ function familyMembers(metric: string): string[] {
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 8px 10px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
       }
       .bm-table td {
-        padding: 8px 10px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
         border-top: 1px solid var(--mat-sys-outline-variant);
       }
       .bm-row-link {
@@ -1850,7 +1852,14 @@ export class HostDetailComponent implements OnInit {
   // Order MUST match the <mat-tab> order in the template (index → ?tab= deep link).
   // Grouped by theme: status (overview/services/inventory) → config & manage
   // (configuration + management adjacent) → checks/diagnostics → ops.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
+  // ONE LIST FOR EVERY HOST, derived per host: the Windows-only "Event log" tab sits before Kubernetes in the
+  // template, so a fixed list without it sent ?tab=kubernetes on a Windows host to Event log (index 11).
+  private tabOrder(agent: Agent): string[] {
+    return ['overview', 'services', 'inventory', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes',
+      'runs', 'resources', ...(this.isWindows(agent) ? ['eventlog'] : []), 'kubernetes'];
+  }
+  /** The tab a ?tab= deep link asked for (after mapping retired names), resolved against the host's tab list. */
+  private requestedTab = '';
 
   /** Retired tab names, mapped to where their content lives now.
    *
@@ -1863,14 +1872,16 @@ export class HostDetailComponent implements OnInit {
   };
   /** Snap-in to pre-select in the Management console, when arriving via a retired tab name. */
   initialSnapin: string | null = null;
-  initialTabIndex = 0;
+  initialTabIndex = computed(() => {
+    const agent = this.agent();
+    return agent ? Math.max(0, this.tabOrder(agent).indexOf(this.requestedTab)) : 0;
+  });
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     const tab = (this.route.snapshot.queryParamMap.get('tab') || '').toLowerCase();
     const retired = this.retiredTabs[tab];
-    const idx = this.tabOrder.indexOf(retired?.tab ?? tab);
-    if (idx >= 0) this.initialTabIndex = idx;
+    this.requestedTab = retired?.tab ?? tab;
     this.initialSnapin = retired?.snapin ?? null;
 
     this.agentService.get(id).subscribe((agent) => {
@@ -2382,14 +2393,6 @@ export class HostDetailComponent implements OnInit {
       || l.status === 'servfail' || l.status === 'nxdomain' || l.status === 'refused';
   }
 
-  serviceBadge(svc: ServiceState) {
-    return serviceStateBadge(svc.state);
-  }
-
-  historyBadge(h: ServiceHistoryPoint) {
-    return serviceStateBadge(h.state);
-  }
-
   /** Block P4: set a warn/crit threshold for THIS service on THIS host — a
    * host-scoped check_rule that beats the OU/global default (GPO precedence).
    * The metric + label (disk mount) are derived from the service so the
@@ -2469,10 +2472,6 @@ export class HostDetailComponent implements OnInit {
     this.loadMetricSeries();
   }
 
-  stateBadge(state: ServiceState['state']) {
-    return serviceStateBadge(state);
-  }
-
   /** Zabbix-style unit conversion for the "Last value" column: bytes become
    * KiB/MiB/…, percentages get a %, uptime becomes a duration, load stays
    * two-decimal — so the list reads like a monitoring tool, not raw floats. */
@@ -2524,9 +2523,6 @@ export class HostDetailComponent implements OnInit {
 
   runStatus(run: PlanRun) {
     return runStatusBadge(run.status);
-  }
-  badge(status: string) {
-    return runStatusBadge(status);
   }
 
   hasTags(agent: Agent): boolean {

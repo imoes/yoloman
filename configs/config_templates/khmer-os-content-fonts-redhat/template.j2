@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Khmer OS Content Font Configuration
+  Configures Fontconfig to prefer Khmer OS Content for the Khmer locale (km).
+  This template is self-documenting: read the comments above each directive
+  to understand the mapping between schema fields and Fontconfig XML elements.
+-->
+<fontconfig>
+  <!--
+    Section: Generic Aliases
+    Maps a generic font family name to a specific installed font.
+    When an application requests the 'default' family, this alias redirects
+    it to the primary Khmer OS Content font.
+  -->
+  <alias>
+    <!--
+      Directive: <family> (Alias Target)
+      Schema Field: font_family
+      Description: The primary font family name for the Khmer OS Content font.
+      Default: 'Khmer OS Content'
+    -->
+    <family>{{ font_family | default('Khmer OS Content') }}</family>
+    
+    <!--
+      Directive: <default> -> <family>
+      Schema Field: default_family
+      Description: The default fallback font family when Khmer OS Content is specified
+                   as a generic alias. This acts as the primary alias target for
+                   the generic 'sans-serif' or 'default' family if configured elsewhere.
+      Default: 'monospace'
+    -->
+    <default>
+      <family>{{ default_family | default('monospace') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Section: Locale-Specific Overrides
+    Applies conditional logic to substitute fonts based on the user's locale
+    and the font family being evaluated.
+  -->
+  <match>
+    <!--
+      Directive: <test> (Locale Check)
+      Schema Field: locale_code
+      Description: The ISO 639 language code used to trigger locale-specific font matching rules.
+                   Checks if the current locale contains this code (e.g., 'km', 'km-KH').
+      Default: 'km'
+    -->
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+
+    <!--
+      Directive: <test> (Family Check)
+      Schema Field: test_family
+      Description: The font family name tested in the match condition for locale-specific overrides.
+                   This matches fonts that are currently being considered or requested.
+      Default: 'monospace'
+    -->
+    <test name="family">
+      <string>{{ test_family | default('monospace') }}</string>
+    </test>
+
+    <!--
+      Directive: <edit> (Action)
+      Schema Field: edit_family
+      Description: The font family name prepended to the font stack when the locale and test conditions are met.
+                   This ensures Khmer OS Content is tried first before falling back to others.
+      Default: 'Khmer OS Content'
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ edit_family | default('Khmer OS Content') }}</string>
+    </edit>
+  </match>
+</fontconfig>

@@ -1,0 +1,172 @@
+# reportbug configuration file
+# This file configures the reportbug utility used to submit Debian/Ubuntu bug reports.
+# Options can be specified in any order.
+# Boolean options are disabled by prefixing with 'no-' (e.g., 'no-query-bts').
+
+# Default severity level for bug reports.
+# Valid values: normal, important, critical.
+# Defaults to 'normal' if not specified or commented out.
+severity {{ severity | default('normal') }}
+
+# Bug Tracking System (BTS) to use for submitting reports.
+# Supported systems include debian, ubuntu, etc.
+# See 'reportbug --bts help' for the full list.
+# If None, reportbug may prompt or use default.
+{% if bts is defined and bts is not none and bts | length > 0 %}bts {{ bts }}
+{% else %}# bts debian
+{% endif %}
+
+# Submission address mode.
+# 'submit': Submit to the BTS submit address.
+# 'quiet': Submit quietly.
+# 'maintonly': Submit only to the maintainer.
+# Defaults to 'submit'.
+submit {{ submit | default('submit') }}
+
+# Mail User Agent (MUA) to use for sending reports if not using internal MTA.
+# Examples: mutt, mh, nmh.
+# Leave empty/commented to use the internal mailer.
+{% if mua is defined and mua is not none and mua | length > 0 %}mua {{ mua }}
+{% else %}# mua mutt
+{% endif %}
+
+# Header configuration for bug reports.
+# Uncomment and modify to add custom headers.
+# header "X-Header-Name: Value"
+
+# Boolean toggle: Query the BTS for package information.
+# 'query-bts' enables querying; 'no-query-bts' disables it.
+# Defaults to 'query-bts'.
+{{ query_bts | default('query-bts') }}
+
+# Boolean toggle: Check for newer package versions available in the repository.
+# 'check-available' enables the check; 'no-check-available' disables it.
+# Defaults to 'check-available'.
+# Note: The variable name in schema is 'check_available', but the config directive is likely 'check_available' or similar.
+# Based on schema default 'check-available', we output that.
+{{ check_available | default('check-available') }}
+
+# Boolean toggle: CC the reporter of the bug on responses.
+# 'cc' enables CCing; 'no-cc' disables it.
+# Defaults to 'cc'.
+{{ cc | default('cc') }}
+
+# Boolean toggle: Include modified configuration files in the bug report.
+# 'config-files' enables inclusion; 'no-config-files' disables it.
+# Defaults to 'config-files'.
+{{ config_files | default('config-files') }}
+
+# Boolean toggle: Strip down/minimize included configuration files.
+# 'compress' enables stripping; 'no-compress' disables it.
+# Defaults to 'compress'.
+{{ compress | default('compress') }}
+
+# Digital signature method for bug reports.
+# Valid values: gpg, pgp, gnupg, none.
+# Defaults to 'gpg'.
+sign_method {{ sign_method | default('gpg') }}
+
+# GPG/PGP Key ID to use for signing.
+# Leave empty/commented to use the default key on the system.
+{% if keyid is defined and keyid is not none and keyid | length > 0 %}keyid {{ keyid }}
+{% else %}# keyid
+{% endif %}
+
+# Default 'From' email address for bug reports.
+{% if email is defined and email is not none and email | length > 0 %}email {{ email }}
+{% else %}# email user@example.com
+{% endif %}
+
+# Default Real Name for bug reports.
+{% if realname is defined and realname is not none and realname | length > 0 %}realname {{ realname }}
+{% else %}# realname "John Doe"
+{% endif %}
+
+# Default REPLYTO address and name.
+{% if replyto is defined and replyto is not none and replyto | length > 0 %}replyto {{ replyto }}
+{% else %}# replyto "John Doe <john@example.com>"
+{% endif %}
+
+# Default HTTP Proxy URL for web queries.
+{% if http_proxy is defined and http_proxy is not none and http_proxy | length > 0 %}http_proxy {{ http_proxy }}
+{% else %}# http_proxy http://proxy.example.com:3128/
+{% endif %}
+
+# SMTP server hostname to use for sending reports via internal MTA.
+# Defaults to 'localhost'.
+smtphost {{ smtphost | default('localhost') }}
+
+# SMTP server with port (e.g., mail.example.com:2525).
+# If smtphost is used alone, port defaults to 25.
+# Empty string means default port.
+{% if smtphost_with_port is defined and smtphost_with_port is not none and smtphost_with_port | length > 0 %}smtphost_with_port {{ smtphost_with_port }}
+{% else %}# smtphost_with_port
+{% endif %}
+
+# Username for SMTP authentication.
+{% if smtpuser is defined and smtpuser is not none and smtpuser | length > 0 %}smtpuser {{ smtpuser }}
+{% else %}# smtpuser username
+{% endif %}
+
+# Password for SMTP authentication.
+{% if smtppasswd is defined and smtppasswd is not none and smtppasswd | length > 0 %}smtppasswd {{ smtppasswd }}
+{% else %}# smtppasswd password
+{% endif %}
+
+# Enable TLS encryption (STARTTLS) for SMTP connections.
+# 'smtptls' enables TLS; 'no-smtptls' disables it.
+# Defaults to 'smtptls'.
+{{ smtptls | default('smtptls') }}
+
+# Path to the MTA binary (e.g., /usr/sbin/sendmail).
+# Usually not needed if using internal MTA with smtphost.
+{% if mta_path is defined and mta_path is not none and mta_path | length > 0 %}mta_path {{ mta_path }}
+{% else %}# mta_path /usr/sbin/sendmail
+{% endif %}
+
+# User interface mode.
+# Valid values: text, urwid, gtk.
+# Defaults to 'text'.
+ui {{ ui | default('text') }}
+
+# Command to use as the text editor.
+{% if editor is defined and editor is not none and editor | length > 0 %}editor {{ editor }}
+{% else %}# editor "vim"
+{% endif %}
+
+# Enable automatic package verification using debsums.
+# 'verify' enables verification; 'no-verify' disables it.
+# Defaults to 'verify'.
+{{ verify | default('verify') }}
+
+# Default operating mode.
+# Valid values: novice, standard, advanced, expert.
+# Defaults to 'novice'.
+mode {{ mode | default('novice') }}
+
+# Command to open the mbox file of reports.
+{% if mbox_reader_cmd is defined and mbox_reader_cmd is not none and mbox_reader_cmd | length > 0 %}mbox_reader_cmd {{ mbox_reader_cmd }}
+{% else %}# mbox_reader_cmd "mutt -f %s"
+{% endif %}
+
+# Default justification text for Release Critical (RC) bugs.
+{% if justification is defined and justification is not none and justification | length > 0 %}justification {{ justification }}
+{% else %}# justification "This is a release critical bug."
+{% endif %}
+
+# BTS mirror URL for offline or faster querying.
+{% if mirror is defined and mirror is not none and mirror | length > 0 %}mirror {{ mirror }}
+{% else %}# mirror http://mirror.debian.org/
+{% endif %}
+
+# Maximum size allowed for an attachment file.
+# Empty string implies default or unlimited.
+{% if max_attachment_size is defined and max_attachment_size is not none and max_attachment_size | length > 0 %}max_attachment_size {{ max_attachment_size }}
+{% else %}# max_attachment_size 0
+{% endif %}
+
+# Directory where unsubmitted draft reports are saved.
+# Defaults to /tmp or ~/.reportbug/drafts depending on implementation.
+{% if draftpath is defined and draftpath is not none and draftpath | length > 0 %}draftpath {{ draftpath }}
+{% else %}# draftpath ~/.reportbug/drafts
+{% endif %}

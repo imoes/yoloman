@@ -1,0 +1,35 @@
+# Defaults for trytond initscript (sysvinit-core)
+#
+# Note: If your init system is systemd and you want to customize any of the
+# default values, proceed like:
+# cp /lib/systemd/system/tryton-server.service /etc/systemd/system
+# and adapt /etc/systemd/system/trytond.service to your needs.
+
+# Specify the user name under which the Tryton daemon runs.
+# Default: tryton
+# Schema field: daemon_user
+DAEMONUSER="{{ daemon_user | default('tryton') }}"
+
+# Specify an alternate config file path.
+# Default: /etc/tryton/trytond.conf
+# Schema field: config_file
+CONFIGFILE="{{ config_file | default('/etc/tryton/trytond.conf') }}"
+
+# Specify the log configuration file path.
+# Default: /etc/tryton/trytond_log.conf
+# Schema field: log_conf
+LOGCONF="{{ log_conf | default('/etc/tryton/trytond_log.conf') }}"
+
+# Specify the locale for the server to run (e.g., en_US, de_DE.UTF-8).
+# Default: en_US
+# Schema field: locale
+{% set locale_val = locale | default('en_US') %}
+LANG="{{ locale_val }}"
+
+# Specify the database(s) for which tryton-server-cron and/or tryton-server-worker
+# should be run.
+#DATABASES=""
+
+# Additional options that are passed to the Daemon.
+# i.e. to increase the verbosity of the server log add -v
+DAEMON_OPTS="--config ${CONFIGFILE} --logconf ${LOGCONF}"

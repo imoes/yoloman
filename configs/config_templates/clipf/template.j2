@@ -1,48 +1,90 @@
 # clim configuration
 #
-# at startup clipf tried to import configuration from this files:
-# system-wide config at /etc/clipf.conf
-# user-level config at ~/clipf.conf
-# db-specific config at <conf_path>/clipf.conf
+# Configuration file for clipf (clipboard/file utility framework).
+#
+# clipf tries to import configuration from these files in order of precedence:
+# 1. System-wide config at /etc/clipf.conf
+# 2. User-level config at ~/clipf.conf
+# 3. DB-specific config at <conf_path>/clipf.conf
 
-# Default account ID used for new operations.
-opt.acc='{{ default_account | default('00') }}'
+# default_account: Default account ID used for new operations.
+# If not set, clipf will default to account '00'.
+{% if default_account is defined %}
+{% if default_account is defined and default_account is not none and (default_account is number or default_account is boolean or default_account | length > 0) %}opt.acc='{{ default_account }}'{% else %}#opt.acc='00'{% endif %}
+{% else %}
+#opt.acc='00'
+{% endif %}
 
-# Maximum number of output lines before piping to 'less'.
-opt.max_lines={{ max_lines | default(40) }}
+# max_lines: Maximum number of output lines before piping to 'less'.
+# This limits the volume of data displayed on the terminal before paging.
+# If not set, clipf defaults to 40 lines.
+{% if max_lines is defined %}
+{% if max_lines is defined and max_lines is not none and max_lines != '' %}opt.max_lines={{ max_lines }}{% else %}#opt.max_lines=40{% endif %}
+{% else %}
+#opt.max_lines=40
+{% endif %}
 
-# Encoding expected for terminal input (fallback if sys.stdin.encoding fails).
-opt.term_enc=sys.stdin.encoding or '{{ terminal_encoding | default('UTF-8') }}'
+# terminal_encoding: Encoding expected for terminal input (fallback if sys.stdin.encoding fails).
+# This ensures correct handling of special characters in the terminal.
+# If not set, it falls back to 'sys.stdin.encoding' or 'UTF-8'.
+{% if terminal_encoding is defined %}
+{% if terminal_encoding is defined and terminal_encoding is not none and (terminal_encoding is number or terminal_encoding is boolean or terminal_encoding | length > 0) %}opt.term_enc='{{ terminal_encoding }}'{% else %}#opt.term_enc=sys.stdin.encoding or 'UTF-8'{% endif %}
+{% else %}
+#opt.term_enc='UTF-8'
+{% endif %}
 
-# Encoding of data files used by clipf.
-opt.db_enc='{{ database_encoding | default('UTF-8') }}'
+# database_encoding: Encoding of data files used by clipf.
+# This defines the character set for reading/writing persistent data files.
+# If not set, clipf defaults to 'UTF-8'.
+{% if database_encoding is defined %}
+{% if database_encoding is defined and database_encoding is not none and (database_encoding is number or database_encoding is boolean or database_encoding | length > 0) %}opt.db_enc='{{ database_encoding }}'{% else %}#opt.db_enc='UTF-8'{% endif %}
+{% else %}
+#opt.db_enc='UTF-8'
+{% endif %}
 
-#report fields formatting for colorized output
-#add the same lines, with opt.fmtc replaced with opt.fmtm for monochrome output
+# report fields formatting for colorized output
+# add the same lines, with opt.fmtc replaced with opt.fmtm for monochrome output
+#
+# These settings control the visual appearance of the report output.
+# Each key maps to a Python format string for ANSI color codes.
+
+# Product field format
 #opt.fmtc['prod']='\033[34;1m%%(%s)-10.10s\033[0m'
+# Product code field format
 #opt.fmtc['prod_code']='\033[34;1m%%(%s)-10.10s\033[0m'
+# Full product code field format
 #opt.fmtc['prod_code_full']='\033[34;1m%%(%s)-10s\033[0m'
+# Account ID field format
 #opt.fmtc['acc_id']='\033[35;1m%%(%s)-10.10s\033[0m'
+# Product name field format
 #opt.fmtc['prod_name']='\033[36m%%(%s)-16s\033[0m'
+# Note field format
 #opt.fmtc['note']='\033[36m%%(%s)s\033[0m'
+# Amount field format
 #opt.fmtc['amount']='\033[37m%%(%s)8.2f\033[0m'
+# Date field format
 #opt.fmtc['date']='\033[0m%%(%s)s'
+# Tags field format
 #opt.fmtc['tags']='\033[0m%%(%s)s'
+# Header field format
 #opt.fmtc['header']='\033[34;1m'
+# Parameter field format
 #opt.fmtc['param']='\033[35;1m%%(%s)s\033[0m'
+# Prompt field format
 #opt.fmtc['prompt']="\033[31m%(date)s:%(acc)s> \033[0m"
+# Separator line format
 #opt.fmtc['spln']='\033[34m--------------------------------------\033[0m'
-    
-#aliases definitions
-#use 
+
+# aliases definitions
+# use
 #  opt.aliases['<command_string_prefix>']='<prefix_substitution>'
-#to define new alias
+# to define new alias
 #
-#use 
+# use
 #  del opt.aliases['<string_prefix>'] 
-#to remove alias for <string_prefix>
+# to remove alias for <string_prefix>
 #
-#aliases defined in default configuration:
+# aliases defined in default configuration:
 #opt.aliases['oo ']='op add '
 #opt.aliases['ol']='op ls'
 #opt.aliases['pl']='prod ls'

@@ -1,0 +1,825 @@
+### The following directives do not change with server reload.
+
+# User authentication method. To require multiple methods to be
+# used for the user to login, add multiple auth directives. The values
+# in the 'auth' directive are AND composed (if multiple all must
+# succeed).
+# Available options: certificate, plain, pam, radius, gssapi.
+# Note that authentication methods utilizing passwords cannot be
+# combined (e.g., the plain, pam or radius methods).
+
+# certificate:
+#  This indicates that all connecting users must present a certificate.
+#  The username and user group will be then extracted from it (see
+#  cert-user-oid and cert-group-oid). The certificate to be accepted
+#  it must be signed by the CA certificate as specified in 'ca-cert' and
+#  it must not be listed in the CRL, as specified by the 'crl' option.
+#
+# pam[gid-min=1000]:
+#  This enabled PAM authentication of the user. The gid-min option is used
+# by auto-select-group option, in order to select the minimum valid group ID.
+#
+# plain[passwd=/etc/ocserv/ocpasswd,otp=/etc/ocserv/users.otp]
+#  The plain option requires specifying a password file which contains
+# entries of the following format.
+# "username:groupname1,groupname2:encoded-password"
+# One entry must be listed per line, and 'ocpasswd' should be used
+# to generate password entries. The 'otp' suboption allows one to specify
+# an oath password file to be used for one time passwords; the format of
+# the file is described in https://github.com/archiecobbs/mod-authn-otp/wiki/UsersFile
+#
+# radius[config=/etc/radiusclient/radiusclient.conf,groupconfig=true,nas-identifier=name]:
+#  The radius option requires specifying freeradius-client configuration
+# file. If the groupconfig option is set, then config-per-user/group will be overridden,
+# and all configuration will be read from radius. That also includes the
+# Acct-Interim-Interval, and Session-Timeout values.
+#
+# See doc/README-radius.md for the supported radius configuration attributes.
+#
+# gssapi[keytab=/etc/key.tab,require-local-user-map=true,tgt-freshness-time=900]
+#  The gssapi option allows one to use authentication methods supported by GSSAPI,
+# such as Kerberos tickets with ocserv. It should be best used as an alternative
+# to PAM (i.e., have pam in auth and gssapi in enable-auth), to allow users with
+# tickets and without tickets to login. The default value for require-local-user-map
+# is true. The 'tgt-freshness-time' if set, it would require the TGT tickets presented
+# to have been issued within the provided number of seconds. That option is used to
+# restrict logins even if the KDC provides long time TGT tickets.
+
+auth = {{ passwd_file | default('"pam"') }}
+#auth = "pam[gid-min=1000]"
+#auth = "plain[passwd=./sample.passwd,otp=./sample.otp]"
+#auth = "certificate"
+#auth = "radius[config=/etc/radiusclient/radiusclient.conf,groupconfig=true]"
+
+# Specify alternative authentication methods that are sufficient
+# for authentication. That is, if set, any of the methods enabled
+# will be sufficient to login, irrespective of the main 'auth' entries.
+# When multiple options are present, they are OR composed (any of them
+# succeeding allows login).
+#enable-auth = "certificate"
+#enable-auth = "gssapi"
+#enable-auth = "gssapi[keytab=/etc/key.tab,require-local-user-map=true,tgt-freshness-time=900]"
+
+# Accounting methods available:
+# radius: can be combined with any authentication method, it provides
+#      radius accounting to available users (see also stats-report-time).
+#
+# pam: can be combined with any authentication method, it provides
+#      a validation of the connecting user's name using PAM. It is
+#      superfluous to use this method when authentication is already
+#      PAM.
+#
+# Only one accounting method can be specified.
+{% if acct is defined and acct is not none and (acct is number or acct is boolean or acct | length > 0) %}acct = {{ acct }}
+{% else %}#acct = "radius[config=/etc/radiusclient/radiusclient.conf]"
+{% endif %}
+# Use listen-host to limit to specific IPs or to the IPs of a provided
+# hostname.
+{% if listen_host is defined and listen_host is not none and (listen_host is number or listen_host is boolean or listen_host | length > 0) %}listen-host = {{ listen_host }}
+{% else %}#listen-host = [IP|HOSTNAME]
+{% endif %}
+# Use udp-listen-host to limit udp to specific IPs or to the IPs of a provided
+# hostname. if not set, listen-host will be used
+{% if udp_listen_host is defined and udp_listen_host is not none and (udp_listen_host is number or udp_listen_host is boolean or udp_listen_host | length > 0) %}udp-listen-host = {{ udp_listen_host }}
+{% else %}#udp-listen-host = [IP|HOSTNAME]
+{% endif %}
+# When the server has a dynamic DNS address (that may change),
+# should set that to true to ask the client to resolve again on
+# reconnects.
+{% if listen_host_is_dyndns is defined and listen_host_is_dyndns is not none and (listen_host_is_dyndns is number or listen_host_is_dyndns is boolean or listen_host_is_dyndns | length > 0) %}listen-host-is-dyndns = {{ listen_host_is_dyndns }}
+{% else %}#listen-host-is-dyndns = true
+{% endif %}
+# move the listen socket within the specified network namespace
+# listen-netns = "foo"
+
+# TCP and UDP port number
+tcp-port = {{ tcp_port | default('443') }}
+udp-port = {{ udp_port | default('443') }}
+
+# The user the worker processes will be run as. This should be a dedicated
+# unprivileged user (e.g., 'ocserv') and no other services should run as this
+# user.
+run-as-user = {{ run_as_user | default('ocserv') }}
+run-as-group = {{ run_as_group | default('ocserv') }}
+
+# socket file used for IPC with occtl. You only need to set that,
+# if you use more than a single servers.
+{% if occtl_socket_file is defined and occtl_socket_file is not none and (occtl_socket_file is number or occtl_socket_file is boolean or occtl_socket_file | length > 0) %}occtl-socket-file = {{ occtl_socket_file }}
+{% else %}#occtl-socket-file = /var/run/occtl.socket
+{% endif %}
+# socket file used for server IPC (worker-main), will be appended with .PID
+# It must be accessible within the chroot environment (if any), so it is best
+# specified relatively to the chroot directory.
+socket-file = {{ socket_file | default('ocserv.sock') }}
+
+# The default server directory. Does not require any devices present.
+chroot-dir = {{ chroot_dir | default('/var/lib/ocserv') }}
+
+# The key and the certificates of the server
+# The key may be a file, or any URL supported by GnuTLS (e.g., 
+# tpmkey:uuid=xxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx;storage=user
+# or pkcs11:object=my-vpn-key;object-type=private)
+#
+# The server-cert file may contain a single certificate, or
+# a sorted certificate chain.
+# There may be multiple server-cert and server-key directives,
+# but each key should correspond to the preceding certificate.
+# The certificate files will be reloaded when changed allowing for in-place
+# certificate renewal (they are checked and reloaded periodically;
+# a SIGHUP signal to main server will force reload).
+
+server-cert = {{ server_cert | default('/etc/pki/ocserv/public/server.crt') }}
+server-key = {{ server_key | default('/etc/pki/ocserv/private/server.key') }}
+
+# Diffie-Hellman parameters. Only needed if for old (pre 3.6.0
+# versions of GnuTLS for supporting DHE ciphersuites.
+# Can be generated using:
+# certtool --generate-dh-params --outfile /etc/ocserv/dh.pem
+{% if dh_params is defined and dh_params is not none and (dh_params is number or dh_params is boolean or dh_params | length > 0) %}dh-params = {{ dh_params }}
+{% else %}#dh-params = /etc/ocserv/dh.pem
+{% endif %}
+# In case PKCS #11, TPM or encrypted keys are used the PINs should be available
+# in files. The srk-pin-file is applicable to TPM keys only, and is the 
+# storage root key.
+{% if pin_file is defined and pin_file is not none and (pin_file is number or pin_file is boolean or pin_file | length > 0) %}pin-file = {{ pin_file }}
+{% else %}#pin-file = /etc/ocserv/pin.txt
+{% endif %}{% if srk_pin_file is defined and srk_pin_file is not none and (srk_pin_file is number or srk_pin_file is boolean or srk_pin_file | length > 0) %}srk-pin-file = {{ srk_pin_file }}
+{% else %}#srk-pin-file = /etc/ocserv/srkpin.txt
+{% endif %}
+# The password or PIN needed to unlock the key in server-key file.
+# Only needed if the file is encrypted or a PKCS #11 object. This
+# is an alternative method to pin-file.
+{% if key_pin is defined and key_pin is not none and (key_pin is number or key_pin is boolean or key_pin | length > 0) %}key-pin = {{ key_pin }}
+{% else %}#key-pin = 1234
+{% endif %}
+# The SRK PIN for TPM.
+# This is an alternative method to srk-pin-file.
+{% if srk_pin is defined and srk_pin is not none and (srk_pin is number or srk_pin is boolean or srk_pin | length > 0) %}srk-pin = {{ srk_pin }}
+{% else %}#srk-pin = 1234
+{% endif %}
+# The Certificate Authority that will be used to verify
+# client certificates (public keys) if certificate authentication
+# is set.
+{% if ca_cert is defined and ca_cert is not none and (ca_cert is number or ca_cert is boolean or ca_cert | length > 0) %}ca-cert = {{ ca_cert }}
+{% else %}#ca-cert = /etc/ocserv/ca.pem
+{% endif %}
+# The number of sub-processes to use for the security module (authentication)
+# processes. Typically this should not be set as the number of processes
+# is determined automatically by the initially set maximum number of clients.
+{% if sec_mod_scale is defined and sec_mod_scale is not none and (sec_mod_scale is number or sec_mod_scale is boolean or sec_mod_scale | length > 0) %}sec-mod-scale = {{ sec_mod_scale }}
+{% else %}#sec-mod-scale = 4
+{% endif %}
+
+### All configuration options below this line are reloaded on a SIGHUP.
+### The options above, will remain unchanged. Note however, that the 
+### server-cert, server-key, dh-params and ca-cert options will be reloaded
+### if the provided file changes, on server reload. That allows certificate
+### rotation, but requires the server key to remain the same for seamless
+### operation. If the server key changes on reload, there may be connection
+### failures during the reloading time.
+
+
+# Whether to enable seccomp/Linux namespaces worker isolation. That restricts the number of 
+# system calls allowed to a worker process, in order to reduce damage from a
+# bug in the worker process. It is available on Linux systems at a performance cost.
+# The performance cost is roughly 2% overhead at transfer time (tested on a Linux 3.17.8).
+# Note however, that process isolation is restricted to the specific libc versions
+# the isolation was tested at. If you get random failures on worker processes, try
+# disabling that option and report the failures you, along with system and debugging
+# information at: https://gitlab.com/openconnect/ocserv/issues
+isolate-workers = {{ isolate_workers | default('true') }}
+
+# A banner to be displayed on clients after connection
+{% if banner is defined and banner is not none and (banner is number or banner is boolean or banner | length > 0) %}banner = {{ banner }}
+{% else %}#banner = "Welcome"
+{% endif %}
+# A banner to be displayed on clients before connection
+{% if pre_login_banner is defined and pre_login_banner is not none and (pre_login_banner is number or pre_login_banner is boolean or pre_login_banner | length > 0) %}pre-login-banner = {{ pre_login_banner }}
+{% else %}#pre-login-banner = "Welcome"
+{% endif %}
+# Limit the number of clients. Unset or set to zero if unknown. In
+# that case the maximum value is ~8k clients.
+#max-clients = 1024
+max-clients = {{ max_clients | default('16') }}
+
+# Limit the number of identical clients (i.e., users connecting 
+# multiple times). Unset or set to zero for unlimited.
+max-same-clients = {{ max_same_clients | default('2') }}
+
+# When the server receives connections from a proxy, like haproxy
+# which supports the proxy protocol, set this to obtain the correct
+# client addresses. The proxy protocol would then be expected in
+# the TCP or UNIX socket (not the UDP one). Although both v1
+# and v2 versions of proxy protocol are supported, the v2 version
+# is recommended as it is more efficient in parsing.
+{% if listen_proxy_proto is defined and listen_proxy_proto is not none and (listen_proxy_proto is number or listen_proxy_proto is boolean or listen_proxy_proto | length > 0) %}listen-proxy-proto = {{ listen_proxy_proto }}
+{% else %}#listen-proxy-proto = true
+{% endif %}
+# Rate limit the number of incoming connections to one every X milliseconds
+# (X is the provided value), as the secmod backlog grows. This
+# makes the server more resilient (and prevents connection failures) on
+# multiple concurrent connections. Set to zero for no limit.
+rate-limit-ms = {{ rate_limit_ms | default('100') }}
+
+# Stats report time. The number of seconds after which each
+# worker process will report its usage statistics (number of
+# bytes transferred etc). This is useful when accounting like
+# radius is in use.
+{% if stats_report_time is defined and stats_report_time is not none and (stats_report_time is number or stats_report_time is boolean or stats_report_time | length > 0) %}stats-report-time = {{ stats_report_time }}
+{% else %}#stats-report-time = 360
+{% endif %}
+# Stats reset time. The period of time statistics kept by main/sec-mod
+# processes will be reset. These are the statistics shown by cmd
+# 'occtl show stats'. For daily: 86400, weekly: 604800
+# This is unrelated to stats-report-time.
+server-stats-reset-time = {{ server_stats_reset_time | default('604800') }}
+
+# Keepalive in seconds
+keepalive = {{ keepalive | default('32400') }}
+
+# Dead peer detection in seconds.
+# Note that when the client is behind a NAT this value
+# needs to be short enough to prevent the NAT disassociating
+# his UDP session from the port number. Otherwise the client
+# could have his UDP connection stalled, for several minutes.
+dpd = {{ dpd | default('90') }}
+
+# Dead peer detection for mobile clients. That needs to
+# be higher to prevent such clients being awaken too 
+# often by the DPD messages, and save battery.
+# The mobile clients are distinguished from the header
+# 'X-AnyConnect-Identifier-Platform'.
+mobile-dpd = {{ mobile_dpd | default('1800') }}
+
+# If using DTLS, and no UDP traffic is received for this
+# many seconds, attempt to send future traffic over the TCP
+# connection instead, in an attempt to wake up the client
+# in the case that there is a NAT and the UDP translation
+# was deleted. If this is unset, do not attempt to use this
+# recovery mechanism.
+switch-to-tcp-timeout = {{ switch_to_tcp_timeout | default('25') }}
+
+# MTU discovery (DPD must be enabled)
+try-mtu-discovery = {{ try_mtu_discovery | default('false') }}
+
+# To enable load-balancer connection draining, set server-drain-ms to a value
+# higher than your load-balancer health probe interval.
+{% if server_drain_ms is defined and server_drain_ms is not none and (server_drain_ms is number or server_drain_ms is boolean or server_drain_ms | length > 0) %}server-drain-ms = {{ server_drain_ms }}
+{% else %}#server-drain-ms = 15000
+{% endif %}
+# If you have a certificate from a CA that provides an OCSP
+# service you may provide a fresh OCSP status response within
+# the TLS handshake. That will prevent the client from connecting
+# independently on the OCSP server.
+# You can update this response periodically using:
+# ocsptool --ask --load-cert=your_cert --load-issuer=your_ca --outfile response
+# Make sure that you replace the following file in an atomic way.
+{% if ocsp_response is defined and ocsp_response is not none and (ocsp_response is number or ocsp_response is boolean or ocsp_response | length > 0) %}ocsp-response = {{ ocsp_response }}
+{% else %}#ocsp-response = /etc/ocserv/ocsp.der
+{% endif %}
+# The object identifier that will be used to read the user ID in the client 
+# certificate. The object identifier should be part of the certificate's DN
+# Useful OIDs are: 
+#  CN = 2.5.4.3, UID = 0.9.2342.19200300.100.1.1, SAN(rfc822name)
+cert-user-oid = {{ cert_user_oid | default('0.9.2342.19200300.100.1.1') }}
+
+# The object identifier that will be used to read the user group in the 
+# client certificate. The object identifier should be part of the certificate's
+# DN. If the user may belong to multiple groups, then use multiple such fields
+# in the certificate's DN. Useful OIDs are: 
+#  OU (organizational unit) = 2.5.4.11 
+{% if cert_group_oid is defined and cert_group_oid is not none and (cert_group_oid is number or cert_group_oid is boolean or cert_group_oid | length > 0) %}cert-group-oid = {{ cert_group_oid }}
+{% else %}#cert-group-oid = 2.5.4.11
+{% endif %}
+# The revocation list of the certificates issued by the 'ca-cert' above.
+# See the manual to generate an empty CRL initially. The CRL will be reloaded
+# periodically when ocserv detects a change in the file. To force a reload use
+# SIGHUP.
+{% if crl is defined and crl is not none and (crl is number or crl is boolean or crl | length > 0) %}crl = {{ crl }}
+{% else %}#crl = /etc/ocserv/crl.pem
+{% endif %}
+# Uncomment this to enable compression negotiation (LZS, LZ4).
+{% if compression is defined and compression is not none and (compression is number or compression is boolean or compression | length > 0) %}compression = {{ compression }}
+{% else %}#compression = true
+{% endif %}
+# Set the minimum size under which a packet will not be compressed.
+# That is to allow low-latency for VoIP packets. The default size
+# is 256 bytes. Modify it if the clients typically use compression
+# as well of VoIP with codecs that exceed the default value.
+{% if no_compress_limit is defined and no_compress_limit is not none and (no_compress_limit is number or no_compress_limit is boolean or no_compress_limit | length > 0) %}no-compress-limit = {{ no_compress_limit }}
+{% else %}#no-compress-limit = 256
+{% endif %}
+# GnuTLS priority string; note that SSL 3.0 is disabled by default
+# as there are no openconnect (and possibly anyconnect clients) using
+# that protocol. The string below does not enforce perfect forward
+# secrecy, in order to be compatible with legacy clients.
+#
+# Note that the most performant ciphersuites are the moment are the ones
+# involving AES-GCM. These are very fast in x86 and x86-64 hardware, and
+# in addition require no padding, thus taking full advantage of the MTU.
+# For that to be taken advantage of, the openconnect client must be
+# used, and the server must be compiled against GnuTLS 3.2.7 or later.
+# Use "gnutls-cli --benchmark-tls-ciphers", to see the performance
+# difference with AES_128_CBC_SHA1 (the default for anyconnect clients)
+# in your system.
+
+# Note that in Fedora gnutls follows crypto policies so insecure options
+# are disabled within it.
+tls-priorities = {{ tls_priorities | default('"NORMAL:%SERVER_PRECEDENCE"') }}
+
+# That option requires the established DTLS channel to use the same
+# cipher as the primary TLS channel.Note also, that this option implies
+# that the dtls-legacy option is false; this option cannot be enforced
+{% if match_tls_dtls_ciphers is defined and match_tls_dtls_ciphers is not none and (match_tls_dtls_ciphers is number or match_tls_dtls_ciphers is boolean or match_tls_dtls_ciphers | length > 0) %}match-tls-dtls-ciphers = {{ match_tls_dtls_ciphers }}
+{% else %}#match-tls-dtls-ciphers = true
+{% endif %}
+# The time (in seconds) that a client is allowed to stay connected prior
+# to authentication
+auth-timeout = {{ auth_timeout | default('240') }}
+
+# The time (in seconds) that a client is allowed to stay idle (no traffic)
+# before being disconnected. Unset to disable.
+{% if idle_timeout is defined and idle_timeout is not none and (idle_timeout is number or idle_timeout is boolean or idle_timeout | length > 0) %}idle-timeout = {{ idle_timeout }}
+{% else %}#idle-timeout = 1200
+{% endif %}
+# The time (in seconds) that a client is allowed to stay connected
+# Unset to disable. When set a client will be disconnected after being
+# continuously connected for this amount of time, and its cookies will
+# be invalidated (i.e., re-authentication will be required).
+{% if session_timeout is defined and session_timeout is not none and (session_timeout is number or session_timeout is boolean or session_timeout | length > 0) %}session-timeout = {{ session_timeout }}
+{% else %}#session-timeout = 86400
+{% endif %}
+# The time (in seconds) that a mobile client is allowed to stay idle (no
+# traffic) before being disconnected. Unset to disable.
+{% if mobile_idle_timeout is defined and mobile_idle_timeout is not none and (mobile_idle_timeout is number or mobile_idle_timeout is boolean or mobile_idle_timeout | length > 0) %}mobile-idle-timeout = {{ mobile_idle_timeout }}
+{% else %}#mobile-idle-timeout = 2400
+{% endif %}
+# The time (in seconds) that a client is not allowed to reconnect after 
+# a failed authentication attempt.
+min-reauth-time = {{ min_reauth_time | default('300') }}
+
+# Banning clients in ocserv works with a point system. IP addresses
+# that get a score over that configured number are banned for
+# min-reauth-time seconds. By default a wrong password attempt is 10 points,
+# a KKDCP POST is 1 point, and a connection is 1 point. Note that
+# due to different processes being involved the count of points
+# will not be real-time precise. Local subnet IPs are exempt to allow
+# services that check for process health.
+#
+# Set to zero to disable.
+max-ban-score = {{ max_ban_score | default('80') }}
+
+# The time (in seconds) that all score kept for a client is reset.
+ban-reset-time = {{ ban_reset_time | default('1200') }}
+
+# In case you'd like to change the default points.
+{% if ban_points_wrong_password is defined and ban_points_wrong_password is not none and (ban_points_wrong_password is number or ban_points_wrong_password is boolean or ban_points_wrong_password | length > 0) %}ban-points-wrong-password = {{ ban_points_wrong_password }}
+{% else %}#ban-points-wrong-password = 10
+{% endif %}{% if ban_points_connection is defined and ban_points_connection is not none and (ban_points_connection is number or ban_points_connection is boolean or ban_points_connection | length > 0) %}ban-points-connection = {{ ban_points_connection }}
+{% else %}#ban-points-connection = 1
+{% endif %}{% if ban_points_kkdcp is defined and ban_points_kkdcp is not none and (ban_points_kkdcp is number or ban_points_kkdcp is boolean or ban_points_kkdcp | length > 0) %}ban-points-kkdcp = {{ ban_points_kkdcp }}
+{% else %}#ban-points-kkdcp = 1
+{% endif %}
+# Cookie timeout (in seconds)
+# Once a client is authenticated he's provided a cookie with
+# which he can reconnect. That cookie will be invalidated if not
+# used within this timeout value. This cookie remains valid, during
+# the user's connected time, and after user disconnection it
+# remains active for this amount of time. That setting should allow a
+# reasonable amount of time for roaming between different networks.
+cookie-timeout = {{ cookie_timeout | default('300') }}
+
+# If this is enabled (not recommended) the cookies will stay
+# valid even after a user manually disconnects, and until they
+# expire. This may improve roaming with some broken clients.
+{% if persistent_cookies is defined and persistent_cookies is not none and (persistent_cookies is number or persistent_cookies is boolean or persistent_cookies | length > 0) %}persistent-cookies = {{ persistent_cookies }}
+{% else %}#persistent-cookies = true
+{% endif %}
+# Whether roaming is allowed, i.e., if true a cookie is
+# restricted to a single IP address and cannot be re-used
+# from a different IP.
+deny-roaming = {{ deny_roaming | default('false') }}
+
+# ReKey time (in seconds)
+# ocserv will ask the client to refresh keys periodically once
+# this amount of seconds is elapsed. Set to zero to disable (note
+# that, some clients fail if rekey is disabled).
+rekey-time = {{ rekey_time | default('172800') }}
+
+# ReKey method
+# Valid options: ssl, new-tunnel
+#  ssl: Will perform an efficient rehandshake on the channel allowing
+#       a seamless connection during rekey.
+#  new-tunnel: Will instruct the client to discard and re-establish the channel.
+#       Use this option only if the connecting clients have issues with the ssl
+#       option.
+rekey-method = {{ rekey_method | default('ssl') }}
+
+# Script to call when a client connects and obtains an IP.
+# The following parameters are passed on the environment.
+# REASON, VHOST, USERNAME, GROUPNAME, DEVICE, IP_REAL (the real IP of the client),
+# REMOTE_HOSTNAME (the remotely advertised hostname), IP_REAL_LOCAL
+# (the local interface IP the client connected), IP_LOCAL
+# (the local IP in the P-t-P connection), IP_REMOTE (the VPN IP of the client),
+# IPV6_LOCAL (the IPv6 local address if there are both IPv4 and IPv6
+# assigned), IPV6_REMOTE (the IPv6 remote address), IPV6_PREFIX, and
+# ID (a unique numeric ID); REASON may be "connect" or "disconnect".
+# In addition the following variables OCSERV_ROUTES (the applied routes for this
+# client), OCSERV_NO_ROUTES, OCSERV_DNS (the DNS servers for this client),
+# will contain a space separated list of routes or DNS servers. A version
+# of these variables with the 4 or 6 suffix will contain only the IPv4 or
+# IPv6 values. The connect script must return zero as exit code, or the
+# client connection will be refused.
+
+# The disconnect script will receive the additional values: STATS_BYTES_IN,
+# STATS_BYTES_OUT, STATS_DURATION that contain a 64-bit counter of the bytes 
+# output from the tun device, and the duration of the session in seconds.
+
+{% if connect_script is defined and connect_script is not none and (connect_script is number or connect_script is boolean or connect_script | length > 0) %}connect-script = {{ connect_script }}
+{% else %}#connect-script = /usr/bin/ocserv-script
+{% endif %}{% if disconnect_script is defined and disconnect_script is not none and (disconnect_script is number or disconnect_script is boolean or disconnect_script | length > 0) %}disconnect-script = {{ disconnect_script }}
+{% else %}#disconnect-script = /usr/bin/ocserv-script
+{% endif %}
+# This script is to be called when the client's advertised hostname becomes
+# available. It will contain REASON with "host-update" value and the
+# variable REMOTE_HOSTNAME in addition to the connect variables.
+
+{% if host_update_script is defined and host_update_script is not none and (host_update_script is number or host_update_script is boolean or host_update_script | length > 0) %}host-update-script = {{ host_update_script }}
+{% else %}#host-update-script = /usr/bin/myhostnamescript
+{% endif %}
+# UTMP
+# Register the connected clients to utmp. This will allow viewing
+# the connected clients using the command 'who'.
+{% if use_utmp is defined and use_utmp is not none and (use_utmp is number or use_utmp is boolean or use_utmp | length > 0) %}use-utmp = {{ use_utmp }}
+{% else %}#use-utmp = true
+{% endif %}
+# Whether to enable support for the occtl tool (i.e., either through D-BUS,
+# or via a unix socket).
+use-occtl = {{ use_occtl | default('true') }}
+
+# PID file. It can be overridden in the command line.
+pid-file = {{ pid_file | default('/var/run/ocserv.pid') }}
+
+# Log Level. Ocserv sends the logging messages to standard error
+# as well as the system log. The log level can be overridden in the
+# command line with the -d option. All messages at the configured
+# level and lower will be displayed.
+# Supported levels (default 0):
+#   0 default (Same as basic)
+#   1 basic
+#   2 info
+#   3 debug
+#   4 http
+#   8 sensitive
+#   9 TLS
+log-level = {{ log_level | default('3') }}
+
+# Set the protocol-defined priority (SO_PRIORITY) for packets to
+# be sent. That is a number from 0 to 6 with 0 being the lowest
+# priority. Alternatively this can be used to set the IP Type-
+# Of-Service, by setting it to a hexadecimal number (e.g., 0x20).
+# This can be set per user/group or globally.
+{% if net_priority is defined and net_priority is not none and (net_priority is number or net_priority is boolean or net_priority | length > 0) %}net-priority = {{ net_priority }}
+{% else %}#net-priority = 3
+{% endif %}
+# Set the VPN worker process into a specific cgroup. This is Linux
+# specific and can be set per user/group or globally.
+{% if cgroup is defined and cgroup is not none and (cgroup is number or cgroup is boolean or cgroup | length > 0) %}cgroup = {{ cgroup }}
+{% else %}#cgroup = "cpuset,cpu:test"
+{% endif %}
+#
+# Network settings
+#
+
+# The name to use for the tun device
+device = {{ device | default('vpns') }}
+
+# Whether the generated IPs will be predictable, i.e., IP stays the
+# same for the same user when possible.
+predictable-ips = {{ predictable_ips | default('true') }}
+
+# The default domain to be advertised. Multiple domains (functional on
+# openconnect clients) can be provided in a space separated list.
+default-domain = {{ default_domain | default('example.com') }}
+
+# The pool of addresses that leases will be given from. If the leases
+# are given via Radius, or via the explicit-ip? per-user config option then 
+# these network values should contain a network with at least a single
+# address that will remain under the full control of ocserv (that is
+# to be able to assign the local part of the tun device address).
+# Note that, you could use addresses from a subnet of your LAN network if you
+# enable [proxy arp in the LAN interface](http://ocserv.gitlab.io/www/recipes-ocserv-pseudo-bridge.html);
+# in that case it is recommended to set ping-leases to true.
+{% if ipv4_network is defined and ipv4_network is not none and (ipv4_network is number or ipv4_network is boolean or ipv4_network | length > 0) %}ipv4-network = {{ ipv4_network }}
+{% else %}#ipv4-network = 192.168.1.0
+{% endif %}{% if ipv4_netmask is defined and ipv4_netmask is not none and (ipv4_netmask is number or ipv4_netmask is boolean or ipv4_netmask | length > 0) %}ipv4-netmask = {{ ipv4_netmask }}
+{% else %}#ipv4-netmask = 255.255.255.0
+{% endif %}
+# An alternative way of specifying the network:
+#ipv4-network = 192.168.1.0/24
+
+# The IPv6 subnet that leases will be given from.
+{% if ipv6_network is defined and ipv6_network is not none and (ipv6_network is number or ipv6_network is boolean or ipv6_network | length > 0) %}ipv6-network = {{ ipv6_network }}
+{% else %}#ipv6-network = fda9:4efe:7e3b:03ea::/48 
+{% endif %}
+# Specify the size of the network to provide to clients. It is
+# generally recommended to provide clients with a /64 network in
+# IPv6, but any subnet may be specified. To provide clients only
+# with a single IP use the prefix 128.
+#ipv6-subnet-prefix = 128
+#ipv6-subnet-prefix = 64
+
+# Whether to tunnel all DNS queries via the VPN. This is the default
+# when a default route is set.
+{% if tunnel_all_dns is defined and tunnel_all_dns is not none and (tunnel_all_dns is number or tunnel_all_dns is boolean or tunnel_all_dns | length > 0) %}tunnel-all-dns = {{ tunnel_all_dns }}
+{% else %}#tunnel-all-dns = true
+{% endif %}
+# The advertized DNS server. Use multiple lines for
+# multiple servers.
+# dns = fc00::4be0
+#dns = 192.168.1.2
+
+# The NBNS server (if any)
+{% if nbns is defined and nbns is not none and (nbns is number or nbns is boolean or nbns | length > 0) %}nbns = {{ nbns }}
+{% else %}#nbns = 192.168.1.3
+{% endif %}
+# The domains over which the provided DNS should be used. Use
+# multiple lines for multiple domains.
+{% if split_dns is defined and split_dns is not none and (split_dns is number or split_dns is boolean or split_dns | length > 0) %}split-dns = {{ split_dns }}
+{% else %}#split-dns = example.com
+{% endif %}
+# Prior to leasing any IP from the pool ping it to verify that
+# it is not in use by another (unrelated to this server) host.
+# Only set to true, if there can be occupied addresses in the
+# IP range for leases.
+ping-leases = {{ ping_leases | default('false') }}
+
+# Use this option to set a link MTU value to the incoming
+# connections. Unset to use the default MTU of the TUN device.
+# Note that the MTU is negotiated using the value set and the
+# value sent by the peer.
+{% if mtu is defined and mtu is not none and (mtu is number or mtu is boolean or mtu | length > 0) %}mtu = {{ mtu }}
+{% else %}#mtu = 1420
+{% endif %}
+# Unset to enable bandwidth restrictions (in bytes/sec). The
+# setting here is global, but can also be set per user or per group.
+{% if rx_data_per_sec is defined and rx_data_per_sec is not none and (rx_data_per_sec is number or rx_data_per_sec is boolean or rx_data_per_sec | length > 0) %}rx-data-per-sec = {{ rx_data_per_sec }}
+{% else %}#rx-data-per-sec = 40000
+{% endif %}{% if tx_data_per_sec is defined and tx_data_per_sec is not none and (tx_data_per_sec is number or tx_data_per_sec is boolean or tx_data_per_sec | length > 0) %}tx-data-per-sec = {{ tx_data_per_sec }}
+{% else %}#tx-data-per-sec = 40000
+{% endif %}
+# The number of packets (of MTU size) that are available in
+# the output buffer. The default is low to improve latency.
+# Setting it higher will improve throughput.
+{% if output_buffer is defined and output_buffer is not none and (output_buffer is number or output_buffer is boolean or output_buffer | length > 0) %}output-buffer = {{ output_buffer }}
+{% else %}#output-buffer = 10
+{% endif %}
+# Routes to be forwarded to the client. If you need the
+# client to forward routes to the server, you may use the 
+# config-per-user/group or even connect and disconnect scripts.
+#
+# To set the server as the default gateway for the client just
+# comment out all routes from the server, or use the special keyword
+# 'default'.
+
+#route = 10.10.10.0/255.255.255.0
+#route = 192.168.0.0/255.255.0.0
+#route = fef4:db8:1000:1001::/64
+#route = default
+
+# Subsets of the routes above that will not be routed by
+# the server.
+
+no-route = {{ no_route | default('192.168.5.0/255.255.255.0') }}
+
+# Note the that following two firewalling options currently are available
+# in Linux systems with iptables software. 
+
+# If set, the script /usr/bin/ocserv-fw will be called to restrict
+# the user to its allowed routes and prevent him from accessing
+# any other routes. In case of defaultroute, the no-routes are restricted.
+# All the routes applied by ocserv can be reverted using /usr/bin/ocserv-fw
+# --removeall. This option can be set globally or in the per-user configuration.
+{% if restrict_user_to_routes is defined and restrict_user_to_routes is not none and (restrict_user_to_routes is number or restrict_user_to_routes is boolean or restrict_user_to_routes | length > 0) %}restrict-user-to-routes = {{ restrict_user_to_routes }}
+{% else %}#restrict-user-to-routes = true
+{% endif %}
+# This option implies restrict-user-to-routes set to true. If set, the
+# script /usr/bin/ocserv-fw will be called to restrict the user to
+# access specific ports in the network. This option can be set globally
+# or in the per-user configuration.
+#restrict-user-to-ports = "tcp(443), tcp(80), udp(443), sctp(99), tcp(583), icmp(), icmpv6()"
+
+# You could also use negation, i.e., block the user from accessing these ports only.
+#restrict-user-to-ports = "!(tcp(443), tcp(80))"
+
+# When set to true, all client's iroutes are made visible to all
+# connecting clients except for the ones offering them. This option
+# only makes sense if config-per-user is set.
+{% if expose_iroutes is defined and expose_iroutes is not none and (expose_iroutes is number or expose_iroutes is boolean or expose_iroutes | length > 0) %}expose-iroutes = {{ expose_iroutes }}
+{% else %}#expose-iroutes = true
+{% endif %}
+# Groups that a client is allowed to select from.
+# A client may belong in multiple groups, and in certain use-cases
+# it is needed to switch between them. For these cases the client can
+# select prior to authentication. Add multiple entries for multiple groups.
+# The group may be followed by a user-friendly name in brackets.
+#select-group = group1
+#select-group = group2[My special group]
+
+# The name of the (virtual) group that if selected it would assign the user
+# to its default group.
+{% if default_select_group is defined and default_select_group is not none and (default_select_group is number or default_select_group is boolean or default_select_group | length > 0) %}default-select-group = {{ default_select_group }}
+{% else %}#default-select-group = DEFAULT
+{% endif %}
+# Instead of specifying manually all the allowed groups, you may instruct
+# ocserv to scan all available groups and include the full list.
+{% if auto_select_group is defined and auto_select_group is not none and (auto_select_group is number or auto_select_group is boolean or auto_select_group | length > 0) %}auto-select-group = {{ auto_select_group }}
+{% else %}#auto-select-group = true
+{% endif %}
+# Configuration files that will be applied per user connection or
+# per group. Each file name on these directories must match the username
+# or the groupname.
+# The options allowed in the configuration files are dns, nbns,
+#  ipv?-network, ipv4-netmask, rx/tx-data-per-sec, iroute, route, no-route,
+#  explicit-ipv4, explicit-ipv6, net-priority, deny-roaming, no-udp,
+#  keepalive, dpd, mobile-dpd, max-same-clients, tunnel-all-dns,
+#  restrict-user-to-routes, cgroup, stats-report-time,
+#  mtu, idle-timeout, mobile-idle-timeout, restrict-user-to-ports,
+#  split-dns and session-timeout.
+#
+# Note that the 'iroute' option allows one to add routes on the server
+# based on a user or group. The syntax depends on the input accepted
+# by the commands route-add-cmd and route-del-cmd (see below). The no-udp
+# is a boolean option (e.g., no-udp = true), and will prevent a UDP session
+# for that specific user or group. The hostname option will set a
+# hostname to override any proposed by the user. Note also, that, any 
+# routes, no-routes, DNS or NBNS servers present will overwrite the global ones.
+
+{% if config_per_user is defined and config_per_user is not none and (config_per_user is number or config_per_user is boolean or config_per_user | length > 0) %}config-per-user = {{ config_per_user }}
+{% else %}#config-per-user = /etc/ocserv/config-per-user/
+{% endif %}{% if config_per_group is defined and config_per_group is not none and (config_per_group is number or config_per_group is boolean or config_per_group | length > 0) %}config-per-group = {{ config_per_group }}
+{% else %}#config-per-group = /etc/ocserv/config-per-group/
+{% endif %}
+# When config-per-xxx is specified and there is no group or user that
+# matches, then utilize the following configuration.
+{% if default_user_config is defined and default_user_config is not none and (default_user_config is number or default_user_config is boolean or default_user_config | length > 0) %}default-user-config = {{ default_user_config }}
+{% else %}#default-user-config = /etc/ocserv/defaults/user.conf
+{% endif %}{% if default_group_config is defined and default_group_config is not none and (default_group_config is number or default_group_config is boolean or default_group_config | length > 0) %}default-group-config = {{ default_group_config }}
+{% else %}#default-group-config = /etc/ocserv/defaults/group.conf
+{% endif %}
+# The system command to use to setup a route. %{R} will be replaced with the
+# route/mask, %{RI} with the route in CIDR format, and %{D} with the (tun) device.
+#
+# The following example is from linux systems. %{R} should be something
+# like 192.168.2.0/255.255.255.0 and %{RI} 192.168.2.0/24 (the argument of iroute).
+
+{% if route_add_cmd is defined and route_add_cmd is not none and (route_add_cmd is number or route_add_cmd is boolean or route_add_cmd | length > 0) %}route-add-cmd = {{ route_add_cmd }}
+{% else %}#route-add-cmd = "ip route add %{R} dev %{D}"
+{% endif %}{% if route_del_cmd is defined and route_del_cmd is not none and (route_del_cmd is number or route_del_cmd is boolean or route_del_cmd | length > 0) %}route-del-cmd = {{ route_del_cmd }}
+{% else %}#route-del-cmd = "ip route delete %{R} dev %{D}"
+{% endif %}
+# This option allows one to forward a proxy. The special keywords '%{U}'
+# and '%{G}', if present will be replaced by the username and group name.
+#proxy-url = http://example.com/
+#proxy-url = http://example.com/%{U}/
+
+# This option allows you to specify a URL location where a client can
+# post using MS-KKDCP, and the message will be forwarded to the provided
+# KDC server. That is a translation URL between HTTP and Kerberos.
+# In MIT kerberos you'll need to add in realms:
+#   EXAMPLE.COM = {
+#     kdc = https://ocserv.example.com/KdcProxy
+#     http_anchors = FILE:/etc/ocserv-ca.pem
+#   }
+# In some distributions the krb5-k5tls plugin of kinit is required.
+#
+# The following option is available in ocserv, when compiled with GSSAPI support. 
+
+#kkdcp = "SERVER-PATH KERBEROS-REALM PROTOCOL@SERVER:PORT"
+#kkdcp = "/KdcProxy KERBEROS.REALM udp@127.0.0.1:88"
+#kkdcp = "/KdcProxy KERBEROS.REALM tcp@127.0.0.1:88"
+#kkdcp = "/KdcProxy KERBEROS.REALM tcp@[::1]:88"
+
+# Client profile xml. This can be used to advertise alternative servers
+# to the client. A minimal file can be:
+# <?xml version="1.0" encoding="UTF-8"?>
+# <AnyConnectProfile xmlns="http://schemas.xmlsoap.org/encoding/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.xmlsoap.org/encoding/ AnyConnectProfile.xsd">
+#	<ServerList>
+#		<HostEntry>
+#	            <HostName>VPN Server name</HostName>
+#	            <HostAddress>localhost</HostAddress>
+#		</HostEntry>
+#	</ServerList>
+# </AnyConnectProfile>
+#
+# Other fields may be used by some of the CISCO clients.
+# This file must be accessible from inside the worker's chroot.
+# Note that:
+#  (1) enabling this option is not recommended as it will allow the
+#      worker processes to open arbitrary files (when isolate-workers is
+#      set to true).
+#  (2) This option cannot be set per-user or per-group; only the global
+#      version is being sent to client.
+{% if user_profile is defined and user_profile is not none and (user_profile is number or user_profile is boolean or user_profile | length > 0) %}user-profile = {{ user_profile }}
+{% else %}#user-profile = profile.xml
+{% endif %}
+#
+# The following options are for (experimental) AnyConnect client 
+# compatibility. 
+
+# This option will enable the pre-draft-DTLS version of DTLS, and
+# will not require clients to present their certificate on every TLS
+# connection. It must be set to true to support legacy CISCO clients
+# and openconnect clients < 7.08. When set to true, it implies dtls-legacy = true.
+cisco-client-compat = {{ cisco_client_compat | default('true') }}
+
+# This option allows one to disable the DTLS-PSK negotiation (enabled by default).
+# The DTLS-PSK negotiation was introduced in ocserv 0.11.5 to deprecate
+# the pre-draft-DTLS negotiation inherited from AnyConnect. It allows the
+# DTLS channel to negotiate its ciphers and the DTLS protocol version.
+{% if dtls_psk is defined and dtls_psk is not none and (dtls_psk is number or dtls_psk is boolean or dtls_psk | length > 0) %}dtls-psk = {{ dtls_psk }}
+{% else %}#dtls-psk = false
+{% endif %}
+# This option allows one to disable the legacy DTLS negotiation (enabled by default,
+# but that may change in the future).
+# The legacy DTLS uses a pre-draft version of the DTLS protocol and was
+# from AnyConnect protocol. It has several limitations, that are addressed
+# by the dtls-psk protocol supported by openconnect 7.08+.
+dtls-legacy = {{ dtls_legacy | default('true') }}
+
+# This option will enable the settings needed for Cisco SVC IPPhone clients
+# to connect. It implies dtls-legacy = true and tls-priorities is changed to
+# only the ciphers the device supports.
+cisco-svc-client-compat = {{ cisco_svc_client_compat | default('false') }}
+
+# This option will enable the X-CSTP-Client-Bypass-Protocol (disabled by default).
+# If the server has not configured an IPv6 or IPv4 address pool, enabling this option
+# will instruct the client to bypass the server for that IP protocol. The option is
+# currently only understood by Anyconnect clients.
+client-bypass-protocol = {{ client_bypass_protocol | default('false') }}
+
+# The following options are related to server camouflage (hidden service)
+
+# This option allows you to enable the camouflage feature of ocserv that makes it look
+# like a web server to unauthorized parties.
+# With "camouflage" enabled, connection to the VPN can be established only if the client provided a specific
+# "secret string" in the connection URL, e.g. "https://example.com/?mysecretkey",
+# otherwise the server will return HTTP error for all requests.
+camouflage = {{ camouflage | default('false') }}
+
+# The URL prefix that should be set on the client (after '?' sign) to pass through the camouflage check,
+# e.g. in case of 'mysecretkey', the server URL on the client should be like "https://example.com/?mysecretkey".
+camouflage_secret = {{ camouflage_secret | default('"mysecretkey"') }}
+
+# Defines the realm (browser prompt) for HTTP authentication.
+# If no realm is set, the server will return 404 Not found error instead of 401 Unauthorized.
+# Better change it from the default value to avoid fingerprinting.
+camouflage_realm = {{ camouflage_realm | default('"Restricted Content"') }}
+
+{% if advanced is defined and advanced is not none and (advanced is number or advanced is boolean or advanced | length > 0) %}Advanced {{ advanced }}
+{% else %}#Advanced options
+{% endif %}
+# Option to allow sending arbitrary custom headers to the client after
+# authentication and prior to VPN tunnel establishment. You shouldn't
+# need to use this option normally; if you do and you think that
+# this may help others, please send your settings and reason to
+# the openconnect mailing list. The special keywords '%{U}'
+# and '%{G}', if present will be replaced by the username and group name.
+{% if custom_header is defined and custom_header is not none and (custom_header is number or custom_header is boolean or custom_header | length > 0) %}custom-header = {{ custom_header }}
+{% else %}#custom-header = "X-My-Header: hi there"
+{% endif %}
+
+
+# An example virtual host with different authentication methods serviced
+# by this server.
+
+#[vhost:www.example.com]
+#auth = "certificate"
+
+#ca-cert = /etc/ocserv/ca.pem
+
+# The certificate set here must include a 'dns_name' corresponding to
+# the virtual host name.
+
+#server-cert = /etc/pki/ocserv/public/server.crt
+#server-key = /etc/pki/ocserv/private/server.key
+
+#ipv4-network = 192.168.2.0
+#ipv4-netmask = 255.255.255.0
+
+#cert-user-oid = 0.9.2342.19200300.100.1.1
+
+# HTTP headers
+included-http-headers = Strict-Transport-Security: max-age=31536000 ; includeSubDomains
+included-http-headers = X-Frame-Options: deny
+included-http-headers = X-Content-Type-Options: nosniff
+included-http-headers = Content-Security-Policy: default-src 'none'
+included-http-headers = X-Permitted-Cross-Domain-Policies: none
+included-http-headers = Referrer-Policy: no-referrer
+included-http-headers = Clear-Site-Data: "cache","cookies","storage"
+included-http-headers = Cross-Origin-Embedder-Policy: require-corp
+included-http-headers = Cross-Origin-Opener-Policy: same-origin
+included-http-headers = Cross-Origin-Resource-Policy: same-origin
+included-http-headers = X-XSS-Protection: 0
+included-http-headers = Pragma: no-cache
+included-http-headers = Cache-control: no-store, no-cache

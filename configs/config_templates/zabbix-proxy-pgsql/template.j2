@@ -1,41 +1,32 @@
-# Zabbix Proxy (PostgreSQL) log rotation configuration
-# Managed by Ansible — do not edit manually
+# Zabbix Proxy (PostgreSQL) Logrotate Configuration
+# Managed by Ansible. Do not edit manually.
 
-# Path to the Zabbix Proxy log file
-# Schema: log_file_path (string, default: '/var/log/zabbix-proxy/zabbix_proxy.log')
-# Description: Path to the Zabbix Proxy log file.
+# Path to the Zabbix Proxy log file to manage rotation for.
+# Defaults to /var/log/zabbix-proxy/zabbix_proxy.log
 {{ log_file_path | default('/var/log/zabbix-proxy/zabbix_proxy.log') }} {
-    # Rotate logs weekly
+    # Rotate logs on a weekly basis.
     weekly
 
-    # Number of rotated log files to keep
-    # Schema: log_rotate_count (int, default: 7)
-    # Description: Number of rotated log files to keep.
-    rotate {{ log_rotate_count | default(7) }}
+    # Number of rotated log files to keep before discarding oldest.
+    # Defaults to 7.
+    rotate {{ log_rotate_count | default('7') }}
 
-    # Compress rotated log files using gzip
+    # Compress rotated log files using gzip to save disk space.
     compress
 
-    # Delay compression until the next rotation cycle
-    # This ensures that the most recently rotated log file is not compressed immediately,
-    # allowing for continued writing without interruption.
+    # Delay compression of the most recent rotated log file until the next rotation cycle.
     delaycompress
 
-    # Do not produce an error if the log file is missing
+    # Do not produce an error if the log file is missing (e.g., before first start).
     missingok
 
-    # Do not rotate the log file if it is empty
+    # Do not rotate the log if it is empty.
     notifempty
 
-    # Create new log files with the specified permissions and ownership
-    # Schema: log_create_mode (string, default: '0640')
-    # Description: Permissions for newly created log files.
-    # Schema: log_user (string, default: 'zabbix')
-    # Description: User owner of newly created log files.
-    # Schema: log_group (string, default: 'zabbix')
-    # Description: Group owner of newly created log files.
+    # Create new log files with the specified permissions, owned by the specified user and group.
+    # Defaults to mode 0640, user 'zabbix', group 'zabbix'.
     create {{ log_create_mode | default('0640') }} {{ log_user | default('zabbix') }} {{ log_group | default('zabbix') }}
 
-    # Run the postrotate script only once for the whole batch of rotated files
+    # Run the postrotate script only once for the whole batch of logs.
     sharedscripts
 }

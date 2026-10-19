@@ -23,7 +23,13 @@ from bossman.services.nt_runbook import Role, Runbook, Step, _as_bool, _parse_pa
 
 
 class PlaybookError(Exception):
-    """A playbook that isn't a shape we can map to the canonical doc."""
+    """A playbook that isn't a shape we can map to the canonical doc.
+
+    `line` (1-based) is set when the error has a place in the text, so the editor can mark it."""
+
+    def __init__(self, message: str, line: int | None = None):
+        super().__init__(message)
+        self.line = line
 
 
 # Task-level keywords we recognise; everything else on a task is treated as the
@@ -199,7 +205,10 @@ def parse_playbook(text: str) -> Runbook | Role:
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        raise PlaybookError(f"invalid YAML: {exc}") from exc
+        # The construct that is broken starts at context_mark (an unclosed `{` opened there); without a context
+        # the problem_mark is the place. 0-based in PyYAML, 1-based for the operator.
+        mark = getattr(exc, "context_mark", None) or getattr(exc, "problem_mark", None)
+        raise PlaybookError(f"invalid YAML: {exc}", line=(mark.line + 1) if mark is not None else None) from exc
     if data is None:
         raise PlaybookError("empty playbook")
 

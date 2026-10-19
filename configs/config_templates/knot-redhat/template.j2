@@ -1,0 +1,49 @@
+# Knot DNS Configuration Template
+# This configuration file manages the Knot DNS authoritative server settings.
+# See knot.conf(5) for full documentation on all available directives.
+
+# === Server Configuration ===
+server:
+    # The directory where the Knot DNS server stores its runtime files.
+    rundir: "{{ rundir | default('/run/knot') }}"
+
+    # The user and group under which the Knot DNS server runs.
+    user: "{{ user | default('knot:knot') }}"
+
+    # Enable automatic ACL configuration.
+    automatic-acl: "{{ automatic_acl | default('on') }}"
+
+    # listen: [ 127.0.0.1@53, ::1@53 ]
+
+# === Logging Configuration ===
+log:
+  - target: syslog
+    # The log level for syslog logging.
+    any: "{{ log_level | default('info') }}"
+
+# === Database Configuration ===
+database:
+    # The directory where the Knot DNS database stores zone data.
+    storage: "{{ database_storage | default('/var/lib/knot') }}"
+
+# === Remote Server Configuration (e.g., for IXFR/AXFR) ===
+# remote:
+# - id: secondary
+#   address: 192.168.1.1@53
+#
+# - id: primary
+#   address: 192.168.2.1@53
+
+# === Template Configuration ===
+# Defines default parameters for zones created in the future.
+template:
+  - id: default
+    # The storage directory for the default zone template.
+    storage: "{{ template_storage | default('/var/lib/knot') }}"
+    # The file name pattern for zone files, where %s is replaced by the zone name.
+    file: "{{ zone_file_pattern | default('%s.zone') }}"
+
+# === Zone Configuration ===
+# Zones are defined here. Each entry represents a DNS zone managed by Knot.
+# To add zones dynamically, use the API or peer injection.
+zone: []

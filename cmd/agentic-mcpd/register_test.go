@@ -12,7 +12,7 @@ func TestAdvertisedAddress(t *testing.T) {
 		wantListen    string
 	}{
 		{
-			// Zero-touch, the vpp0221 case: no --address, default listen.
+			// Zero-touch, the pve1 case: no --address, default listen.
 			// Must produce a reachable address from the name, not empty.
 			name:          "no address flag, default listen",
 			agentName:     "host.example.internal",

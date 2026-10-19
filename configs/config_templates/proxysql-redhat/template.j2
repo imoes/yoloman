@@ -1,0 +1,210 @@
+########################################################################################
+# ProxySQL Configuration File
+# Parsed using libconfig. See: http://www.hyperrealm.com/libconfig/
+########################################################################################
+
+########################################################################################
+# Global Settings
+# These variables control ProxySQL's runtime behavior and storage location.
+########################################################################################
+
+# The directory where ProxySQL stores its database and logs.
+# On first start, if no database file exists here, the config below is loaded into
+# the on-disk database. Subsequent starts read from the DB, ignoring this file
+# unless forced via `proxysql-initial`.
+datadir="{{ datadir | default('/var/lib/proxysql') }}"
+
+# The path to the ProxySQL error log file.
+errorlog="{{ errorlog | default('/var/lib/proxysql/proxysql.log') }}"
+
+########################################################################################
+# Admin Interface Variables
+# Controls the administration port used to manage ProxySQL via MySQL protocol.
+########################################################################################
+
+admin_variables=
+{
+	# The username:password pair for the ProxySQL admin interface.
+	# IMPORTANT: Change these defaults in production!
+	admin_credentials="{{ admin_credentials | default('admin:admin') }}"
+
+	# The IP address and port for the ProxySQL admin interface.
+	# Format: "ip:port" or "ip:port;/path/to/socket"
+	# Default exposes on all interfaces on port 6032.
+	mysql_ifaces="{{ admin_bind_address | default('0.0.0.0:6032') }}"
+
+	# refresh_interval=2000 # How often (ms) to reload admin vars from disk
+	# debug=true # Enable debug logging for admin interface
+}
+
+########################################################################################
+# MySQL Proxy Variables
+# Controls how ProxySQL acts as a proxy for backend MySQL/MariaDB servers.
+########################################################################################
+
+mysql_variables=
+{
+	# The number of threads used to handle connections.
+	threads={{ threads | default(4) }}
+
+	# The maximum number of connections allowed to backend servers.
+	max_connections={{ max_connections | default(2048) }}
+
+	# Default delay for queries (ms). 0 = no delay.
+	default_query_delay=0
+
+	# The default timeout for queries in milliseconds.
+	# Queries exceeding this time are killed.
+	default_query_timeout={{ default_query_timeout | default(36000000) }}
+
+	# Enable compression for MySQL protocol (saves bandwidth).
+	have_compress={{ have_compress | default(true) }}
+
+	# The timeout for poll() in milliseconds.
+	poll_timeout={{ poll_timeout | default(2000) }}
+
+	# The IP address and port for the MySQL listener interface (client-facing).
+	# Format: "ip:port" or "ip:port;/path/to/socket"
+	interfaces="{{ mysql_bind_address | default('0.0.0.0:6033') }}"
+
+	# Default schema to use if client does not specify one.
+	default_schema="information_schema"
+
+	# The stack size for threads in bytes.
+	stacksize={{ stacksize | default(1048576) }}
+
+	# The server version string to report to clients.
+	# Used for compatibility checks by client libraries.
+	server_version="{{ server_version | default('5.5.30') }}"
+
+	# The timeout for connecting to backend servers in milliseconds.
+	connect_timeout_server={{ connect_timeout_server | default(3000) }}
+
+	# --- Monitor Credentials ---
+	# The username for the ProxySQL monitor user.
+	# This user must exist on backend MySQL servers with REPLICATION CLIENT privilege.
+	monitor_username="{{ monitor_username | default('monitor') }}"
+
+	# The password for the ProxySQL monitor user.
+	monitor_password="{{ monitor_password | default('monitor') }}"
+
+	# --- Monitor Statistics ---
+	# The history retention time for monitor statistics in milliseconds.
+	monitor_history={{ monitor_history | default(600000) }}
+
+	# The interval for monitor connection checks in milliseconds.
+	monitor_connect_interval={{ monitor_connect_interval | default(60000) }}
+
+	# The interval for monitor ping checks in milliseconds.
+	monitor_ping_interval={{ monitor_ping_interval | default(10000) }}
+
+	# The interval for checking read-only status in milliseconds.
+	monitor_read_only_interval={{ monitor_read_only_interval | default(1500) }}
+
+	# The timeout for checking read-only status in milliseconds.
+	monitor_read_only_timeout={{ monitor_read_only_timeout | default(500) }}
+
+	# --- Backend Health Checks ---
+	# The interval for pinging backend servers in milliseconds.
+	ping_interval_server_msec={{ ping_interval_server_msec | default(120000) }}
+
+	# The timeout for pinging backend servers in milliseconds.
+	ping_timeout_server={{ ping_timeout_server | default(500) }}
+
+	# --- Statistics ---
+	# Enable command statistics collection.
+	commands_stats={{ commands_stats | default(true) }}
+
+	# Enable session sorting.
+	sessions_sort={{ sessions_sort | default(true) }}
+
+	# The number of retries for failed connections to backend servers.
+	connect_retries_on_failure={{ connect_retries_on_failure | default(10) }}
+}
+
+########################################################################################
+# Backend MySQL Servers
+# Define the backend database servers ProxySQL will route traffic to.
+# Each entry is a map: address, port, hostgroup, status, weight, etc.
+########################################################################################
+
+mysql_servers =
+(
+	# Example backend server definition:
+	# {
+	#   address = "192.168.1.10"
+	#   port = 3306
+	#   hostgroup = 0
+	#   status = "ONLINE"
+	#   weight = 1
+	# }
+)
+
+########################################################################################
+# MySQL Users
+# Define users that clients use to connect to ProxySQL.
+# Credentials here are used to authenticate against backend servers.
+########################################################################################
+
+mysql_users:
+(
+	# Example user definition:
+	# {
+	#   username = "app_user"
+	#   password = "secret"
+	#   default_hostgroup = 0
+	#   active = 1
+	# }
+)
+
+########################################################################################
+# Query Rules
+# Define routing logic for SQL queries.
+# Rules are evaluated in order (rule_id). First match wins.
+########################################################################################
+
+mysql_query_rules:
+(
+	# Example rule: Route SELECT FOR UPDATE to writer (hostgroup 0)
+	# {
+	#   rule_id = 1
+	#   active = 1
+	#   match_pattern = "^SELECT .* FOR UPDATE$"
+	#   destination_hostgroup = 0
+	#   apply = 1
+	# }
+)
+
+########################################################################################
+# Scheduler
+# Define periodic tasks/scripts to run inside ProxySQL.
+########################################################################################
+
+scheduler=
+(
+	# Example scheduler task:
+	# {
+	#   id = 1
+	#   active = 0
+	#   interval_ms = 10000
+	#   filename = "/var/lib/proxysql/check_galera.sh"
+	# }
+)
+
+########################################################################################
+# Replication Hostgroups
+# Define automatic handling of replication lag and failover.
+# ProxySQL uses monitor data to demote writers if lag is too high.
+########################################################################################
+
+mysql_replication_hostgroups=
+(
+	# Example replication hostgroup definition:
+	# {
+	#   writer_hostgroup = 10
+	#   reader_hostgroup = 11
+	#   comment = "Main Cluster"
+	#   max_writers = 1
+	#   max_replication_lag = 10
+	# }
+)

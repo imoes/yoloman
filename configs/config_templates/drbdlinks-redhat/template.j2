@@ -1,0 +1,84 @@
+# ==============================================================================
+# drbdlinks Configuration
+# ==============================================================================
+#
+# This file configures the drbdlinks service, which manages symbolic links or
+# bind mounts on a shared DRBD (Distributed Replicated Block Device) filesystem.
+# It ensures that application-specific directories are correctly linked into
+# the shared mountpoint, allowing multiple nodes to access the same data.
+#
+# The syntax uses function-like directives (e.g., mountpoint(...), link(...)).
+# All boolean options accept '1' (enabled) or '0' (disabled).
+# ==============================================================================
+
+# --- Global Behavior Settings ---
+
+# selinux: Controls whether SELinux contexts are automatically applied to
+# created links using chcon.
+#   1 = Enable SELinux context management (default).
+#   0 = Disable SELinux context management.
+#selinux({{ selinux_default | default('1') }})
+
+# restartsyslog: Controls whether the syslog daemon is restarted after
+# link configuration changes are detected.
+#   1 = Restart syslog after changes (default).
+#   0 = Do not restart syslog.
+#restartsyslog({{ restart_syslog_default | default('1') }})
+
+# restartcron: Controls whether the cron daemon is restarted after
+# link configuration changes are detected.
+#   1 = Restart cron after changes (default).
+#   0 = Do not restart cron.
+#restartcron({{ restart_cron_default | default('1') }})
+
+# usebindmount: Determines the mechanism used to share files.
+#   1 = Use 'mount --make-shared' and bind mounts (default).
+#   0 = Use symbolic links.
+# Note: This only affects link() calls made after this directive.
+#usebindmount({{ use_bind_mount_default | default('1') }})
+
+# debug: Enables verbose logging of drbdlinks operations to syslog.
+#   1 = Enable debugging logs (default).
+#   0 = Disable debugging logs.
+debug({{ debug_default | default('1') }})
+
+# --- Mount Configuration ---
+
+# mountpoint: Defines the root directory where the DRBD block device is mounted.
+# This is the base for all subsequent link() operations.
+# If usebindmount is 1, this directory is marked as 'shared' to propagate
+# sub-mounts to child namespaces.
+mountpoint({{ mountpoint_default | default('/shared') }})
+
+# --- Cleanup Configuration ---
+
+# cleanthisconfig: Controls the preservation of this configuration file
+# for later cleanup by the drbdlinksclean utility.
+#   1 = Preserve a copy in /var/lib/drbdlinks/configs-to-clean (default).
+#   0 = Do not preserve.
+# Note: Requires the "--config-file" argument to be passed to drbdlinks
+# at startup, and unique base filenames for different services.
+cleanthisconfig({{ clean_this_config_default | default('1') }})
+
+# ==============================================================================
+# Link Definitions
+# ==============================================================================
+#
+# Define the links that drbdlinks should manage.
+#
+# Syntax:
+#   link('local_path')
+#     Creates a symbolic link (or bind mount) from local_path to
+#     {{ mountpoint_default | default('/shared') }}/local_path.
+#
+#   link('local_path', 'shared_path')
+#     Creates a link from local_path to the specific shared_path on the
+#     DRBD volume.
+#
+# Example:
+#   link('/etc/httpd')
+#   link('/var/lib/postgresql/data')
+# ==============================================================================
+
+# link('/etc/httpd')
+# link('/var/lib/pgsql/')

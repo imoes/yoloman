@@ -6,7 +6,7 @@ Two layers:
   (which roles a host runs) x each role template's capabilities.json (what that role provides/requires).
   Reconciled per host like host labels — only 'derived' rows are touched, 'explicit' ones survive.
 
-  MATCH (reads host_capabilities): answers the four questions the Blueprint editor / AI ask —
+  MATCH (reads host_capabilities): answers the four questions the capability matcher / AI ask —
     - open_requirements(agent)      "what does this server still need?"
     - find_providers(requirement)   "who in the inventory provides it?" (backend-filtered, alias-aware)
     - roles_providing(capability)   "which role would a NEW server need?"

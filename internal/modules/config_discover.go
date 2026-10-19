@@ -25,10 +25,20 @@ var baselineConfigPaths = []string{"/etc/fstab"}
 // server-as-a-document state: point it at a host and it tells you the config
 // resources worth managing. (Ported from the kb-inventory Ansible approach,
 // native and live here.)
-type ConfigDiscover struct{}
+//
+// Each service's unit file also names the PACKAGE that shipped it, and the
+// package database says which files that package declares as configuration
+// (rpm %config via `rpm -qcf`, dpkg conffiles via `dpkg-query`). That is the
+// family-neutral source: RHEL images ship no man pages (tsflags=nodocs) and
+// RPM packages never enable their daemon on install, so the unit/man route
+// alone found nothing package-shipped on a RedHat host.
+type ConfigDiscover struct {
+	// Runner answers the package-database lookups; nil means the real tools.
+	Runner CommandRunner
+}
 
 // NewConfigDiscover returns a ConfigDiscover module.
-func NewConfigDiscover() *ConfigDiscover { return &ConfigDiscover{} }
+func NewConfigDiscover() *ConfigDiscover { return &ConfigDiscover{Runner: defaultCommandRunner} }
 
 func (c *ConfigDiscover) Name() string { return "config_discover" }
 
@@ -70,9 +80,10 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 		}
 	}
 
-	services := enabledServices(ctx)
+	services := installedServices(ctx)
 	perService := []discoveredService{}
 	allPaths := map[string]bool{}
+	owned := map[string][]string{} // unit file → its package's declared config files (one lookup per unit)
 	for _, svc := range services {
 		if len(only) > 0 && !only[svc] {
 			continue
@@ -88,6 +99,14 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 		// section so discovery isn't limited to what the unit declares.
 		if bin := execStartBinary(unit); bin != "" {
 			paths = append(paths, manConfigPaths(ctx, bin)...)
+		}
+		// The config files the unit's package declares (rpm %config / dpkg
+		// conffiles) — the only source that works the same on both families.
+		if uf := unitFilePath(unit); uf != "" {
+			if _, done := owned[uf]; !done {
+				owned[uf] = c.packageConfigFiles(ctx, uf)
+			}
+			paths = append(paths, owned[uf]...)
 		}
 		seen := map[string]bool{}
 		existing := make([]string, 0, len(paths))
@@ -142,10 +161,13 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 	}, nil
 }
 
-// enabledServices lists systemd service units in state "enabled".
-func enabledServices(ctx context.Context) []string {
+// installedServices lists systemd service units in state "enabled" or
+// "disabled" — installed daemons, whether or not they start at boot. Debian's
+// maintainer scripts enable a daemon on install, RPM packages never do: listing
+// only enabled units made a freshly installed redis/haproxy on RHEL invisible.
+func installedServices(ctx context.Context) []string {
 	out, err := exec.CommandContext(ctx, "systemctl", "list-unit-files", "--type=service",
-		"--state=enabled", "--no-legend", "--no-pager", "--plain").Output()
+		"--state=enabled,disabled", "--no-legend", "--no-pager", "--plain").Output()
 	if err != nil {
 		return nil
 	}
@@ -161,6 +183,84 @@ func enabledServices(ctx context.Context) []string {
 		}
 	}
 	return svcs
+}
+
+// unitFilePath returns the unit's own file from `systemctl cat` output, whose
+// first line is the comment "# /usr/lib/systemd/system/redis.service".
+func unitFilePath(unit string) string {
+	for _, line := range strings.Split(unit, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if p := strings.TrimSpace(strings.TrimPrefix(line, "#")); strings.HasPrefix(line, "#") && strings.HasPrefix(p, "/") {
+			return p
+		}
+		return ""
+	}
+	return ""
+}
+
+// packageConfigFiles returns the config files the package owning file declares
+// — rpm `%config` entries (`rpm -qcf`), or dpkg conffiles (`dpkg-query -S` for
+// the owner, then its ${Conffiles}). Existence and config-ness are checked by
+// the caller like every other candidate. Unowned file or no package manager → nil.
+func (c *ConfigDiscover) packageConfigFiles(ctx context.Context, file string) []string {
+	run := c.Runner
+	if run == nil {
+		run = defaultCommandRunner
+	}
+	if out, err := run(ctx, "rpm", "-qcf", file); err == nil {
+		return declaredConfigPaths(string(out))
+	}
+	// dpkg records a usrmerged unit under its pre-merge path (/lib/systemd/…).
+	candidates := []string{file}
+	if strings.HasPrefix(file, "/usr/lib/") {
+		candidates = append(candidates, strings.TrimPrefix(file, "/usr"))
+	}
+	for _, f := range candidates {
+		out, err := run(ctx, "dpkg-query", "-S", f)
+		if err != nil {
+			continue
+		}
+		// "redis-server: /lib/systemd/system/redis-server.service" (or "pkg:arch: path").
+		owner, _, ok := strings.Cut(strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0]), ": ")
+		if !ok || strings.Contains(owner, ",") || strings.HasPrefix(owner, "diversion by") {
+			continue
+		}
+		conf, err := run(ctx, "dpkg-query", "-W", "-f", "${Conffiles}\n", owner)
+		if err != nil {
+			return nil
+		}
+		return declaredConfigPaths(string(conf))
+	}
+	return nil
+}
+
+var rcDirRe = regexp.MustCompile(`^/etc/rc[0-6S]\.d/`)
+
+// declaredConfigPaths parses a package database's config-file list — one path
+// per line (rpm -qc), optionally followed by a checksum and flags (dpkg's
+// " /etc/x md5 [obsolete]") — keeping current config files under /etc. Init
+// scripts are conffiles to dpkg but code, not configuration.
+func declaredConfigPaths(out string) []string {
+	var paths []string
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 || !strings.HasPrefix(f[0], "/etc/") {
+			continue
+		}
+		if len(f) > 2 && (f[2] == "obsolete" || f[2] == "remove-on-upgrade") {
+			continue
+		}
+		p := f[0]
+		if strings.HasPrefix(p, "/etc/init.d/") || strings.HasPrefix(p, "/etc/rc.d/") ||
+			rcDirRe.MatchString(p) || !looksLikeConfig(p) {
+			continue
+		}
+		paths = append(paths, p)
+	}
+	return paths
 }
 
 func systemctlCat(ctx context.Context, svc string) string {

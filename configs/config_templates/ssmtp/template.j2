@@ -1,50 +1,34 @@
-# ssmtp.conf: configuration file for sSMTP sendmail.
 #
-# The format of this file is line-based with key=value pairs.
-# Comments start with a '#' and may appear on their own line or at the end of a value line.
+# Config file for sSMTP sendmail
 #
-# For more information, see ssmtp.conf(5).
+# The person who gets all mail for userids < 1000
+# Make this empty to disable rewriting.
+root={{ root_user | default('postmaster') }}
 
-# The person who gets all mail for uid 0 (root)
-# Set this to your main email address or local user
-# If you want all mail for root to go to user "admin", set to "admin"
-# If you want mail for root to go to an external address, set to "admin@example.com"
-#root={{ root_user }}
+# The place where the mail goes. The actual machine name is required no 
+# MX records are consulted. Commonly mailhosts are named mail.domain.com
+mailhub={{ mailhub | default('mail') }}
 
-# The SMTP relay server (hostname or IP), optionally with port
-# Example: mailhub=smtp.gmail.com:587
-#mailhub={{ mailhub }}
-
-# Use TLS (STARTTLS or implicit TLS)
-#use_tls={{ use_tls | lower }}
-
-# Use STARTTLS negotiation explicitly (ignored if UseTLS=NO)
-#use_starttls={{ use_starttls | lower }}
-
-# Hostname to send in HELO/EHLO (empty means use system hostname)
-#hostname={{ hostname }}
-
-# Allow overriding the From: line for root's mail
-#from_line_override={{ from_line_override | lower }}
-
-# SMTP authentication (if required by relay)
-#auth_user={{ auth_user }}
-#auth_pass={{ auth_pass }}
-
-# Certificate verification for TLS (set to NO only for testing)
-#tls_cert_check={{ tls_cert_check | lower }}
-
-# Domain to append to From: addresses without domain
-#rewrite_domain={{ rewrite_domain }}
-
-# Default domain to append to addresses missing one (e.g., local-only addresses)
-#default_domain={{ default_domain }}
-
-# CA certificate bundle for TLS verification
-#tls_ca_file={{ ca_cert_file }}
-
-# Enable debug output to stderr (for troubleshooting)
-#debug={{ debug | lower }}
-
-# IMPORTANT: This file is read-only by default (mode 600).
-# Keep it secured — especially if auth_pass is set.
+# Where will the mail seem to come from?
+{% if rewrite_domain is defined and rewrite_domain is not none and (rewrite_domain is number or rewrite_domain is boolean or rewrite_domain | length > 0) %}rewriteDomain={{ rewrite_domain }}
+{% else %}#rewriteDomain=
+{% endif %}
+# The full hostname
+{% if hostname is defined and hostname is not none and (hostname is number or hostname is boolean or hostname | length > 0) %}hostname={{ hostname }}
+{% else %}#hostname=
+{% endif %}
+# Are users allowed to set their own From: address?
+# YES - Allow the user to specify their own From: address
+# NO - Use the system generated From: address
+{% if from_line_override is defined and from_line_override is not none and (from_line_override is number or from_line_override is boolean or from_line_override | length > 0) %}FromLineOverride={{ 'YES' if from_line_override | bool else 'NO' }}
+{% else %}#FromLineOverride=YES
+{% endif %}
+# TLS and authentication towards the mailhub, ssmtp.conf(5). Unset: not written (ssmtp's defaults: no TLS,
+# no authentication).
+{% if use_tls is defined and use_tls is not none and (use_tls is number or use_tls is boolean or use_tls | length > 0) %}UseTLS={{ 'YES' if use_tls | bool else 'NO' }}
+{% endif %}{% if use_starttls is defined and use_starttls is not none and (use_starttls is number or use_starttls is boolean or use_starttls | length > 0) %}UseSTARTTLS={{ 'YES' if use_starttls | bool else 'NO' }}
+{% endif %}{% if tls_cert is defined and tls_cert is not none and (tls_cert is number or tls_cert is boolean or tls_cert | length > 0) %}TLSCert={{ tls_cert }}
+{% endif %}{% if auth_user is defined and auth_user is not none and (auth_user is number or auth_user is boolean or auth_user | length > 0) %}AuthUser={{ auth_user }}
+{% endif %}{% if auth_pass is defined and auth_pass is not none and (auth_pass is number or auth_pass is boolean or auth_pass | length > 0) %}AuthPass={{ auth_pass }}
+{% endif %}{% if auth_method is defined and auth_method is not none and (auth_method is number or auth_method is boolean or auth_method | length > 0) %}AuthMethod={{ auth_method }}
+{% endif %}

@@ -1,112 +1,211 @@
 {
- "add_environment": {
-  "default": "PATH=/usr/bin::/bin",
-  "description": "List of environment variables we want to set to a specific value.",
-  "type": "string"
- },
- "auth_advertise_hosts": {
-  "default": "",
-  "description": "Specify hosts for which SMTP AUTH is advertised. Empty string means nowhere (Exim's default would be to allow it from anywhere).",
-  "type": "string"
- },
- "av_scanner": {
-  "default": "clamd:/var/run/clamd.exim/clamd.sock",
-  "description": "Define the interface to your virus scanner. Example is typical for ClamAV.",
-  "type": "string"
- },
- "daemon_smtp_ports": {
-  "default": "25 : 465 : 587",
-  "description": "Ports on which Exim listens for SMTP connections. Colon-separated list.",
-  "type": "string"
- },
- "dns_dnssec_ok": {
-  "default": "1",
-  "description": "Causes Exim to try to initialize the system resolver library with DNSSEC support.",
-  "type": "number"
- },
- "host_lookup": {
-  "default": "*",
-  "description": "Specify networks for which reverse DNS lookup is done. Default is to do it for all incoming IP calls.",
-  "type": "string"
- },
- "ignore_bounce_errors_after": {
-  "default": "2d",
-  "description": "Unfreeze frozen bounce messages after this period, try once more, and ignore failures.",
-  "type": "string"
- },
- "keep_environment": {
-  "default": "^LDAP",
-  "description": "List of environment variables we trust.",
-  "type": "string"
- },
- "local_delivery_group": {
-  "default": "mail",
-  "description": "Group used for local delivery to user mailboxes.",
-  "type": "string"
- },
- "local_domains": {
-  "default": "localhost : localhost.localdomain",
-  "description": "List of local domains. Colon-separated list.",
-  "type": "string"
- },
- "log_selector": {
-  "default": "+smtp_protocol_error +smtp_syntax_error \\",
-  "description": "Specify additional logging details. Adjust to suit.",
-  "type": "string"
- },
- "never_users": {
-  "default": "root",
-  "description": "Colon-separated list of users that deliveries will never be run under.",
-  "type": "string"
- },
- "prdr_enable": {
-  "default": true,
-  "description": "Enable PRDR feature if compiled with support.",
-  "type": "bool"
- },
- "primary_hostname": {
-  "default": "",
-  "description": "Specify your host's canonical name here. This should normally be the fully qualified \"official\" name of your host. If this option is not set, the uname() function is called to obtain the name.",
-  "type": "string"
- },
- "relay_from_hosts": {
-  "default": "localhost",
-  "description": "List of hosts that can use your host as an outgoing relay. Colon-separated list.",
-  "type": "string"
- },
- "relay_to_domains": {
-  "default": "",
-  "description": "List of domains for which your host is an incoming relay. Colon-separated list. Leave empty if not doing any relaying.",
-  "type": "string"
- },
- "remote_msa_port": {
-  "default": "587",
-  "description": "Port for the remote_msa transport (message submission port).",
-  "type": "number"
- },
- "timeout_frozen_after": {
-  "default": "7d",
-  "description": "Cancel (remove) frozen messages older than this period.",
-  "type": "string"
- },
- "tls_advertise_hosts": {
-  "default": "*",
-  "description": "Specify hosts for which TLS is advertised. Default is to allow all.",
-  "type": "string"
- },
- "tls_certificate": {
-  "default": "/etc/pki/tls/certs/exim.pem",
-  "description": "Specify the location of the Exim server's TLS certificate.",
-  "type": "string"
- },
- "tls_on_connect_ports": {
-  "default": "465",
-  "description": "Ports on which TLS is required from the start (TLS-on-connect).",
-  "type": "string"
- },
- "tls_privatekey": {
-  "default": "/etc/pki/tls/private/exim.pem",
-  "description": "Specify the location of the Exim server's private key. Must not be encrypted.",
-  "type": "string"
- }
+  "acl_smtp_data": {
+    "type": "string",
+    "description": "acl_smtp_data (as documented in the shipped file).",
+    "default": "acl_check_data"
+  },
+  "acl_smtp_data_prdr": {
+    "type": "string",
+    "description": "acl_smtp_data_prdr (as documented in the shipped file).",
+    "default": "acl_check_prdr"
+  },
+  "acl_smtp_mail": {
+    "type": "string",
+    "description": "acl_smtp_mail (as documented in the shipped file).",
+    "default": "acl_check_mail"
+  },
+  "acl_smtp_mime": {
+    "type": "string",
+    "description": "acl_smtp_mime (as documented in the shipped file).",
+    "default": "acl_check_mime"
+  },
+  "acl_smtp_rcpt": {
+    "type": "string",
+    "description": "acl_smtp_rcpt (as documented in the shipped file).",
+    "default": "acl_check_rcpt"
+  },
+  "add_environment": {
+    "type": "string",
+    "description": "add_environment (as documented in the shipped file).",
+    "default": "PATH=/usr/bin::/bin"
+  },
+  "auth_advertise_hosts": {
+    "type": "string",
+    "description": "auth_advertise_hosts (as documented in the shipped file).",
+    "default": "="
+  },
+  "av_scanner": {
+    "type": "string",
+    "description": "av_scanner (as documented in the shipped file).",
+    "default": "clamd:/var/run/clamd.exim/clamd.sock"
+  },
+  "cannot_route_message": {
+    "type": "string",
+    "description": "cannot_route_message (as documented in the shipped file).",
+    "default": "Unknown user"
+  },
+  "command": {
+    "type": "string",
+    "description": "command (as documented in the shipped file).",
+    "default": "\"/usr/bin/procmail -d $local_part\""
+  },
+  "daemon_smtp_ports": {
+    "type": "string",
+    "description": "daemon_smtp_ports (as documented in the shipped file).",
+    "default": "25 : 465 : 587"
+  },
+  "data": {
+    "type": "string",
+    "description": "data (as documented in the shipped file).",
+    "default": "${lookup{$local_part}lsearch{/etc/aliases}}"
+  },
+  "dns_dnssec_ok": {
+    "type": "string",
+    "description": "dns_dnssec_ok (as documented in the shipped file).",
+    "default": "1"
+  },
+  "got": {
+    "type": "string",
+    "description": "got (as documented in the shipped file).",
+    "default": "$max_received_linelength"
+  },
+  "group": {
+    "type": "string",
+    "description": "group (as documented in the shipped file).",
+    "default": "mail"
+  },
+  "host_lookup": {
+    "type": "string",
+    "description": "host_lookup (as documented in the shipped file).",
+    "default": "*"
+  },
+  "hostlist": {
+    "type": "string",
+    "description": "hostlist (as documented in the shipped file).",
+    "default": "relay_from_hosts = localhost"
+  },
+  "hosts_require_auth": {
+    "type": "string",
+    "description": "hosts_require_auth (as documented in the shipped file).",
+    "default": "*"
+  },
+  "hosts_require_tls": {
+    "type": "string",
+    "description": "hosts_require_tls (as documented in the shipped file).",
+    "default": "*"
+  },
+  "ignore_bounce_errors_after": {
+    "type": "string",
+    "description": "ignore_bounce_errors_after (as documented in the shipped file).",
+    "default": "2d"
+  },
+  "keep_environment": {
+    "type": "string",
+    "description": "keep_environment (as documented in the shipped file).",
+    "default": "^LDAP"
+  },
+  "log_message": {
+    "type": "string",
+    "description": "log_message (as documented in the shipped file).",
+    "default": "header syntax ($acl_verify_message)"
+  },
+  "logwrite": {
+    "type": "string",
+    "description": "logwrite (as documented in the shipped file).",
+    "default": "REJECT [$sender_host_address]: bad recipient count high [${eval:$rcpt_count-$recipients_count}]"
+  },
+  "mode": {
+    "type": "string",
+    "description": "mode (as documented in the shipped file).",
+    "default": "0660"
+  },
+  "never_users": {
+    "type": "string",
+    "description": "never_users (as documented in the shipped file).",
+    "default": "root"
+  },
+  "port": {
+    "type": "string",
+    "description": "port (as documented in the shipped file).",
+    "default": "587"
+  },
+  "prdr_enable": {
+    "type": "string",
+    "description": "prdr_enable (as documented in the shipped file).",
+    "enum": [
+      "true",
+      "false"
+    ],
+    "default": "true"
+  },
+  "reply_transport": {
+    "type": "string",
+    "description": "reply_transport (as documented in the shipped file).",
+    "default": "address_reply"
+  },
+  "require_files": {
+    "type": "string",
+    "description": "require_files (as documented in the shipped file).",
+    "default": "${local_part}:+${home}/.procmailrc:/usr/bin/procmail"
+  },
+  "rfc1413_hosts": {
+    "type": "string",
+    "description": "rfc1413_hosts (as documented in the shipped file). Unset keeps the shipped commented line (#rfc1413_hosts = *).",
+    "default": null
+  },
+  "rfc1413_query_timeout": {
+    "type": "string",
+    "description": "rfc1413_query_timeout (as documented in the shipped file). Unset keeps the shipped commented line (#rfc1413_query_timeout = 5s).",
+    "default": null
+  },
+  "route_data": {
+    "type": "string",
+    "description": "route_data (as documented in the shipped file).",
+    "default": "ROUTER_SMARTHOST"
+  },
+  "timeout_frozen_after": {
+    "type": "string",
+    "description": "timeout_frozen_after (as documented in the shipped file).",
+    "default": "7d"
+  },
+  "tls_advertise_hosts": {
+    "type": "string",
+    "description": "tls_advertise_hosts (as documented in the shipped file).",
+    "default": "*"
+  },
+  "tls_certificate": {
+    "type": "string",
+    "description": "tls_certificate (as documented in the shipped file).",
+    "default": "/etc/pki/tls/certs/exim.pem"
+  },
+  "tls_on_connect_ports": {
+    "type": "string",
+    "description": "tls_on_connect_ports (as documented in the shipped file).",
+    "default": "465"
+  },
+  "tls_privatekey": {
+    "type": "string",
+    "description": "tls_privatekey (as documented in the shipped file).",
+    "default": "/etc/pki/tls/private/exim.pem"
+  },
+  "tls_sni": {
+    "type": "string",
+    "description": "tls_sni (as documented in the shipped file).",
+    "default": "ROUTER_SMARTHOST"
+  },
+  "tls_try_verify_hosts": {
+    "type": "string",
+    "description": "tls_try_verify_hosts (as documented in the shipped file).",
+    "default": "*"
+  },
+  "tls_verify_hosts": {
+    "type": "string",
+    "description": "tls_verify_hosts (as documented in the shipped file).",
+    "default": "*"
+  },
+  "user": {
+    "type": "string",
+    "description": "user (as documented in the shipped file).",
+    "default": "$local_part"
+  }
 }

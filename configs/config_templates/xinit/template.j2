@@ -1,23 +1,23 @@
 #!/bin/sh
-#
-# xinitrc configuration template
-#
-# This script is executed by xinit (startx) to initialize the X session.
-# It provides a global entry point for starting X windows sessions.
-#
-# Variables used:
-#   xinitrc_startup_commands: List of shell commands to run before the session starts.
-#   xinitrc_session_script: Path to the global session script to invoke.
 
-# invoke global X session script
-# This is the standard entry point for X sessions on many distributions.
-{% set session_script = xinitrc_session_script | default('/etc/X11/Xsession') %}
-. {{ session_script }}
+# /etc/X11/xinit/xinitrc
+#
+# Global xinitrc file, used by all X sessions started by xinit (startx).
+# This template is self-documenting: variable defaults are derived from the schema.
 
-{% if xinitrc_startup_commands is defined and xinitrc_startup_commands is iterable %}
-# Custom startup commands provided by the user/admin
+# Invoke the global X session script.
+. /etc/X11/Xsession
+
+{% set xinitrc_session_script = xinitrc_session_script | default('') %}
+{% if xinitrc_session_script | length > 0 %}
+# Additional session script to source after /etc/X11/Xsession.
+# Source the specified script if one is defined.
+. {{ xinitrc_session_script }}
+{% endif %}
+
+{% set xinitrc_startup_commands = xinitrc_startup_commands | default([]) %}
+# List of commands to execute at the end of the xinitrc script.
 {% for cmd in xinitrc_startup_commands %}
-# Command: {{ cmd | string }}
+# Command: {{ cmd }}
 {{ cmd }}
 {% endfor %}
-{% endif %}

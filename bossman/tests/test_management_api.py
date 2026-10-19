@@ -181,8 +181,8 @@ async def test_call_agent_tool_routes_to_agent(db_session):
     await db_session.commit()
 
 
-async def test_call_agent_tool_write_gate_502(db_session):
-    """A read-only agent's 403 (via AgentClientError) surfaces as 502."""
+async def test_call_agent_tool_transport_failure_502(db_session):
+    """An agent that could not be reached is a gateway fault: 502."""
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)
     fake = CallToolFake(raises=True)
@@ -195,6 +195,57 @@ async def test_call_agent_tool_write_gate_502(db_session):
             headers=_headers(raw),
         )
     assert resp.status_code == 502
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+class WriteGateFake(CallToolFake):
+    """A read-only agent: answers the call with its own 403 and lists the write tool as withheld."""
+
+    REASON = 'tool "package" is disabled (write=false): this agent\'s write gate is closed'
+
+    async def call_tool(self, name, body):
+        self.calls.append((name, body))
+        raise AgentClientError(f"10.0.0.9:8010: tool {name!r} returned 403: {{\"error\": ...}}",
+                               status=403, reason=self.REASON)
+
+    async def tool_listing(self):
+        return {"tools": [{"name": "package_facts", "kind": "module", "writes": False}], "write": False,
+                "withheld": [{"name": "package", "kind": "module", "writes": True, "reason": self.REASON,
+                              "input_schema": {"type": "object", "properties": {"name": {"type": "array"}}}}]}
+
+
+async def test_call_agent_tool_write_gate_is_relayed_as_403_with_the_agents_reason(db_session):
+    """The host's write gate refusing is a decision, not a gateway fault: 403, and the agent's own sentence."""
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+    _override(app, WriteGateFake())
+    with TestClient(app) as client:
+        resp = client.post(f"/api/v1/agents/{agent.id}/tools/package",
+                           json={"params": {"name": ["redis"]}}, headers=_headers(raw))
+    assert resp.status_code == 403, resp.text
+    assert "write=false" in resp.json()["detail"]
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_console_tree_reads_the_write_gate_and_names_the_withheld_tool(db_session):
+    """A withheld write tool is not "missing": the tree carries its schema with the refusal reason, and the
+    gate itself, so the console greys the action out before it is tried."""
+    agent = await _make_agent(db_session, facts={"os_family": "debian"})
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+    _override(app, WriteGateFake())
+    with TestClient(app) as client:
+        resp = client.get(f"/api/v1/agents/{agent.id}/mmc", headers=_headers(raw))
+    assert resp.status_code == 200, resp.text
+    tree = resp.json()
+    assert tree["write"] is False
+    assert tree["schemas"]["package"]["refused"] == WriteGateFake.REASON
+    assert tree["schemas"]["package"]["input_schema"]["properties"]["name"]
     await db_session.delete(api_token)
     await db_session.delete(agent)
     await db_session.commit()
@@ -491,5 +542,106 @@ async def test_service_control_disable_maps_to_enabled_false(db_session):
     assert resp.status_code == 200, resp.text
     assert fake.calls == [("systemd", {"name": "nginx", "enabled": False})]
     await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+# ---- diagnosis (plan B8/B9): ask, list, read, export — through the app, with the host ACL -------------------
+
+
+async def test_diagnosis_routes_ask_list_read_and_export(db_session):
+    import json as _json
+    from pathlib import Path as _Path
+
+    doc = _json.loads((_Path(__file__).resolve().parents[2] / "configs/schemas/diagnosis.examples/windows-dependency.json").read_text())
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+    app = create_app()
+    _override(app, CallToolFake(result={"changed": False, "data": {"diagnosis": doc}}))
+    with TestClient(app) as client:
+        asked = client.post(f"/api/v1/agents/{agent.id}/diagnose", json={"name": "yoloman-probe-dep"}, headers=_headers(raw))
+        assert asked.status_code == 200, asked.text
+        row_id = asked.json()["id"]
+        listed = client.get(f"/api/v1/agents/{agent.id}/diagnoses", headers=_headers(raw))
+        read = client.get(f"/api/v1/diagnoses/{row_id}", headers=_headers(raw))
+        exported = client.get(f"/api/v1/diagnoses/{row_id}/export/dsc", headers=_headers(raw))
+        unknown = client.get(f"/api/v1/diagnoses/{row_id}/export/pdf", headers=_headers(raw))
+        anonymous = client.get(f"/api/v1/diagnoses/{row_id}")
+
+    assert asked.json()["contract_status"] == "ok"
+    assert [i["id"] for i in listed.json()["items"]] == [row_id]
+    assert read.status_code == 200 and read.json()["diagnosis"] == doc
+    assert exported.status_code == 200 and "Microsoft.Windows/Service" in exported.json()["apply"]
+    assert unknown.status_code == 422 and anonymous.status_code == 401
+
+    await db_session.delete(api_token)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_diagnosis_gelf_send_route(db_session):
+    """POST /export/gelf/send puts the diagnosis on the wire: a local UDP socket stands in for Graylog, and the
+    endpoint must report what it sent AND the datagrams must arrive. With no target configured it is a named 422."""
+    import json as _json
+    import socket as _socket
+    from pathlib import Path as _Path
+    from bossman.config import Settings, get_settings
+
+    doc = _json.loads((_Path(__file__).resolve().parents[2] / "configs/schemas/diagnosis.examples/windows-dependency.json").read_text())
+    agent = await _make_agent(db_session)
+    api_token, raw = await _make_api_token(db_session)
+
+    srv = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.settimeout(5)
+    port = srv.getsockname()[1]
+    try:
+        # No target: the export still produces, but SENDING refuses with the reason.
+        app_off = create_app()
+        _override(app_off, CallToolFake(result={"changed": False, "data": {"diagnosis": doc}}))
+        with TestClient(app_off) as client:
+            row_id = client.post(f"/api/v1/agents/{agent.id}/diagnose", json={"name": "yoloman-probe-dep"},
+                                 headers=_headers(raw)).json()["id"]
+            off = client.post(f"/api/v1/diagnoses/{row_id}/export/gelf/send", headers=_headers(raw))
+        assert off.status_code == 422 and "BOSSMAN_GELF_HOST" in off.json()["detail"]
+
+        # Target configured: the endpoint sends, and the datagrams land on the socket.
+        app_on = create_app()
+        _override(app_on, CallToolFake(result={"changed": False, "data": {"diagnosis": doc}}))
+        app_on.dependency_overrides[get_settings] = lambda: Settings(gelf_host="127.0.0.1", gelf_port=port, gelf_protocol="udp")
+        with TestClient(app_on) as client:
+            sent = client.post(f"/api/v1/diagnoses/{row_id}/export/gelf/send", headers=_headers(raw))
+        assert sent.status_code == 200, sent.text
+        body = sent.json()
+        assert body["sent"] == body["datagrams"] and body["sent"] >= 1
+        assert body["transport"] == f"udp://127.0.0.1:{port}"
+        got = []
+        for _ in range(body["datagrams"]):
+            data, _addr = srv.recvfrom(65535)
+            got.append(_json.loads(data))
+        assert {m["_correlation_id"] for m in got} == {doc["diagnosis_id"]}
+        assert any(m.get("_kind") == "finding" for m in got)
+    finally:
+        srv.close()
+        await db_session.delete(api_token)
+        await db_session.delete(agent)
+        await db_session.commit()
+
+
+async def test_a_stored_diagnosis_follows_its_hosts_acl(db_session):
+    from bossman.services.auth import new_api_token as _new
+    from bossman.services.diagnosis import store
+
+    agent = await _make_agent(db_session)
+    row = await store(db_session, agent, {"diagnosis_id": "acl-run", "platform": "linux", "target": {"name": "x"},
+                                          "status": "running", "evidence": [], "findings": []})
+    tok, raw = _new("no-grant-caller")
+    db_session.add(tok)
+    await db_session.commit()
+    with TestClient(create_app()) as client:
+        resp = client.get(f"/api/v1/diagnoses/{row.id}", headers=_headers(raw))
+    assert resp.status_code == 403
+
+    await db_session.delete(tok)
     await db_session.delete(agent)
     await db_session.commit()

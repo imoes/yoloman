@@ -224,7 +224,7 @@ manageable is exactly three facts nobody can derive, so they are DECLARED, once,
 {
   "name": "acme-warehouse-client",
   "version": "4.2.1",
-  "source": {"url": "http://repo.ippen.media/acme/AcmeClient-4.2.1.exe", "sha256": "…"},
+  "source": {"url": "http://repo.example.internal/acme/AcmeClient-4.2.1.exe", "sha256": "…"},
   "install":   {"kind": "exe", "args": ["/S", "/v/qn", "INSTALLDIR=C:\\Acme"], "success_codes": [0, 3010]},
   "uninstall": {"kind": "registry_uninstall_string", "args": ["/S"]},
   "detect":    {"kind": "registry", "key": "HKLM:\\SOFTWARE\\Acme\\Client", "name": "Version",
@@ -325,8 +325,8 @@ Vier Fehler, keiner davon aus dem Code ersichtlich — jeder erst beim echten Du
 Trockenlauf nicht" sind: der Trockenlauf war die ganze Zeit grün.
 
 1. **Der Installer-Abruf ging durch den Firmenproxy und bekam 503.** Der Host trägt
-   `HTTP_PROXY=http://proxy.ippen.media:80` **und** die passende Ausnahmeliste
-   `NO_PROXY=…,10.32.0.0/16`. Der Abruf von `http://10.32.28.130:8099/…` — mitten in genau diesem
+   `HTTP_PROXY=http://proxy.example.internal:80` **und** die passende Ausnahmeliste
+   `NO_PROXY=…,192.0.2.0/24`. Der Abruf von `http://192.0.2.130:8099/…` — mitten in genau diesem
    Bereich — lief trotzdem über den Proxy. Ursache: **.NET liest keinen CIDR-Eintrag in `NO_PROXY`**,
    es vergleicht Namenssuffixe; ein CIDR wird dabei als Zeichenkette gegen den Hostnamen geprüft,
    passt nie, und die Anfrage wird proxiert. `curl.exe` auf demselben Host, dieselbe Umgebung,
@@ -453,8 +453,8 @@ Nachweis nicht mehr von einer Datei in `/tmp` abhängig, die es beim nächsten N
    inventory); `-RepetitionInterval` without `-RepetitionDuration` repeats for ONE DAY (an interval task would
    have quietly stopped); principals are LOCALISED — `-ReadAccess "Everyone"` fails on a German host where the
    account is *Jeder*, so well-known principals now resolve through their SID (Everyone is S-1-1-0 everywhere)
-   and the idempotence check compares through the same translation; Windows stores `10.32.0.0/16` as
-   `10.32.0.0/255.255.0.0`, so a firewall rule reported "changed" forever; a `-Write` install produced a
+   and the idempotence check compares through the same translation; Windows stores `192.0.2.0/24` as
+   `203.0.113.0/255.255.0.0`, so a firewall rule reported "changed" forever; a `-Write` install produced a
    read-only agent because PowerShell binds `,` looser than `+` in an array literal; and the tool endpoint
    flattened arrays with `ToString()`, so every list parameter of every module arrived as JSON text.
 

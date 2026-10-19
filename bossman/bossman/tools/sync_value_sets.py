@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 
+from bossman.services.schema_defaults import normalize_types
 from bossman.tools._jsonio import write_catalog
 from bossman.tools._paths import configs_dir
 from bossman.tools._valuesets import normalise
@@ -171,6 +172,10 @@ def main() -> int:
     if dirty_dir:
         write_catalog(DIRECTIVES, directives, sort=True)
     for name in sorted(dirty_tpl):
+        # Directive values are TEXT ("0", "1", "2"); copied into a number field they made the wizard's default the
+        # string "3" and the preview refused it ("role parameter 'cipher-suite-id' must be number" — ipmiseld,
+        # e2guardian, fapolicyd, 2026-10-11). The copied values take the field's declared type before writing.
+        normalize_types(schemas[name])
         (TEMPLATES / name / "schema.json").write_text(json.dumps(schemas[name], indent=2) + "\n")
     write_catalog(RECORD, {"copied": copied, "dropped": dropped}, sort=False)
     print(f"\nwrote {len(dirty_tpl)} template schema(s), the directive catalog and {RECORD.name}")

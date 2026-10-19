@@ -12,6 +12,7 @@ import { DirectiveSpec } from '../../core/models/agent.model';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
 import { ConfigAdvisories, ConfigAdvisoriesComponent } from '../../shared/config-advisories/config-advisories.component';
 import { ConditionsEditorComponent } from '../../shared/components/conditions-editor/conditions-editor.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface ScopePolicy {
   id: string;
@@ -67,7 +68,7 @@ export interface EditorScope {
 @Component({
   selector: 'app-ou-config-editor',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ConfigAdvisoriesComponent, ConditionsEditorComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule, ConfigAdvisoriesComponent, ConditionsEditorComponent],
   template: `
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
@@ -168,7 +169,7 @@ export interface EditorScope {
             }
             <div class="bm-oce-add">
               <input class="bm-oce-val" placeholder="Add a setting key…" [ngModel]="newKey()" (ngModelChange)="newKey.set($event)" />
-              <button mat-stroked-button (click)="addKey()" [disabled]="!newKey().trim()">Add</button>
+              <button mat-stroked-button (click)="addKey()" [bmBlocked]="!newKey().trim() ? 'Enter a setting key' : ''" bmBlockedMode="tip">Add</button>
             </div>
             @if (deferApply) {
               <!-- Checkmk match conditions for THIS file (staged with the values;

@@ -1,21 +1,41 @@
-# Configuration for rng-tools-debian (rngd daemon)
+# RNG Daemon Configuration for rng-tools (Debian/Ubuntu)
 #
-# This template configures the hardware random number generator daemon.
-# It is self-documenting: every variable maps directly to a schema field
-# with its default value and description provided in the comments below.
+# This file is sourced by the systemd unit file (rng-tools.service)
+# or legacy init scripts. It configures the rngd daemon.
+#
+# Self-documenting: Each variable defaults are defined inline to
+# ensure robustness if Ansible variables are undefined.
 
+# -------------------------------------------------------
 # HRNGDEVICE: Path to the hardware random number generator device.
-# Supported devices include /dev/hwrng, /dev/null (for viapadlock),
-# or leave empty for auto-detection.
-# Schema default: /dev/hwrng
-HRNGDEVICE={{ (hrngdevice | default('/dev/hwrng')) | string }}
+#
+# Defaults to '/dev/hwrng' (standard Linux HWRNG interface).
+# Can be set to '/dev/null' to disable hardware RNG input (not recommended).
+# Can be left empty for auto-detection by the daemon.
+#
+# Allowed values:
+#   /dev/hwrng  - Hardware RNG device
+#   /dev/null   - Disabled (software only fallback)
+#   <empty>     - Auto-detect
+# -------------------------------------------------------
+HRNGDEVICE={{ hrngdevice | default('/dev/hwrng') }}
 
-# RNGDOPTIONS: Additional command-line options to pass to the rngd daemon.
-# Do NOT specify -r/--rng-device here; use the HRNGDEVICE field instead.
-# Schema default: (empty string)
-RNGDOPTIONS={{ (rngdoptions | default('')) | string }}
+# -------------------------------------------------------
+# HRNGSELECT: Specific RNG selector identifier.
+#
+# Used for certain virtualized environments or specific kernel RNG modules.
+# Example: 'virtio_rng.0' for QEMU/KVM virtio RNG devices.
+# Leave empty for standard device selection.
+# -------------------------------------------------------
+HRNGSELECT={{ hrngselect | default('') }}
 
-# HRNGSELECT: Specific RNG selector identifier for virtualized environments
-# (e.g., virtio_rng.0). Leave empty if not needed.
-# Schema default: (empty string)
-HRNGSELECT={{ (hrngselect | default('')) | string }}
+# -------------------------------------------------------
+# RNGDOPTIONS: Additional command-line options to pass to rngd.
+#
+# These options are appended to the rngd command line.
+# DO NOT include --hrng or --rng-device here; use the HRNGDEVICE
+# variable above for the device path.
+# Common options might include --foreground, --pidfile, etc.,
+# though these are usually handled by the systemd unit file.
+# -------------------------------------------------------
+RNGDOPTIONS={{ rngdoptions | default('') }}

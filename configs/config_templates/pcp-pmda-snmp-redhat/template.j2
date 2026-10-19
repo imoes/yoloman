@@ -1,0 +1,115 @@
+# Configuration file for the PCP PMDA SNMP agent.
+# This module allows Performance Co-Pilot (PCP) to collect metrics
+# from SNMP-enabled devices.
+
+# ==============================================================================
+# Host Definition
+# ==============================================================================
+# Define the SNMP host to monitor.
+# Format: host <hostname_or_ip> <community_string>
+# The PMDA will query this host using the specified community string for authentication.
+#
+# - pcp_pmda_snmp_host: The hostname or IP address of the SNMP agent to monitor.
+# - pcp_pmda_snmp_community: The SNMP community string used for authentication.
+#
+# NOTE: If multiple hosts need monitoring, this line would be repeated.
+# In a standard single-host configuration, this directive suffices.
+host {{ pcp_pmda_snmp_host | default('localhost') }} {{ pcp_pmda_snmp_community | default('public') }}
+
+# ==============================================================================
+# MIB Loading (Reserved for Future Use)
+# ==============================================================================
+# Load custom MIB files to resolve OIDs into human-readable names.
+# Format: mib <path_to_mib_file>
+# Currently, this feature is not implemented in the basic schema.
+# #mib /path/to/custom.mib
+
+# ==============================================================================
+# Static Metric Mappings
+# ==============================================================================
+# Define static mappings for SNMP OIDs to PCP metrics.
+# This section maps specific OIDs to their types and labels.
+#
+# Formats:
+#   map single <oid> <snmptype> <id> <text>
+#       Maps a single scalar OID.
+#       - <oid>: The SNMP OID (e.g., 1.3.6.1.2.1.1.3.0).
+#       - <snmptype>: The data type (STRING, TIMETICKS, GAUGE32, COUNTER32, etc.).
+#       - <id>: A unique numeric identifier for the PCP metric.
+#       - <text>: A short description/help text for the metric.
+#
+#   map column <oid_base> <snmptype> [<offset>] <text>
+#       Maps a table column. The last OID octet is used as the row identifier.
+#       - <oid_base>: The base OID of the table column.
+#       - <snmptype>: The data type.
+#       - <offset>: Optional numeric offset to add to the row ID (e.g., + 10).
+#       - <text>: Short description.
+#
+# The following mappings are examples for system and interface metrics:
+
+# Map sysUpTime (1.3.6.1.2.1.1.3.0)
+# Type: TIMETICKS (uptime in hundredths of a second)
+# ID: 1
+# Text: sysUpTime
+map single 1.3.6.1.2.1.1.3.0 TIMETICKS 1 sysUpTime
+
+# Map sysName (1.3.6.1.2.1.1.5.0)
+# Type: STRING (hostname or system name)
+# ID: 2
+# Text: sysName
+map single 1.3.6.1.2.1.1.5.0 STRING 2 sysName
+
+# Map ifDescr (Interface Description Table)
+# OID Base: 1.3.6.1.2.1.2.2.1.2
+# Type: STRING
+# ID Base: 10
+# Text: ifDescr
+map column 1.3.6.1.2.1.2.2.1.2 STRING 10 ifDescr
+
+# Map ifSpeed (Interface Speed)
+# OID Base: 1.3.6.1.2.1.2.2.1.5
+# Type: GAUGE32
+# ID Offset: + 10 (IDs will be 10 + interface_index)
+# Text: ifSpeed
+map column 1.3.6.1.2.1.2.2.1.5 GAUGE32 + ifSpeed
+
+# Map ifInOctets (Inbound Bytes)
+# OID Base: 1.3.6.1.2.1.2.2.1.10
+# Type: COUNTER32
+# ID Offset: + 10
+# Text: ifInOctets
+map column 1.3.6.1.2.1.2.2.1.10 COUNTER32 + ifInOctets
+
+# ==============================================================================
+# Tree Walk Mappings (Reserved for Future Use)
+# ==============================================================================
+# Define automatic walking of OID subtrees.
+# Format: map tree <oid> <id_start> <id_max> <text_prefix>
+# #map tree 1.3.6.1.2.1.1.0 1 100 system_
+
+# ==============================================================================
+# Global Configuration Settings
+# ==============================================================================
+
+# Maximum number of rows for table OIDs.
+# Limits how many entries are fetched from table-based mappings (like ifTable).
+# Prevents excessive memory usage or timeout on large tables.
+#
+# - pcp_pmda_snmp_max_row: The maximum number of rows for table oids.
+set max_row {{ pcp_pmda_snmp_max_row | default('50') }}
+
+# Maximum number of metrics per host.
+# Defines the upper limit for metric IDs generated per monitored host.
+# Changing this value affects metric ID uniqueness and data merging with older archives.
+#
+# - pcp_pmda_snmp_pmid_per_host: The maximum number of metrics per host.
+set pmid_per_host {{ pcp_pmda_snmp_pmid_per_host | default('1000') }}
+
+# Debug level setting.
+# Controls the verbosity of the PMDA logs.
+# 0 = No debug output.
+# 1 = Basic debug info.
+# Higher values increase verbosity.
+#
+# - pcp_pmda_snmp_debug: Debug level setting.
+set debug {{ pcp_pmda_snmp_debug | default('1') }}

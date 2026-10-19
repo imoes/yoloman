@@ -81,7 +81,7 @@ port = {{ db_port | default(3306) }}
 name = {{ db_name | default('lightsquid') }}
 
 # Database username (used only if db_type=mysql).
-user = {{ db_user | default('lightsquid') }}
+{% if db_user is defined and db_user is not none and db_user != '' %}user = {{ db_user }}{% else %}#user maximum size per day limit (oversize){% endif %}
 
 # Database password (used only if db_type=mysql). Leave empty for no password.
 password = {{ db_password | default('') }}
@@ -116,7 +116,7 @@ declare = {{ plugins | default([]) | join(', ') }}
 # Plugin: {{ plugin.name }}
 # Per-plugin configuration object from plugins_config list.
 [plugin:{{ plugin.name }}]
-{% for key, value in plugin.options | default({}) | dict2items %}
+{% for key, value in plugin.options | default({}) | dictsort %}
 {{ key.key }} = {{ value.value }}
 {% endfor %}
 {% endfor %}

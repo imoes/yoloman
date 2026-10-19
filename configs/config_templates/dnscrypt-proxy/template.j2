@@ -1,58 +1,69 @@
-# dnscrypt-proxy configuration template.
-# This file configures the DNSCrypt proxy client to resolve DNS queries securely
-# using encrypted DNS protocols (DNSCrypt, DoH, DoQ).
+# ==============================================================================
+# DNSCrypt-Proxy Configuration
+# ==============================================================================
+# This template generates a dnscrypt-proxy configuration file (toml format).
+# It uses Jinja2 for variable substitution, ensuring all variables have safe defaults
+# as defined in the schema.
 
-# listen_addresses
-# Description: IP addresses and ports the DNSCrypt proxy listens on for client DNS queries.
+# ------------------------------------------------------------------------------
+# [General Settings]
+# ------------------------------------------------------------------------------
+
+# listen_addresses: IP addresses and ports the DNSCrypt proxy listens on for client DNS queries.
 # Empty list to use systemd socket activation.
-# Default: []
-# Note: The template renders the list using to_json. If the variable is not defined,
-# it defaults to an empty list to avoid StrictUndefined errors.
-listen_addresses = {{ listen_addresses | default([]) | to_json }}
+# Expected format: A list of strings, e.g., ["127.0.0.1:53", "127.0.0.1:5353"]
+listen_addresses = {{ listen_addresses | default([]) | map('string') | join(', ') }}
 
-# server_names
-# Description: List of resolver names (from the server list) to use.
+# server_names: List of resolver names (from the server list) to use.
 # Must match entries in the server list.
-# Default: ['cloudflare']
-server_names = {{ server_names | default(['cloudflare']) | to_json }}
+# Expected format: A list of strings, e.g., ["cloudflare", "quad9"]
+server_names = {{ server_names | default(['cloudflare']) | map('string') | join(', ') }}
 
+# ------------------------------------------------------------------------------
+# [Logging: Query Log]
+# ------------------------------------------------------------------------------
+
+# query_log_file: Path to the query log file.
+# If not specified or empty, query logging is disabled.
+# The directory must exist and be writable by the dnscrypt-proxy user.
 [query_log]
-  # query_log_file
-  # Description: Path to the query log file.
-  # Default: '/var/log/dnscrypt-proxy/query.log'
   file = '{{ query_log_file | default("/var/log/dnscrypt-proxy/query.log") }}'
 
+# ------------------------------------------------------------------------------
+# [Logging: NX Log]
+# ------------------------------------------------------------------------------
+
+# nx_log_file: Path to the NX domain log file.
+# Logs DNS queries for non-existent domains (NXDOMAIN).
+# The directory must exist and be writable by the dnscrypt-proxy user.
 [nx_log]
-  # nx_log_file
-  # Description: Path to the NX domain log file.
-  # Default: '/var/log/dnscrypt-proxy/nx.log'
   file = '{{ nx_log_file | default("/var/log/dnscrypt-proxy/nx.log") }}'
 
-[sources]
-  [sources.'public-resolvers']
-    # resolvers_list_url
-    # Description: URL of the public resolvers list.
-    # Default: 'https://download.dnscrypt.info/resolvers-list/v2/public-resolvers.md'
-    url = '{{ resolvers_list_url | default("https://download.dnscrypt.info/resolvers-list/v2/public-resolvers.md") }}'
+# ------------------------------------------------------------------------------
+# [Sources: Resolvers List]
+# ------------------------------------------------------------------------------
 
-    # cache_file
-    # Description: Path to the cached resolver list (to reduce repeated downloads).
-    # Default: '/var/cache/dnscrypt-proxy/public-resolvers.md'
-    cache_file = '{{ cache_file | default("/var/cache/dnscrypt-proxy/public-resolvers.md") }}'
-
-    # minisign_key
-    # Description: Minisign key used to verify the resolvers list.
-    # Default: 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
-    minisign_key = '{{ minisign_key | default("RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3") }}'
-
-    # refresh_delay
-    # Description: Refresh delay (in hours) for the resolvers list.
-    # Default: 72
-    refresh_delay = {{ refresh_delay | default(72) }}
-
-    # prefix
-    # Description: Prefix for log messages.
-    # Default: ''
-    # Note: This field was not in the schema but is common in dnscrypt-proxy configs.
-    # It is hardcoded to empty string to ensure valid config output.
-    prefix = ''
+# [sources.'public-resolvers'] section defines where to fetch the list of available
+# public DNSCrypt resolvers.
+[sources.'public-resolvers']
+  
+  # resolvers_list_url: URL of the public resolvers list.
+  # This is the authoritative source for discovering available resolvers.
+  url = '{{ resolvers_list_url | default("https://download.dnscrypt.info/resolvers-list/v2/public-resolvers.md") }}'
+  
+  # cache_file: Path to the cached resolver list (to reduce repeated downloads).
+  # The proxy reads this file first and updates it based on refresh_delay.
+  # The directory must exist and be writable by the dnscrypt-proxy user.
+  cache_file = '{{ cache_file | default("/var/cache/dnscrypt-proxy/public-resolvers.md") }}'
+  
+  # minisign_key: Minisign key used to verify the resolvers list.
+  # This key ensures the integrity and authenticity of the downloaded resolver list.
+  minisign_key = '{{ minisign_key | default("RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3") }}'
+  
+  # refresh_delay: Refresh delay (in hours) for the resolvers list.
+  # The proxy will attempt to refresh the list every N hours.
+  refresh_delay = {{ refresh_delay | default(72) }}
+  
+  # prefix: Optional prefix for log messages from this source.
+  # Empty string means no prefix.
+  prefix = ''

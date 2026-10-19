@@ -12,7 +12,7 @@
 # unit: seconds
 # default: 20
 #
-cycle = {{ scan_interval }}
+cycle = {{ scan_interval | default('20') }}
 
 # usecorrelation:
 #
@@ -22,7 +22,7 @@ cycle = {{ scan_interval }}
 # prediction.  The option may be removed in the future.
 #
 # default: true
-usecorrelation = {{ proactive | lower }}
+usecorrelation = {{ proactive | default('true') }}
 
 # minsize:
 #
@@ -36,7 +36,7 @@ usecorrelation = {{ proactive | lower }}
 # unit: bytes
 # default: 2000000
 #
-minsize = {{ max_processes }}
+minsize = {{ max_processes | default('2000000') }}
 
 #
 # The following control how much memory preload is allowed to use
@@ -56,21 +56,21 @@ minsize = {{ max_processes }}
 # unit: signed_integer_percent
 # default: -10
 #
-memtotal = -10
+memtotal = {{ memtotal | default('-10') }}
 
 # memfree: precentage of free memory
 #
 # unit: signed_integer_percent
 # default: 50
 #
-memfree = 50
+memfree = {{ memfree | default('50') }}
 
 # memcached: precentage of cached memory
 #
 # unit: signed_integer_percent
 # default: 0
 #
-memcached = 0
+memcached = {{ memcached | default('0') }}
 
 
 ###########################################################################
@@ -88,7 +88,7 @@ memcached = 0
 # processes is not updated at all.
 #
 # default: true
-doscan = true
+doscan = {{ doscan | default('true') }}
 
 # dopredict:
 #
@@ -100,7 +100,7 @@ doscan = true
 # modifying the config file and signalling the daemon.
 #
 # default: true
-dopredict = true
+dopredict = {{ dopredict | default('true') }}
 
 # autosave:
 #
@@ -113,7 +113,7 @@ dopredict = true
 # unit: seconds
 # default: 3600
 #
-autosave = 3600
+autosave = {{ autosave | default('3600') }}
 
 # mapprefix:
 #
@@ -136,7 +136,7 @@ autosave = 3600
 # /lib/ instead.
 #
 # default: (empty list, accept all)
-mapprefix = {{ mapprefix }}
+mapprefix = {{ mapprefix | default('/usr/;/lib;/var/cache/;!/') }}
 
 # exeprefix:
 #
@@ -145,7 +145,7 @@ mapprefix = {{ mapprefix }}
 # files instead of maps.
 #
 # default: (empty list, accept all)
-exeprefix = {{ exeprefix }}
+exeprefix = {{ exeprefix | default('!/usr/sbin/;!/usr/local/sbin/;/usr/;!/') }}
 
 # maxprocs
 #
@@ -156,7 +156,7 @@ exeprefix = {{ exeprefix }}
 # of nearby blocks.
 #
 # default: 30
-processes = {{ max_processes }}
+processes = 30
 
 # sortstrategy
 #
@@ -164,13 +164,13 @@ processes = {{ max_processes }}
 # decided, but it's not currently.  One of:
 #
 #   0 -- SORT_NONE:	No I/O sorting.
-#		Useful on Flash memory for example.
+#			Useful on Flash memory for example.
 #   1 -- SORT_PATH:	Sort based on file path only.
-#		Useful for network filesystems.
+#			Useful for network filesystems.
 #   2 -- SORT_INODE:	Sort based on inode number.
-#		Does less house-keeping I/O than the next option.
+#			Does less house-keeping I/O than the next option.
 #   3 -- SORT_BLOCK:	Sort I/O based on disk block.  Most sophisticated.
-#		And useful for most Linux filesystems.
+#			And useful for most Linux filesystems.
 #
 # default: 3
-sortstrategy = 3
+sortstrategy = {{ sortstrategy | default('3') }}

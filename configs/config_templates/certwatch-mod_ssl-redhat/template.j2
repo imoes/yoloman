@@ -1,0 +1,63 @@
+# certwatch-mod_ssl-redhat template
+#
+# This script issues warning e-mails if SSL certificates expire, using certwatch.
+# It is designed to be used in a cron environment (see certwatch.cron(5)).
+#
+# Variables used:
+#   httpd_path: Path to the httpd binary (default: /usr/sbin/httpd)
+#   mod_ssl_path: Path to the mod_ssl module file (default: /etc/httpd/modules/mod_ssl.so)
+#
+# Environment variables from /etc/sysconfig/certwatch (if present) are sourced:
+#   NOCERTWATCH: If set, exit immediately.
+#   HTTPD: Override the httpd binary path.
+#   OPTIONS: Options passed to httpd -t -DDUMP_CERTS.
+#   CERTWATCH_OPTS: Options passed to the certwatch command.
+
+#!/usr/bin/bash
+
+# Source system configuration for certwatch if available
+# This allows overrides via /etc/sysconfig/certwatch
+[ -r /etc/sysconfig/certwatch ] && . /etc/sysconfig/certwatch
+
+# Use configured httpd binary
+# Defaults to /usr/sbin/httpd if not overridden by $HTTPD in environment
+httpd=${HTTPD-{{httpd_path | default('/usr/sbin/httpd')}}}
+
+# Sanity checks
+# Exit early if NOCERTWATCH is set
+test -z "${NOCERTWATCH}" || exit 0
+
+# Check that httpd binary exists and is executable
+test -x ${httpd} || exit 0
+
+# Check that certwatch utility exists
+test -x /usr/bin/certwatch || exit 0
+
+# Check that main httpd configuration exists
+test -r /etc/httpd/conf/httpd.conf || exit 0
+
+# Check that mod_ssl module exists and is executable (shared object)
+test -x {{mod_ssl_path | default('/etc/httpd/modules/mod_ssl.so')}} || exit 0
+
+# Check that sort utility exists
+test -x /bin/sort || exit 0
+
+# Pick up exit code of httpd not sort in pipe
+set -o pipefail
+
+# Dump SSL certificates from httpd configuration
+certs=`${httpd} ${OPTIONS} -t -DDUMP_CERTS 2>/dev/null | /bin/sed 's/^ *//' | /bin/sort -u`
+RETVAL=$?
+test $RETVAL -eq 0 || exit 0
+
+# Iterate over each certificate file and check for expiration warnings
+for c in $certs; do
+  # Skip if the certificate file does not exist
+  test -f "$c" || continue
+  
+  # Check whether a warning message is needed, then issue one if so.
+  # certwatch -q checks quietly, if it returns 0 (no warning needed yet), 
+  # run certwatch to generate/issue the warning email via sendmail.
+  /usr/bin/certwatch $CERTWATCH_OPTS -q "$c" && 
+    /usr/bin/certwatch $CERTWATCH_OPTS "$c" | /usr/sbin/sendmail -oem -oi -t 2>/dev/null
+done

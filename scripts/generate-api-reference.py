@@ -90,7 +90,9 @@ TAG_BLURBS = {
     "devices": "Things that are not hosts: switches, PDUs, anything polled off-host.",
     "processes": "What is running on a host, and its resource use.",
     "helm": "Kubernetes releases, as declared state.",
-    "blueprints": "A reusable bundle of declared state that can be applied to a new host.",
+    "kubernetes": "Kubernetes clusters, reached through an access host: registration, the inventory cache, objects, events, logs. Objects are written through the `k8s` Resource kind.",
+    "patch-rings": "Rolling Windows updates out in ordered waves with a health gate — a staged rollout whose action is the update.",
+    "provisioning": "Minting a database credential for a host: create the DB+user on a provider, store it for the consumer as a vault handle.",
     "capabilities": "What a host can provide and what it requires — the matcher behind the lego model.",
     "modules": "The Ansible-compatible module catalogue: specifications, and which are translated.",
     "translate": "Turning a catalogue specification into something an agent can execute.",
@@ -113,7 +115,7 @@ TAG_BLURBS = {
 # Tags whose endpoints change a host or this server. Said once per group rather than per endpoint, because a
 # reader deciding WHICH endpoint to call needs the warning before the list, not 30 times inside it.
 WRITE_HEAVY = {"management", "resources", "remediation", "rollouts", "images", "docker", "vm", "helm",
-               "config-sync", "orchestration", "admin", "users", "vault", "blueprints", "systems"}
+               "config-sync", "orchestration", "admin", "users", "vault", "patch-rings", "provisioning", "systems"}
 
 
 def api(base: str, path: str, token: str | None = None, payload: dict | None = None):

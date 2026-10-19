@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!--
+  SRCPD Configuration Template
+  ----------------------------
+  This template generates the configuration file for srcpd (Source-Pipe Daemon),
+  a daemon for routing MIDI data between devices and network endpoints.
+
+  The configuration is structured into two buses:
+  Bus 0: Server configuration (listening ports, identity, logging).
+  Bus 1: Loopback device configuration (virtual MIDI devices, watchdog, auto-power).
+
+  Self-documenting: Every variable is sourced from the schema with explicit defaults.
+-->
+<srcpd version="2.0">
+  <!-- === Bus 0: Server Configuration === -->
+  <bus number="0">
+    <server>
+      <!-- The TCP port for the MIDI server. -->
+      <!-- Schema: srcpd_tcp_port (default='4303') -->
+      <tcp-port>{{ srcpd_tcp_port | default('4303') }}</tcp-port>
+
+      <!-- Path to the PID file. -->
+      <!-- Schema: srcpd_pid_file (default='/var/run/srcpd.pid') -->
+      <pid-file>{{ srcpd_pid_file | default('/var/run/srcpd.pid') }}</pid-file>
+
+      <!-- User to run the server process as. -->
+      <!-- Schema: srcpd_username (default='nobody') -->
+      <username>{{ srcpd_username | default('nobody') }}</username>
+
+      <!-- Group to run the server process as. -->
+      <!-- Schema: srcpd_groupname (default='nogroup') -->
+      <groupname>{{ srcpd_groupname | default('nogroup') }}</groupname>
+    </server>
+
+    <!-- Verbosity level for logging. -->
+    <!-- Schema: srcpd_verbosity (default='3') -->
+    <verbosity>{{ srcpd_verbosity | default('3') }}</verbosity>
+  </bus>
+
+  <!-- === Bus 1: Loopback Device Configuration === -->
+  <bus number="1">
+    <loopback>
+      <!-- Number of loopback MIDI devices. -->
+      <!-- Schema: srcpd_loopback_devices (default='3') -->
+      <number_fb>{{ srcpd_loopback_devices | default('3') }}</number_fb>
+    </loopback>
+
+    <!-- Enable watchdog timer. -->
+    <!-- Schema: srcpd_use_watchdog (default='no') -->
+    <use_watchdog>{{ srcpd_use_watchdog | default('no') }}</use_watchdog>
+
+    <!-- Verbosity level for logging (repeated here for bus-specific override if needed). -->
+    <!-- Schema: srcpd_verbosity (default='3') -->
+    <verbosity>{{ srcpd_verbosity | default('3') }}</verbosity>
+
+    <!-- Automatically power on MIDI devices. -->
+    <!-- Schema: srcpd_auto_power_on (default='yes') -->
+    <auto_power_on>{{ srcpd_auto_power_on | default('yes') }}</auto_power_on>
+   </bus>
+</srcpd>

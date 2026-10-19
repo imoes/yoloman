@@ -130,8 +130,9 @@ ScriptAlias /xymon-seccgi/ "{{ xymon_seccgi_root | default('/usr/lib/xymon/cgi-s
     # the "xymongroups" file, and change the "Require" settings to require
     # a specific group membership. See the Apache docs for more details.
     # You may also need to explicitly load the mod_authz_groupfile module.
-    # AuthGroupFile {{ xymon_auth_group_file | default('/etc/xymon/xymongroups') }}
-
+{% if xymon_auth_group_file is defined and xymon_auth_group_file is not none and (xymon_auth_group_file is number or xymon_auth_group_file is boolean or xymon_auth_group_file | length > 0) %}    AuthGroupFile {{ xymon_auth_group_file | default('/etc/xymon/xymongroups') }}
+{% else %}    # AuthGroupFile /etc/xymon/xymongroups
+{% endif %}
     # Authentication Type: Basic HTTP Authentication
     AuthType Basic
     AuthName "Xymon Administration"

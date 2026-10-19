@@ -1,34 +1,35 @@
-# Zabbix Proxy log rotation configuration
-# Managed by Ansible role: zabbix-proxy-sqlite3
+# Zabbix Proxy SQLite3 Log Rotation Configuration
+# Managed by Ansible. Do not edit manually.
 
-# Path to the Zabbix Proxy log file being rotated.
-# This block applies logrotate directives to the specific log file.
+# Specifies the log file path and name for the Zabbix Proxy.
+# The proxy writes operational and error logs to this file.
+# Source schema: log_file_name (default: 'zabbix_proxy.log')
 /var/log/zabbix-proxy/{{ log_file_name | default('zabbix_proxy.log') }} {
-    # Rotate logs on a weekly basis.
+    # Rotate logs weekly.
     weekly
 
-    # Number of rotated log files to keep before overwriting the oldest.
-    # Default is 7, keeping one week's worth of logs.
-    rotate {{ log_rotate_count | default(7) }}
+    # Number of rotated log files to keep before deletion.
+    # Source schema: log_rotate_count (default: '7')
+    rotate {{ log_rotate_count | default('7') }}
 
-    # Compress rotated log files to save disk space.
+    # Compress rotated log files using gzip to save disk space.
     compress
 
     # Delay compression of the most recent rotated file until the next rotation cycle.
-    # This ensures that log writing processes do not fail if they still hold the file descriptor.
+    # This ensures that the most recent backup is always readable/uncompressed.
     delaycompress
 
-    # Do not raise an error if the log file is missing (e.g., before the first log entry).
+    # Do not produce an error if the log file is missing.
     missingok
 
     # Do not rotate the log if it is empty.
     notifempty
 
-    # Create new log files with these permissions, owner, and group after rotation.
-    # 0640 = read/write for owner, read for group.
-    # zabbix = owner and group user.
+    # Create new log files with these permissions, owned by this user and group.
+    # Permissions 0640: Owner read/write, Group read, Others none.
     create 0640 zabbix zabbix
 
-    # Run the postrotate/endscript scripts only once for all files in the block.
+    # Run the postrotate script (if any) only once for all logs in the block,
+    # rather than once for each log file rotated.
     sharedscripts
 }

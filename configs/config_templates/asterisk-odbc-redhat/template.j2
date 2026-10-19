@@ -1,0 +1,70 @@
+; ============================================================================
+; Asterisk ODBC CDR (Call Detail Record) Configuration
+; ============================================================================
+;
+; This module allows logging CDR data to various databases via ODBC.
+; It defines multiple "contexts", each pointing to a specific ODBC connection
+; and database table. You can log standard CDR variables or custom ones.
+;
+; IMPORTANT:
+; - Columns in the database table must match CDR variable names (case-insensitive).
+; - After changing the database schema (adding/removing columns), you MUST
+;   reload the Asterisk module to apply changes.
+; - Do NOT use the same connection and table combination for multiple contexts,
+;   as this will result in duplicate CDR records.
+;
+; Aliases allow mapping standard CDR field names to custom column names.
+; ============================================================================
+
+; ----------------------------------------------------------------------------
+; First CDR Context
+; ----------------------------------------------------------------------------
+; Context name for the primary CDR logging.
+[{{ first_connection_context | default('first') }}]
+; The name of the ODBC connection to use (defined in odbc.ini).
+connection={{ first_connection_name | default('mysql1') }}
+; The table name in the database to store CDR records.
+table={{ first_table_name | default('cdr') }}
+
+; ----------------------------------------------------------------------------
+; Second CDR Context
+; ----------------------------------------------------------------------------
+; Context name for the secondary CDR logging.
+[{{ second_connection_context | default('second') }}]
+; The name of the ODBC connection to use for the second context.
+connection={{ second_connection_name | default('mysql1') }}
+; The table name for the second context's CDR records.
+table={{ second_table_name | default('extracdr') }}
+
+; ----------------------------------------------------------------------------
+; Third CDR Context
+; ----------------------------------------------------------------------------
+; Context name for the tertiary CDR logging.
+[{{ third_connection_context | default('third') }}]
+; The name of the ODBC connection to use for the third context.
+connection={{ third_connection_name | default('sqlserver') }}
+; The table name for the third context's CDR records.
+table={{ third_table_name | default('AsteriskCDR') }}
+
+; Schema name for databases that support them (e.g., PostgreSQL, SQL Server).
+; Leave commented out if not applicable or if using the default schema.
+{% if third_schema_name is defined and third_schema_name != '' %}schema={{ third_schema_name | default('') }}
+{% else %};schema=public
+{% endif %}
+
+; Whether to use GMT (UTC) time for timestamps instead of local time.
+; Must be 'yes' or 'no'.
+{% if third_usegmtime is defined and third_usegmtime != '' %}usegmtime={{ third_usegmtime | default('no') }}
+{% else %};usegmtime=no
+{% endif %}
+
+; Aliases for the third context: map standard Asterisk CDR variable names
+; to the specific column names expected in your database table.
+; Standard variable 'src' maps to the configured column alias.
+alias src => {{ third_alias_src | default('source') }}
+; Standard variable 'channel' maps to the configured column alias.
+alias channel => {{ third_alias_channel | default('source_channel') }}
+; Standard variable 'dst' maps to the configured column alias.
+alias dst => {{ third_alias_dst | default('dest') }}
+; Standard variable 'dstchannel' maps to the configured column alias.
+alias dstchannel => {{ third_alias_dstchannel | default('dest_channel') }}

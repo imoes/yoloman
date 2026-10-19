@@ -1,13 +1,15 @@
 {
   "hostname": {
     "type": "string",
-    "default": "biboumi.example.com",
-    "description": "The hostname this XMPP-to-IRC gateway will advertise to XMPP clients."
+    "default": null,
+    "description": "The XMPP component's domain (e.g. irc.example.org) \u2014 a site value; biboumi refuses an empty one.",
+    "required": true
   },
   "password": {
     "type": "string",
-    "default": "",
-    "description": "Shared secret password used to authenticate this component to the XMPP server."
+    "default": null,
+    "description": "The component secret shared with the XMPP server \u2014 a site value; biboumi refuses an empty one.",
+    "required": true
   },
   "xmpp_server_ip": {
     "type": "string",
@@ -21,7 +23,7 @@
   },
   "admin": {
     "type": "string",
-    "default": "",
+    "default": null,
     "description": "XMPP JID (bare or full) of the service administrator. Receives operational notices and errors."
   },
   "realname_customization": {
@@ -36,28 +38,34 @@
   },
   "log_file": {
     "type": "string",
-    "default": "/var/log/biboumi/biboumi.log",
-    "description": "Path to the log file for Biboumi\u2019s runtime logs."
+    "default": null,
+    "description": "Log to this file instead of standard output (the journal). Its directory must exist and be writable by _biboumi \u2014 the package creates none."
   },
   "ca_file": {
     "type": "string",
-    "default": "",
+    "default": null,
     "description": "Absolute path to the CA certificate file (PEM format). Used for TLS verification. Maps to tls_cert in schema."
   },
   "outgoing_bind": {
     "type": "string",
-    "default": "",
+    "default": null,
     "description": "Local IP address to bind to for outgoing IRC connections."
   },
   "log_level": {
-    "type": "string",
-    "default": "1",
-    "description": "Verbosity level: NONE=0, ERROR=1, WARNING=2, INFO=3, DEBUG=4, or TRACE=5. Matches Biboumi's numeric logging levels.\n",
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of biboumi's log: 0 debug, 1 info, 2 warning, 3 error.",
     "enum": [
-      "0",
-      "1",
-      "2",
-      "3"
-    ]
+      0,
+      1,
+      2,
+      3
+    ],
+    "enum_labels": {
+      "0": "debug",
+      "1": "info",
+      "2": "warning",
+      "3": "error"
+    }
   }
 }

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Thermald Thermal Daemon Configuration
+=====================================
+This configuration file specifies the order in which cooling devices
+are compensated to manage CPU temperature. Thermald iterates through
+this list to apply thermal mitigation strategies.
+
+If this section is missing or empty, thermald falls back to its
+internal default device priority list.
+-->
+<ThermalDaemonConfiguration>
+    <!--
+    cooling_devices: List of cooling devices in order of compensation priority.
+    Default devices: rapl_controller, intel_pstate, intel_powerclamp, cpufreq, Processor.
+    The daemon attempts to use the first available device in this list.
+    -->
+    <CoolingDeviceOrder>
+        {% for device in (cooling_devices | default(['rapl_controller', 'intel_pstate', 'intel_powerclamp', 'cpufreq', 'Processor'])) %}
+        <!-- CoolingDevice: Specific cooling mechanism identifier (e.g., cpufreq, rapl_controller) -->
+        <CoolingDevice>{{ device }}</CoolingDevice>
+        {% endfor %}
+    </CoolingDeviceOrder>
+</ThermalDaemonConfiguration>

@@ -1,25 +1,26 @@
 {
   "log_level": {
     "type": "string",
-    "default": "info",
-    "description": "Logging verbosity: error, warn, info, debug, trace",
+    "default": null,
+    "description": "Logging verbosity: error, warn, info, debug, trace. Unset keeps the shipped commented line (example: warn).",
     "enum": [
-      "error",
-      "warn",
-      "info",
       "debug",
+      "info",
+      "warn",
+      "error",
+      "critical",
       "none"
     ]
   },
   "log_file": {
     "type": "string",
-    "default": "/var/log/i2pd/i2pd.log",
-    "description": "Path to log file"
+    "default": null,
+    "description": "Path to log file. Unset keeps the shipped commented line (example: /var/log/i2pd/i2pd.log)."
   },
   "host": {
     "type": "string",
-    "default": "127.0.0.1",
-    "description": "Bind host for I2P router (e.g., 0.0.0.0 for all interfaces)"
+    "default": null,
+    "description": "Bind host for I2P router (e.g., 0.0.0.0 for all interfaces). Unset keeps the shipped commented line (example: 1.2.3.4)."
   },
   "port": {
     "type": "number",
@@ -53,28 +54,28 @@
   },
   "tunnel_hops": {
     "type": "number",
-    "default": 2,
-    "description": "Number of hops in each tunnel (0 = un-anonymized)"
+    "default": null,
+    "description": "Number of hops in each tunnel (0 = un-anonymized). Unset keeps the shipped commented line (example: 2)."
   },
   "tunnel_length": {
     "type": "number",
     "default": 3,
-    "description": "Length of tunnel (in hops, overrides 'hops' for\u65b0\u5efa)"
+    "description": "Length of tunnel (in hops, overrides 'hops' for new)"
   },
   "tunnel_quantity": {
     "type": "number",
-    "default": 1,
-    "description": "Number of tunnels to build at once"
+    "default": null,
+    "description": "Number of tunnels to build at once. Unset keeps the shipped commented line (example: 3)."
   },
   "share_ratio": {
     "type": "number",
-    "default": 80,
-    "description": "Bandwidth sharing percentage (0\u2013100); higher = more transit participation"
+    "default": null,
+    "description": "Bandwidth sharing percentage (0\u2013100); higher = more transit participation. Unset keeps the shipped commented line (example: 100)."
   },
   "daemon_mode": {
-    "type": "bool",
-    "default": true,
-    "description": "Run I2PD as a background daemon"
+    "type": "string",
+    "default": null,
+    "description": "Run I2PD as a background daemon. Unset keeps the shipped commented line (example: true)."
   },
   "enable_ssdp": {
     "type": "bool",
@@ -97,9 +98,9 @@
     "description": "Directory for config and profile files"
   },
   "enable_webconsole": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable the web-based admin console"
+    "type": "string",
+    "default": null,
+    "description": "Enable the web-based admin console. Unset keeps the shipped commented line (example: true)."
   },
   "webconsole_host": {
     "type": "string",
@@ -113,8 +114,8 @@
   },
   "webconsole_auth": {
     "type": "string",
-    "default": "user:pass",
-    "description": "HTTP basic auth credentials as 'username:password'"
+    "default": null,
+    "description": "HTTP basic auth credentials as 'username:password'. Unset keeps the shipped commented line (example: user:pass)."
   },
   "webconsole_cert": {
     "type": "string",
@@ -133,83 +134,17 @@
   },
   "addressbook_urls": {
     "type": "list",
-    "default": [
-      "http://stats.i2p/cgi-bin/newbase60.pl",
-      "http://i2p.mooo.com/netdb/"
-    ],
-    "description": "List of address book publisher URLs"
+    "default": null,
+    "description": "List of address book publisher URLs. Unset keeps the shipped commented line (example: ['http://stats.i2p/cgi-bin/newbase60.pl', 'http://i2p.mooo.com/netdb/'])."
   },
   "transit_enabled": {
     "type": "bool",
-    "default": true,
-    "description": "Allow routing of I2P traffic for other users"
+    "default": null,
+    "description": "Allow routing of I2P traffic for other users. Unset keeps the shipped commented line (example: True)."
   },
   "transit_tunnels": {
     "type": "number",
-    "default": 40,
-    "description": "Maximum number of transit tunnels to maintain"
-  },
-  "enable_ntcp": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable legacy NTCP transport"
-  },
-  "enable_ssu": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable SSU transport (recommended)"
-  },
-  "enable_ntcp2": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable NTCP2 transport (future-proof)"
-  },
-  "services": {
-    "type": "list",
-    "default": [],
-    "description": "List of local I2P services to expose (e.g., HTTP, IRC, SSH)",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Service identifier (e.g., 'i2pcontrol', 'webserver', 'irc')"
-      },
-      "description": {
-        "type": "string",
-        "description": "Human-readable service description"
-      },
-      "port": {
-        "type": "number",
-        "description": "Local port the service listens on"
-      },
-      "host": {
-        "type": "string",
-        "default": "127.0.0.1",
-        "description": "Local host to bind to"
-      },
-      "inbound_length": {
-        "type": "number",
-        "default": 2,
-        "description": "Inbound tunnel length (overriding global)"
-      },
-      "outbound_length": {
-        "type": "number",
-        "default": 2,
-        "description": "Outbound tunnel length"
-      },
-      "inbound_quantity": {
-        "type": "number",
-        "default": 3,
-        "description": "Number of inbound tunnels"
-      },
-      "outbound_quantity": {
-        "type": "number",
-        "default": 3,
-        "description": "Number of outbound tunnels"
-      },
-      "private_key_path": {
-        "type": "string",
-        "description": "Path to private key file (if static destination)"
-      }
-    }
+    "default": null,
+    "description": "Maximum number of transit tunnels to maintain. Unset keeps the shipped commented line (example: 5000)."
   }
 }

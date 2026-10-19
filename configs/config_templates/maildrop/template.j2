@@ -24,8 +24,9 @@
 # Uncomment this line to make maildrop default to ~/Maildir for delivery.
 # This is where courier-imap (amongst others) will look.
 # -----------------------------------------------------------------------------
-#DEFAULT="{{ default_delivery | default('\"Maildir/\"') }}"
-
+{% if default_delivery is defined and default_delivery is not none and (default_delivery is number or default_delivery is boolean or default_delivery | length > 0) %}DEFAULT="{{ default_delivery | default('\"Maildir/\"') }}"
+{% else %}#DEFAULT="$HOME/Maildir"
+{% endif %}
 # -----------------------------------------------------------------------------
 # Logging verbosity level.
 # 0=silent, 1=errors only, 2=warnings, 3=info, 4=debug.
@@ -75,7 +76,6 @@ SIEVE="{{ sieve_script | default('/etc/dovecot/sieve/default.sieve') }}"
 {% if pre_delivery_hook | default('') %}
 HOOK="{{ pre_delivery_hook | default('') }}"
 {% endif %}
-
 # -----------------------------------------------------------------------------
 # Filter rules.
 # List of filter rules. Each rule may have a condition (omit for unconditional)
@@ -91,8 +91,7 @@ FILTER "{{ rule.get('condition') }}"
 {%- else -%}
 FILTER {{ rule.get('condition') }}
 {%- endif -%}
-{% endif %}
-{%- if rule.get('action') is string -%}
+{% endif %}{%- if rule.get('action') is string -%}
 DELIVER "{{ rule.get('action') }}"
 {%- else -%}
 DELIVER {{ rule.get('action') }}

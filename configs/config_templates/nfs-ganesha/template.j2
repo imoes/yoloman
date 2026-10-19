@@ -12,4 +12,4 @@ EPOCH_EXEC="{{ epoch_exec_script | default('/bin/true') }}"
 
 # Node ID exec script: A script used to determine the unique node ID in a cluster.
 # If empty, Ganesha uses its default behavior (usually hostname or a fixed ID).
-NODEID_EXEC="{{ nodeid_exec_script | default('') }}"
+{% if nodeid_exec_script is defined and nodeid_exec_script is not none and (nodeid_exec_script is number or nodeid_exec_script is boolean or nodeid_exec_script | length > 0) %}NODEID_EXEC="{{ nodeid_exec_script | default('') }}"{% else %}#NODEID_EXEC=""{% endif %}

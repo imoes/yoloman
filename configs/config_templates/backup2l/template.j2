@@ -36,20 +36,9 @@ SRCLIST=({{ (include_dirs | default(['/etc', '/root', '/home', '/var/mail', '/us
 # To exclude nothing, use: SKIPCOND=(-false)
 # To exclude multiple paths: SKIPCOND=(-path '/path1' -o -path '/path1/*' -o -path '/path2' -o -path '/path2/*')
 # Generate the find expression for exclusion patterns.
-{% set skipcond_parts = [] %}
-{% for pattern in (exclude_patterns | default(['*.nobackup*', '*.o'])) %}
-    {# Generate the find expression for exclusion patterns #}
-    {# Assuming typical usage: first pattern is -path, subsequent are -name, or adapt as needed #}
-    {# The original template used -path for the first and -name for the second. #}
-    {# We will stick to a generic -name for safety unless structure implies otherwise, #}
-    {# or try to replicate the original logic: first item -path, rest -name. #}
-    {% if loop.index == 1 %}
-        {% set _ = skipcond_parts.append('-path "' ~ pattern ~ '"') %}
-    {% else %}
-        {% set _ = skipcond_parts.append('-name "' ~ pattern ~ '"') %}
-    {% endif %}
-{% endfor %}
-SKIPCOND=({{ skipcond_parts | join(' -o ') }})
+{# First pattern as -path, the rest as -name, joined by -o — built inline: the agent's renderer (gonja) does not run
+   list.append(), so the earlier `set _ = parts.append(...)` left SKIPCOND=() on every host. #}
+SKIPCOND=({% for pattern in (exclude_patterns | default(['*.nobackup*', '*.o'])) %}{% if not loop.first %} -o {% endif %}{{ '-path' if loop.first else '-name' }} "{{ pattern }}"{% endfor %})
 
 # If you have no patterns to exclude, use:
 # SKIPCOND=(-false)

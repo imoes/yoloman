@@ -1,0 +1,33 @@
+fqcn: yoloman.benchmark
+name: benchmark
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Run ONE fixed-workload benchmark (scheduler latency/throughput, CPU, memory, I/O) and return the number with its unit
+description: >-
+  Kernel-tuning measurement (docs/kernel-tuning.md, block 5). One call = one run of one fixed profile, so
+  Bossman can alternate baseline and candidate runs (A/B/A/B) against drift. Every result names the
+  metric, its unit, whether higher is better, the tool and its version, and the exact command. Profiles:
+  sched_latency (cyclictest p99 wake-up latency of SCHED_OTHER threads, µs), sched_throughput (hackbench time, s), cpu
+  (stress-ng matrixprod bogo-ops/s), memory (sysbench memory MiB/s), io_randread (fio 4k random read
+  IOPS on a scratch file). It loads the host and fio writes a scratch file, so it is a write module;
+  check mode only returns the command. A missing tool fails with "tool_unavailable:" and the binary;
+  the module never installs anything itself.
+options:
+  profile:
+    type: str
+    required: true
+    choices: [sched_latency, sched_throughput, cpu, memory, io_randread]
+    description: The fixed workload.
+  duration:
+    type: int
+    default: 20
+    description: Seconds per run (sched_latency, cpu, memory, io_randread); 5 to 300.
+  path:
+    type: str
+    default: /var/tmp
+    description: io_randread only — directory for the 256 MiB scratch file (removed afterwards).
+examples: |
+  - yoloman.benchmark:
+      profile: sched_latency
+      duration: 30

@@ -1,0 +1,223 @@
+# /etc/mail/smfs/smf-spf.conf
+#
+# smf-spf configuration file v2.0.2 (it's read at start)
+#
+# This template is self-documenting. Each directive is preceded by
+# a comment derived from its schema definition. Variables use
+# inline defaults to ensure the file renders correctly even if
+# the variable is not defined in the Ansible inventory.
+
+# Whitelist by a sender IP address
+# The syntax is an IP address followed by a slash
+# and a CIDR netmask (if the netmask is omitted, /32 is assumed)
+#
+# First whitelisted IP/CIDR block for SPF evaluation.
+WhitelistIP	{{ smf_spf_whitelist_ip_1 | default('127.0.0.0/8') }}
+
+# Second whitelisted IP/CIDR block for SPF evaluation.
+WhitelistIP	{{ smf_spf_whitelist_ip_2 | default('10.0.0.0/8') }}
+
+# Third whitelisted IP/CIDR block for SPF evaluation.
+WhitelistIP	{{ smf_spf_whitelist_ip_3 | default('172.16.0.0/12') }}
+
+# Fourth whitelisted IP/CIDR block for SPF evaluation.
+WhitelistIP	{{ smf_spf_whitelist_ip_4 | default('192.168.0.0/16') }}
+
+# Whitelist by a sender PTR record (reverse DNS record)
+#
+# Performs a case insensitive substring match
+#
+#WhitelistPTR	.friendlydomain.tld
+#WhitelistPTR	friendlyhost.friendlydomain.tld
+
+# Whitelist by an envelope sender e-Mail address
+#
+# Performs a case insensitive substring match
+#
+#WhitelistFrom	friend@
+#WhitelistFrom	@friendlydomain.tld
+#WhitelistFrom	friend@friendlydomain.tld
+
+# Whitelist by an envelope recipient e-Mail address
+#
+# Performs a case insensitive substring match
+#
+#WhitelistTo	postmaster@
+#WhitelistTo	@yourspamloverdomain.tld
+#WhitelistTo	spamlover@yourdomain.tld
+
+# FixedClientIP allows SPF evaluation with a fixed IP
+# This can be applied in submission port and would allow to block
+# messages that will fail SPF evaluation on the next hop.
+#
+# Default: none
+#
+#FixedClientIP	 192.0.0.1
+
+# SkipNDR, when set to Off, will skip evaluation of empty senders
+#
+# Default: off
+#
+#SkipNDR off
+
+# SkipAuth, when set to ON, will skip evaluation when the user authnticates
+#
+# Default: on
+#
+#SkipAuth ON
+
+# ClientIPNAT allows IP address translation of the connecting IP
+# This is particular useful when you have internal email flows
+# and still have a SPF evaluation
+#
+# Default: none
+#
+#ClientIPNAT	 10.0.0.1:192.0.0.1
+#ClientIPNAT	 127.0.0.1:192.0.0.3
+
+# RejectReason specifies the message that will be return to milter client
+# You can use %s placeholders where :
+# 1st %s - sender address or postmaster@<helo name> if empty sender
+# 2nd %s - sender IP Address
+# 3rd %s - server name ( {j} macro
+#
+# Default: Rejected, look at http://www.openspf.org/why.html?sender=%s&ip=%s&receiver=%s
+#
+#RejectReason Rejected, look at http://www.openspf.org/why.html?sender=%s&ip=%s&receiver=%s
+#
+# Don't check localpart size. RFC 821/2821/5321 states
+# localpart must be less that 64 octects. With relaxed on
+# only total mailfrom ( localpart @ domain.tld ) size is checked
+#
+# Default: off
+#
+#RelaxedLocalPart    off        # (on|off)
+
+# Refuse e-Mail messages at SPF None results
+# On empty senders this restriction will not be applied
+#
+# Default: off
+#
+#RefuseSPFNone      off      # (on|off)
+
+# Refuse e-Mail messages when there is an empty sender
+# and there isn't an SPF policy from the server name
+# Server name is the HELO identity
+#
+# Default: off
+#
+#RefuseSPFNoneHelo      off      # (on|off)
+
+# Refuse e-Mail messages at SPF Fail results (RFC-4408)
+#
+# Default: on
+#
+# Refuse e-Mail messages at SPF Fail results (on|off).
+#RefuseFail	{{ smf_spf_refuse_fail | default('off') }}
+
+# When refusing e-Mail messages use a 450 SMTP code
+#
+# Default: off
+#
+#SoftFail       off      # (on|off)
+
+#
+# Accept email when SPF evaluation return a TEMPERROR
+#
+# Default: on
+#
+# AcceptTempError on 
+
+# Subject tagging of e-Mail messages at SPF SoftFail
+# and Fail (if RefuseFail set to off) results
+#
+# Default: on
+#
+#TagSubject	on	# (on|off)
+
+# Subject tagging string
+#
+# Default: [SPF:fail]
+#
+#Tag		[SPF:fail]
+
+# Add the deprecated Received-SPF: header
+#
+# Default: off
+#
+# AddReceivedHeader off
+
+
+
+# Build a standard Authentication-Results: header
+#
+# Default: on
+#
+#AddHeader	on	# (on|off)
+
+# Quarantine of e-Mail messages at SPF SoftFail
+# and Fail (if RefuseFail set to off) results
+#
+# Default: off
+#
+#Quarantine	off	# (on|off)
+
+# Quarantine mailbox
+#
+# Default: postmaster
+#
+#QuarantineBox	postmaster
+#QuarantineBox	spambox@yourdomain.tld
+
+# In-memory cache engine TTL settings
+#
+# The time is given in seconds, except if a unit is given:
+# m for minutes, h for hours, and d for days
+# Specify zero to disable caching
+#
+# Default: 1h
+#
+#TTL		1h
+
+# Run as a selected user (smf-spf must be started by root)
+#
+# Default: smfs
+#
+#User		smfs
+
+# Socket used to communicate with Sendmail daemon
+#
+# Default: unix:/var/run/smfs/smf-spf.sock
+#
+#Socket		unix:/run/smfs/smf-spf.sock
+
+# Facility for logging via Syslog daemon
+# none will disable syslog.
+#
+# Default: mail
+#
+#Sysmail		mail	# (none|daemon|mail|local0...local7)
+
+# Logging to a file. Can use /dev/stdout and /dev/stderr
+#
+# Default: <empty>
+#
+# LogTo /dev/stdout
+
+# Run as a daemon process in the background
+#
+# When disabled, the process will stay in the foreground.
+# This is preferred by some init systems, f.i. systemd
+#
+# Default: on
+#
+#Daemonize on # (on|off)
+
+
+#  AuthservID string
+#      default (hostname provided by milter)
+#
+#  Defines the "authserv-id" token to be used when generating
+#  Authentication-Results headers after sender verification.
+
+# AuthservID        example.com

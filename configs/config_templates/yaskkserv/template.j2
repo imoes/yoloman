@@ -17,7 +17,7 @@ YASKKSERV_BIN="{{ yaskkserv_bin }}"
 #       and restart server.
 
 # for SIMPLE
-#SIMPLE_OPTS="--log-level=1 --max-connection={{ yaskkserv_max_connection }} --port={{ yaskkserv_port }}"
+{% if yaskkserv_port %}SIMPLE_OPTS="--log-level=1 --max-connection={{ yaskkserv_max_connection }} --port={{ yaskkserv_port }}"{% else %}#SIMPLE_OPTS="--log-level=1 --max-connection=8 --port=1178"{% endif %}
 
 # for NORMAL
 #NORMAL_OPTS="${SIMPLE_OPTS}"
@@ -25,9 +25,9 @@ YASKKSERV_BIN="{{ yaskkserv_bin }}"
 # for HAIRY
 #HAIRY_OPTS="${NORMAL_OPTS} --server-completion-midasi-length={{ yaskkserv_completion_midasi_length }} --server-completion-midasi-string-size={{ yaskkserv_completion_midasi_string_size }} --server-completion-test={{ yaskkserv_completion_test }} --google-japanese-input={{ yaskkserv_google_japanese_input }} --google-japanese-input-timeout={{ yaskkserv_google_japanese_input_timeout }}"
 # for HAIRY (usage example to enable google japanese input)
-#HAIRY_OPTS="${NORMAL_OPTS} --server-completion-test=1 --google-japanese-input=notfound-input-suggest --google-suggest"
+#HAIRY_OPTS="${NORMAL_OPTS} --server-completion-test={{ yaskkserv_completion_test }} --google-japanese-input=notfound-input-suggest --google-suggest"
 
-DAEMON_OPTS="${{{ yaskkserv_mode }}}"
+DAEMON_OPTS="${{ '{{' }}{ yaskkserv_mode }}}"
 #DAEMON_OPTS="${NORMAL_OPTS}"
 #DAEMON_OPTS="${SIMPLE_OPTS}"
 
@@ -37,15 +37,15 @@ DAEMON_OPTS="${{{ yaskkserv_mode }}}"
 #
 
 LOCAL_DICS="\
-{{ yaskkserv_local_dics }}\
+{{ yaskkserv_local_dics }}
 "
-#/path/to/dic \
+#{{ yaskkserv_pkg_dics_extra }}
 
 ## Dictionaries from skkdic* packages
 # Note: uncomment the dictionary which you want to use and sort their order.
 
-PKG_DICS="{{ yaskkserv_pkg_dics_default }}\
-{{ yaskkserv_pkg_dics_extra }}"
+PKG_DICS="{{ yaskkserv_pkg_dics_default }}
+"
 #SKK-JISYO.L \
 #SKK-JISYO.zipcode \
 #SKK-JISYO.station \

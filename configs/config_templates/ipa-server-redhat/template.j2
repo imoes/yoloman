@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<oddjobconfig>
+  <!-- Service definition for FreeIPA Server DBus interface -->
+  <service name="org.freeipa.server">
+    <!-- System user allowed to access the DBus interface for conncheck and other methods. -->
+    <allow user="{{ dbus_allow_user_root | default('root') }}"/>
+    <!-- IPA API service user allowed to access the DBus interface. -->
+    <allow user="{{ dbus_allow_user_ipaapi | default('ipaapi') }}"/>
+    <object name="/">
+      <interface name="org.freeipa.server">
+        <!-- Method: conncheck - Check connectivity helper configuration -->
+        <method name="conncheck">
+          <helper exec="/usr/libexec/ipa/oddjob/org.freeipa.server.conncheck"
+                  <!-- Arguments passed to the conncheck helper executable. -->
+                  arguments="{{ conncheck_args | default('1') }}"
+                  <!-- Whether to prepend the user name in the conncheck helper arguments. -->
+                  prepend_user_name="{{ conncheck_prepend_user_name | default('no') }}"
+                  <!-- Method used to pass arguments to the conncheck helper. -->
+                  argument_passing_method="{{ conncheck_argument_passing_method | default('cmdline') }}"/>
+        </method>
+        <!-- Method: trust_enable_agent - Trust enable agent helper configuration -->
+        <method name="trust_enable_agent">
+          <helper exec="/usr/libexec/ipa/oddjob/org.freeipa.server.trust-enable-agent"
+                  <!-- Arguments passed to the trust_enable_agent helper executable. -->
+                  arguments="{{ trust_enable_agent_args | default('1') }}"
+                  <!-- Whether to prepend the user name in the trust_enable_agent helper arguments. -->
+                  prepend_user_name="{{ trust_enable_agent_prepend_user_name | default('no') }}"
+                  <!-- Method used to pass arguments to the trust_enable_agent helper. -->
+                  argument_passing_method="{{ trust_enable_agent_argument_passing_method | default('cmdline') }}"/>
+        </method>
+        <!-- Method: config_enable_sid - Config enable SID helper configuration -->
+        <method name="config_enable_sid">
+          <helper exec="/usr/libexec/ipa/oddjob/org.freeipa.server.config-enable-sid"
+                  <!-- Arguments passed to the config_enable_sid helper executable. -->
+                  arguments="{{ config_enable_sid_args | default('10') }}"
+                  <!-- Whether to prepend the user name in the config_enable_sid helper arguments. -->
+                  prepend_user_name="{{ config_enable_sid_prepend_user_name | default('no') }}"
+                  <!-- Method used to pass arguments to the config_enable_sid helper. -->
+                  argument_passing_method="{{ config_enable_sid_argument_passing_method | default('cmdline') }}"/>
+        </method>
+      </interface>
+      <!-- Interface: Introspectable DBus configuration -->
+      <interface name="org.freedesktop.DBus.Introspectable">
+        <allow
+          <!-- Minimum UID allowed to introspect the DBus interface. -->
+          min_uid="{{ introspectable_min_uid | default(0) }}"
+          <!-- Maximum UID allowed to introspect the DBus interface. -->
+          max_uid="{{ introspectable_max_uid | default(0) }}"/>
+      </interface>
+    </object>
+  </service>
+</oddjobconfig>

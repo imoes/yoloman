@@ -1,8 +1,13 @@
-# Postfix SQLite Plugin Library Path Configuration
-# This directive tells Postfix where to load the sqlite.so plugin module.
-# It is managed by the postfix-sqlite package.
+# This file is part of the postfix-sqlite package.
+# It defines how Postfix loads the SQLite transport plugin.
+# The format is: <library_path>:<load_method>:<owner>:<group>:<permissions>
 #
-# $shlib_directory is a Postfix internal variable resolving to the
-# shared library path (usually /usr/lib/postfix or /usr/lib64/postfix).
-# The format is: <path>:<type>:<owner>:<group>:<perms>
-$shlib_directory/postfix-sqlite.so:f:root:-:755
+# - library_path: The path to the .so file provided by the postfix-sqlite package.
+# - load_method: 'f' indicates the file is loaded dynamically by Postfix.
+# - owner/group: Standard system user/group for the library file.
+# - permissions: 755 ensures the file is executable by all but writable only by root.
+#
+# This configuration does not require external database credentials or host connections.
+# It merely registers the plugin with the Postfix master daemon.
+
+$postfix_shlib_directory/postfix-sqlite.so:f:root:root:755

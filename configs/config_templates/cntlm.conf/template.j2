@@ -71,7 +71,7 @@ Auth        NTLMv2
 # Format: 'host:port' or 'ip:host:port'.
 # These allow Cntlm to forward arbitrary TCP traffic, not just HTTP.
 # If empty, no tunnels are configured.
-Tunnel      {{ tunnel_hosts | default([]) | join(', ') }}
+{% if tunnel_hosts is defined and tunnel_hosts is not none and (tunnel_hosts is number or tunnel_hosts is boolean or tunnel_hosts | length > 0) %}Tunnel      {{ tunnel_hosts | default([]) | join(', ') }}{% else %}#Tunnel		11443:remote.com:443{% endif %}
 
 # ------------------------------------------------------------------------------
 # NoProxy
@@ -91,4 +91,4 @@ NoProxy     {{ no_proxy | default(['localhost', '127.0.0.1']) | join(', ') }}
 # of just the loopback address. This allows other machines on the network
 # to use this Cntlm instance as a proxy.
 # Use with caution; ensure proper firewall rules restrict access.
-Gateway     {{ gateway | default(False) | lower }}
+{% if gateway is defined and gateway is not none and (gateway is number or gateway is boolean or gateway | length > 0) %}Gateway     {{ gateway | default(False) | lower }}{% else %}#Gateway	yes{% endif %}

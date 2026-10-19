@@ -58,23 +58,25 @@
 # See "ompi_info --param all all --level 9" for a full listing of Open
 # MPI MCA parameters available and their default values.
 
-# Disable runtime MPI parameter checking for unused BTL components.
-# Set to 0 to silence warnings.
-# Default: 0
-btl_base_warn_component_unused={{ btl_base_warn_component_unused | default(0) }}
+# btl_base_warn_component_unused: Disable runtime MPI parameter checking
+# for unused BTL components. Set to 0 to silence warnings.
+btl_base_warn_component_unused={{ btl_base_warn_component_unused | default('0') }}
 
-# MCA Transport Layer (MTL) module selector. Regex pattern excluding modules.
-# Default: ^ofi
+# mtl: MCA Transport Layer (MTL) module selector.
+# Regex pattern excluding modules. Default '^ofi' avoids openib issues with fork.
+# If you wish to use openib and know your application is safe, adjust this.
+# See: https://github.com/ofiwg/libfabric/issues/6332
 mtl = {{ mtl | default('^ofi') }}
 
-# Byte Transport Layer (BTL) module selector. Regex pattern excluding modules.
-# Default: ^uct,openib,ofi
+# btl: Byte Transport Layer (BTL) module selector.
+# Regex pattern excluding modules. Default '^uct,openib,ofi' excludes ucx, openib, and ofi.
 btl = {{ btl | default('^uct,openib,ofi') }}
 
-# Point-to-Point Layer (PML) module selector. Regex pattern excluding modules.
-# Default: ^ucx
+# pml: Point-to-Point Layer (PML) module selector.
+# Regex pattern excluding modules. Default '^ucx' excludes UCX.
+# See: https://github.com/open-mpi/ompi/issues/8367
 pml = {{ pml | default('^ucx') }}
 
-# One-Sided Communication (OSC) module selector. Regex pattern excluding modules.
-# Default: ^ucx,pt2pt
+# osc: One-Sided Communication (OSC) module selector.
+# Regex pattern excluding modules. Default '^ucx,pt2pt' excludes UCX and pt2pt.
 osc = {{ osc | default('^ucx,pt2pt') }}

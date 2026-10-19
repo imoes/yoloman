@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!-- Fontconfig XML configuration for Noto Sans Symbols fallback and aliasing. -->
+<!-- This file is managed by Ansible. Do not edit manually. -->
+<fontconfig>
+  <!-- Match generic font families to inject Noto Sans Symbols as a preferred option -->
+  <match>
+    <!-- Test if the requested font family is the generic fallback family -->
+    <test name="family">
+      <!-- The generic family name used as the alias fallback -->
+      <string>{{ fallback_family | default('fantasy') }}</string>
+    </test>
+    <!-- If matched, prepend the specific font family to the list -->
+    <edit name="family" mode="prepend">
+      <!-- The name of the font to insert or alias -->
+      <string>{{ font_family | default('Noto Sans Symbols') }}</string>
+    </edit>
+    <!-- Configure font hinting settings -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hinting (true) or disable it (false) -->
+      <bool>{{ font_hint_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Define an alias for the Noto Sans Symbols font -->
+  <alias>
+    <!-- The name of the font to insert or alias -->
+    <family>{{ font_family | default('Noto Sans Symbols') }}</family>
+    <!-- Specify the generic family to fall back to if this font is unavailable -->
+    <default>
+      <!-- The generic family name used as the alias fallback -->
+      <family>{{ fallback_family | default('fantasy') }}</family>
+    </default>
+  </alias>
+</fontconfig>

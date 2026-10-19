@@ -1,40 +1,29 @@
 {
- "global_options": {
-  "description": "Key-value pairs for global oidentd settings (e.g., 'default_allow yes').",
-  "type": "object"
- },
- "global_rules": {
-  "default": [],
-  "description": "Global rules (evaluated before per-user rules).",
-  "type": "list"
- },
- "oidentd_behind_proxy": {
-  "default": "yes",
-  "description": "Whether the host is behind a masquerading router acting as an oidentd proxy. Must be 'yes' or 'no'.",
-  "enum": [
-   "yes",
-   "no"
-  ],
-  "type": "string"
- },
- "oidentd_group": {
-  "default": "oident",
-  "description": "Group under which oidentd runs.",
-  "type": "string"
- },
- "oidentd_limit_connections": {
-  "default": 10,
-  "description": "Maximum number of simultaneous oidentd connections to allow.",
-  "type": "number"
- },
- "oidentd_user": {
-  "default": "oident",
-  "description": "User account under which oidentd runs.",
-  "type": "string"
- },
- "users": {
-  "default": [],
-  "description": "List of users with custom ident response rules.",
-  "type": "list"
- }
+  "global_rules": {
+    "type": "list",
+    "default": [
+      "deny spoof",
+      "deny spoof_all",
+      "deny spoof_privport",
+      "deny random",
+      "deny random_numeric",
+      "deny numeric",
+      "deny hide",
+      "deny forward"
+    ],
+    "description": "Global rules (evaluated before per-user rules)."
+  },
+  "users": {
+    "type": "list",
+    "default": [
+      {
+        "username": "root",
+        "rules": [
+          "force hide"
+        ],
+        "options": {}
+      }
+    ],
+    "description": "List of users with custom ident response rules."
+  }
 }

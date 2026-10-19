@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -78,6 +79,52 @@ func TestTemplateRenderDryRun(t *testing.T) {
 
 // renderTemplateWithSample: render one template dir against its own sample.json. The error is the finding —
 // a template that cannot render its own sample is not an editor, whatever else is true about it.
+// nestDotted turns {"jdk.xml.limit": 5} into {"jdk": {"xml": {"limit": 5}}} — what Bossman sends the agent
+// (nt_engine._nest_dotted) for a template written with dotted placeholders (`{{ jdk.xml.limit }}`). Rendering the
+// flat sample instead reported such templates broken ("Can't use Getitem on None") although production renders them.
+func nestDotted(values map[string]any) map[string]any {
+	// The same rule as nt_engine._nest_dotted: the flat keys stay, a nested key is only ADDED where nothing is set
+	// yet, and a non-map in the way stops that key. Keys in sorted order (Python walks the sample's order, which
+	// lists the shorter keys first; Go's map order is random).
+	out := make(map[string]any, len(values))
+	keys := make([]string, 0, len(values))
+	for k, v := range values {
+		out[k] = v
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		parts := strings.Split(k, ".")
+		if len(parts) < 2 {
+			continue
+		}
+		node, ok := out[parts[0]].(map[string]any)
+		if _, exists := out[parts[0]]; !exists {
+			node, ok = map[string]any{}, true
+			out[parts[0]] = node
+		}
+		if !ok {
+			continue
+		}
+		for _, part := range parts[1 : len(parts)-1] {
+			next, exists := node[part]
+			if !exists {
+				next = map[string]any{}
+				node[part] = next
+			}
+			if node, ok = next.(map[string]any); !ok {
+				break
+			}
+		}
+		if ok {
+			if _, exists := node[parts[len(parts)-1]]; !exists {
+				node[parts[len(parts)-1]] = values[k]
+			}
+		}
+	}
+	return out
+}
+
 func renderTemplateWithSample(root, name, dest string) error {
 	dir := filepath.Join(root, name)
 	sampleRaw, err := os.ReadFile(filepath.Join(dir, "sample.json"))
@@ -88,6 +135,7 @@ func renderTemplateWithSample(root, name, dest string) error {
 	if err := json.Unmarshal(sampleRaw, &values); err != nil {
 		return fmt.Errorf("parse sample.json: %w", err)
 	}
+	values = nestDotted(values)
 	res, err := NewTemplateRender().Run(context.Background(), map[string]any{
 		"template_path": filepath.Join(dir, "template.j2"),
 		"dest":          dest,
@@ -168,6 +216,11 @@ func TestConfigTemplatesRenderWithSample(t *testing.T) {
 			continue
 		}
 		name := e.Name()
+		if _, statErr := os.Stat(filepath.Join(root, name, "template.j2")); statErr != nil {
+			// A directory holding only meta.json records the file a regeneration will target (qualify --repair);
+			// it is not a template yet, so there is nothing to render.
+			continue
+		}
 		err := renderTemplateWithSample(root, name, dest)
 		_, listed := known[name]
 		switch {
@@ -268,5 +321,27 @@ func TestAWordValuedFieldRendersTheWord(t *testing.T) {
 	got, _ := os.ReadFile(dest)
 	if string(got) != "overwrite_report yes" {
 		t.Errorf("rendered %q", got)
+	}
+}
+
+// A template that ends in a newline renders a file that ends in a newline — as Ansible does
+// (preserve_trailing_newlines). gonja follows plain Jinja2 and strips it; measured in the package e2e,
+// haproxy then refuses the file: "Missing LF on last line, file might have been truncated".
+func TestTemplateRenderKeepsTheTrailingNewline(t *testing.T) {
+	dir := t.TempDir()
+	for _, tc := range []struct{ tmpl, want string }{
+		{"maxconn {{ m }}\n", "maxconn 4\n"},
+		{"maxconn {{ m }}\n\n", "maxconn 4\n\n"},
+		{"maxconn {{ m }}", "maxconn 4"}, // no newline in the template, none added
+	} {
+		res, err := NewTemplateRender().Run(context.Background(), map[string]any{
+			"template": tc.tmpl, "dest": filepath.Join(dir, "h.cfg"), "values": map[string]any{"m": 4},
+		}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := res.Data.(map[string]any)["rendered"].(string); got != tc.want {
+			t.Errorf("template %q rendered %q, want %q", tc.tmpl, got, tc.want)
+		}
 	}
 }

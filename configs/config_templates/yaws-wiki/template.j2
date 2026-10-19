@@ -1,47 +1,77 @@
-# ============================================================================
-# YAWS-WIKI CONFIGURATION FILE
-# ============================================================================
-# This file configures the YAWS Wiki service. It defines the path to the
-# compiled Erlang beam code, and the virtual server settings (port, listen
-# address, document root) for the wiki web interface.
-# ============================================================================
+# =============================================================================
+# Configuration file for yaws-wiki
+# =============================================================================
+#
+# This file configures the Yaws Web Application Server, specifically for the
+# yaws-wiki plugin/module. It defines the runtime environment and the virtual
+# server parameters for the wiki instance.
+#
+# Sections:
+#   1. Global Settings
+#   2. Virtual Server Definition for yaws-wiki
+#
+# =============================================================================
 
-# Path to the directory where wiki beam code is placed.
-# The daemon will add this directory to its search path to locate
-# the Erlang modules required for the wiki functionality.
+# --- 1. Global Settings -----------------------------------------------------
+
+# Path to the directory where wiki beam (Erlang bytecode) code is placed.
+# The Yaws daemon adds this directory to its Erlang code search path to find
+# the wiki application modules.
+#
+# Schema: ebin_dir
 # Default: /usr/lib/yaws-wiki/ebin
 ebin_dir = {{ ebin_dir | default('/usr/lib/yaws-wiki/ebin') }}
 
-# ============================================================================
-# VIRTUAL SERVER DEFINITION
-# ============================================================================
-# Define the virtual server for the YAWS wiki.
-# Uncomment the block below and adjust settings as needed.
+# =============================================================================
+# 2. Virtual Server Definition for yaws-wiki
+# =============================================================================
 #
-# <server wiki>
-#     port = ...
-#     listen = ...
-#     docroot = ...
-# </server>
-# ============================================================================
+# To enable the yaws-wiki virtual server, uncomment the <server wiki> block
+# below and adjust the settings as needed.
+#
+# The 'port' and 'listen' directives determine how the wiki is accessible
+# over the network. The 'docroot' specifies the web-accessible directory
+# containing static assets (HTML, CSS, JS) for the wiki interface.
+#
+# =============================================================================
 
-# Port number for the yaws wiki virtual server.
-# The TCP port on which the wiki web interface will accept connections.
-# Default: 8080
 <server wiki>
-# IP address to listen on for the yaws wiki virtual server.
-# Specifies the network interface address. Use '0.0.0.0' to listen on all
-# available interfaces, or a specific IP (e.g., '127.0.0.1') for local-only access.
-# Default: 0.0.0.0
-    listen = {{ listen | default('0.0.0.0') }}
-
-# Port number for the yaws wiki virtual server.
-# The TCP port on which the wiki web interface will accept connections.
-# Default: 8080
+    # Port number for the yaws wiki virtual server.
+    # If not specified, Yaws may use its default configuration or inherit
+    # from the global server settings.
+    #
+    # Schema: port
+    # Note: If this field is omitted or null in the Ansible variables, this
+    # line will remain commented out, relying on upstream defaults.
+{% if port is defined and port is not none %}
     port = {{ port | default(8080) }}
+{% else %}
+    # port = 8080
+{% endif %}
 
-# Document root directory for the yaws wiki virtual server.
-# The base directory from which static files and wiki content are served.
-# Default: /var/lib/yaws-wiki/www
-    docroot = {{ docroot | default('/var/lib/yaws-wiki/www') }}
+    # IP address to listen on for the yaws wiki virtual server.
+    # Use '0.0.0.0' to listen on all interfaces, or specify a specific IP
+    # for binding to a particular network interface.
+    #
+    # Schema: listen
+    # Note: If this field is omitted or null in the Ansible variables, this
+    # line will remain commented out.
+{% if listen is defined and listen is not none %}
+    listen = {{ listen | default('0.0.0.0') }}
+{% else %}
+    # listen = 0.0.0.0
+{% endif %}
+
+    # Document root directory for the yaws wiki virtual server.
+    # This directory serves as the base path for serving static web content
+    # (pages, images, stylesheets) associated with the wiki.
+    #
+    # Schema: docroot
+    # Note: If this field is omitted or null in the Ansible variables, this
+    # line will remain commented out.
+{% if docroot is defined and docroot is not none %}
+    docroot = {{ docroot | default('/var/www/yaws-wiki') }}
+{% else %}
+    # docroot = /var/www/yaws-wiki
+{% endif %}
 </server>

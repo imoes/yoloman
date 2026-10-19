@@ -1,0 +1,27 @@
+# SSSD Passkey RedHat Configuration
+#
+# This template configures the System Security Services Daemon (SSSD) to use
+# passkey (FIDO2/WebAuthn) as a preauthentication mechanism for Kerberos.
+# It enables the specified shared library for both client preauthentication
+# (clpreauth) and KDC preauthentication (kdcpreauth) modules.
+#
+# To disable passkey authentication, comment out or remove the `module` lines
+# below.
+#
+
+[plugins]
+  # clpreauth: Client-side preauthentication plugins.
+  # These are used by the SSSD client to authenticate to the Kerberos KDC.
+  clpreauth = {
+    # The full path to the SSSD passkey Kerberos preauthentication plugin shared library.
+    # Default: passkey:/usr/lib64/sssd/modules/sssd_krb5_passkey_plugin.so
+    module = {{ sssd_passkey_module | default('passkey:/usr/lib64/sssd/modules/sssd_krb5_passkey_plugin.so') }}
+  }
+
+  # kdcpreauth: KDC-side preauthentication plugins.
+  # These allow the KDC to accept passkey credentials during the authentication exchange.
+  kdcpreauth = {
+    # The full path to the SSSD passkey Kerberos preauthentication plugin shared library.
+    # Default: passkey:/usr/lib64/sssd/modules/sssd_krb5_passkey_plugin.so
+    module = {{ sssd_passkey_module | default('passkey:/usr/lib64/sssd/modules/sssd_krb5_passkey_plugin.so') }}
+  }

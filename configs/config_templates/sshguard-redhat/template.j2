@@ -1,0 +1,36 @@
+# sshguard Allowlist Configuration
+# This file defines IP addresses, CIDR ranges, and hostnames that are excluded
+# from sshguard's blocking logic. They are treated as trusted.
+
+# Single IPv4 Address to Allow
+# A single IPv4 address that should never be blocked by sshguard.
+# Format: One IP per line. Lines are commented out by default in the schema
+# to prevent accidental whitelisting of specific IPs without explicit configuration.
+{{ sshguard_allowlist_single_ipv4 | default('#1.2.3.4') }}
+
+# Single IPv6 Address to Allow
+# A single IPv6 address that should never be blocked by sshguard.
+# Format: One IP per line. Lines are commented out by default in the schema.
+{{ sshguard_allowlist_single_ipv6 | default('#2001:0db8:85a3:08d3:1319:8a2e:0370:7344') }}
+
+# IPv4 CIDR Blocks to Allow
+# A list of IPv4 CIDR notation ranges to exclude from blocking.
+# Format: One CIDR block per line. Lines are commented out by default in the schema.
+{% set ipv4_cidrs = sshguard_allowlist_cidr_ipv4 | default('#127.0.0.0/8\n#10.11.128.0/17\n#192.168.0.0/24') %}
+{% if ipv4_cidrs is defined and ipv4_cidrs | length > 0 %}
+{{ ipv4_cidrs }}
+{% endif %}
+
+# IPv6 CIDR Blocks to Allow
+# A list of IPv6 CIDR notation ranges to exclude from blocking.
+# Format: One CIDR block per line. Empty by default.
+{% set ipv6_cidrs = sshguard_allowlist_cidr_ipv6 | default('') %}
+{% if ipv6_cidrs is defined and ipv6_cidrs | length > 0 %}
+{{ ipv6_cidrs }}
+{% endif %}
+
+# Hostnames to Allow
+# A list of hostnames (resolved via DNS) to exclude from blocking.
+# Note: Using hostnames adds a DNS lookup penalty on every check.
+# Format: One hostname per line. Lines are commented out by default in the schema.
+{{ sshguard_allowlist_hostname | default('#rome-fw.enterprise.com\n#hosts.friends.com') }}

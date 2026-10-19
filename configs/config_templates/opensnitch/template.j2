@@ -1,81 +1,107 @@
-#!/bin/sh
+# OpenSnitch Daemon Configuration File (JSON format)
+# This file configures the OpenSnitch intrusion prevention system daemon.
+# It controls logging, firewall backend selection, process monitoring,
+# and the communication socket for the OpenSnitch UI.
 
-### BEGIN INIT INFO
-# Provides:          opensnitchd
-# Required-Start:    $network $local_fs
-# Required-Stop:    $network $local_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: opensnitchd daemon
-# Description: opensnitch application firewall
-### END INIT INFO
+{
+    # ======================================================================
+    # Server Configuration: gRPC Socket and Logging
+    # ======================================================================
+    "Server":
+    {
+        # Unix socket path for the OpenSnitch UI gRPC connection.
+        # The UI client connects here to send requests and receive alerts.
+        "Address": "unix://{{ server_socket_path | default('/tmp/osui.sock') }}",
 
-NAME=opensnitchd
-# Directory where the daemon's PID file is stored
-PIDDIR={{ pid_dir | default('/var/run/opensnitchd') }}
-OPENSNITCHDPID=$PIDDIR/$NAME.pid
+        # Path to the daemon log file.
+        # All operational logs will be written to this file.
+        "LogFile": "{{ daemon_log_file | default('/var/log/opensnitchd.log') }}"
+    },
 
-# clear conflicting settings from the environment
-unset TMPDIR
+    # ======================================================================
+    # Default Action Configuration
+    # ======================================================================
+    # DefaultAction sets the behavior for connections that do not match
+    # any specific rule defined in the rules directory.
+    # Valid values: "allow", "drop", "ask"
+    "DefaultAction": "{{ default_action | default('allow') }}",
 
-test -x /usr/bin/$NAME || exit 0
+    # DefaultDuration specifies how long the DefaultAction applies.
+    # Valid values: "once" (applies to this connection only), "always" (permanent exception)
+    "DefaultDuration": "{{ default_duration | default('once') }}",
 
-. /lib/lsb/init-functions
+    # InterceptUnknown determines if the firewall should intercept
+    # connections that are not recognized by the system (e.g., if process info is missing).
+    # Values: true, false
+    "InterceptUnknown": {{ intercept_unknown | default(false) | lower }},
 
-case $1 in
-    start)
-        log_daemon_msg "Starting opensnitch daemon" $NAME
-        if [ ! -d /etc/$NAME/rules ]; then
-            mkdir -p /etc/$NAME/rules &>/dev/null
-        fi
+    # ======================================================================
+    # Monitoring and Firewall Backend Configuration
+    # ======================================================================
+    # ProcMonitorMethod defines how the daemon monitors processes to identify
+    # the binary/executable associated with network traffic.
+    # Valid values: "ebpf" (eBPF-based, requires kernel support), "procfs" (legacy /proc scanning)
+    "ProcMonitorMethod": "{{ proc_monitor_method | default('ebpf') }}",
 
-        # Make sure we have our PIDDIR, even if it's on a tmpfs
-        install -o root -g root -m 755 -d $PIDDIR
+    # LogLevel sets the verbosity of the log output.
+    # Range: 0 (emergency) to 4 (debug), with 2 being info (standard).
+    "LogLevel": {{ log_level | default(2) }},
 
-        # Pass the rules path to the opensnitchd binary
-        # Path to the rules directory used by opensnitchd
-        if ! start-stop-daemon --start --quiet --oknodo --pidfile $OPENSNITCHDPID --background --exec /usr/bin/$NAME -- -rules-path {{ (daemon | default({})).rules_path | default('/etc/opensnitchd/rules') }}; then
-            log_end_msg 1
-            exit 1
-        fi
+    # LogUTC forces timestamps to be logged in UTC instead of local time.
+    # Values: true, false
+    "LogUTC": {{ log_utc | default(true) | lower }},
 
-        log_end_msg 0
-        ;;
-    stop)
+    # LogMicro enables microsecond precision in log timestamps.
+    # Useful for high-throughput debugging.
+    # Values: true, false
+    "LogMicro": {{ log_micro | default(false) | lower }},
 
-        log_daemon_msg "Stopping $NAME daemon" $NAME
+    # Firewall specifies the backend firewall technology to use for rules enforcement.
+    # Valid values: "iptables" (legacy, slower), "nftables" (modern, faster)
+    "Firewall": "{{ firewall_backend | default('nftables') }}",
 
-        start-stop-daemon --stop --quiet --signal QUIT --name $NAME
-        # Wait a little and remove stale PID file
-        sleep 1
-        if [ -f $OPENSNITCHDPID ] && ! ps h `cat $OPENSNITCHDPID` > /dev/null
-        then
-            rm -f $OPENSNITCHDPID
-        fi
+    # ======================================================================
+    # Rules Configuration
+    # ======================================================================
+    "Rules": {
+        # Path to the directory containing rule definition files (JSON/YAML).
+        # Rules are loaded from files in this directory at startup and on reload.
+        "Path": "{{ daemon_rules_path | default('/etc/opensnitchd/rules') }}/"
+    },
 
-        log_end_msg 0
+    # ======================================================================
+    # Stats Configuration
+    # ======================================================================
+    "Stats": {
+        # Maximum number of individual events to keep in stats history before pruning.
+        "MaxEvents": {{ stats_max_events | default(150) }},
 
-        ;;
-    reload)
-        log_daemon_msg "Reloading $NAME" $NAME
+        # Maximum number of stats entries (summaries/aggregations) to keep.
+        "MaxStats": {{ stats_max_stats | default(25) }},
 
-        start-stop-daemon --stop --quiet --signal HUP --pidfile $OPENSNITCHDPID
+        # Number of workers used for asynchronous processing of stats.
+        "Workers": {{ stats_workers | default(6) }}
+    },
 
-        log_end_msg 0
-        ;;
-    restart|force-reload)
-        $0 stop
-        sleep 1
-        $0 start
-        ;;
-        status)
-        status_of_proc /usr/bin/$NAME $NAME
-        exit $?
-        ;;
-    *)
-        echo "Usage: /etc/init.d/opensnitchd {start|stop|reload|restart|force-reload|status}"
-        exit 1
-        ;;
-esac
+    # ======================================================================
+    # Internal Daemon Configuration
+    # ======================================================================
+    "Internal": {
+        # Garbage collection target percentage.
+        # Controls the Go runtime's GC aggressiveness. Lower values trigger
+        # more frequent GC at the cost of CPU; 100 is the Go default.
+        "GCPercent": {{ internal_gc_percent | default(100) }},
 
-exit 0
+        # FlushConnsOnStart forces the daemon to flush existing connection
+        # records upon startup, preventing stale rules from affecting new sessions immediately.
+        # Values: true, false
+        "FlushConnsOnStart": {{ internal_flush_conns_on_start | default(false) | lower }}
+    },
+
+    # ======================================================================
+    # Daemon Runtime Configuration
+    # ======================================================================
+    # PIDDir specifies the directory where the daemon's PID file is stored.
+    # This allows systemd or other supervisors to track the daemon process.
+    "PIDDir": "{{ pid_dir | default('/var/run/opensnitchd') }}"
+}

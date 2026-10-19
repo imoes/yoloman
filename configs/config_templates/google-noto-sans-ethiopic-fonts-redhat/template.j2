@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Self-documenting Fontconfig template for Google Noto Sans Ethiopic Fonts (RedHat package).
+  This configuration maps specific Ethiopic language scripts to the Noto Sans Ethiopic font family
+  and disables hash hinting to ensure consistent rendering.
+-->
+<fontconfig>
+  {#
+    Loop through the configured language codes to create a <match> rule for each.
+    This avoids repetitive boilerplate and allows easy addition of more scripts.
+  #}
+  {% for lang in [lang_code_1, lang_code_2, lang_code_3, lang_code_4, lang_code_5, lang_code_6, lang_code_7, lang_code_8] %}
+    {# Skip empty language codes to avoid generating broken config blocks #}
+    {% if lang is defined and lang %}
+  <match>
+    {# Test if the font request contains the current language code #}
+    <!-- Match fonts requested for this specific language -->
+    <test name="lang" compare="contains">
+      <string>{{ lang }}</string>
+    </test>
+    {# Test if the fallback font family is sans-serif #}
+    <!-- Ensure this rule applies to sans-serif fonts -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    {# Prepend Noto Sans Ethiopic to the font list for this language #}
+    <!-- Prepend the Noto Sans Ethiopic font family -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Ethiopic') }}</string>
+    </edit>
+    {# Disable font hash hinting for better Ethiopic script rendering #}
+    <!-- Disable hash hinting for this language match -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hinting_disabled | default(false) | ternary('true', 'false') }}</bool>
+    </edit>
+  </match>
+    {% endif %}
+  {% endfor %}
+
+  {# Define the alias so "Noto Sans Ethiopic" resolves to "sans-serif" if not found, or vice versa #}
+  <alias>
+    <!-- Alias definition for the Noto Sans Ethiopic font family -->
+    <family>{{ font_family | default('Noto Sans Ethiopic') }}</family>
+    <default>
+      <!-- Default fallback to system sans-serif -->
+      <family>sans-serif</family>
+    </default>
+  </alias>
+</fontconfig>

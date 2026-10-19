@@ -1,0 +1,75 @@
+<!--
+  ============================================================================
+  Rtkit (RealtimeKit) D-Bus Policy Configuration
+  ============================================================================
+  This file configures the D-Bus system bus policies for RealtimeKit.
+  It grants permission to the rtkit user and root user to own the
+  RealtimeKit service, and defines access rules for clients interacting
+  with the service.
+  
+  Variables used:
+    - rtkit_user: The system user account running the RealtimeKit daemon.
+    - dbus_service_name: The unique D-Bus service name identifier for RealtimeKit.
+    - root_user: The superuser account allowed administrative access.
+  ============================================================================
+-->
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!-- Grant the rtkit user ownership of the RealtimeKit service -->
+  <!-- Schema field: rtkit_user (default: 'rtkit') -->
+  <policy user="{{ rtkit_user | default('rtkit') }}">
+    <!-- Allow owning the service bus name -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <allow own="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"/>
+  </policy>
+
+  <!-- Grant the root user ownership of the RealtimeKit service -->
+  <!-- Schema field: root_user (default: 'root') -->
+  <policy user="{{ root_user | default('root') }}">
+    <!-- Allow owning the service bus name -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <allow own="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"/>
+  </policy>
+
+  <!-- Default policy for all other clients -->
+  <policy context="default">
+    <!-- Allow clients to send messages to the RealtimeKit service -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"/>
+    
+    <!-- Allow clients to receive messages originating from the RealtimeKit service -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <allow receive_sender="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"/>
+
+    <!-- Deny arbitrary clients from calling privileged 'Exit' method -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <deny send_destination="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"
+          send_interface="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}" send_member="Exit"/>
+    
+    <!-- Deny arbitrary clients from calling privileged 'ResetKnown' method -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <deny send_destination="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"
+          send_interface="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}" send_member="ResetKnown"/>
+    
+    <!-- Deny arbitrary clients from calling privileged 'ResetAll' method -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <deny send_destination="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"
+          send_interface="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}" send_member="ResetAll"/>
+  </policy>
+
+  <!-- Allow root user to interact with the RealtimeKit service -->
+  <!-- Schema field: root_user (default: 'root') -->
+  <policy user="{{ root_user | default('root') }}">
+    <!-- Allow sending messages to the service -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"/>
+    
+    <!-- Allow receiving messages from the service -->
+    <!-- Schema field: dbus_service_name (default: 'org.freedesktop.RealtimeKit1') -->
+    <allow receive_sender="{{ dbus_service_name | default('org.freedesktop.RealtimeKit1') }}"/>
+  </policy>
+
+</busconfig>

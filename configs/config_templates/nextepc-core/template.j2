@@ -1,155 +1,362 @@
-# NextEPC Configuration Template
-# This template generates the nextepc.conf configuration file.
-# It is self-documenting: every variable usage is accompanied by its schema description.
-
-# MongoDB connection URI for NextEPC database.
-# Defaults to 'mongodb://localhost/nextepc' if not specified.
 db_uri: {{ db_uri | default('mongodb://localhost/nextepc') }}
 
 logger:
     # Path to the log file.
-    # Defaults to '/var/log/nextepc/nextepc.log' if not specified.
     file: {{ logger_file | default('/var/log/nextepc/nextepc.log') }}
     trace:
         # Trace level for application logs.
-        # Defaults to 1 if not specified.
-        app: {{ logger_trace_app | default(1) }}
+        app: {{ logger_trace_app | default('1') }}
         # Trace level for S1AP logs.
-        # Defaults to 1 if not specified.
-        s1ap: {{ logger_trace_s1ap | default(1) }}
+        s1ap: {{ logger_trace_s1ap | default('1') }}
         # Trace level for NAS logs.
-        # Defaults to 1 if not specified.
-        nas: {{ logger_trace_nas | default(1) }}
+        nas: {{ logger_trace_nas | default('1') }}
         # Trace level for Diameter logs.
-        # Defaults to 1 if not specified.
-        diameter: {{ logger_trace_diameter | default(1) }}
+        diameter: {{ logger_trace_diameter | default('1') }}
         # Trace level for GTPv2 logs.
-        # Defaults to 1 if not specified.
-        gtpv2: {{ logger_trace_gtpv2 | default(1) }}
+        gtpv2: {{ logger_trace_gtpv2 | default('1') }}
         # Trace level for GTP logs.
-        # Defaults to 1 if not specified.
-        gtp: {{ logger_trace_gtp | default(1) }}
+        gtp: {{ logger_trace_gtp | default('1') }}
 
+# parameter:
+#
+#  o Number of output streams per SCTP associations.
+#      sctp_streams: 30
+#
+#  o Disable use of IPv4 addresses (only IPv6)
+#      no_ipv4: true
+#
+#  o Disable use of IPv6 addresses (only IPv4)
+#      no_ipv6: true
+#
+#  o Prefer IPv4 instead of IPv6 for estabishing new GTP connections.
+#      prefer_ipv4: true
+#
+#  o Enable Multicast traffic to the UE
+#      multicast: true
+#
+#  o Disable Stateless Address Autoconfiguration for IPv6
+#      no_slaac: true
+#
+#
 parameter:
     # Disable use of IPv6 addresses (only IPv4).
-    # Defaults to True if not specified.
-    no_ipv6: {{ parameter_no_ipv6 | default(True) | lower }}
+    no_ipv6: {{ parameter_no_ipv6 | default('true') }}
 
 mme:
     # FreeDiameter configuration file for MME.
-    # Defaults to 'mme.conf' if not specified.
     freeDiameter: {{ mme_freeDiameter | default('mme.conf') }}
 
+#
+#  <S1AP Server>>
+#
+#  o S1AP Server(all address avaiable)
+#    s1ap:
+#
+#  o S1AP Server(0.0.0.0:36412)
+#    s1ap:
+#      addr: 0.0.0.0
+#
+#  o S1AP Server(127.0.0.1:36412, [::1]:36412)
+#    s1ap:
+#      - addr: 127.0.0.1
+#      - addr: ::1
+
+#  o S1AP Server(different port)
+#    s1ap:
+#      - addr: 127.0.0.1
+#        port: 36413
+#
+#  o S1AP Server(address avaiable in `eth0` interface)
+#    s1ap:
+#      dev: eth0
+#
     s1ap:
-        # S1AP Server configuration.
-        # If not specified, listens on all available addresses.
 
+#
+#  <GTP-C Server>>
+#
+#  o GTP-C Server(all address avaiable)
+#    gtpc:
+#
+#  o GTP-C Server(127.0.0.1:2123, [::1]:2123)
+#    gtpc:
+#      - addr: 127.0.0.1
+#      - addr: ::1
+#
     gtpc:
-        # GTP-C Server configuration.
-        # If not specified, listens on all available addresses.
 
-    # GUMMEI (Globally Unique MME Identifier)
+#
+#  <GUMMEI>
+#
+#  o Multiple GUMMEI
+#    gummei:
+#      - plmn_id:
+#          mcc: 001
+#          mnc: 01
+#        mme_gid: 2
+#        mme_code: 1
+#      - plmn_id:
+#          - mcc: 002
+#            mnc: 02
+#          - mcc: 003
+#            mnc: 03
+#        mme_gid: [3, 4]
+#        mme_code:
+#          - 2
+#          - 3
+#
     gummei:
-        plmn_id:
-            # Mobile Country Code for GUMMEI.
-            # Defaults to '001' if not specified.
-            mcc: {{ gummei_plmn_id_mcc | default('001') }}
-            # Mobile Network Code for GUMMEI.
-            # Defaults to '01' if not specified.
-            mnc: {{ gummei_plmn_id_mnc | default('01') }}
-        # MME Group ID.
-        # Defaults to 2 if not specified.
-        mme_gid: {{ gummei_mme_gid | default(2) }}
-        # MME Code.
-        # Defaults to 1 if not specified.
-        mme_code: {{ gummei_mme_code | default(1) }}
+      plmn_id:
+        # Mobile Country Code for GUMMEI.
+        mcc: {{ gummei_plmn_id_mcc | default('001') }}
+        # Mobile Network Code for GUMMEI.
+        mnc: {{ gummei_plmn_id_mnc | default('01') }}
+      # MME Group ID.
+      mme_gid: {{ gummei_mme_gid | default('2') }}
+      # MME Code.
+      mme_code: {{ gummei_mme_code | default('1') }}
 
-    # TAI (Tracking Area Identity)
+#
+#  <TAI>
+#
+#  o Multiple TAI
+#    tai:
+#      - plmn_id:
+#          mcc: 001
+#          mnc: 01
+#        tac: [1, 2, 3]
+#    tai:
+#      - plmn_id:
+#          mcc: 002
+#          mnc: 02
+#        tac: 4
+#      - plmn_id:
+#          mcc: 003
+#          mnc: 03
+#        tac: 5
+#    tai:
+#      - plmn_id:
+#          mcc: 004
+#          mnc: 04
+#        tac: [6, 7]
+#      - plmn_id:
+#          mcc: 005
+#          mnc: 05
+#        tac: 8
+#      - plmn_id:
+#          mcc: 006
+#          mnc: 06
+#        tac: [9, 10]
+#
     tai:
-        plmn_id:
-            # Mobile Country Code for TAI.
-            # Defaults to '001' if not specified.
-            mcc: {{ tai_plmn_id_mcc | default('001') }}
-            # Mobile Network Code for TAI.
-            # Defaults to '01' if not specified.
-            mnc: {{ tai_plmn_id_mnc | default('01') }}
-        # Tracking Area Code.
-        # Defaults to 12345 if not specified.
-        tac: {{ tai_tac | default(12345) }}
+      plmn_id:
+        # Mobile Country Code for TAI.
+        mcc: {{ tai_plmn_id_mcc | default('001') }}
+        # Mobile Network Code for TAI.
+        mnc: {{ tai_plmn_id_mnc | default('01') }}
+      # Tracking Area Code.
+      tac: {{ tai_tac | default('12345') }}
 
     security:
         # Order of integrity protection algorithms.
-        # Defaults to ['EIA1', 'EIA2', 'EIA0'] if not specified.
-        integrity_order : {{ security_integrity_order | default(['EIA1', 'EIA2', 'EIA0']) | tojson }}
+        integrity_order: {{ security_integrity_order | default('[ EIA1, EIA2, EIA0 ]') }}
         # Order of ciphering algorithms.
-        # Defaults to ['EEA0', 'EEA1', 'EEA2'] if not specified.
-        ciphering_order : {{ security_ciphering_order | default(['EEA0', 'EEA1', 'EEA2']) | tojson }}
+        ciphering_order: {{ security_ciphering_order | default('[ EEA0, EEA1, EEA2 ]') }}
+
+#
+#  <Network Name>
+#    network_name:
+#        full: NextEPC
+#        short: Next
+#
 
     network_name:
         # Full name of the network.
-        # Defaults to 'NextEPC' if not specified.
         full: {{ network_name_full | default('NextEPC') }}
 
 hss:
     # FreeDiameter configuration file for HSS.
-    # Defaults to 'hss.conf' if not specified.
     freeDiameter: {{ hss_freeDiameter | default('hss.conf') }}
 
 sgw:
+#
+#  ------------------------ MME --------------------------
+#
+#  o Specify SGW addresses the GTP-C must connect to
+#
+#  o One SGW is defined. If prefer_ipv4 is not true, [fe80::2%lo] is selected.
+#    gtpc:
+#      addr:
+#        - 127.0.0.2
+#        - fe80::2%lo
+#
+#  o Two SGW are defined. MME selects SGW with round-robin manner per UE
+#    gtpc:
+#      - addr: 127.0.0.2
+#      - addr: fe80::2%lo
+#
+#  o Three SGW are defined. MME selects SGW with round-robin manner per UE
+#    gtpc:
+#      - addr
+#        - 127.0.0.2
+#        - fe80::2%lo
+#      - addr
+#        - 127.0.0.12
+#        - fe80::12%lo
+#      - name: sgw3.nextepc.org
+#
+#  ------------------------ SGW --------------------------
+#
+#  o GTP-C Server(127.0.0.2:2123, [fe80::2%lo]:2123)
+#    gtpc:
+#      addr:
+#        - 127.0.0.2
+#        - fe80::2%lo
+#
+#  o On SGW, Same Configuration(127.0.0.2:2123, [fe80::2%lo]:2123) as below.
+#    gtpc:
+#      - addr: 127.0.0.2
+#      - addr: fe80::2%lo
+#
     gtpc:
         # SGW GTP-C address.
-        # Defaults to '127.0.0.2' if not specified.
         addr: {{ sgw_gtpc_addr | default('127.0.0.2') }}
 
+#
+#  <GTP-U Server>>
+#
+#  o GTP-U Server(all address avaiable)
+#    gtpu:
+#
     gtpu:
-        # GTP-U Server configuration.
-        # If not specified, listens on all available addresses.
 
 pgw:
     # FreeDiameter configuration file for PGW.
-    # Defaults to 'pgw.conf' if not specified.
     freeDiameter: {{ pgw_freeDiameter | default('pgw.conf') }}
 
+#
+#  ------------------------ MME --------------------------
+#
+#  o Only first node is attempted. Others are ignored.
+#  o if HSS provide PGW addresss(per-UE), DB overwrites YAML-configuration.
+#
+#  o Two PGW are defined. 127.0.0.3:2123 is attempted. [fe80::3%lo]:2123 is ignored.
+#    gtpc:
+#      - addr: 127.0.0.3
+#      - addr: fe80::3%lo
+#
+#  o One PGW is defined. if prefer_ipv4 is not true, [fe80::3%lo] is selected.
+#    gtpc:
+#      - addr:
+#        - 127.0.0.3
+#        - fe80::3%lo
+#
+#  ------------------------ PGW --------------------------
+#
+#  o GTP-C Server(127.0.0.3:2123, [fe80::3%lo]:2123)
+#    gtpc:
+#      addr:
+#        - 127.0.0.3
+#        - fe80::3%lo
+#
+#  o On PGW, Same configuration(127.0.0.3:2123, [fe80::3%lo]:2123) as below.
+#    gtpc:
+#      - addr: 127.0.0.3
+#      - addr: fe80::3%lo
+#
     gtpc:
-        # GTP-C Server configuration for PGW.
-        # Supports multiple addresses for redundancy/load balancing.
         addr:
             # PGW GTP-C address 0.
-            # Defaults to '127.0.0.3' if not specified.
             - {{ pgw_gtpc_addr_0 | default('127.0.0.3') }}
             # PGW GTP-C address 1.
-            # Defaults to '::1' if not specified.
             - {{ pgw_gtpc_addr_1 | default('::1') }}
 
+#
+#  <GTP-U Server>>
+#
+#  o GTP-U Server(127.0.0.3:2152, [::1]:2152)
+#    gtpu:
+#      - addr: 127.0.0.3
+#      - addr: ::1
+#
+#  o Same configuration(127.0.0.3:2152, [::1]:2152) as below.
+#    gtpu:
+#      name: localhost
+#
     gtpu:
-        # GTP-U Server configuration for PGW.
-        - addr:
-            # PGW GTP-U address 0.
-            # Defaults to '127.0.0.3' if not specified.
-            - {{ pgw_gtpu_addr_0 | default('127.0.0.3') }}
-            # PGW GTP-U address 1.
-            # Defaults to '::1' if not specified.
-            - {{ pgw_gtpu_addr_1 | default('::1') }}
+        - addr: {{ pgw_gtpu_addr_0 | default('127.0.0.3') }}
+        - addr: {{ pgw_gtpu_addr_1 | default('::1') }}
 
-ue_pool:
-    # UE Pool addresses for assigning IPs to User Equipment.
-    - addr:
-        # UE Pool address 0.
-        # Defaults to '45.45.0.1/16' if not specified.
-        - {{ ue_pool_0_addr | default('45.45.0.1/16') }}
-    - addr:
-        # UE Pool address 1.
-        # Defaults to 'cafe::1/64' if not specified.
-        - {{ ue_pool_1_addr | default('cafe::1/64') }}
+#
+#  <UE Pool>
+#
+#  o IPv4 Pool
+#    $ sudo ip addr add 45.45.0.1/16 dev pgwtun
+#
+#    ue_pool:
+#      addr: 45.45.0.1/16
+#
+#  o IPv4/IPv6 Pool
+#    $ sudo ip addr add 45.45.0.1/16 dev pgwtun
+#    $ sudo ip addr add cafe:1::1/64 dev pgwtun
+#
+#
+#  o Specific APN(e.g 'volte') uses 45.46.0.1/16, cafe:2::1/64
+#    All other APNs use 45.45.0.1/16, cafe:1::1/64
+#    $ sudo ip addr add 45.45.0.1/16 dev pgwtun
+#    $ sudo ip addr add 45.46.0.1/16 dev pgwtun
+#    $ sudo ip addr add cafe:1::1/64 dev pgwtun
+#    $ sudo ip addr add cafe:2::1/64 dev pgwtun
+#
+#    ue_pool:
+#      - addr: 45.45.0.1/16
+#      - addr: cafe:1::1/64
+#      - addr: 45.46.0.1/16
+#        apn: volte
+#      - addr: cafe:2::1/64
+#        apn: volte
+#
+#  o Multiple Devices (default: pgwtun)
+#    $ sudo ip addr add 45.45.0.1/16 dev pgwtun
+#    $ sudo ip addr add cafe:1::1/64 dev pgwtun2
+#    $ sudo ip addr add 45.46.0.1/16 dev pgwtun3
+#    $ sudo ip addr add cafe:2::1/64 dev pgwtun3
+#
+#    ue_pool:
+#      - addr: 45.45.0.1/16
+#      - addr: cafe:1::1/64
+#        dev: pgwtun2
+#      - addr: 45.46.0.1/16
+#        apn: volte
+#        dev: pgwtun3
+#      - addr: cafe:2::1/64
+#        apn: volte
+#        dev: pgwtun3
+#
+    ue_pool:
+        - addr: {{ ue_pool_0_addr | default('45.45.0.1/16') }}
+        - addr: {{ ue_pool_1_addr | default('cafe::1/64') }}
 
-dns:
-    # Domain Name Server addresses.
-    - {{ dns_0 | default('8.8.8.8') }}
-    - {{ dns_1 | default('8.8.4.4') }}
-    - {{ dns_2 | default('2001:4860:4860::8888') }}
-    - {{ dns_3 | default('2001:4860:4860::8844') }}
+#
+#  <Domain Name Server>
+#
+#  o Primary/Secondary can be configured. Others are ignored.
+#
+    dns:
+        - {{ dns_0 | default('8.8.8.8') }}
+        - {{ dns_1 | default('8.8.4.4') }}
+        - {{ dns_2 | default('2001:4860:4860::8888') }}
+        - {{ dns_3 | default('2001:4860:4860::8844') }}
+
+#
+#  <P-CSCF>
+#
+#  o Proxy Call Session Control Function
+#
+#    p-cscf:
+#      - 127.0.0.1
+#      - ::1
+#
 
 pcrf:
-    # FreeDiameter configuration file for PCRF.
-    # Defaults to 'pcrf.conf' if not specified.
-    freeDiameter: {{ pcrf_freeDiameter | default('pcrf.conf') }}
+    freeDiameter: pcrf.conf

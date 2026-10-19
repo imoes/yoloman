@@ -1,78 +1,43 @@
-[# Main munin-node configuration
-[main]
+#
+# munin-node configuration (munin-node.conf(5)): one `key value` per line, no sections.
+# Written from the shipped file; every default reproduces it. The earlier template invented an INI layout
+# ([main], [df], …) and munin-node refused it ("Line is not well formed ([)").
+#
 
-# Log file location
-logfile: {{ main.logfile }}
+log_level {{ log_level | default(4) }}
+log_file {{ log_file | default('/var/log/munin/munin-node.log') }}
+pid_file {{ pid_file | default('/var/run/munin/munin-node.pid') }}
 
-# PID file location
-pid_file: {{ main.pid_file }}
+background {{ background | default(1) }}
+setsid {{ setsid | default(1) }}
 
-# Port the munin-node listens on
-port: {{ main.port }}
+user {{ user | default('root') }}
+group {{ group | default('root') }}
 
-# Hostname this node reports as (used for master authentication)
-host_name: {{ main.host_name }}
-
-# Timeout for client connections (seconds)
-timeout: {{ main.timeout }}
-
-# Allow connections from these networks/CIDRs
-{% for net in main.allow %}
-allow ^{{ net }}$
-{% endfor %}
-
-# Deny connections from these networks/CIDRs (if any)
-{% if main.deny %}
-{% for net in main.deny %}
-deny ^{{ net }}$
-{% endfor %}
+# This is the timeout for the whole transaction (seconds; munin's default is 900).
+{% if global_timeout is defined and global_timeout is not none and global_timeout != '' %}global_timeout {{ global_timeout }}
+{% else %}# global_timeout 900
 {% endif %}
-
-# Host-specific plugin configuration
-{% for plugin in plugins %}
-[{{ plugin.name }}]
-{% if plugin.env %}
-{% for key, value in plugin.env.items() %}
-env.{{ key }} {{ value }}
-{% endfor %}
+# This is the timeout for each plugin (seconds; munin's default is 60).
+{% if timeout is defined and timeout is not none and timeout != '' %}timeout {{ timeout }}
+{% else %}# timeout 60
 {% endif %}
+# Regexps for files to ignore
+{% for pattern in ignore_files | default(['[\\#~]$', 'DEADJOE$', '\\.bak$', '%$', '\\.dpkg-(tmp|new|old|dist)$', '\\.rpm(save|new)$', '\\.pod$']) %}ignore_file {{ pattern }}
 {% endfor %}
-
-# Group-specific plugin configuration (for plugins with multiple instances)
-{% for group in plugin_groups %}
-# {{ group.description }}
-[{{ group.name }}]
-{% if group.env %}
-{% for key, value in group.env.items() %}
-env.{{ key }} {{ value }}
-{% endfor %}
+# Set this if the client doesn't report the correct hostname when telnetting to localhost, port 4949
+{% if host_name is defined and host_name is not none and host_name != '' %}host_name {{ host_name }}
+{% else %}#host_name localhost.localdomain
 {% endif %}
+# Addresses allowed to connect: regular expressions (Net::Server does not understand CIDR without Net::CIDR).
+{% for re in allow | default(['^127\\.0\\.0\\.1$', '^::1$']) %}allow {{ re }}
 {% endfor %}
-
-# Plugin-specific host rules
-{% if plugin_rules %}
-{% for rule in plugin_rules %}
-# {{ rule.description }}
-[{{ rule.plugin }}:{{ rule.instance }}]
-{% if rule.env %}
-{% for key, value in rule.env.items() %}
-env.{{ key }} {{ value }}
+# With the Net::CIDR perl module: a client must match any cidr_allow and no cidr_deny (a netmask is required).
+{% for net in cidr_allow | default([]) %}cidr_allow {{ net }}
+{% endfor %}{% for net in cidr_deny | default([]) %}cidr_deny {{ net }}
 {% endfor %}
-{% endif %}
-{% endfor %}
-{% endif %}
+# Which address to bind to
+host {{ host | default('*') }}
 
-# TLS/SSL settings (optional, for newer munin-node versions)
-{% if tls.enabled %}
-ssl yes
-ssl_key_file {{ tls.key_file }}
-ssl_cert_file {{ tls.cert_file }}
-ssl_ca_file {{ tls.ca_file | default('') }}
-{% endif %}
-
-# User/group to run as
-user {{ user }}
-group {{ group }}
-
-# Directory containing plugins
-plugins_dir {{ plugins_dir }}
+# And which port
+port {{ port | default(4949) }}

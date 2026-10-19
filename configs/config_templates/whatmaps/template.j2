@@ -1,14 +1,32 @@
-# Whatmaps configuration template
-# Manages the whatmaps service, which scans for open network services
-# that are not handled by any known service manager.
+// =============================================================================
+// whatmaps Configuration Template
+// =============================================================================
+// Whatmaps is a tool that scans running binaries to identify installed packages
+// that are currently in use, often used in conjunction with AppArmor to restrict
+// access to only necessary files.
 
-# Set to 1 or true to enable service restarts on security updates
+// -----------------------------------------------------------------------------
+// Service Restart on Security Updates
+// -----------------------------------------------------------------------------
+// Schema Description: Set to 1 or true to enable service restarts on security updates
+// If enabled, whatmaps will restart the service (or trigger a reload) after
+// applying security updates to ensure the latest binaries are monitored.
 Whatmaps::Enable-Restart "{{ enable_restart | default('0') }}";
 
-# Define which distribution repositories are considered sources for security updates.
-# The configuration dynamically includes the distribution identifier and codename
-# to ensure the correct security repositories are monitored.
+// -----------------------------------------------------------------------------
+// Security Update Origins
+// -----------------------------------------------------------------------------
+// Schema Description: The distribution identifier variable
+// Schema Description: The distribution codename variable
+// Defines the APT sources that are considered "security" updates. Whatmaps uses
+// this to determine which package updates require a service restart/reload.
+// The format typically follows: {distro_id} {component}
 Whatmaps::Security-Update-Origins {
-   "{{ distro_id | default('${distro_id}') }} stable";
-   "{{ distro_id | default('${distro_id}') }} {{ distro_codename | default('${distro_codename}') }}-security";
+    // Primary stable repository identifier
+    // Schema Description: The distribution identifier variable
+    "{{ distro_id | default('${distro_id}') }} stable";
+    
+    // Security-specific repository for the current distribution codename
+    // Schema Description: The distribution codename variable
+    "{{ distro_id | default('${distro_id}') }} {{ distro_codename | default('${distro_codename}') }}-security";
 };

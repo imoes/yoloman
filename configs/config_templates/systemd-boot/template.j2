@@ -1,32 +1,45 @@
+{# ============================================================================ #}
+{# systemd-boot kernel installation helper script                               #}
+{#                                                                                #}
+{# This script is used by `kernel-install` to register a new kernel with          #}
+{# systemd-boot. It locates the kernel and initrd images in the boot directory    #}
+{# and calls `bootctl` to update the boot loader entries.                          #}
+{#                                                                                #}
+{# Variables are sourced from the Ansible playbook schema.                         #}
+{# ============================================================================ #}
+
 #!/bin/sh
 
 set -eu
 
-# Ensure bootctl is available; if not, this script is a no-op.
+{# Check if bootctl is installed; if not, the system doesn't use systemd-boot. #}
 test -x /usr/bin/bootctl || exit 0
 
-# Ensure systemd-boot is actually installed for this boot directory;
-# if not, there is nothing to update, so exit gracefully.
+{# Verify that systemd-boot is actually installed on this system.              #}
 bootctl is-installed --quiet || exit 0
 
-# Locate the kernel image for the given version ($1).
-# Priority: vmlinuz-<version> over vmlinux-<version>.
-# The base directory for kernel images is configurable via boot_directory.
-if [ -f "{{ boot_directory | default('/boot') }}/vmlinuz-$1" ]; then
-    k="{{ boot_directory | default('/boot') }}/vmlinuz-$1"
-elif [ -f "{{ boot_directory | default('/boot') }}/vmlinux-$1" ]; then
-    k="{{ boot_directory | default('/boot') }}/vmlinux-$1"
+{# Determine the boot directory from schema defaults.                         #}
+{# Default: /boot                                                              #}
+{% set boot_dir = boot_directory | default('/boot') %}
+
+{# Locate the kernel image.                                                     #}
+{# The kernel version is passed as the first argument ($1).                    #}
+{# systemd-boot expects kernel images in the boot directory.                   #}
+{# Try common naming conventions: vmlinuz-<version> or vmlinux-<version>.      #}
+if [ -f "{{ boot_dir }}/vmlinuz-$1" ]; then
+    k="{{ boot_dir }}/vmlinuz-$1"
+elif [ -f "{{ boot_dir }}/vmlinux-$1" ]; then
+    k="{{ boot_dir }}/vmlinux-$1"
 else
-    # Kernel version not found in the configured boot directory.
-    echo "Kernel version $1 not found in {{ boot_directory | default('/boot') }}."
+    {# If neither image is found, inform the user and exit gracefully.         #}
+    echo "Kernel version $1 not found in {{ boot_dir }}."
     exit 0
 fi
 
+{# Notify the user that the update process is starting.                      #}
 echo "Updating kernel version $1 in systemd-boot..."
 
-# Register the kernel with systemd-boot using kernel-install.
-# Arguments:
-#   $1 = kernel version string
-#   $k = path to the kernel image
-#   $2 = additional options/arguments passed by the caller
+{# Pass the kernel version ($1), the path to the kernel image ($k),          #}
+{# and the initrd path ($2) to kernel-install.                                #}
+{# kernel-install will handle the actual bootctl update.                      #}
 kernel-install add "$1" "$k" "$2"

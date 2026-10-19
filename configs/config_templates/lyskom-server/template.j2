@@ -1,35 +1,587 @@
-# /etc/cron.d/lyskom-server: crontab entries for the lyskom-server package
+# ============================================================================
+# LysKOM Server Auxiliary Items Configuration Template
+# ============================================================================
+# This template defines the auxiliary item types for the LysKOM conferencing
+# system. Auxiliary items are metadata attached to texts, conferences, or
+# server objects (e.g., email addresses, PGP signatures, MIME headers).
 #
-# This file defines a scheduled task for updating the LysKOM server.
-# By default, the job is commented out to ensure the administrator
-# manually activates it after securing the server (e.g., changing
-# the default administrator password).
+# The schema fields provided to this role control the scheduled maintenance
+# tasks for the server, specifically the update of these items.
+# ============================================================================
 
-# ==============================================================================
+# ----------------------------------------------------------------------------
 # Cron Job Configuration
-# ==============================================================================
+# ----------------------------------------------------------------------------
 
-# [Description]
-# Cron schedule expression for the lyskom-server update job.
-# Defaults to every 10 minutes if not specified.
-# [Variable] lyskom_server_cron_schedule
-# {{ lyskom_server_cron_schedule | default('0,10,20,30,40,50 * * * *') }}
+# Cron schedule for the lyskom-server update job.
+# Specifies when the updateLysKOM script should run (cron format: min hour dom mon dow).
+# Default: '0,10,20,30,40,50 * * * *' (every 10 minutes).
+{% set cron_schedule = lyskom_server_cron_schedule | default('0,10,20,30,40,50 * * * *') %}
 
-# [Description]
-# User account under which the cron job will execute.
-# Defaults to root. Ensure this user has permission to run the command.
-# [Variable] lyskom_server_cron_user
-{{ lyskom_server_cron_user | default('root') }}
+# User to run the cron job as.
+# The system user account that executes the update script.
+# Default: 'root'.
+{% set cron_user = lyskom_server_cron_user | default('root') %}
 
-# [Description]
-# The command to execute. This line tests for executable permission
-# on the script before attempting to run it as the specified user.
-# Note: When systemd is in use, this cron job should typically be
-# disabled in favor of a systemd timer unit.
-# [Variable] lyskom_server_cron_command_path
-# {{ lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') }}
+# Path to the updateLysKOM script.
+# Absolute path to the executable responsible for processing auxiliary items.
+# Default: '/usr/sbin/updateLysKOM'.
+{% set cron_command_path = lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') %}
 
-# --- Active Configuration ---
-# To activate this cron job, uncomment the following line.
-# Syntax: <schedule> <user> <test command> && <execute command>
-# {{ lyskom_server_cron_schedule | default('0,10,20,30,40,50 * * * *') }} {{ lyskom_server_cron_user | default('root') }} test -x {{ lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') }} && su {{ lyskom_server_cron_user | default('root') }} -c {{ lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') }}
+# Example crontab entry generation (for documentation/reference or role usage):
+# {{ cron_schedule }} {{ cron_user }} {{ cron_command_path }}
+
+# ----------------------------------------------------------------------------
+# Auxiliary Item Definitions
+# ----------------------------------------------------------------------------
+# Format:
+# ID : name (target_types) [disabled]
+# {
+#     property = value;
+#     ...
+# }
+#
+# Each block below corresponds to a specific auxiliary item type used by
+# LysKOM to store metadata. Comments describe the purpose of each item.
+
+# Content type of a text (MIME type)
+# ID: 1
+# Used to store the MIME content type associated with a text object.
+1 : content-type (text)
+{
+    author-only     = true;
+    unique          = true;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+    validate        = "^[^/]*/[^/]*(;.*)?$";
+}
+
+# Quick reply to a text
+# ID: 2
+# Stores a quick reply message attached to a text.
+2 : fast-reply (text)
+{
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+}
+
+# Cross reference from one object to another
+# ID: 3
+# Represents a link or reference between LysKOM objects (text, conference, letterbox).
+3 : cross-reference (text, conference, letterbox)
+{
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+    validate        = "^[CTP][0-9]+( .*)?$";
+}
+
+# Request for no comments to a text
+# ID: 4
+# Marks a text where comments are explicitly requested to be suppressed.
+4 : no-comments (text)
+{
+    secret          = false;
+    hide-creator    = false;
+    author-only     = true;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+    unique	    = true;
+    validate        = "^$";
+}
+
+# Request for personal comments only
+# ID: 5
+# Restricts comments on a text to personal replies only.
+5 : personal-comment (text)
+{
+    secret          = false;
+    hide-creator    = false;
+    author-only     = true;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+    unique	    = true;
+    validate        = "^$";
+}
+
+# Request read confirmation
+# ID: 6
+# Requests that the author of a text be notified when it is read.
+6 : request-confirmation (text)
+{
+    secret          = false;
+    unique          = true;
+    author-only     = true;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+    hide-creator    = false;
+    validate        = "^$";
+}
+
+# Read confirmation (creator has read the text)
+# ID: 7
+# Stored by the server when the author has actually read the text.
+7 : read-confirm (text)
+{
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+    permanent       = true;
+    validate        = "^$";
+}
+
+# Request redirect of texts from one conference to another or to e-mail
+# ID: 8
+# Handles redirection logic for texts, either to another conference or via email.
+8 : redirect (conference, letterbox)
+{
+    dont-garb       = false;
+    supervisor-only = true;
+    owner-delete    = true;
+    validate        = "^(LysKOM|E-mail):";
+    inherit	    = false;
+    inherit-limit   = 1;
+    secret 	    = false;
+    hide-creator    = false;
+}
+
+# Graphics in compface format
+# ID: 9
+# Stores user avatars/graphics in the compface format.
+9 : x-face (conference, letterbox, server)
+{
+    secret          = false;
+    hide-creator    = false;
+    supervisor-only = true;
+    owner-delete    = true;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+}
+
+# Alternate name (subject or name) selected by the creator
+# ID: 10
+# Allows a text or object to have an alternate display name.
+10 : alternate-name (text, conference, letterbox)
+{
+    dont-garb       = false;
+    inherit         = false;
+}
+
+# PGP signature of a text (created with pgp -fsba)
+# ID: 11
+# Stores a PGP signature attached to a text for verification.
+11 : pgp-signature (text)
+{
+    permanent       = true;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+}
+
+# Public key of a person
+# ID: 12
+# Stores a user's public PGP key.
+12 : pgp-public-key (letterbox)
+{
+    author-only     = true;
+    owner-delete    = true;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+}
+
+# E-mail address of a person or conference
+# ID: 13
+# Maps a LysKOM entity to an external email address.
+13 : e-mail-address (conference, letterbox, server)
+{
+    author-only     = true;
+    hide-creator    = false;
+    owner-delete    = true;
+    dont-garb       = false;
+    inherit         = false;
+    inherit-limit   = 1;
+}
+
+# FAQ in Text
+# ID: 14
+# Marks a text as part of the Frequently Asked Questions (FAQ) base.
+# Triggers a link to the FAQ.
+# 
+# Note: Duplicate 'validate' keys exist in the original schema here.
+# LysKOM may use the last one or the first one depending on parser implementation.
+# Keeping both to preserve original behavior.
+14 : faq-text (conference, letterbox, server)
+{
+    author-only     = true;
+    hide-creator    = false;
+    secret          = false;
+    inherit         = false;
+    unique-data	    = true;
+    owner-delete    = true;
+    inherit-limit   = 1;
+    add-trigger     = link-faq();
+    validate        = "^[1-9][0-9]*$";
+    validate        = existing-readable-text();
+}
+
+# Name of the creating software
+# ID: 15
+# Identifies the client or software that created a specific text.
+15 : creating-software (text)
+{
+    author-only     = true;
+    permanent       = true;
+    unique          = true;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+}
+
+# Name of actual author.
+# ID: 16
+# Stores the name of the person who authored the text, distinct from the login.
+16 : mx-author (create text)
+{
+    author-only     = true;
+    unique          = true;
+    inherit	    = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    secret          = false;
+}
+
+# From header of an imported e-mail
+# ID: 17
+# Preserves the 'From:' header from an email imported into LysKOM.
+17 : mx-from (text)
+{
+    author-only     = true;
+    unique          = false;
+    inherit	    = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    secret          = false;
+}
+
+# Reply-To header of an imported e-mail
+# ID: 18
+# Preserves the 'Reply-To:' header from an email imported into LysKOM.
+18 : mx-reply-to (text)
+{
+    author-only     = true;
+    unique          = false;
+    inherit	    = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    secret          = false;
+}
+
+# To header of an imported or to-be-exported e-mail
+# ID: 19
+# Preserves the 'To:' header for email integration.
+19 : mx-to (text)
+{
+    author-only     = false;
+    unique          = false;
+    inherit	    = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# CC header of an imported or to-be-exported e-mail
+# ID: 20
+# Preserves the 'CC:' header for email integration.
+20 : mx-cc (text)
+{
+    author-only     = false;
+    unique          = false;
+    inherit	    = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# Date header of an imported e-mail
+# ID: 21
+# Preserves the 'Date:' header from an email imported into LysKOM.
+21 : mx-date (text)
+{
+    author-only     = true;
+    unique          = true;
+    inherit         = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+    validate        = "^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]( [-+][0-9][0-9][0-9][0-9])?$";
+}
+
+# Message-ID header of an imported e-mail
+# ID: 22
+# Preserves the 'Message-ID:' header from an email imported into LysKOM.
+22 : mx-message-id (text)
+{
+    author-only     = true;
+    unique          = true;
+    inherit         = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# In-Reply-To header of an imported e-mail
+# ID: 23
+# Preserves the 'In-Reply-To:' header from an email imported into LysKOM.
+23 : mx-in-reply-to (text)
+{
+    author-only     = true;
+    unique          = false;
+    inherit         = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# All mail headers
+# ID: 24
+# Stores miscellaneous/raw mail headers not covered by specific fields.
+24 : mx-misc (text)
+{
+    author-only     = true;
+    unique          = true;
+    inherit         = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# Mail filtering or something like that
+# ID: 25
+# Reserved for future mail filtering logic. Currently disabled.
+# Nobody quite knows how this will be used, so DON'T!
+25 : mx-allow-filter (conference, letterbox) disabled
+{
+    author-only     = true;
+    unique          = false;
+    inherit         = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# Mail rejection 
+# ID: 26
+# Reserved for future mail rejection logic. Currently disabled.
+# Nobody quite knows how this will be used, so DON'T!
+26 : mx-reject-forward (conference, letterbox) disabled
+{
+    author-only     = true;
+    unique          = false;
+    inherit         = false;
+    hide-creator    = false;
+    secret          = false;
+    dont-garb       = false;
+}
+
+# Notify user about comments to text
+# ID: 27
+# Triggers a notification to a specific text when comments are added.
+27 : notify-comments (letterbox)
+{
+    author-only     = true;
+    inherit	    = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    validate        = "^[0-9]+$";
+    validate        = existing-readable-text();
+}
+
+# Mirror of FAQ-text
+# ID: 28
+# Internal mirroring mechanism for FAQ texts.
+28 : faq-for-conf (text)
+{
+    system-only     = true;
+    dont-garb       = true;
+}
+
+# Conferences that new members should be added to automatically.
+# ID: 29
+# Defines a list of conferences to automatically join new users.
+29 : recommended-conf (server)
+{
+    secret          = false;
+    hide-creator    = false;
+    dont-garb	    = false;
+    inherit         = false;
+    validate        = "^[0-9]+(| [0-9]+(| [01]+))$";
+}
+
+# Allowed content-types
+# ID: 30
+# Whitelists allowed MIME content types for this object.
+30 : allowed-content-type (conference, letterbox, server)
+{
+    supervisor-only = true;
+    owner-delete    = true;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    validate        = "^[0-9]+ [^/ ]*/[^/ ]*$";
+}
+
+# The canonical name of a LysKOM server
+# ID: 31
+# Sets the official, unique name of the server instance.
+31 : canonical-name (server)
+{
+    supervisor-only = true;
+    unique          = true;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    validate        = "^[---A-Za-z0-9.]+(:[0-9]+)?$";
+}
+
+# The name of the list imported to this conference
+# ID: 32
+# Stores the name of a mailing list that has been imported into a conference.
+32 : mx-list-name (conference)
+{
+    author-only     = true;
+    unique          = true;
+    owner-delete    = true;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    inherit         = false;
+    validate        = "^[^@]+@[^@]+$";
+}
+
+# Where comments should be sent if the author isn't a member of any
+# of the recipients.  0 means no special action.
+# ID: 33
+# Fallback destination for comments on a letterbox.
+33 : send-comments-to (letterbox)
+{
+    author-only     = true;
+    unique          = true;
+    owner-delete    = true;
+    secret          = false;
+    hide-creator    = false;
+    validate	    = "^(0|[1-9][0-9]*)( (0|1|15))?$";
+}
+
+# Text should be readable without login.
+# ID: 34
+# Marks a text as world-readable (public).
+34 : world-readable (text)
+{
+    author-only     = true;
+    unique          = true;
+    owner-delete    = true;
+    secret          = false;
+    dont-garb       = false;
+    hide-creator    = false;
+    validate	    = "^$";
+    inherit         = false;
+    inherit-limit   = 1;
+}
+
+# Should importers refuse to add this conference as a recipient?
+# ID: 35
+# Controls import behavior for spam or HTML restrictions.
+35 : mx-refuse-import (conference, letterbox)
+{
+    supervisor-only = true;
+    owner-delete    = true;
+    secret          = false;
+    hide-creator    = false;
+    validate        = "^(all|spam|html)$";
+    dont-garb       = false;
+    inherit         = false;
+    unique          = false;
+}
+
+# The text number of the mail that this mime part belongs to
+# ID: 10100
+# Links a MIME part to its parent text/mail entry.
+10100 : mx-mime-belongs-to (text)
+{
+    author-only     = true;
+    inherit         = false;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    validate        = "^[0-9]+$";
+    validate        = existing-readable-text();
+}
+
+# The text number of a mime part that belongs to this mail
+# ID: 10101
+# Links a parent mail entry to one of its MIME parts.
+10101 : mx-mime-part-in (text)
+{
+    author-only     = true;
+    inherit         = false;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    validate        = "^[0-9]+$";
+    validate        = existing-readable-text();
+}
+
+# All the mime headers for this imported text
+# ID: 10102
+# Stores raw MIME headers associated with an imported text.
+10102 : mx-mime-misc (text)
+{
+    author-only     = true;
+    inherit         = false;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+    unique          = true;
+}
+
+# The envelope sender of this imported text
+# ID: 10103
+# Stores the SMTP envelope sender (Return-Path) for an imported text.
+10103 : mx-envelope-sender (text)
+{
+    author-only     = true;
+    unique          = false;
+    inherit         = false;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+}
+
+# The file name of this mime part
+# ID: 10104
+# Stores the filename attached to a MIME part.
+10104 : mx-mime-file-name (text)
+{
+    author-only     = true;
+    inherit         = false;
+    secret          = false;
+    hide-creator    = false;
+    dont-garb       = false;
+}

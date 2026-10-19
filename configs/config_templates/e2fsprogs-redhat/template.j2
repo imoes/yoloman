@@ -1,0 +1,149 @@
+# e2fsprogs configuration defaults (/etc/mke2fs.conf)
+# This template configures the default options used by `mke2fs` and `tune2fs`
+# when creating or modifying ext2/ext3/ext4 filesystems.
+
+[defaults]
+    # Comma-separated list of default filesystem features.
+    # These features are enabled on all newly created filesystems unless overridden.
+    base_features = {{ base_features | default('sparse_super,large_file,filetype,resize_inode,dir_index,ext_attr') }}
+
+    # Default mount options applied when the filesystem is mounted.
+    default_mntopts = {{ default_mntopts | default('acl,user_xattr') }}
+
+    # Enable periodic filesystem check (0 or 1).
+    # When enabled, the filesystem will be checked periodically based on mount count or time.
+    enable_periodic_fsck = {{ enable_periodic_fsck | default('0') }}
+
+    # Default filesystem block size (bytes).
+    # Common values are 1024, 2048, or 4096.
+    blocksize = {{ blocksize | default('4096') }}
+
+    # Default inode size (bytes).
+    # Larger inode sizes support extended attributes and ACLs but use more disk space.
+    inode_size = {{ inode_size | default('256') }}
+
+    # Default inode ratio (bytes per inode).
+    # Determines how many bytes of space are allocated per inode.
+    # Lower ratio = more inodes (good for many small files), higher ratio = fewer inodes (good for large files).
+    inode_ratio = {{ inode_ratio | default('16384') }}
+
+[fs_types]
+    # ext3 filesystem type definition
+    ext3 = {
+        # Features specific to ext3 (journaling enabled)
+        features = has_journal
+    }
+
+    # ext4 filesystem type definition (general/default)
+    ext4 = {
+        # Comma-separated list of features for ext4 filesystem type.
+        # Includes journaling, extents, large file support, flexible block groups,
+        # metadata checksums, 64-bit support, directory indexing, and extra inode size.
+        features = {{ ext4_features | default('has_journal,extent,huge_file,flex_bg,metadata_csum,64bit,dir_nlink,extra_isize') }}
+    }
+
+    # RHEL6 ext4 filesystem type definition
+    rhel6_ext4 = {
+        # Comma-separated list of features for RHEL6 ext4 filesystem type.
+        # Note: RHEL6 predates metadata_csum and 64bit support in e2fsprogs defaults.
+        features = {{ rhel6_ext4_features | default('has_journal,extent,huge_file,flex_bg,uninit_bg,dir_nlink,extra_isize') }}
+
+        # Inode size for RHEL6 ext4 filesystem type.
+        inode_size = {{ rhel6_ext4_inode_size | default('256') }}
+
+        # Enable periodic fsck for RHEL6 ext4 (0 or 1).
+        enable_periodic_fsck = {{ rhel6_ext4_enable_periodic_fsck | default('1') }}
+
+        # Default mount options for RHEL6 ext4.
+        default_mntopts = "{{ rhel6_ext4_default_mntopts | default('') }}"
+    }
+
+    # RHEL7 ext4 filesystem type definition
+    rhel7_ext4 = {
+        # Comma-separated list of features for RHEL7 ext4 filesystem type.
+        # Adds 64bit support compared to RHEL6 defaults.
+        features = {{ rhel7_ext4_features | default('has_journal,extent,huge_file,flex_bg,uninit_bg,dir_nlink,extra_isize,64bit') }}
+
+        # Inode size for RHEL7 ext4 filesystem type.
+        inode_size = {{ rhel7_ext4_inode_size | default('256') }}
+    }
+
+    # RHEL8 ext4 filesystem type definition
+    rhel8_ext4 = {
+        # Comma-separated list of features for RHEL8 ext4 filesystem type.
+        # Modern defaults including metadata_csum and 64bit support.
+        features = {{ rhel8_ext4_features | default('has_journal,extent,huge_file,flex_bg,metadata_csum,64bit,dir_nlink,extra_isize') }}
+
+        # Inode size for RHEL8 ext4 filesystem type.
+        inode_size = {{ rhel8_ext4_inode_size | default('256') }}
+    }
+
+    # 'small' filesystem type (for very small devices/partitions)
+    small = {
+        # Block size for 'small' filesystem type.
+        blocksize = {{ small_blocksize | default(1024) }}
+
+        # Inode ratio for 'small' filesystem type.
+        # High ratio because small devices likely contain few files.
+        inode_ratio = {{ small_inode_ratio | default(4096) }}
+    }
+
+    # 'floppy' filesystem type (optimized for 1.44MB floppies)
+    floppy = {
+        # Block size for 'floppy' filesystem type.
+        blocksize = {{ floppy_blocksize | default(1024) }}
+
+        # Inode ratio for 'floppy' filesystem type.
+        inode_ratio = {{ floppy_inode_ratio | default(8192) }}
+    }
+
+    # 'big' filesystem type (for filesystems with many inodes but large files)
+    big = {
+        # Inode ratio for 'big' filesystem type.
+        inode_ratio = {{ big_inode_ratio | default(32786) }}
+    }
+
+    # 'huge' filesystem type (for massive files, very low inode count)
+    huge = {
+        # Inode ratio for 'huge' filesystem type.
+        inode_ratio = {{ huge_inode_ratio | default(65536) }}
+    }
+
+    # 'news' filesystem type (historical, for USENET news spools)
+    news = {
+        # Inode ratio for 'news' filesystem type.
+        inode_ratio = {{ news_inode_ratio | default(4096) }}
+    }
+
+    # 'largefile' filesystem type (optimized for single large files)
+    largefile = {
+        # Inode ratio for 'largefile' filesystem type.
+        inode_ratio = {{ largefile_inode_ratio | default(1048576) }}
+
+        # Block size for 'largefile' filesystem type.
+        # -1 means use the system default or blocksize from [defaults].
+        blocksize = {{ largefile_blocksize | default(-1) }}
+    }
+
+    # 'largefile4' filesystem type (similar to largefile but with 4k block constraints)
+    largefile4 = {
+        # Inode ratio for 'largefile4' filesystem type.
+        inode_ratio = {{ largefile4_inode_ratio | default(4194304) }}
+
+        # Block size for 'largefile4' filesystem type.
+        # -1 means use the system default.
+        blocksize = {{ largefile4_blocksize | default(-1) }}
+    }
+
+    # 'hurd' filesystem type (optimized for GNU Hurd kernel)
+    hurd = {
+        # Block size for 'hurd' filesystem type.
+        blocksize = {{ hurd_blocksize | default('4096') }}
+
+        # Inode size for 'hurd' filesystem type.
+        inode_size = {{ hurd_inode_size | default('128') }}
+
+        # Warn about Y2038 dates for 'hurd' filesystem type (0 or 1).
+        # When enabled, checks for timestamps that exceed 32-bit signed integer limits.
+        warn_y2038_dates = {{ hurd_warn_y2038_dates | default('0') }}
+    }

@@ -5,6 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { environment } from '../../../environments/environment';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 export interface ProvisionDbData { consumerAgentId: string; consumerName: string; }
 interface AgentRow { id: string; name: string; address?: string | null; }
@@ -19,7 +20,7 @@ interface SecretRef { source: string; scope_type: string; scope: string; key: st
 @Component({
   selector: 'app-provision-db-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>Provision database credential — {{ data.consumerName }}</h2>
     <mat-dialog-content>
@@ -98,7 +99,7 @@ interface SecretRef { source: string; scope_type: string; scope: string; key: st
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="ref.close(false)">Close</button>
-      <button mat-raised-button color="primary" (click)="run()" [disabled]="busy() || !canRun()">
+      <button mat-raised-button color="primary" (click)="run()" [disabled]="busy()" [bmBlocked]="!canRun() ? 'Fill in provider, admin password, database and user' : ''">
         <mat-icon>key</mat-icon> {{ busy() ? 'Provisioning…' : 'Provision' }}
       </button>
     </mat-dialog-actions>
@@ -161,7 +162,7 @@ export class ProvisionDbDialogComponent implements OnInit {
         body.existing_agent_id = host?.id ?? null;
       }
     }
-    this.http.post(`${this.base}/blueprints/provision`, body).subscribe({
+    this.http.post(`${this.base}/provision/database`, body).subscribe({
       next: (r) => { this.result.set(r); this.busy.set(false); setTimeout(() => this.ref.close(true), 900); },
       error: (e) => { this.error.set(e?.error?.detail ?? 'provisioning failed'); this.busy.set(false); },
     });

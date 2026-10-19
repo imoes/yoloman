@@ -1,0 +1,63 @@
+# Bash completion function for the `mistral` CLI tool.
+# This file is sourced by the shell to enable tab-completion for mistral commands and options.
+# It dynamically fetches completion data from the `mistral` binary itself to stay in sync.
+
+# -----------------------------------------------------------------------------
+# Initialization variables for bash completion state.
+# These are lazily initialized on first use to avoid overhead during shell startup.
+# -----------------------------------------------------------------------------
+
+# Default value for the _mistral_opts variable, initialized lazily.
+# Populated with available short/long options from `mistral bash-completion`.
+_mistral_opts="{{ mistral_opts_default | default('') }}" # lazy init
+
+# Stores the list of flags (options) extracted for completion.
+_mistral_flags="" # lazy init
+
+# Stores a regex pattern built from _mistral_opts for matching current arguments.
+_mistral_opts_exp="" # lazy init
+
+# -----------------------------------------------------------------------------
+# Main completion function.
+# This function is registered with `complete -F _mistral mistral` at the end.
+# -----------------------------------------------------------------------------
+_mistral()
+{
+	local cur prev mbc cflags
+	COMPREPLY=()
+	
+	# Current word being completed and the previous word.
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+	# Lazy initialization: fetch completion data from the mistral CLI only once.
+	if [ "x$_mistral_opts" == "x" ] ; then
+		# Get raw bash-completion script output from the binary.
+		mbc="`mistral bash-completion`"
+		
+		# Extract options (flags like -h, --help) by removing non-option words.
+		# This creates a list of valid short/long options.
+		_mistral_opts="`echo "$mbc" | sed -e "s/\s-[a-z0-9_-]*//g" -e "s/\s\s*/ /g`"
+		
+		# Extract flags starting with hyphens, preserving them for compgen.
+		_mistral_flags="`echo " $mbc" | sed -e "s/ [^-][^-][a-z0-9_-]*//g" -e "s/\s\s*/ /g`"
+		
+		# Build a pipe-separated regex string from options for fast matching.
+		_mistral_opts_exp="`echo "$_mistral_opts" | sed -e "s/\s/|/g`"
+	fi
+
+	# Determine if the previous argument was one of the known options.
+	# If so, and it's not the 'help' command, complete against the list of flags.
+	# Otherwise, complete against the list of commands/options.
+	if [[ " ${COMP_WORDS[@]} " =~ " "($_mistral_opts_exp)" " && "$prev" != "help" ]] ; then
+		# Complete with flags.
+		COMPREPLY=($(compgen -W "${_mistral_flags}" -- ${cur}))
+	else
+		# Complete with general options/commands.
+		COMPREPLY=($(compgen -W "${_mistral_opts}" -- ${cur}))
+	fi
+	return 0
+}
+
+# Register the completion function for the `mistral` command.
+complete -F _mistral mistral

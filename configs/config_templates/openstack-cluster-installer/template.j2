@@ -1,42 +1,463 @@
-# Configuration for the OpenStack Cluster Installer web interface access.
-# This file defines Apache aliases and directory permissions for the OCI web interface
-# and the main OpenStack Cluster Installer application.
+[openstack]
+# The document root directory for the OCI (OpenStack Cluster Installer) web interface alias /oci.
+DOCUMENT_ROOT={{ oci_document_root | default('/usr/share/openstack-cluster-installer') }}
 
-# =============================================================================
-# OCI (OpenStack Cluster Installer) Web Interface Configuration
-# =============================================================================
+# The subdirectory containing internal/inc files for the OCI web interface, which should be denied access.
+INC_DIR={{ oci_inc_dir | default('/usr/share/openstack-cluster-installer/inc') }}
 
-# Alias for the OCI web interface at /oci.
-# Maps the URL path /oci to the document root directory.
-# Source schema: oci_document_root (default: '/usr/share/openstack-cluster-installer')
-Alias /oci {{ oci_document_root | default('/usr/share/openstack-cluster-installer') }}
+# The data directory for the openstack-cluster-installer web application, served under the alias /openstack-cluster-installer.
+WEBAPP_DATA_DIR={{ webapp_data_dir | default('/var/lib/openstack-cluster-installer') }}
 
-# Directory configuration for the OCI document root.
-# Grants access to all clients for the web interface files.
-# Source schema: oci_document_root (default: '/usr/share/openstack-cluster-installer')
-<Directory {{ oci_document_root | default('/usr/share/openstack-cluster-installer') }}>
-    Require all granted
-</Directory>
+[network]
+# Address of your OpenStack cluster, CIDR notation
+OPENSTACK_CLUSTER_NETWORK={{ openstack_cluster_network | default('192.168.100.0/24') }}
 
-# Directory configuration for the OCI internal/include directory.
-# Denies access to all clients to prevent exposure of internal source files.
-# Source schema: oci_inc_dir (default: '/usr/share/openstack-cluster-installer/inc')
-<Directory {{ oci_inc_dir | default('/usr/share/openstack-cluster-installer/inc') }}>
-    Require all denied
-</Directory>
+# Name of the NIC that will serve DHCP + PXE for installing Debian
+PXE_NIC_NAME={{ pxe_nic_name | default('osinstallnic0') }}
 
-# =============================================================================
-# OpenStack Cluster Installer Web Application Configuration
-# =============================================================================
+# User holding the NIC
+PXE_VM_NIC_USER={{ pxe_vm_nic_user | default('zigo') }}
 
-# Alias for the OpenStack Cluster Installer web application at /openstack-cluster-installer.
-# Maps the URL path /openstack-cluster-installer to the application data directory.
-# Source schema: webapp_data_dir (default: '/var/lib/openstack-cluster-installer')
-Alias /openstack-cluster-installer {{ webapp_data_dir | default('/var/lib/openstack-cluster-installer') }}
+# name of the tap interface
+PXE_VM_VIRTAP_NAME={{ pxe_vm_virtap_name | default('osinstalltap') }}
 
-# Directory configuration for the web application data directory.
-# Grants access to all clients for the application files.
-# Source schema: webapp_data_dir (default: '/var/lib/openstack-cluster-installer')
-<Directory {{ webapp_data_dir | default('/var/lib/openstack-cluster-installer') }}>
-    Require all granted
-</Directory>
+# bridge name
+PXE_BRIDGE_NAME={{ pxe_bridge_name | default('osinstallbr') }}
+
+# qemu VM MAC
+QEMU_VM_MAC={{ qemu_vm_mac | default('08:00:27:06:CC:DF') }}
+
+# URL of your debian proxy/mirror
+# Replace it with your closest mirror.
+# Example: http://mirror.infomaniak.com/debian
+debian_mirror={{ debian_mirror | default('http://deb.debian.org/debian') }}
+
+# URL of your debian security proxy/mirror
+# Replace it with your closest security mirror.
+# Example: like http://mirror.infomaniak.com/debian-security
+debian_security_mirror={{ debian_security_mirror | default('http://security.debian.org/debian-security') }}
+
+# Package containing keyring used to sign packages in above repositories
+# this is useful when using self-hosted package repos which are not signed
+# by the official Debian archive keyring
+# Leave empty when using official debian packages
+debian_keyring_package={{ debian_keyring_package | default('') }}
+
+# Filename of keyring installed by above package. This also needs to be availble
+# on the OCI server.
+# Leave empty when using official debian packages
+debian_keyring_file={{ debian_keyring_file | default('') }}
+
+# Whether to install the keyring package specified above on OpenStack nodes
+install_debian_keyring_package={{ install_debian_keyring_package | default('no') }}
+
+# Whether to copy above keyring file to OpenStack nodes. Using a package instead
+# is preferred
+install_debian_keyring_file={{ install_debian_keyring_file | default('no') }}
+
+# URL of the incoming buildd repo: useful for Sid development of OCI.
+debian_incoming_buildd={{ debian_incoming_buildd | default('http://incoming.debian.org/debian-buildd') }}
+
+# Ceph repository, needed for Stretch, as we need Luminous from upstream.
+# Normal repo without mirroring is: http://download.ceph.com/debian-luminous
+# Infomaniak mirror is: http://apt.infomaniak.ch/download.ceph.com/debian-luminous
+# Mirror list available at: https://ceph.com/get/#ceph-mirrors
+debian_mirror_ceph={{ debian_mirror_ceph | default('http://download.ceph.com/debian-luminous') }}
+
+# Should we set http_proxy, for example in oci-poc-provision-cloud
+# when downloading the Debian image?
+USE_HTTP_PROXY={{ use_http_proxy | default('no') }}
+
+# http_proxy value to use when doing wget in the
+# oci-poc-provision-cloud script.
+HTTP_PROXY_ADDR={{ http_proxy_addr | default('example.com:3128') }}
+
+# Address of the OCI web server that the hardware discovery agent
+# will contact, and also the IP address of the puppet-master, as per
+# slave nodes /etc/hosts file.
+OCI_IP={{ oci_ip | default('192.168.100.2') }}
+
+# These are the networks allowed to query the OCI web site
+# without authentication, ie: machines that do PXE boot.
+# Typically, this is your DHCP network.
+# Every network that you will add in OCI will be trusted too,
+# so that machines can report their status ie: live, installed, etc..
+TRUSTED_NETWORKS={{ trusted_networks | default('192.168.100.0/24,10.54.240.0/24,10.52.240.0/24') }}
+
+[radius]
+# Should the auth system use radius?
+use_radius={{ use_radius | default('no') }}
+
+# Address of your Radius authentication server.
+server_hostname={{ radius_server_hostname | default('localhost') }}
+
+# Shared secret to contact your Radius server.
+shared_secret={{ radius_shared_secret | default('changeme') }}
+
+[database]
+# Database connection string
+# This package requires a MySQL/MariaDB backend.
+# The connection string format is mysql+pymysql://user:password@host:port/dbname
+connection={{ database_connection | default('mysql+pymysql://oci:43FAnaQHKizfIrBMksqITw@localhost:3306/oci') }}
+
+[dellipmi]
+# If the chassis vendor is Dell, should the Dell iDRAC
+# utilities be installed on the target?
+target_install_dell_ipmi={{ target_install_dell_ipmi | default('no') }}
+
+# Should the Dell iDRAC IPMI utilities be installed on the Live image?
+live_image_install_dell_ipmi={{ live_image_install_dell_ipmi | default('no') }}
+
+# Address of the Dell IPMI utilities. At Infomaniak, we
+# have a copy of them here:
+# http://apt.infomaniak.ch/linux.dell.com/repo/community/openmanage/910/stretch
+dell_ipmi_repo={{ dell_ipmi_repo | default('https://linux.dell.com/repo/community/openmanage/910/stretch') }}
+
+[hpe]
+# If the chassis vendor is HPE, should the HPE
+# utilities be installed on the target?
+target_install_hpe={{ target_install_hpe | default('no') }}
+
+# Should the HPE hponcfg, etc. tools be installed on the Live image?
+live_image_install_hpe={{ live_image_install_hpe | default('no') }}
+
+# Address of the HPE utilities. At Infomaniak, we
+# have a copy of them here:
+# http://apt.infomaniak.ch/downloads.linux.hpe.com/SDR/repo/mcp/debian/
+hpe_repo={{ hpe_repo | default('http://downloads.linux.hpe.com/SDR/repo/mcp/debian') }}
+
+# Override distro suite by something custom. Useful if not available
+# for example when setting-up testing.
+hpe_force_debian_suite={{ hpe_force_debian_suite | default('yes') }}
+
+# What distro suite to use if using hpe_force_debian_suite set to yes.
+hpe_debian_suite={{ hpe_debian_suite | default('buster') }}
+
+# Should we automatically install iLo license with ilorest?
+hpe_ilo_install_license={{ hpe_ilo_install_license | default('no') }}
+
+[perccli]
+# If the chassis vendor is using perccli,
+# sould we install it on the target?
+target_install_perccli={{ target_install_perccli | default('no') }}
+
+# Should perccli be installed on the Live image?
+live_image_install_perccli={{ live_image_install_perccli | default('no') }}
+
+# Address of the perccli repository. Since we have no rights to
+# redistribute them, you are on your own to make your own.
+perccli_repo={{ perccli_repo | default('http://apt.infomaniak.ch/infomaniak') }}
+
+# Override distro suite by something custom. Useful if not available
+# for example when setting-up testing.
+perccli_force_debian_suite={{ perccli_force_debian_suite | default('yes') }}
+
+# What distro suite to use if perccli_force_debian_suite set to yes.
+perccli_debian_suite={{ perccli_debian_suite | default('bullseye') }}
+
+[megacli]
+# If your vendor is using an LSI card, then you probably
+# want to have megacli installed.
+target_install_megacli={{ target_install_megacli | default('no') }}
+
+# Should megacli be also installed in the live image?
+live_image_install_megacli={{ live_image_install_megacli | default('no') }}
+
+# Address of the megacli repository. At infomaniak, we use a
+# mirror, but you can also use approx like this:
+# http://apt.infomaniak.ch/hwraid.le-vert.net/debian/
+megacli_repo={{ megacli_repo | default('http://hwraid.le-vert.net/debian') }}
+
+# Force a given suite name rather than the one defined
+# as debian_release=
+megacli_force_debian_suite={{ megacli_force_debian_suite | default('no') }}
+
+# What suite to use if force_debian_suite is set to yes?
+megacli_debian_suite={{ megacli_debian_suite | default('sid') }}
+
+# Should we automatically clear the MegaCli configuration after N
+# run of the hardware discovery?
+megacli_auto_clear={{ megacli_auto_clear | default('no') }}
+
+# After how many hardware discovery run should we run MegaCli auto-clear?
+megacli_auto_clear_num_of_discovery={{ megacli_auto_clear_num_of_discovery | default('3') }}
+
+# Should we automatically apply the MegaCli profile after N run of
+# the hardware discovery?
+megacli_auto_apply={{ megacli_auto_apply | default('no') }}
+
+# After how many hardware discovery should we run MegaCli auto-apply?
+megacli_auto_apply_num_of_discovery={{ megacli_auto_apply_num_of_discovery | default('7') }}
+
+[onecli]
+# Install onecli in production systems?
+target_install_onecli={{ target_install_onecli | default('no') }}
+
+# Install onecli in the live image?
+live_image_install_onecli={{ live_image_install_onecli | default('no') }}
+
+# Address of the onecli repo. Note that this is not an official
+# package, that we repacked, and have no rights to redistribute.
+# So you'll have to make your own onecli deb package...
+onecli_repo={{ onecli_repo | default('http://apt.infomaniak.ch/infomaniak') }}
+
+# Force a given suite name rather than the one defined
+# as debian_release=
+onecli_force_debian_suite={{ onecli_force_debian_suite | default('yes') }}
+
+# What suite to use if force_debian_suite is set to yes?
+onecli_debian_suite={{ onecli_debian_suite | default('bullseye') }}
+
+[live_image]
+# In our configuration, the 10 Gbits/s cards are detected first, and
+# then, the Debian live tries to do the DHCP on these cards first,
+# which then fails. Therefore, a nice hack is to remove these drivers
+# from the live image's initrd but leave it within the squashfs. This
+# way, the DHCP phase before the wget of the squashfs will not use these
+# cards as the driver isn't present.
+# Note that this may not be useful if your switch is capable of doing
+# lacp-bypass, which Cumulus switches can do.
+remove_drivers_from_initrd={{ remove_drivers_from_initrd | default('no') }}
+
+# List of drivers to remove when building the live image
+remove_drivers_from_initrd_list={{ remove_drivers_from_initrd_list | default('"broadcom/bnx2.ko broadcom/bnx2x/bnx2x.ko intel/ixgbe/ixgbe.ko"') }}
+
+# Syslinux has 2 modes: one which is graphical and displays a nice
+# splash screen, and one which is serial console compatible, which
+# is text only, without the nice splash screen. Select here which
+# one you want to use in the live image.
+force_syslinux_text_menu={{ force_syslinux_text_menu | default('yes') }}
+
+# Should we install stable-backports in the Live image?
+live_image_setup_backports_repo={{ live_image_setup_backports_repo | default('no') }}
+
+# Should we install the contrib and non-free repositories?
+live_image_setup_nonfree_repo={{ live_image_setup_nonfree_repo | default('no') }}
+
+# Should we install non-free firmware shipped in the Debian non-free
+# repository?
+live_image_install_nonfree_firmware_from_backports={{ live_image_install_nonfree_firmware_from_backports | default('yes') }}
+
+# List of non-free firmware to install from backports.
+live_image_install_firmware_from_backports_list={{ live_image_install_firmware_from_backports_list | default('"firmware-linux-nonfree firmware-bnx2 firmware-bnx2x firmware-qlogic"') }}
+
+# Should we install the Linux kernel from backports?
+# The live_image_setup_backports_repo option must be set
+# to yes for this to work.
+live_image_install_kernel_from_backports={{ live_image_install_kernel_from_backports | default('yes') }}
+
+# List here all the image builder hosts. OCI will ssh them
+# to build images of foreign arch, like arm64.
+image_builder_hosts={{ image_builder_hosts | default('') }}
+
+[production_system]
+# Should we install stable-backports in the production systems?
+production_system_setup_backports_repo={{ production_system_setup_backports_repo | default('no') }}
+
+# Should we install the contrib and non-free repositories?
+production_system_setup_nonfree_repo={{ production_system_setup_nonfree_repo | default('no') }}
+
+# Should we install non-free firmware shipped in the Debian non-free
+# repository?
+production_system_install_nonfree_firmware_from_backports={{ production_system_install_nonfree_firmware_from_backports | default('yes') }}
+
+# List of non-free firmware to install from backports.
+production_system_install_firmware_from_backports_list={{ production_system_install_firmware_from_backports_list | default('"firmware-linux-nonfree firmware-bnx2 firmware-bnx2x firmware-qlogic"') }}
+
+[releasenames]
+# With the default configuration, OCI will use just plain
+# Debian with any backports. It is strongly advised to
+# use the non-official backports.
+
+# Name of the OpenStack release when building the image
+openstack_release={{ openstack_release | default('epoxy') }}
+
+# Name of the Debian release when building the image
+debian_release={{ debian_release | default('trixie') }}
+
+# Should we use a Debian stable unofficial repository?
+use_debian_dot_net_backport={{ use_debian_dot_net_backport | default('no') }}
+
+# Install official Debian backport repository?
+use_debian_official_backports={{ use_debian_official_backports | default('no') }}
+
+# Install osbpo Ceph backport repo?
+ceph_use_osbpo={{ ceph_use_osbpo | default('no') }}
+
+# Ceph release name in osbpo.
+ceph_osbpo_release={{ ceph_osbpo_release | default('ceph-reef') }}
+
+# Pin Ceph from Debian official backports or osbpo?
+pin_ceph_from_stable_backports={{ pin_ceph_from_stable_backports | default('no') }}
+
+# This is useful for development, when you want fast
+# update of the package in the Sid Debian repository.
+# Not to be used in production.
+install_buildd_incoming={{ install_buildd_incoming | default('no') }}
+
+# This option is not advised, because the upstream Ceph
+# Debian repositories are not well enough supported ie:
+# upstream is not doing a good enough job, and has dropped
+# support for Debian Stable during the life of Stretch/Buster.
+install_ceph_upstream_repo={{ install_ceph_upstream_repo | default('no') }}
+
+[ssh]
+# If set to yes, will use the PHP extension
+# otherwise, use PHP exec. Recommendation is to set this to no.
+use_php_ssh2={{ use_php_ssh2 | default('no') }}
+
+[ipmi]
+# Set this to yes if you want OCI to automatically assign IPMI
+# addresses to your machines during the hardware recovery process.
+# To do this, a network with role IPMI must be created using:
+# ocicli network-create ipmi-network-1 192.168.103.0 24 bdb-zone-1 no
+# ocicli network-set ipmi-network-1 --role ipmi --ipmi-match-addr 192.168.100.0 --ipmi-match-cidr 24
+# The --ipmi-match-addr and --ipmi-match-cidr must match the DHCP address of discovered machines.
+# Note that passwords will be picked-up randomly.
+automatic_ipmi_numbering={{ automatic_ipmi_numbering | default('no') }}
+
+# Set this to the default IPMI username you wish to see
+# automatically provisionned. It is strongly advised to set
+# this not to the default value, just to make it less easy
+# to guess.
+automatic_ipmi_username={{ automatic_ipmi_username | default('oci') }}
+
+[tempest]
+# Name of the external network.
+# Note that in many cases, ext-net1 wont work, simply
+# because tempest isn't made for it.
+external_network_name={{ external_network_name | default('ext-net1') }}
+
+# Name of the floating network.
+floating_network_name={{ floating_network_name | default('ext-floating1') }}
+
+# Name of the public network.
+public_network_name={{ public_network_name | default('ext-provider1') }}
+
+# Name of the flavor used to run the tests
+flavor_name={{ flavor_name | default('cpu1-ram2-disk5') }}
+
+# Alternative name of the flavor used to run the tests
+flavor_alt_name={{ flavor_alt_name | default('cpu2-ram6-disk20') }}
+
+[glance_image]
+# This image can be used to setup the image automatically in the
+# cluster at setup time. Will only be used if it's available.
+# This is mostly useful for doing tempest testing automatically,
+# together with the openstack-cluster-installer-poc package.
+# This image can be used to setup the image automatically in the
+# cluster at setup time. Will only be used if it's available.
+image_path={{ glance_image_path | default('/root') }}
+
+# Name of the image.
+image_name={{ glance_image_name | default('debian-12-generic-amd64.qcow2') }}
+
+# SSH user for the glance image.
+image_ssh_user={{ glance_image_ssh_user | default('debian') }}
+
+[dns_plugin]
+# Should OCI call a script to update DNS information for a host?
+# This will be done when a machine is added to a cluster.
+call_dns_shell_script={{ call_dns_shell_script | default('no') }}
+
+# Path to the script to update DNS information for a host.
+dns_create_script_path={{ dns_create_script_path | default('/usr/local/bin/oci-dns-create-host') }}
+
+# Path to the script to delete DNS information for a host.
+dns_delete_script_path={{ dns_delete_script_path | default('/usr/local/bin/oci-dns-delete-host') }}
+
+[root_pass_plugin]
+# Should OCI call a script to save the root password when it is
+# changed on a server? This may be usefull to save it in for
+# example Hashicorp VAULT.
+# This will be called when the server OS is reported as installed.
+call_root_password_change={{ call_root_password_change | default('no') }}
+
+# Path to the root password plugin script.
+root_password_create_script_path={{ root_password_create_script_path | default('/usr/local/bin/oci-root-password-create-host') }}
+
+# Path to the root password delete script.
+root_password_delete_script_path={{ root_password_delete_script_path | default('/usr/local/bin/oci-root-password-delete-host') }}
+
+[ipmi_pass_plugin]
+# Should OCI call a script to save the IPMI passwords? This may
+# usefull to save it in for example OpenBao / Hashicorp VAULT.
+call_ipmi_password_change={{ call_ipmi_password_change | default('no') }}
+
+# Path to the IPMI password create script.
+ipmi_password_create_script_path={{ ipmi_password_create_script_path | default('/usr/local/bin/oci-ipmi-password-create-host') }}
+
+# Path to the IPMI password delete script.
+ipmi_password_delete_script_path={{ ipmi_password_delete_script_path | default('/usr/local/bin/oci-ipmi-password-delete-host') }}
+
+[monitoring_plugin]
+# Should OCI call a script to update the monitoring information
+# when a host is set into production?
+# This will be called when the puppet run is reported as successful.
+call_monitoring_plugin={{ call_monitoring_plugin | default('no') }}
+
+# Path to the script to update the monitoring information.
+monitoring_create_script_path={{ monitoring_create_script_path | default('/usr/local/bin/oci-monitoring-create-host') }}
+
+# Path to the script to delete the monitoring information.
+monitoring_delete_script_path={{ monitoring_delete_script_path | default('/usr/local/bin/oci-monitoring-delete-host') }}
+
+[auto_provision]
+# Should we auto-add a machine to a cluster?
+auto_add_machines_to_cluster={{ auto_add_machines_to_cluster | default('no') }}
+
+# When a machine is automatically added, to which cluster should
+# it belong?
+auto_add_machines_cluster_name={{ auto_add_machines_cluster_name | default('') }}
+
+# After how many discovery run should we auto-add machines to the cluster?
+auto_add_machines_num_of_discovery={{ auto_add_machines_num_of_discovery | default('9') }}
+
+[auto_racking]
+# Should we automatically guess racking information based on the
+# switch name and what is in auto-racking.json?
+auto_rack_machines_info={{ auto_rack_machines_info | default('yes') }}
+
+# How many runs of hardware discovery before auto-racking?
+auto_rack_machines_num_of_discovery={{ auto_rack_machines_num_of_discovery | default('7') }}
+
+[auto_install_os]
+# Should machines install the OS automatically?
+auto_install_machines_os={{ auto_install_machines_os | default('no') }}
+
+# After how many runs of the hardware discovery should the
+# servers be installed?
+auto_install_machines_num_of_discovery={{ auto_install_machines_num_of_discovery | default('15') }}
+
+[filebeat]
+# Repository URL for Filebeat.
+# Our mirror: http://apt.infomaniak.ch/artifacts.elastic.co/packages/6.x/apt
+filebeat_repo={{ filebeat_repo | default('https://artifacts.elastic.co/packages/7.x/apt') }}
+
+[elastic]
+# Repository URL for Elastic search.
+# Our mirror: http://apt.infomaniak.ch/artifacts.elastic.co/packages
+elastic_repo_url={{ elastic_repo_url | default('https://artifacts.elastic.co/packages') }}
+
+# Version use for Elastic
+elastic_version={{ elastic_version | default('7') }}
+
+# Elastic repo GPG key
+# Our mirror: http://apt.infomaniak.ch/artifacts.elastic.co/GPG-KEY-elasticsearch
+elastic_key_url={{ elastic_key_url | default('https://artifacts.elastic.co/GPG-KEY-elasticsearch') }}
+
+# Key ID for the repo
+elastic_key_id={{ elastic_key_id | default('46095ACC8548582C1A2699A9D27D666CD88E42B4') }}
+
+[foreman]
+# URL of the foreman API, like https://foreman.example.com/api/v2
+FOREMAN_URL={{ foreman_url | default('https://poc-katello.infomaniak.ch/api/v2') }}
+
+# Username for the foreman API.
+FOREMAN_USERNAME={{ foreman_username | default('admin') }}
+
+# Password for the foreman API.
+FOREMAN_PASSWORD={{ foreman_password | default('mypassword') }}
+
+# Should we use -k with curl to query foreman.
+INSECURE="{{ foreman_insecure | default('-k') }}"

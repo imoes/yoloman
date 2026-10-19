@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  fontconfig mapping for Noto Sans Devanagari
+  Maps specific Devanagari-script locales to the 'Noto Sans Devanagari' font family.
+  Also registers an alias so that generic sans-serif requests in this script range
+  resolve to the specific font.
+-->
+<fontconfig>
+  {#
+    Iterate over the list of locale codes and language descriptions.
+    The schema defines individual variables (lang_hi, lang_mr, etc.).
+    We construct a list of tuples (lang_code, description) to iterate.
+    This ensures that every supported locale gets its own <match> block
+    with the correct font configuration.
+  #}
+  {% set locale_defs = [
+    { 'code': lang_bh | default('bh'), 'desc': 'Bhili' },
+    { 'code': lang_bho | default('bho'), 'desc': 'Bhojpuri' },
+    { 'code': lang_brx | default('brx'), 'desc': 'Bodo' },
+    { 'code': lang_doi | default('doi'), 'desc': 'Dogri' },
+    { 'code': lang_hi | default('hi'), 'desc': 'Hindi' },
+    { 'code': lang_hne | default('hne'), 'desc': 'Chhattisgarhi' },
+    { 'code': lang_kok | default('kok'), 'desc': 'Konkani' },
+    { 'code': lang_ks | default('ks@devanagari'), 'desc': 'Kashmiri (Devanagari script)' },
+    { 'code': lang_mai | default('mai'), 'desc': 'Maithili' },
+    { 'code': lang_mr | default('mr'), 'desc': 'Marathi' },
+    { 'code': lang_ne | default('ne'), 'desc': 'Nepali' },
+    { 'code': lang_sa | default('sa'), 'desc': 'Sanskrit' },
+    { 'code': lang_sat | default('sat'), 'desc': 'Santali' },
+    { 'code': lang_sd | default('sd@devanagari'), 'desc': 'Sindhi (Devanagari script)' }
+  ] %}
+
+  {#
+    For each locale, create a <match> block that:
+    1. Tests if the font request's lang attribute contains the locale code.
+    2. Tests if the requested font family is the generic target (sans-serif).
+    3. If both match, prepend the specific Devanagari font.
+    4. Append hinting configuration as defined by hint_enabled.
+  #}
+  {% for locale in locale_defs %}
+  <match>
+    {# Locale code for {{ locale.desc }} #}
+    <test name="lang" compare="contains">
+      <string>{{ locale.code }}</string>
+    </test>
+
+    {# The generic font family to map against #}
+    <test name="family">
+      <string>{{ family_target | default('sans-serif') }}</string>
+    </test>
+
+    {# The font family name to associate with these locales #}
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Devanagari') }}</string>
+    </edit>
+
+    {# Whether font hinting is enabled (false means disabled) #}
+    <edit name="fonthashint" mode="append">
+      <bool>{{ hint_enabled | default(false) }}</bool>
+    </edit>
+  </match>
+  {% endfor %}
+
+  {#
+    Register an alias for the font family so that applications requesting
+    the generic font family (e.g., 'sans-serif' in a CSS context or GTK style)
+    will resolve to 'Noto Sans Devanagari' when appropriate.
+  #}
+  <alias>
+    {# The font family name to associate with these locales #}
+    <family>{{ font_family | default('Noto Sans Devanagari') }}</family>
+    <default>
+      {# The generic font family to map against #}
+      <family>{{ family_target | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

@@ -7,6 +7,7 @@ import { CheckService } from '../../../../core/services/check.service';
 import { CheckCatalogEntry, CheckOption } from '../../../../core/models/check.model';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
 import { ParamSchema, ParamSpec } from '../../../../shared/param-form/param-form.types';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface AddServiceCheckData {
   agentId: string;
@@ -36,7 +37,7 @@ const CHECK_CAT_ICON: Record<string, string> = {
 @Component({
   selector: 'app-add-service-check-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, ParamFormComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, ParamFormComponent],
   template: `
     <h2 mat-dialog-title>{{ data.edit ? 'Edit service check' : 'Add a service check' }} <span class="bm-dim">on {{ data.hostName }}</span></h2>
     <mat-dialog-content class="bm-sc-body">
@@ -87,7 +88,7 @@ const CHECK_CAT_ICON: Record<string, string> = {
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
       @if (picked()) {
-        <button mat-flat-button color="primary" [disabled]="!canSave() || saving()" (click)="save()">
+        <button mat-flat-button color="primary" [disabled]="saving()" [bmBlocked]="!canSave() ? 'Enter a service name' : ''" (click)="save()">
           <mat-icon>{{ data.edit ? 'save' : 'add_task' }}</mat-icon>
           {{ saving() ? 'Saving…' : (data.edit ? 'Save changes' : 'Add check') }}
         </button>

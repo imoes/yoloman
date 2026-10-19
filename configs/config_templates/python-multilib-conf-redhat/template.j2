@@ -1,0 +1,75 @@
+# ==============================================================================
+# python-multilib-conf-redhat: Multilib Package Selection Configuration
+# ==============================================================================
+# This configuration file defines which packages receive 32-bit (i686) counterparts
+# when Red Hat's multilib policy is active. It controls three methods:
+# 1. Runtime: Default packages that get 32-bit libraries at runtime.
+# 2. Devel: Development packages that get 32-bit headers/libraries.
+# 3. Multilib (File): Deprecated flat list of specific packages.
+#
+# Note: These lists are processed by the `multilib` Python module in Ansible roles
+# or system scripts. They are INI-style lists, not JSON arrays.
+
+# ------------------------------------------------------------------------------
+# Runtime Multilib Method
+# ------------------------------------------------------------------------------
+# Description: List of package names that always get a 32-bit package included
+#              with the Runtime multilib method.
+#              These packages are considered "safe" or necessary for 32-bit
+#              compatibility in modern 64-bit environments.
+# Format: Comma-separated string of quoted package names.
+[runtime]
+
+# White List: Packages that WILL receive a 32-bit variant.
+# If a package name appears here, the multilib resolver installs both x86_64
+# and i686 versions if they exist in the repositories.
+# Default includes common compatibility libraries (valgrind, wine, lsb, etc.).
+# Input: List of strings -> Output: ', '.join(list)
+white = {{ runtime_white | default(['libflashsupport', 'libgnat', 'lmms-vst', 'nspluginwrapper', 'perl-libs', 'redhat-lsb', 'syslinux-extlinux-nonlinux', 'syslinux-nonlinux', 'syslinux-tftpboot', 'valgrind', 'wine', 'yaboot']) | join(', ') }}
+
+# Black List: Packages that will NEVER have a 32-bit package included.
+# This prevents conflicts or bloat for packages that are known to be problematic
+# or unnecessary in 32-bit form (e.g., web servers like httpd, php).
+# Even if a package is in the white list elsewhere, entries here take precedence.
+# Default includes web-server related packages.
+# Input: List of strings -> Output: ', '.join(list)
+black = {{ runtime_black | default(['httpd', 'php', 'tomcat-native']) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# Devel Multilib Method
+# ------------------------------------------------------------------------------
+# Description: Configuration for development libraries and headers.
+#              These lists are UNIONED with the Runtime lists. A package is
+#              included in Devel multilib if it is in either the Devel White
+#              list or the Runtime White list.
+# Format: Comma-separated string of quoted package names.
+[devel]
+
+# White List: Additional packages for 32-bit development libraries.
+# Use this to enforce 32-bit headers for specific development tools.
+# Empty by default; extend as needed for your build environment.
+# Input: List of strings -> Output: ', '.join(list)
+white = {{ devel_white | default([]) | join(', ') }}
+
+# Black List: Packages excluded from 32-bit development libraries.
+# Prevents installation of 32-bit .h files or dev libraries for these packages.
+# Default includes Java GCJ development packages and common web dev tools.
+# Input: List of strings -> Output: ', '.join(list)
+black = {{ devel_black | default(['dmraid-devel', 'httpd-devel', 'kdeutils-devel', 'mkinitrd-devel', 'java-1.5.0-gcj-devel', 'java-1.6.0-openjdk-devel', 'java-1.7.0-icedtea-devel', 'java-1.7.0-openjdk-devel', 'java-1.8.0-openjdk-devel', 'php-devel']) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# File Multilib Method (Deprecated)
+# ------------------------------------------------------------------------------
+# Description: This section is used with the File multilib method.
+#              It takes a single flat list of packages.
+# WARNING: This method is deprecated and generally not practical in modern
+#          distributions. It does not distinguish between runtime and devel.
+#          Use [runtime] and [devel] sections instead.
+# Format: Comma-separated string of quoted package names.
+[multilib]
+
+# Packages: A flat list of specific packages to force multilib for.
+# Default is 'glibc' to ensure basic libc compatibility.
+# Input: List of strings or string -> Output: ', '.join(list)
+# Note: If the default is a string, we treat it as a single-item list.
+packages = {{ multilib_packages | default(['glibc']) | join(', ') }}

@@ -1,33 +1,55 @@
-# Number of processes for the FastCGI server
-# Defines how many worker processes the LemonLDAP::NG FastCGI server should spawn.
-NPROC = {{ NPROC | default(7) }}
+# ============================================================================
+# LemonLDAP::NG FastCGI Server Configuration
+# ============================================================================
+# This file configures the standalone FastCGI server for LemonLDAP::NG.
+# It controls process management, socket location, privileges, and PID tracking.
+# ============================================================================
 
-# Unix socket path for the FastCGI server
-# The path to the Unix domain socket where the FastCGI server will listen.
-# Ensure the parent directory exists and is accessible by the web server.
+# --- Process Management ---
+# Number of processes for the FastCGI server.
+# Defaults to an empty value (systemd or wrapper usually handles this, 
+# or it falls back to a default behavior).
+# If a value is not provided, this directive is commented out with the 
+# recommended default of 7.
+{% if NPROC | default('') %}
+NPROC = {{ NPROC }}
+{% else %}
+# NPROC = 7
+{% endif %}
+
+# --- Network/Socket Configuration ---
+# Unix socket path for the FastCGI server.
+# This is the endpoint Nginx/Apache will connect to.
+# Ensure the directory /run/llng-fastcgi-server/ exists and is writable 
+# by the configured USER/GROUP.
 SOCKET={{ SOCKET | default('/run/llng-fastcgi-server/llng-fastcgi.sock') }}
 
-# Path to the PID file for the FastCGI server
-# Location of the file where the server writes its process ID.
+# --- PID File ---
+# Path to the PID file for the FastCGI server.
+# Used by systemd or init scripts to track the running instance.
 PID={{ PID | default('/run/llng-fastcgi-server/llng-fastcgi-server.pid') }}
 
-# User to run the FastCGI server process as
-# The system user account under which the server processes will run.
+# --- Privileges ---
+# User to run the FastCGI server process as.
+# Running as a non-root user is a security best practice.
 USER={{ USER | default('www-data') }}
 
-# Group to run the FastCGI server process as
-# The system group associated with the server processes.
+# Group to run the FastCGI server process as.
 GROUP={{ GROUP | default('www-data') }}
 
+# --- Advanced/Optional Configuration ---
 # Custom functions file
-# Optional: Path to a Perl module file containing custom LemonLDAP::NG functions.
-# Uncomment and set to enable custom Perl logic in the application.
+# Path to a Perl module file containing custom LemonLDAP::NG functions.
+# Uncomment and set if you have custom Perl handlers.
 # CUSTOM_FUNCTIONS_FILE=/var/lib/lemonldap-ng/myfile.pm
 
+# --- Backend Server Source ---
 # SERVER_SOURCE
-# Identifies the web server reverse-proxying to this FastCGI backend.
+#
 # Default: nginx
-# Alternatives: apache, traefik, lighttpd, etc.
-# Note: This field is not a network address (host/port) but a configuration identifier for the upstream web server type.
-# Therefore, this service does not require a network connection via the standard 'host' or 'port' capability roles.
-# SERVER_SOURCE = {{ SERVER_SOURCE | default('nginx') }}
+# Alternative: traefik
+#
+# This directive indicates the web server/proxy backend LemonLDAP::NG
+# is primarily integrated with. It may influence internal routing 
+# or logging behavior.
+# SERVER_SOURCE = nginx

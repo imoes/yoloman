@@ -1,102 +1,909 @@
-#!/bin/sh
+# vim: set filetype=sh :
+#        file: bootcd2disk.conf
+#   copyright: Bernd Schumacher <bernd.schumacher@hpe.com> (201-2020)
+#     license: GNU General Public License, version 3
+# description: bootcd2disk.conf - default config for bootcd2disk
+#              It is installed in /etc/bootcd/ and
+#              can be restored from /usr/share/doc/examples/
 #
-### BEGIN INIT INFO
-# Provides:          bootcd
-# Required-Start:    mountall-bootclean $local_fs
-# Required-Stop:
-# X-Start-Before:    networking
-# Default-Start:     S
-# Default-Stop:
-# Short-Description: bootcd reads changes from floppy if running from bootcd
-# Description:       When running from bootcd this script tries to access
-#                    the floppy to read changes last time saved with
-#                    bootcdflopcp from a running bootcd.
-### END INIT INFO
+# Configuration parameters for bootcd2disk.
+# All variables below use Jinja2 defaults derived from the schema.
+#
+# mnt
+# Mount point for the floppy disk.
+{% if mnt is defined and mnt is not none and (mnt is number or mnt is boolean or mnt | length > 0) %}BOOTCDMP="{{ mnt | default('/mnt') }}"{% else %}#     BOOTCDMP="/mnt/bootcd.disc"{% endif %}
 
-. /lib/lsb/init-functions
+# floppy
+# Device file for the floppy disk.
+FLOPPY="{{ floppy | default('/dev/fd0') }}"
 
-# MNT: Mount point for the floppy disk.
-MNT={{ mnt | default('/mnt') }}
-
-# FLOPPY: Device file for the floppy disk.
-FLOPPY={{ floppy | default('/dev/fd0') }}
-
-# BOOT_ONLY_WITH_FLOPPY: If 'yes', script exits with error if floppy mount fails; otherwise continues.
+# boot_only_with_floppy
+# If 'yes', script exits with error if floppy mount fails; otherwise continues.
 BOOT_ONLY_WITH_FLOPPY="{{ boot_only_with_floppy | default('no') }}"
 
-# FSTYPES: Comma-separated list of filesystem types to try when mounting the floppy.
+# fstypes
+# Comma-separated list of filesystem types to try when mounting the floppy.
 FSTYPES="{{ fstypes | default('ext3,ext2,reiserfs,iso9660,vfat,auto') }}"
 
-my_exit()
-{
-  echo "bootcd: $2"
-  if [ "$BOOT_ONLY_WITH_FLOPPY" = "yes" -a $1 != 0 ]; then
-    echo "The floppy could not be mounted."
-    echo "Manual interaction required."
-    # Start a single user shell on the console
-    /sbin/sulogin $CONSOLE
+#
+# after_copy()
+#
+#   If the function is defined, it will run after the
+#   system has been copied to the target system and while
+#   the target system is still mounted at <COPYDEST>.
+#
+#   For example to change the network configuration the
+#   following script could be defined::
+#
+#     after_copy()
+#     {
+#       cat <<EOF >$COPYDEST/etc/network/interfaces
+#     auto lo
+#     iface lo inet loopback
+#
+#     auto eth0
+#     iface eth0 inet static
+#       address 192.168.1.2
+#       netmaks 255.255.255.0
+#       gateway 192.168.1.1
+#     EOF
+#     }
+#
+#   Default::
+#
+#     # the function is not defined
+#     unset -f after_copy
+#
+
+# bootcd_mount()
+#
+#   The function will be called with the "mountpoint directory" as option.
+#   To use Partiton 1 of the first disk as /boot and partiton 3 of the
+#   first disk as / the function could be defined as::
+#
+#     bootcd_mount()
+#     {
+#       local mountpoint
+#       bootcd_global DISK0P1 DISK0P3
+#
+#       mountpoint="$1"
+#       mount $DISK0P3 $mountpoint
+#       mkdir $mountpoint/boot
+#       mount $DISK0P1 $mountpoint/boot
+#     }
+#
+#   Default::
+#
+#     # the function is not defined
+#     unset -f bootcd_mount
+#
+define_bootcd_mount() {
+  needs "EFIBOOT" || return $?
+  if [ "$EFIBOOT" = "bios" ]; then
+    bootcd_mount()
+    {
+      bootcd_global DISK0P1 DISK0P3
+      mount $DISK0P3 $1
+      mkdir -p $1/boot; mount $DISK0P1 $1/boot
+    }
+  else  # efi or bios+efi
+    bootcd_mount()
+    {
+      bootcd_global DISK0P1 DISK0P2 DISK0P4
+      mount $DISK0P4 $1
+      mkdir -p $1/boot; mount $DISK0P2 $1/boot
+      mkdir -p $1/boot/efi; fsck -y $DISK0P1; mount $DISK0P1 $1/boot/efi
+    }
   fi
-  exit 0
 }
 
-startscript()
-{
-  # bootcdwrite modifies this script. FLOPPY could be unset.
-  if [ ! "$FLOPPY" ]; then
-    my_exit 0 "No Floppy device specified !!"
+# bootcd_umount()
+#
+#   The function will be called with the "mountpoint directory" as option.
+#   If / and /boot are mounted, the function could be defined as::
+#
+#     bootcd_umount()
+#     {
+#       local mountpoint
+#
+#       mountpoint="$1"
+#       umount $mountpoint/boot
+#       umount $mountpoint
+#    }
+#
+#   Default::
+#
+#     # the function is not defined
+#     unset -f bootcd_umount
+#
+define_bootcd_umount() {
+  needs "EFIBOOT" || return $?
+  if [ "$EFIBOOT" = "bios" ]; then
+    bootcd_umount()
+    {
+      umount $1/boot
+      umount $1
+    }
+  else # efi or bios+efi
+    bootcd_umount()
+    {
+      umount $1/boot/efi
+      umount $1/boot
+      umount $1
+    }
   fi
-
-  # Only run this script if we have booted from bootcd
-  if [ ! "$(grep "\<bootcd=" /proc/cmdline)" ]; then
-    my_exit 0 "not booted from bootcd"
-  fi
-
-  # Try only once, if /dev/fd0 is readable.
-  cat $FLOPPY >/dev/null
-  RET=$?
-  [ $RET -eq 0 ] || my_exit $RET "$FLOPPY not readable"
-
-  echo "Reading floppy"
-  fsck -a -t $FSTYPES $FLOPPY
-  mount -v -o ro -n -t $FSTYPES $FLOPPY $MNT
-  RET=$?
-  [ $RET -eq 0 ] || my_exit $RET "$FLOPPY not mountable"
-
-  [ -f $MNT/change.tgz ] && (cd /; tar xzf $MNT/change.tgz)
-
-  [ -f $MNT/remove ] && for i in `cat $MNT/remove`
-  do
-    rm -f /$i
-  done
-
-  [ -x $MNT/execute ] && $MNT/execute
-
-  umount $MNT
-
-  # If something has been changed in /etc/inittab
-  init q
 }
 
-case "$1" in
-  start)
-    startscript
-    ;;
-  restart)
-    ;;
-  status)
-    ;;
-  force-reload)
-    ;;
-  stop)
-    ;;
-  restart)
-    ;;
-  force-reload)
-    ;;
-  *)
-    echo "Usage: /etc/init.d/bootcdram start" >&2
-    exit 1
-    ;;
-esac
+# BOOTCDMP
+#
+#   This defines the mountpoint, where filesystems can be mounted
+#   to be temporarily modified by bootcd2disk.
+#
+#   Default::
+#
+#     BOOTCDMP="/mnt/bootcd.disc"
+#
+# COPYDEST
+#
+#   This points to the mounted disk and normally needs not to be changed.
+#   Default::
+#
+#     COPYDEST="/mnt/bootcd.disc"
+#
+# DISK#
+#
+#   DISK# stands for one of DISK0, DISK1, ... DISK99.
+#   The Variables DISK# can be defined to specify the disks
+#   disk that will be newly partitioned before copying the cd to it::
+#
+#     DISK0="/dev/hda"
+#
+#   To not partition any disk::
+#
+#     DISK0=""
+#
+#   To let bootcd2disk find a disk (bootcd2disk tries to use the first disk)::
+#
+#     DISK0="auto"
+#
+#   It is possible to define more disks. The disk number must be increased by 1::
+#
+#     DISK1="auto"
+#     DISK2="auto"
+#
+#   Default::
+#
+#     DISK0="auto"
+#
+# DISKIDTYP
+#
+#   With the variable DISKIDTYP it can be defined which type of name bootcd
+#   should write in config files.
+#   When naming a disk in a file, bootcd2disk can try to name the disk by UUID::
+#
+#     DISKIDTYP="UUID"
+#
+#   Or bootcd can name the disk by the devicename::
+#
+#     DISKIDTYP="DEVNAME"
+#
+#   Default::
+#
+#     DISKIDTYP="UUID"
+#
+# do_first()
+#
+#   A function do_first() can be defined, to
+#   do some things first before doing anything else.
+#   Example of a function, that prints something::
+#
+#     do_first()
+#     {
+#       info "function do_first is now running"
+#     }
+#
+#   Default::
+#
+#     # make sure the function is not defined
+#     unset -f do_first
+#
+# do_last()
+#
+#   A function do_last() can be defined, to
+#   do some things laster after doing anything else.
+#   Example of a function, that prints something::
+#
+#     do_last()
+#     {
+#       info "function do_last is now running"
+#     }
+#
+#   Default::
+#
+#     # make sure the function is not defined
+#     unset -f do_last
+#
+# EFIBOOT
+#
+#   Create a disk that can boot with old BIOS::
+#
+#     EFIBOOT="bios"
+#
+#   Create a disk that can boot with EFI.
+#   Will work with secureboot enabled, if kernel and grub are
+#   signed or original from debian.::
+#
+#     EFIBOOT="efi"
+#
+#   To check current system. If EFI is enabled use "efi" if not use "bios".
+#   The needed bootloader software for this option is probably aready installed::
+#
+#     EFIBOOT="auto"
+#
+#   Create a disk that can boot from BIOS and EFI. If you have installed
+#   grub-pc-bin and grub-efi-amd64-bin this may be the best option.
+#   The disk may be removed, and used on another host, with
+#   either bios or efi::
+#
+#     EFIBOOT="bios+efi"
+#
+#   Default::
+#
+#     EFIBOOT="auto"
+#
+# EXCLUDE_SYSTEM
+#
+#   This files need to be excluded on most systems.
+#   So the default may be ok in most cases.
+#   Additional files to be excluded can be defined in EXCLUDE
+#
+#   Default::
+#
+#     EXCLUDE_SYSTEM="/dev/ /mnt/ /proc/ /run/ /sys/ /tmp/ /var/tmp/"
+#
+# EXCLUDE
+#
+#   This variable can also contain special characters. See EVALVARS.
+#
+#   Some files are already exluded with EXCLUDE_SYSTEM.
+#   With EXCLUDE additional Files can be excluded.
+#   Directories or files that should not be copied can be defined in this
+#   variable as a space separated list. Each entry should start with /.
+#
+#   Each list item will be given to rsync as <--exclude <item>>.
+#
+#   Example: To exlcude everything in directory /etc/dir1 use::
+#
+#     EXCLUDE="/etc/dir1/"
+#
+#   To exclude directory itself use::
+#
+#     EXCLUDE="/etc/dir1"
+#
+#   Default::
+#
+#     EXCLUDE=""
+#
+# EXT2FS
+#
+#   Each device or logical volume definition needs a new line!.
+#   Do not not create ext2 filesystems::
+#
+#     EXT2FS=""
+#
+#   Create partitions defined in EXT2FS with mke2fs::
+#
+#     EXT2FS="/dev/hda1
+#     /dev/hda3"
+#
+#   Default::
+#
+#     EXT2FS=""
+#
+#   if also EXT3FS="auto" then ext3 will be used if possible
+#
+define_EXT2FS() {
+  needs "EFIBOOT LINUXFS" || return $?
+  if [ "$LINUXFS" = "ext2" ]; then
+    if [ "$EFIBOOT" = "bios" ]; then
+      EXT2FS="DISK0P1 DISK0P3"
+    else # efi or bios+efi
+      EXT2FS="DISK0P2 DISK0P4"
+    fi
+  else
+    EXT2FS=""
+  fi
+}
 
-exit 0
+# EXT3FS
+#
+#   Each device or logical volume definition needs a new line!
+#   Do not not create ext3 filesystems::
+#
+#     EXT3FS=""
+#
+#   Create partitions defined in EXT3FS with mke2fs -j::
+#
+#     EXT3FS="/dev/hda1
+#     /dev/hda3"
+#
+#   Default::
+#
+#     EXT3FS=""
+#
+#   if also EXT4FS="auto" then ext4 will be used if possible
+#
+define_EXT3FS() {
+  needs "EFIBOOT LINUXFS" || return $?
+  if [ "$LINUXFS" = "ext3" ]; then
+    if [ "$EFIBOOT" = "bios" ]; then
+      EXT3FS="DISK0P1 DISK0P3"
+    else # efi or bios+efi
+      EXT3FS="DISK0P2 DISK0P4"
+    fi
+  else
+    EXT3FS=""
+  fi
+}
+
+# EXT4FS
+#
+#   Each device or logical volume definition needs a new line!
+#   Do not not create ext4 filesystems::
+#
+#     EXT4FS=""
+#
+#   Create partitions defined in EXT4FS as ext4 filesystems::
+#
+#     EXT4FS="/dev/hda1
+#     /dev/hda3"
+#
+#   Default::
+#
+#     EXT4FS=""
+#
+define_EXT4FS() {
+  needs "EFIBOOT LINUXFS" || return $?
+  if [ "$LINUXFS" = "ext4" ]; then
+    if [ "$EFIBOOT" = "bios" ]; then
+      EXT4FS="DISK0P1 DISK0P3"
+    else # efi or bios+efi
+      EXT4FS="DISK0P2 DISK0P4"
+    fi
+  else
+    EXT4FS=""
+  fi
+}
+
+# FSTAB
+#
+#   Don't change the /etc/fstab copied form cd::
+#
+#     FSTAB=""
+#
+#   Example to define FSTAB yourself::
+#
+#     FSTAB="/dev/sda1 /boot ext2 defaults 0 1
+#     /dev/sda2 none  swap sw 0 0
+#     /dev/sda3 /     ext2 defaults,errors=remount-ro 0 1
+#     proc      /proc proc defaults 0 0"
+#
+#   The string DISK0P1 will be automatically changed to <device of the first
+#   partition of the first disk>. The string UUID!DISK1P3 will be automacally
+#   changed to the UUID of the third partition of the second disk>.
+#
+#   Depends on::
+#
+#     EFIBOOT
+#
+#   Default::
+#
+#     FSTAB=""
+#
+define_FSTAB() {
+  needs "EFIBOOT" || return $?
+
+  if [ "$EFIBOOT" = "bios" ]; then
+    FSTAB="\
+DISK0P3 /     $LINUXFS defaults,errors=remount-ro 0 1
+DISK0P1 /boot $LINUXFS defaults 0 1
+DISK0P2 none  swap sw 0 0
+proc      /proc proc defaults 0 0"
+  else # $EFIBOOT = efi or bios+efi
+    FSTAB="\
+DISK0P4 /         $LINUXFS defaults,errors=remount-ro 0 1
+DISK0P2 /boot     $LINUXFS defaults 0 1
+DISK0P1 /boot/efi vfat defaults 0 1
+DISK0P3 none      swap sw 0 0
+proc      /proc proc defaults 0 0"
+  fi
+}
+
+# GRUB
+#
+#   If you don't want to use GRUB::
+#
+#     GRUB=""
+#
+#   If GRUB2 is not installed or defined and GRUB is defined and grub is
+#   installed it will be used and LILO will be ignored.
+#
+#   If you want to define it yourself::
+#
+#     GRUB="default 0
+#     timeout 5
+#     color   cyan/blue white/blue
+#     title   Debian GNU/Linux
+#     root    (hd0,0)
+#     kernel  /vmlinuz-2.4.27-2-386 root=/dev/hda3 ro
+#     initrd  /initrd.img-2.4.27-2-386
+#     savedefault
+#     boot"
+#
+#   Default::
+#
+#     GRUB=""
+#
+# GRUB2
+#
+#   This variable defines if GRUB2 will be used and
+#   how the file /boot/grub/grub.cfg is created.
+#   If GRUB2 and GRUB and LILO is defined and installed, GRUB2 will be used
+#
+#   If you don't want to use GRUB2::
+#
+#     GRUB2=""
+#
+#   GRUB2 can also define the content of /boot/grub/grub.cfg.
+#   Grub2 starts counting partitions at 1 and grub1 starts at 0.
+#   Example::
+#
+#     GRUB2="
+#     set lang=en
+#     insmod gettext
+#     set timeout=5
+#     set menu_color_normal=cyan/blue
+#     set menu_color_highlight=white/blue
+#
+#     menuentry 'Debian GNU/Linux' --class debian --class gnu-linux --class gnu --class os {
+#          insmod ext2
+#          set root='(hd0,1)'
+#          linux   /$(basename $KERNEL) root=DISK0P3 ro
+#          initrd  /$(basename $INITRD)
+#     }"
+#
+#   If GRUB2 is auto, update-grub will be used to create /boot/grub/grub.cfg automatically.
+#   Default::
+#
+#     GRUB2="auto"
+#
+# GRUBBOOTDIR
+#
+#   Example::
+#
+#     GRUBBOOTDIR="0"
+#
+#   Default::
+#
+#     GRUBBOOTDIR=""
+#
+# GRUBBOOTDISK
+#
+#   If /boot is not the first partition on disk, we need to know which
+#   one it is to install grub properly.
+#   bootcd starts counting with 0 like grub1 !
+#   Example::
+#
+#     GRUBBOOTDISK="hd0"
+#
+#   Default::
+#
+#     GRUBBOOTDISK=""
+#
+# GRUBDEVICEMAP
+#
+#   Syntax::
+#
+#     GRUBDEVICEMAP=auto|no|<value>
+#
+#   Let bootcd2disk delete the original device.map, so that it will be
+#   auto-created by grub again.::
+#
+#     GRUBDEVICEMAP="auto"
+#
+#   bootcd2disk shoult not change device.map.
+#   This should work if a bootcd is installed on the original hardware::
+#
+#     GRUBDEVICEMAP="no"
+#
+#   Everything else will be used as new value for device.map.
+#   Default::
+#
+#     GRUBDEVICEMAP="auto"
+#
+# GRUB_INSTALL_OPTS_BIOS
+#
+#   If bootcd2disk makes a disk bootable from bios with the command grub-install,
+#   it uses always the same basic default options, that can be changed with this option.
+#
+#   Default::
+#
+#      GRUB_INSTALL_OPTS_BIOS="--target=i386-pc --recheck --no-floppy --force"
+#
+# GRUB_INSTALL_OPTS_EFI
+#
+#   If bootcd2disk makes a disk bootable from efi with the command grub-install,
+#   it uses always the same basic default options, that can be changed with this option.
+#   The option --removable will be added by bootcd2disk if needed.
+#
+#   If the newly created disk will not be moved away --no-nvram may be omitted.
+#
+#   Default::
+#
+#     GRUB_INSTALL_OPTS_EFI="--target=x86_64-efi --recheck --no-floppy --force --no-nvram"
+#
+# IMAGEURL
+#
+#   If bootcd2disk is slow on your system (because of a slow CD/DVD drive or
+#   the HP ILO virtual CD interface), you can use a image server to get the
+#   image from.
+#   bootcd2disk use the SWAP partition of your upcoming system as temporary
+#   space and copy the image from the configured image server (IMAGEURL or
+#   cmdline -url) to this partition and use it as image.
+#   Please use a ip because of failed DNS and you need also the configured ip interface.
+#   The "url" is used with "wget" so all url from wget are possible. Example::
+#
+#    IMAGEURL="http://192.168.100.10/cdimage.iso"
+#
+#   Default::
+#
+#     IMAGEURL=""
+#
+# ISOLOOPBACK
+#
+#   Normally the System is running from bootcd, when bootcd2disk is called.
+#   Then files under / are copied to the new disk.
+#   But it may be faster to additionally mount the bootcd to another mountpoint
+#   and copy from there. This mountpoint can then be defined with ISOLOOPBACK
+#
+#   Default::
+#
+#     ISOLOOPBACK=""
+#
+# LILO
+#
+#   If GRUB is defined and installed LILO will be ignored.
+#   If you don't want to change the /etc/lilo.conf copied from cd::
+#
+#     LILO=""
+#
+#   If you want to define it yourself::
+#
+#     LILO="boot=DISK0
+#     delay=20
+#     vga=0
+#     image=/vmlinuz
+#     root=DISK0P3
+#     initrd=/initrd.img
+#     label=Linux
+#     read-only"
+#
+#   Default::
+#
+#     LILO=""
+#
+# LINUXFS
+#
+#   This can be set to the preferred filesystem. Possible
+#   values are ext4, ext3, ext2, xfs or
+#   auto to calculate an an available filesystem.
+#
+#   Default::
+#
+#     LINUXFS="auto"
+#
+# LUKS
+#
+#   Each line should have the 4 values <target>, <source_device>, <key_file> and
+#   <options> as described in crypttab(5).
+#
+#   Only the <options> luks and swap are supported.
+#   If bootcd2disk is running without controlling tty for password input, the
+#   default password bootcd will be set, that has to be changed manually later.
+#
+#   Example with <target> root filesystem <luksroot> and <target> swap partition
+#   <luksswap>::
+#
+#     LUKS="luksroot DISK0P1 none luks
+#     luksswap DISK0P2 /dev/urandom swap"
+#
+#   Default::
+#
+#     LUKS=""
+#
+# LVMGRP
+#
+#   Each volume group definition needs a new line. Syntax ::
+#
+#     LVMGRP="<group> <diskdev> [<diskdev> ...][<vgcreate-cmd>][...]"
+#
+#   Example1 ::
+#
+#     LVMGRP="vg00 DISK0P1
+#     vg01 DISK0P2
+#     vg02 DISK0P3 DISK0P4"
+#
+#
+#   Example2 which is the same as Example1 because it uses the default schema ::
+#
+#     LVMGRP="vg00 DISK0P1 vgcreate vg00 DISK0P1
+#     vg01 DISK0P2 vgcreate vg01 DISK0P2
+#     vg02 DISK0P3 vgcreate vg02 DISK0P3 DISK0P4"
+#
+#   Default::
+#
+#     LVMGRP=""
+#
+# LVMVOL
+#
+#   Each logical volume definition needs a new line!
+#   Size in vgcreate syntax is MByte, e.g.: 100 means 100 MByte.
+#   Syntax ::
+#
+#     LVMVOL="<volname> <size> <group> [<lvcreate-cmd>][...]"
+#
+#   Example1 ::
+#
+#     LVMVOL="lv00 2000 vg00"
+#
+#
+#   Example2 which is the same as Example1 because it used the default schema ::
+#
+#     LVMVOL="lv00 2000 vg00 lvcreate -n lv00 -L 2000 vg00"
+#
+#   Example3 uses striping for the second volume ::
+#
+#     LVMVOL="lv00 2000 vg00
+#     lv01 100 vg00 lvcreate -n lv01 -i 3 -I 8 -L 100 vg00"
+#
+#
+#   Default::
+#
+#     LVMVOL=""
+#
+# MD
+#
+#   To define Raid devices. Not well tested. Not documented. Syntax ::
+#
+#     MD="<mddev> <level> <diskdev> ... [<mdadm cmd>]"
+#
+#   Example::
+#
+#      MD="md0 1
+#
+#   Default::
+#
+#     MD=""
+#
+# ORDER
+#
+#   This defines the order of <tasks> neccessarry to produce disk partitions.
+#   The tasks available are <parti> <md> <luks> <lvm>.
+#
+#   The task parti can be defined with the variable SFDISK#.
+#   The task luks can be defined with the variable LUKS.
+#   The task md can be defined with the variable MD.
+#   The task lvm can be defined with the variables LVMGRP and LVMVOL.
+#   Only if a task is defined, the <task> will be executed.
+#
+#   It is possible to schedule a <task> multiple times in ORDER.
+#   If <task> parti is defined multiple times, the <task> will only be executed,
+#   if DISK# that corresponds to SFDISK# is available at <task>'s turn.
+#   If <task> md is defined multipe times, the task will only be executed,
+#   if <<diskdev>> defined in MD is available at <task>'s turn.
+#   If < task> lvm is defined multipe times, the task will only be executed,
+#   if <<diskdev>> defined in LVMGRP is available. at <task>'s turn.
+#
+#   Default::
+#
+#     ORDER="parti luks md lvm"
+#
+# PARTITIONLABEL
+#
+#   If you want the filesystem or swap partitions to have labels you can define
+#   them here. Example::
+#
+#     PARTITIONLABEL="/dev/sda1:/
+#     /dev/sda2:SWAP-sda2"
+#
+#   Default::
+#
+#     PARTITIONLABEL=""
+#
+# RESUME
+#
+#   If you get the Warning "Gave up waiting for suspend/resume device"
+#   when booting from a disk created with bootcd2disk, this may help.
+#   It fixes the file /etc/initramfs-tools/conf.d/resume by changing
+#   the RESUME option in /etc/initramfs-tools/initramfs.conf
+#   For example to define the RESUME device as /dev/hda2 use::
+#
+#     RESUME="/dev/hda2"
+#
+#   To define the RESUME device with a Filesystem UUID::
+#
+#     RESUME="UUID=86c6e572-eec4-4a29-8cbd-2864f4e44621"
+#
+#   To not change the RESUME configuration, the variable has to be empty::
+#
+#     RESUME=""
+#
+#   To disable the RESUME Feature, RESUME has to be none::
+#   Default::
+#
+#     RESUME="none"
+#
+define_RESUME() {
+  needs "EFIBOOT" || return $?
+  if [ "$EFIBOOT" = "bios" ]; then
+    RESUME="DISK0P2"
+  else # efi or bios+efi
+    RESUME="DISK0P3"
+  fi
+}
+
+# SFDISK#
+#
+#   SFDISK# stands for one of SFDISK0, SFDISK1, ... SFDISK99
+#   and defines how <sfdisk> will partition the DISK#.
+#
+#   If a disk should not be repartitioned, no definition is needed.
+#
+#   To partition <DISK2> the following config could be used, see man <sfdisk(8)>::
+#
+#     SFDISK2="
+#     unit: sectors
+#     ,50
+#     ,100,S
+#     ;
+#     "
+#
+#   See SFDISK# in default bootcd2disk.conf for an example that
+#   calculates SFDISK0 depending on on EFIBOOT.
+#
+#   The Default is to not repartition any disks.
+#
+define_SFDISK() {
+  needs "EFIBOOT" || return $?
+  START=2048                  # Sectors = 1 MB
+  BOOTS="$(expr 200 \* 2048)" # Sectors = 200 MB
+  EFIS="$(expr 512 \* 2048)"  # Sectors = 512 MB
+  MEMS="$(free | grep Mem | gawk '{print $2}')" # KB
+  SWAPS="$(expr 4 \* $MEMS)"  # Sectors = Double MEMS
+  if [ "$EFIBOOT" = "bios" ]; then
+    SFDISK0="unit: sectors
+$START,$BOOTS,L
+,$SWAPS,S
+,+,L;"
+  else # efi or bios+efi
+    SFDISK0="unit: sectors
+$START,$EFIS,U
+,$BOOTS,L
+,$SWAPS,S
+,+,L;"
+  fi
+}
+
+# SSHHOSTKEY
+#
+#   Syntax::
+#
+#     SSHHOSTKEY=yes|no
+#
+#   If you are using ssh it is helpful to have a unique ssh hostkey for
+#   each PC installed with bootcd2disk. This will be generated with::
+#
+#     SSHHOSTKEY="yes"
+#
+#   Default::
+#
+#     SSHHOSTKEY="yes"
+#
+# SWAP
+#
+#   Each swap device definition needs a new line!
+#   If you don't want to run mkswap use::
+#
+#     SWAP=""
+#
+#   If you want to specify partitions for mkswap::
+#
+#     SWAP="/dev/hda2"
+#
+#   Default::
+#
+#     SWAP=""
+#
+define_SWAP() {
+  needs "EFIBOOT" || return $?
+  if [ "$EFIBOOT" = "bios" ]; then
+    SWAP="DISK0P2"
+  else # efi or bios+efi
+    SWAP="DISK0P3"
+  fi
+}
+
+# ALLOWEDDISKS
+#
+#   If a disk is searched (e.g. DISK0="auto") and ALLOWEDDISKS="", the first free
+#   disk found will be used.
+#   IF ALLOWEDDISKS is defined the first free disk listed in ALLOWEDDISKS will be used.
+#
+#   To try only disks /dev/sda and /dev/hda in this order use::
+#
+#     ALLOWEDDISKS="/dev/sda /dev/hda"
+#
+#   This can also be used to only try individual disks, if they are connected::
+#
+#     ALLOWEDDISKS="/dev/disk/by-id/<id1>
+#     /dev/disk/by-id/<id2>
+#     /dev/disk/by-id/<id3>"
+#
+#   Default::
+#
+#     ALLOWEDDISKS=""
+#
+# UDEV_FIXNET
+#
+#   Syntax::
+#
+#     UDEV_FIXNET=yes|no
+#
+#   If you are using udev filesystem and install the image on other machines
+#   you need to set this to "yes" because the network interfaces are hardwired
+#   in /etc/udev/rules.d/z25_persistent-net.rules (etch) or in
+#   /etc/udev/rules.d/70-persistent-net.rules (lenny) and we must remove them.::
+#
+#     UDEV_FIXNET="yes"
+#
+#   Default::
+#
+#     UDEV_FIXNET="yes"
+#
+# VFAT
+#
+#   Each device or logical volume definition needs a new line!.
+#   VFAT is often needed for EFI. If not needed::
+#
+#     VFAT=""
+#
+#   To ceate partitions with mkdosfs::
+#
+#     VFAT="/dev/sdb4"
+#
+#   Default::
+#
+#     VFAT=""
+#
+define_VFAT() {
+  needs "EFIBOOT" || return $?
+  if [ "$EFIBOOT" = "bios" ]; then
+    VFAT=""
+  else # efi or bios+efi
+    VFAT="DISK0P1"
+  fi
+}
+
+# XFS
+#
+#   Each device or logical volume definition needs a new line!
+#   Create partitions defined as xfs filesystems::
+#
+#     XFS="/dev/hda1
+#     /dev/hda3"
+#
+#   Do not not create xfs filesystems::
+#   Default::
+#
+#     XFS=""
+#

@@ -14,11 +14,11 @@ import { ServiceState } from '../../core/models/monitoring.model';
 import { CheckService } from '../../core/services/check.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { ServiceChecksComponent } from './management/service-checks/service-checks.component';
-import { serviceStateBadge } from '../../shared/status.util';
 import { formatMetricValue, serviceMetricSpec } from '../../shared/format.util';
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /** One row of the persisted discovery result (Checkmk's autochecks). */
 interface DiscoRow {
@@ -46,7 +46,7 @@ interface DiscoRow {
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent, ServiceChecksComponent, MatDialogModule],
+  imports: [StatusPillComponent, BlockedReasonDirective, DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, ServiceChecksComponent, MatDialogModule],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
@@ -130,7 +130,7 @@ interface DiscoRow {
               </div>
             }
             <div class="bm-form-actions">
-              <button mat-raised-button color="primary" (click)="applySelected()" [disabled]="!anySelected()">
+              <button mat-raised-button color="primary" (click)="applySelected()" [bmBlocked]="!anySelected() ? 'Select at least one check' : ''">
                 Assign selected to host
               </button>
               <button mat-button (click)="proposals.set(null)">Dismiss</button>
@@ -294,7 +294,7 @@ interface DiscoRow {
               @for (s of services(); track s.id) {
                 <tr>
                   <td>{{ s.name }}</td>
-                  <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
+                  <td><bm-status-pill [status]="s.state" /></td>
                   <td class="bm-num">{{ fmtValue(s) }}</td>
                   <!-- WHY is this row WARN/CRIT? A state without its threshold is an
                        assertion without a reason. The API already ships it
@@ -378,8 +378,8 @@ interface DiscoRow {
       .bm-group .bm-table thead tr { background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); }
       .bm-group .bm-table tbody tr:first-child td { border-top: none; }
       .bm-table { width: 100%; border-collapse: collapse; }
-      .bm-table th { text-align: left; opacity: 0.6; font-weight: 500; padding: 8px 10px 8px 0; font-size: 12px; }
-      .bm-table td { padding: 8px 10px 8px 0; border-top: 1px solid var(--bm-hairline, var(--mat-sys-outline-variant)); vertical-align: middle; }
+      .bm-table th { text-align: left; opacity: 0.6; font-weight: 500; padding: var(--bm-cell-py) var(--bm-cell-px) var(--bm-cell-py) 0; font-size: 12px; }
+      .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px) var(--bm-cell-py) 0; border-top: 1px solid var(--bm-hairline, var(--mat-sys-outline-variant)); vertical-align: middle; }
       /* Humane numbers (§12): right-aligned, tabular digits, scannable. */
       .bm-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 110px; }
       .bm-mono { font-family: monospace; }
@@ -421,7 +421,6 @@ export class HostChecksComponent {
    * of "check" than the assigned Starlark checks above, shown here so the tab
    * is the single "what's monitored on this host" view. */
   services = signal<ServiceState[]>([]);
-  serviceBadge(s: ServiceState) { return serviceStateBadge(s.state); }
 
   /** Humane value formatting (design-philosophy §12) — shared formatter. */
   fmtValue(s: ServiceState): string { return formatMetricValue(s.value, s.metric, s.name); }

@@ -468,9 +468,47 @@ def _strip_fence(text: str) -> str:
     return text.strip()
 
 
-def run_all_gates(name: str, template: str, caps_raw: str, schema: dict, sample: dict) -> tuple[dict | None, list[str]]:
-    """Run every gate. Returns (parsed_capabilities_or_None, problems). Empty problems == accept."""
+_MARKERS = ("<!--", "--", "//", ";", "#")
+
+
+def _line_marker(line: str) -> str | None:
+    s = line.lstrip()
+    if s.startswith(("{%", "{{", "{#", "#!")):
+        return None
+    return next((m for m in _MARKERS if s.startswith(m)), None)
+
+
+def gate_comment_syntax(original: str, template: str) -> list[str]:
+    """The enriched template comments in the file's OWN syntax. The prompt asks for "the target file's native
+    comment syntax" without saying which; for dnsdist (Lua, `--`) the model wrote `#` lines and dnsdist refused
+    the file ("unexpected symbol near '#'", Bossman-path e2e). Decidable without knowing the language: the
+    original never used `#` but uses another marker, and the enriched version adds `#` lines."""
+    if not original:
+        return []
+    orig_lines = set(original.splitlines())
+    counts: dict[str, int] = {}
+    for ln in orig_lines:
+        m = _line_marker(ln)
+        if m:
+            counts[m] = counts.get(m, 0) + 1
+    if counts.get("#") or not counts:
+        return []
+    native = max(counts, key=counts.get)
+    if counts[native] < 2:
+        return []
+    added = [ln for ln in template.splitlines() if _line_marker(ln) == "#" and ln not in orig_lines]
+    if not added:
+        return []
+    return [f"comment syntax: this file comments with '{native}' (never '#'); {len(added)} new line(s) start "
+            f"with '#', e.g. {added[0].strip()[:60]!r} — use '{native}'"]
+
+
+def run_all_gates(name: str, template: str, caps_raw: str, schema: dict, sample: dict,
+                  original: str = "") -> tuple[dict | None, list[str]]:
+    """Run every gate. Returns (parsed_capabilities_or_None, problems). Empty problems == accept.
+    `original` is the template before enrichment (for the comment-syntax gate)."""
     problems: list[str] = []
+    problems += gate_comment_syntax(original, template)
     problems += gate_contract(template, schema)
     problems += gate_gonja(template, sample)
     problems += gate_ansible_empty(template)

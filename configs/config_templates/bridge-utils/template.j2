@@ -1,18 +1,20 @@
-# ==============================================================================
 # /etc/default/bridge-utils
-# Configuration for the Linux bridge utilities (bridge-utils package).
-# This file is managed by Ansible. Do not edit manually.
-# ==============================================================================
+#
+# This configuration file controls the behavior of the bridge-utils package
+# regarding Linux network bridges. It is read by the bridge management scripts
+# at startup or during interface events.
+#
 
 # Whether to automatically add ports to a bridge when they are hotplugged.
-# If set to 'yes', the bridge will dynamically attach network interfaces that
-# are added to the system while the bridge is active.
-# Default: False
-BRIDGE_HOTPLUG={{ BRIDGE_HOTPLUG | default(False) | lower }}
+# Set to 'yes' if you want the system to automatically associate physical
+# interfaces (like eth0) with a bridge (like br0) upon link-up events.
+# Set to 'no' for manual management only.
+# Default: 'no'
+BRIDGE_HOTPLUG={{ BRIDGE_HOTPLUG | default('no') }}
 
 # Whether to disable link-local IPv6 on physical interfaces of VLAN ports.
-# This prevents IPv6 link-local addresses from being assigned to the underlying
-# physical interfaces when they are enslaved to a VLAN port, which can reduce
-# noise in IPv6 neighbor discovery.
-# Default: True
-BRIDGE_DISABLE_LINKLOCAL_IPV6_ALSO_PHYS={{ BRIDGE_DISABLE_LINKLOCAL_IPV6_ALSO_PHYS | default(True) | lower }}
+# When enabled, this prevents the creation of IPv6 link-local addresses on the
+# underlying physical interfaces that are members of a VLAN interface attached
+# to a bridge. This is useful to reduce noise and potential routing issues.
+# Default: 'yes'
+BRIDGE_DISABLE_LINKLOCAL_IPV6_ALSO_PHYS={{ BRIDGE_DISABLE_LINKLOCAL_IPV6_ALSO_PHYS | default('yes') }}

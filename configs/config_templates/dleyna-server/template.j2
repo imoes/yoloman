@@ -1,0 +1,88 @@
+# Configuration file for dleyna-server (DLNA Server)
+#
+# This template configures the dleyna-server daemon, which provides DLNA
+# Digital Media Server functionality. It handles UPnP/DLNA protocol
+# negotiation, content discovery via SSDP, and media streaming.
+#
+# The configuration is divided into three sections: [general], [log], and [netf].
+# All variables are provided with safe defaults derived from the schema.
+
+[general]
+
+# true: Service always stay in memory running.
+# false: Service quit when the last client disconnects.
+#
+# When set to 'true', the daemon persists in memory even after no clients
+# are connected, reducing startup latency for subsequent connections.
+never-quit={{ never_quit | default('false') }}
+
+# IPC connector name.
+#
+# Specifies the Inter-Process Communication mechanism used for internal
+# communication within the dleyna stack.
+connector-name={{ connector_name | default('dbus') }}
+
+# Source port for SSDP messages.
+#
+# SSDP (Simple Service Discovery Protocol) uses UDP. If this field is
+# empty, the OS assigns an ephemeral port. To enforce a specific port
+# (e.g., for firewall rules), uncomment and set below.
+# Note: Standard SSDP multicast destination is 239.255.255.250:1900.
+#
+# If ssdp_port is provided and not empty, it is used as the source port
+# for outgoing SSDP announcements.
+{% if ssdp_port | default('') is string and ssdp_port | default('') | trim != '' %}
+port={{ ssdp_port | default('') | trim }}
+{% else %}
+# port=<ephemeral>
+{% endif %}
+
+[log]
+
+# Define the logging output method. 3 technologies are defined:
+#
+# 0 = Syslog (uses syslog facility)
+# 1 = GLib (stdout/stderr with GLog formatting)
+# 2 = File (logs to a file, path usually determined by build/install)
+#
+# This directive determines where the daemon writes its log messages.
+log-type={{ log_type | default('0') }}
+
+# Comma-separated list of logging level.
+#
+# Log levels are:
+#   0 = disabled (no logging)
+#   1 = critical
+#   2 = error
+#   3 = warning
+#   4 = message
+#   5 = info
+#   6 = debug
+#
+# Special aggregate levels:
+#   7 = default (equivalent to 1,2,5 - critical, error, info)
+#   8 = all (equivalent to 1,2,3,4,5,6 - all levels)
+#
+# IMPORTANT: This log level is a subset of the log level defined at compile time.
+# You can't enable levels disabled at compile time.
+# Setting level=8 means all level flags defined at compile time are enabled.
+log-level={{ log_level | default('7') }}
+
+
+[netf]
+
+# true: Enable the network filtering.
+# false: Disable the network filtering.
+#
+# When enabled, the server will only interact with clients/interfaces
+# listed in netf-list.
+netf-enabled={{ netf_enabled | default('false') }}
+
+# Comma-separated list of interface name, SSID or IP address.
+#
+# This list defines the allowed network interfaces or sources.
+# If netf-enabled is true but this list is empty, the behavior is
+# effectively disabled (accept all) or depends on specific implementation
+# versions (some versions may reject all if list is empty; consult
+# upstream docs for edge cases).
+netf-list={{ netf_list | default('') }}

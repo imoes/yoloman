@@ -1,0 +1,72 @@
+{
+  "domain_name": {
+    "type": "string",
+    "default": null,
+    "description": "option domain-name handed to clients."
+  },
+  "domain_name_servers": {
+    "type": "string",
+    "default": null,
+    "description": "option domain-name-servers handed to clients (comma-separated)."
+  },
+  "default_lease_time": {
+    "type": "number",
+    "default": null,
+    "description": "Lease length in seconds when the client asks for none."
+  },
+  "max_lease_time": {
+    "type": "number",
+    "default": null,
+    "description": "Longest lease in seconds a client may get."
+  },
+  "ddns_update_style": {
+    "type": "string",
+    "default": null,
+    "enum": [
+      "none",
+      "interim",
+      "standard"
+    ],
+    "description": "Dynamic DNS updates on lease (dhcpd.conf(5)): none, interim or standard."
+  },
+  "authoritative": {
+    "type": "bool",
+    "default": null,
+    "description": "This server is the official DHCP server for its networks (answers DHCPNAK to foreign leases). Unset keeps the shipped line."
+  },
+  "subnets": {
+    "type": "list",
+    "required": true,
+    "default": null,
+    "items": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "string",
+          "description": "Network address, e.g. 192.0.2.0"
+        },
+        "netmask": {
+          "type": "string",
+          "description": "Netmask, e.g. 255.255.255.0"
+        },
+        "range_start": {
+          "type": "string",
+          "description": "First address handed out (omit for a declared-only subnet)"
+        },
+        "range_end": {
+          "type": "string",
+          "description": "Last address handed out"
+        },
+        "routers": {
+          "type": "string",
+          "description": "option routers (comma-separated)"
+        },
+        "dns_servers": {
+          "type": "string",
+          "description": "option domain-name-servers for this subnet (comma-separated)"
+        }
+      }
+    },
+    "description": "The subnets dhcpd serves: network, netmask, and optionally a range, routers and DNS servers. At least one must contain an address of one of the host's interfaces \u2014 dhcpd refuses to start otherwise (\"No subnet declaration for <interface>\"). A site value: the role asks for it before deploying."
+  }
+}

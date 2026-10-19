@@ -1,0 +1,114 @@
+; OpenStack Glance API configuration
+; Managed by Ansible - do not edit manually
+
+[uwsgi]
+############################
+### Generic UWSGI config ###
+############################
+
+; Size for request headers buffer
+; Default: 65535
+buffer-size = {{ buffer_size | default('65535') }}
+
+; This avoids error 104: "Connection reset by peer"
+rem-header = Content-Length
+
+; This is running standalone
+master = true
+
+; uwsgi recommends this to prevent thundering herd on accept.
+thunder-lock = true
+
+plugins = python3
+
+; This ensures that file descriptors aren't shared between the WSGI application processes.
+lazy-apps = true
+
+; Log from the wsgi application: needs python3-pastescript as runtime depends.
+paste-logger = true
+
+; automatically kill workers if master dies
+no-orphans = true
+
+; exit instead of brutal reload on SIGTERM
+die-on-term = true
+
+; Avoid memcached connections to remain opened
+close-on-exec = true
+close-on-exec2 = true
+
+##########################
+### Performance tuning ###
+##########################
+; Threads and processes
+enable-threads = true
+
+; For max perf, set this to number of core*2
+processes = {{ processes | default('8') }}
+
+; This was benchmarked as a good value
+threads = {{ threads | default('1') }}
+
+; This is the number of sockets in the queue.
+; It improves a lot performances. This is comparable
+; to the Apache ServerLimit/MaxClients option.
+listen = {{ listen_queue_size | default('100') }}
+
+##################################
+### OpenStack service specific ###
+##################################
+env = OS_OSLO_MESSAGING_RABBIT__PROCESSNAME=glance-api
+
+; These are used in the gate.
+; The http-auto-chunked / http-chunked-input
+; are mandatory, specific to Glance, and are
+; the reasons why Glance doesn't work on Apache
+socket-timeout = 10
+http-auto-chunked = true
+http-chunked-input = true
+http-raw-body = true
+http-keepalive = true
+chmod-socket = {{ chmod_socket | default('666') }}
+lazy-apps = true
+add-header = Connection: close
+enable-threads = true
+exit-on-reload = true
+die-on-term = true
+wsgi-manage-chunked-input = true
+
+; This is the standard port for the WSGI application, listening on all available IPs
+
+; Path to the log file
+; Default: /var/log/glance/glance-api.log
+logto = {{ log_file | default('/var/log/glance/glance-api.log') }}
+
+; Name of the service
+name = glance-api
+
+; User ID to run the uwsgi process as
+; Default: glance
+uid = {{ uwsgi_uid | default('glance') }}
+
+; Group ID to run the uwsgi process as
+; Default: glance
+gid = {{ uwsgi_gid | default('glance') }}
+
+; Working directory for the glance application
+; Default: /var/lib/glance
+chdir = {{ glance_data_dir | default('/var/lib/glance') }}
+
+; The WSGI entry point script
+wsgi-file = /usr/bin/glance-wsgi-api
+
+; This is controled by the init script using the --http-socket
+; or using the --https thing. https will be activated if a file
+; /etc/glance/ssl/private/*.pem is found. In both case, port 9292
+; on all IPs will be used.
+; The partern to search for the private key file is:
+; find /etc/glance/ssl/private -type f -iname '*.pem' | head -n 1
+; and for the certificate:
+; find /etc/glance/ssl/private -type f -iname '*.crt' | head -n 1
+; just drop files there and restart the daemon, and you will have
+; SSL up to running.
+#http-socket = :9292
+#https 0.0.0.0:9292,foobar.crt,foobar.key

@@ -340,3 +340,15 @@ async def test_vcenter_create_vm_resolves_names_and_starts(monkeypatch):
         "esxi-a.lab", "web01", cores=2, memory_mb=2048, disk_gib=32,
         storage="ds-ssd", bridge="VM Network", uefi=True, mac="52:54:00:de:ad:be")
     assert res == {"vmid": "vm-501", "mac": "52:54:00:de:ad:be"}
+
+
+def test_proxmox_vm_config_sets_the_cpu_model_only_when_asked():
+    # AlmaLinux 10 needs x86-64-v3; without a model Proxmox gives kvm64 and its installer never comes up (measured).
+    from bossman.services.hypervisor import _proxmox_vm_config
+    from bossman.services.netinstall import DRIVERS
+
+    base = dict(name="t", cores=2, memory_mb=2048, disk_gib=32, storage="s", bridge="vmbr0", mac="52:54:00:00:00:01",
+                vlan=None, uefi=False)
+    assert "cpu" not in _proxmox_vm_config(**base)
+    assert _proxmox_vm_config(**base, cpu=DRIVERS["alma"].cpu_model)["cpu"] == "x86-64-v3"
+    assert DRIVERS["fedora"].cpu_model is None and DRIVERS["debian"].cpu_model is None

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {# Match rules for font substitution based on language and family #}
+  <match>
+    {# Test if the target language matches the specified lang_code #}
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('lo') }}</string>
+    </test>
+    {# Test if the target font family matches the specified family_name #}
+    <test name="family">
+      <string>{{ family_name | default('serif') }}</string>
+    </test>
+    {# Prepend the specific Noto Serif Lao font to the family list #}
+    <edit name="family" mode="prepend">
+      <string>{{ font_name | default('Noto Serif Lao') }}</string>
+    </edit>
+    {# Enable font hinting for the matched fonts to improve rendering clarity #}
+    <edit name="fonthashint" mode="append">
+      <bool>{{ enable_hinting | default('false') | lower }}</bool>
+    </edit>
+  </match>
+  {# Alias rule to map the generic family to the specific font name #}
+  <alias>
+    <family>{{ font_name | default('Noto Serif Lao') }}</family>
+    <default>
+      <family>{{ family_name | default('serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

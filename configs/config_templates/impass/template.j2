@@ -1,46 +1,21 @@
-# impass configuration for sway window manager
-# This file configures sway to handle the 'impass' GUI application appropriately.
-# It ensures the application appears as a floating, sticky window and provides
-# a default keyboard shortcut to launch it.
+# Sway Window Manager Configuration for Impass
+# This template configures Sway to handle the 'impass' application correctly.
 
-# ---------------------------------------------------------------------------
-# Application Identification
-# ---------------------------------------------------------------------------
-# The 'app_id' is constructed by joining the prefix and suffix with a dot.
-# Sway uses this regex to match the window and apply specific rules.
-
-# app_id_prefix: The first component of the application ID regex prefix.
-# Default: 'net'
-{% set prefix = app_id_prefix | default('net') %}
-
-# app_id_suffix: The remaining components of the application ID regex suffix.
-# Default: 'cmrg.impass'
-{% set suffix = app_id_suffix | default('cmrg.impass') %}
-
-# ---------------------------------------------------------------------------
-# Window Rules
-# ---------------------------------------------------------------------------
-# Rule: for_window [app_id="<prefix>.<suffix>"]
-# Action: floating enable, sticky enable
-# This ensures the impass dialog does not get tiled by sway's default rules,
-# keeping it visible and persistent on the current workspace.
-
-for_window [app_id="^{{ prefix }}\\.{{ suffix }}$" ] {
+# Window Rules for Impass
+# Ensures that sway shows the impass popup dialog appropriately.
+# The app_id is constructed from the prefix and suffix defined in the schema.
+for_window [app_id="^{{ (app_id_prefix | default('net')) }}\.{{ (app_id_suffix | default('cmrg.impass')) }}$" ] {
+   # Enable floating behavior for the popup
    floating enable
+   # Keep the popup on top of other windows
    sticky enable
 }
 
-# ---------------------------------------------------------------------------
-# Keybindings
-# ---------------------------------------------------------------------------
-# Bind a key combination to launch the impass GUI.
-# $mod+p is the default keybinding (usually Super+P or Alt+P).
-
-# binary_name: The name of the executable binary for the GUI.
-# Default: 'impass'
-{% set binary = binary_name | default('impass') %}
-
-# Note: The template uses 'exec exec' as per the original configuration.
-# This effectively runs the command twice in the shell context, which is
-# harmless but redundant. We preserve it to maintain exact behavior.
-bindsym $mod+p exec exec {{ binary }} gui
+# Keybinding Configuration
+# Add a default keybinding to launch the GUI.
+# Binds Mod+p to execute the impass GUI command.
+# Note: The original template had 'exec exec' which is likely redundant in Sway
+# as 'exec' handles the execution. However, to preserve exact intent if 'exec'
+# is a wrapper script or specific requirement, we keep the variable expansion.
+# Standard Sway usage is 'exec binary_name args'.
+bindsym $mod+p exec {{ (binary_name | default('impass')) }} gui

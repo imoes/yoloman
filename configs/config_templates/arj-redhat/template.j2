@@ -1,0 +1,61 @@
+# Configuration for arj-redhat package
+# This template generates configuration blocks for archive handling,
+# virus scanning integration, and various archive format commands.
+
+VIRUS {{ virus_command | default('/usr/bin/scan') }} /nomem /sub *
+
+# Archive handling for 'arj' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+arj
+ arj a -+ -y -a1 -r -j$ -s -jm -2s "{{ archive_format_options | default('%s') }}" "{{ archive_path | default('%s') }}"
+ arj x -y "{{ archive_path | default('%s') }}"
+
+# Archive handling for 'zip' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+AD
+zip
+ zip -r "{{ archive_path | default('%s') }}" . -i *
+ unzip "{{ archive_path | default('%s') }}"
+
+# Archive handling for 'rar' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+AD
+rar
+ rar a -r -y "{{ archive_path | default('%s') }}"
+ rar x -y "{{ archive_path | default('%s') }}"
+
+# Archive handling for 'tar.Z' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+AD
+tar.Z
+ tar -cvZf "{{ archive_path | default('%s') }}" .
+ tar -xvZf "{{ archive_path | default('%s') }}"
+
+# Archive handling for 'tar.gz' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+ADT
+tar.gz
+ tar -cvzf "{{ archive_path | default('%s') }}" .
+ tar -xvzf "{{ archive_path | default('%s') }}"
+
+# Archive handling for 'tgz' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+ADT
+tgz
+ tar -cvzf "{{ archive_path | default('%s') }}" .
+ tar -xvzf "{{ archive_path | default('%s') }}"
+
+# Archive handling for 'tar.bz2' format
+# archive_format_options: Format specifier or additional flags for archive creation (varies by tool)
+# archive_path: Path placeholder for the archive file
+ADT
+tar.bz2
+ tar --bzip2 -cvf "{{ archive_path | default('%s') }}" .
+ tar --bzip2 -xvf "{{ archive_path | default('%s') }}"
+ADT

@@ -27,8 +27,9 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 #   - system_user: System user account to run the job as (default: 'debian-systraq')
 @monthly     {{ system_user | default('debian-systraq') }}  [ -d {{ data_dir | default('/var/lib/systraq') }}/filetraq ] && find {{ data_dir | default('/var/lib/systraq') }}/filetraq -type f -name "*.??.??__??.??" -ctime +60 -exec rm \{} \;
 #
-# sent the weekly {{ package_name | default('systraq') }} email
-#
+{% if package_name is defined and package_name is not none and (package_name is number or package_name is boolean or package_name | length > 0) %}sent the weekly {{ package_name | default('systraq') }} email
+{% else %}# sent the weekly systraq email
+{% endif %}#
 # Description: Runs weekly to send a status email via mailx. Checks for the
 # existence of the {{ package_name | default('systraq') }} binary. The output is piped to mailx with
 # a subject line including the package name, hostname, and date.
@@ -38,8 +39,9 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 #   - system_user: System user account to run the job as (default: 'debian-systraq')
 @weekly       {{ system_user | default('debian-systraq') }}  command -v {{ package_name | default('systraq') }} >/dev/null && {{ package_name | default('systraq') }} | mailx -s "[{{ package_name | default('systraq') }}] `hostname` `date +\%Y\%m\%d`" {{ system_user | default('debian-systraq') }}
 #
-# update the {{ package_name | default('systraq') }} status files
-#
+{% if package_name is defined and package_name is not none and (package_name is number or package_name is boolean or package_name | length > 0) %}update the {{ package_name | default('systraq') }} status files
+{% else %}# update the systraq status files
+{% endif %}#
 # Description: Runs hourly to update system status snapshots.
 # - The first line runs as the service's system user.
 # - The second line runs as root to capture root-level status if available.

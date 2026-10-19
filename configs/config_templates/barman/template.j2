@@ -28,7 +28,7 @@ barman_home = {{ barman_home | default('/var/lib/barman') }}
 ; barman_lock_directory: Directory for Barman lock files. Used to prevent concurrent
 ; operations that could corrupt backup state or cause race conditions.
 ; Usually mounted as a tmpfs or resides on the same filesystem as barman_home.
-barman_lock_directory = {{ barman_locks | default('/var/run/barman') }}
+{% if barman_locks is defined and barman_locks is not none and (barman_locks is number or barman_locks is boolean or barman_locks | length > 0) %}barman_lock_directory = {{ barman_locks | default('/var/run/barman') }}{% else %};barman_lock_directory = /var/run/barman{% endif %}
 
 ; log_file: Path to the main Barman log file. All global Barman operations
 ; (backups, recovery checks, WAL archiving status) are recorded here.
@@ -42,7 +42,7 @@ log_level = {{ log_level | default('INFO') }}
 ; compression: Default compression for backups.
 ; Supported values: 'none', 'gzip', 'bzip2', 'lz4'.
 ; 'none' provides maximum performance but larger disk usage. 'gzip' is a good balance.
-compression = {{ compression | default('none') }}
+{% if compression is defined and compression is not none and (compression is number or compression is boolean or compression | length > 0) %}compression = {{ compression | default('none') }}{% else %};compression = gzip{% endif %}
 
 ; pre_backup_script: Custom action executed before a base backup starts.
 ; Uncomment and configure if you need to flush application caches or prepare the system.
@@ -105,7 +105,7 @@ compression = {{ compression | default('none') }}
 ; parallel_jobs: Maximum number of parallel jobs for backup and recovery
 ; operations via rsync. Increasing this can speed up large backups if the disk
 ; subsystem and network can handle the I/O load.
-parallel_jobs = {{ parallel_jobs | default(1) }}
+{% if parallel_jobs is defined and parallel_jobs is not none and (parallel_jobs is number or parallel_jobs is boolean or parallel_jobs | length > 0) %}parallel_jobs = {{ parallel_jobs | default(1) }}{% else %};parallel_jobs = 1{% endif %}
 
 ; immediate_checkpoint: Forces PostgreSQL to perform an immediate checkpoint before
 ; the base backup starts. This can reduce backup time by ensuring all dirty pages

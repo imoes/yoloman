@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  System Tools Backends D-Bus Policy Configuration
+  -------------------------------------------------
+  This file defines the access control policies for the
+  System Tools Backends D-Bus service. It restricts
+  service ownership and communication to authorized users,
+  primarily restricting general users while granting
+  full access to root.
+-->
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!-- Default Policy: Applies to all unprivileged users -->
+  <policy context="default">
+    <!--
+      Deny regular users from owning the main service bus name.
+      This ensures only privileged processes (like root) can
+      start or register the service.
+      Variable: dbus_service_name
+      Default: org.freedesktop.SystemToolsBackends
+    -->
+    <deny own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}"/>
+
+    <!--
+      Uncomment the following block to allow a specific
+      unprivileged user to own and interact with specific
+      configuration modules for testing purposes.
+      
+      NOTE: These directives are commented out by default
+      for security. Enable them only if you have a
+      dedicated test user configured.
+    -->
+    <!--
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.GroupConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.GroupsConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.HostsConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.IfacesConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.NFSConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.NTPConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.ServiceConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.ServicesConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.SMBConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.TimeConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.UserConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.UsersConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.SelfConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.Platform"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.Platform" send_member="getPlatform"/>
+    -->
+
+    <!--
+      Allow regular users to send messages to the main
+      dispatcher service. This enables them to request
+      system configuration changes (which are then executed
+      by the privileged root process).
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}"/>
+  </policy>
+
+  <!-- Root Policy: Grants full administrative access -->
+  <policy user="root">
+    <!--
+      Allow root to own the main service bus name.
+    -->
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}"/>
+
+    <!--
+      Allow root to own all specific configuration module
+      interfaces. This grants root full control over
+      groups, hosts, networking, NFS, NTP, services,
+      SMB, time, users, and platform data.
+    -->
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.GroupConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.GroupsConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.HostsConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.IfacesConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.NFSConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.NTPConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.ServiceConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.ServicesConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.SMBConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.TimeConfig"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.UserConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.UsersConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.SelfConfig2"/>
+    <allow own="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.Platform"/>
+
+    <!--
+      Allow root to communicate with all configuration
+      modules via their interfaces and destinations.
+      This ensures root can directly manage any subsystem
+      if needed, bypassing the dispatcher if necessary.
+    -->
+    <allow send_interface="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}"/>
+    <allow send_interface="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.Platform"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.Platform"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.GroupConfig2"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.GroupsConfig2"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.HostsConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.IfacesConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.NFSConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.NTPConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.ServiceConfig2"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.ServicesConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.SMBConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.TimeConfig"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.UserConfig2"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.UsersConfig2"/>
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.SystemToolsBackends') }}.SelfConfig2"/>
+  </policy>
+</busconfig>

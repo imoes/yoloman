@@ -1,0 +1,30 @@
+<!DOCTYPE busconfig PUBLIC
+          "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+          "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+    <!--
+      Policy: Allow the root user to own the org.freedesktop.realmd bus name.
+      This ensures only privileged users/services can claim the realm management service.
+      Variable: realmd_bus_policy_root_own
+      Default: true
+    -->
+    {% if realmd_bus_policy_root_own | default(true) | bool %}
+    <policy user="root">
+        <allow own="org.freedesktop.realmd"/>
+    </policy>
+    {% endif %}
+
+    <!--
+      Policy: Default access for all other users.
+      Currently allows any user to send messages to the realm service.
+      Variable: realmd_bus_policy_default_send
+      Default: true
+    -->
+    {% if realmd_bus_policy_default_send | default(true) | bool %}
+    <policy context="default">
+        <allow send_destination="org.freedesktop.realmd" />
+    </policy>
+    {% endif %}
+
+</busconfig>

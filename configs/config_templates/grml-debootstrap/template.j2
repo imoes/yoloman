@@ -10,7 +10,7 @@
 ################################################################################
 # shellcheck disable=SC2317  # shellcheck has trouble understanding the code flow in this file
 
-# error_handler {{{
+# error_handler {{ '{{' }}{
 error_handler() {
    last_exit_code="$?"
    last_bash_command="$BASH_COMMAND"
@@ -23,7 +23,7 @@ set -e
 set -E
 set -o pipefail
 trap "error_handler" ERR
-# }}}
+# {{ '}}' }}}
 
 bash -n /etc/debootstrap/config
 # shellcheck source=config
@@ -35,7 +35,7 @@ bash -n /etc/debootstrap/variables
 [ -r /proc/1 ] || mount -t proc none /proc
 [ -r /sys/kernel ] || mount -t sysfs none /sys
 
-# variable checks {{{
+# variable checks {{ '{{' }}{
 
 # use aptitude only if it's available
 if [ -x /usr/bin/aptitude ] ; then
@@ -52,9 +52,9 @@ if [ -z "$STAGES" ] ; then
    STAGES='/etc/debootstrap/stages'
    [ -d "$STAGES" ] || mkdir -p "$STAGES"
 fi
-# }}}
+# {{ '}}' }}}
 
-# helper functions {{{
+# helper functions {{ '{{' }}{
 stage() {
   if [ -n "$2" ] ; then
      echo "$2" > "$STAGES/$1"
@@ -75,9 +75,9 @@ askpass() {
   [ -t 0 ] && stty echo
   set +o noglob
 }
-# }}}
+# {{ '}}' }}}
 
-# mark existing packages as automatically installed {{{
+# mark existing packages as automatically installed {{ '{{' }}{
 markauto() {
   case "$RELEASE" in
     buster|bullseye)
@@ -90,9 +90,9 @@ markauto() {
   # Later in the systems life, apt autoremove will remove them if possible.
   apt-mark auto '~i !~M ?not(?priority(required)) ?not(?priority(important)) ?not(?priority(standard))'
 }
-# }}}
+# {{ '}}' }}}
 
-# define chroot mirror {{{
+# define chroot mirror {{ '{{' }}{
 chrootmirror() {
   if [ "$KEEP_SRC_LIST" = "yes" ] ; then
     echo "KEEP_SRC_LIST has been enabled, skipping chrootmirror stage."
@@ -124,9 +124,9 @@ chrootmirror() {
       ;;
   esac
 }
-# }}}
+# {{ '}}' }}}
 
-# remove local chroot mirror {{{
+# remove local chroot mirror {{ '{{' }}{
 remove_chrootmirror() {
   if [ "$KEEP_SRC_LIST" = "yes" ] ; then
     echo "KEEP_SRC_LIST has been enabled, skipping remove_chrootmirror stage."
@@ -135,15 +135,15 @@ remove_chrootmirror() {
 
   if [ -n "$MIRROR" ] && echo "$MIRROR" | grep -q 'file:' ; then
     echo "Removing local mirror (${MIRROR}) from sources.list."
-    TMP_MIRROR="${MIRROR//\/\\\/}"
+    TMP_MIRROR="${MIRROR//\//\\\/}"
     sed -i "/deb $TMP_MIRROR $RELEASE $COMPONENTS/ D" /etc/apt/sources.list
     echo "Adding fallback mirror entry (${FALLBACK_MIRROR}) to sources.list instead."
     echo "deb $FALLBACK_MIRROR $RELEASE $COMPONENTS" >> /etc/apt/sources.list
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# set up grml repository {{{
+# set up grml repository {{ '{{' }}{
 grmlrepos() {
   if [ -z "$GRMLREPOS" ] ; then
     return 0
@@ -187,9 +187,9 @@ EOF
     exit 1
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# feature to provide Debian backports repos {{{
+# feature to provide Debian backports repos {{ '{{' }}{
 backportrepos() {
   if [ -n "$BACKPORTREPOS" ] ; then
     cat >> /etc/apt/sources.list.d/backports.list << EOF
@@ -199,9 +199,9 @@ deb-src ${MIRROR} ${RELEASE}-backports main
 EOF
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# set up kernel-img.conf {{{
+# set up kernel-img.conf {{ '{{' }}{
 kernelimg_conf() {
   if ! [ -r /etc/kernel-img.conf ] ; then
      echo "Setting up /etc/kernel-img.conf"
@@ -213,9 +213,9 @@ do_symlinks = Yes
 EOF
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# make sure services do not start up {{{
+# make sure services do not start up {{ '{{' }}{
 install_policy_rcd() {
   if ! [ -r /usr/sbin/policy-rc.d ] ; then
      export POLICYRCD=1
@@ -227,9 +227,9 @@ EOF
      chmod 775 /usr/sbin/policy-rc.d
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# make sure we have an up2date system {{{
+# make sure we have an up2date system {{ '{{' }}{
 upgrade_system() {
   if [ "$UPGRADE_SYSTEM" = "yes" ] ; then
     echo "Running update + upgrade"
@@ -240,8 +240,8 @@ upgrade_system() {
   fi
 }
 
-# }}}
-# remove now useless apt cache {{{
+# {{ '}}' }}}
+# remove now useless apt cache {{ '{{' }}{
 remove_apt_cache() {
   if [ "$RM_APTCACHE" = 'yes' ] ; then
     echo "Cleaning apt cache."
@@ -251,9 +251,9 @@ remove_apt_cache() {
     echo "Not cleaning apt cache as \$RM_APTCACHE is unset."
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# install additional packages {{{
+# install additional packages {{ '{{' }}{
 packages() {
   # Pre-seed the debconf database with answers. Each question will be marked
   # as seen to prevent debconf from asking the question interactively.
@@ -276,9 +276,9 @@ packages() {
     fi
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# install extra packages {{{
+# install extra packages {{ '{{' }}{
 extrapackages() {
     if [ "$EXTRAPACKAGES" = 'yes' ] ; then
         PACKAGELIST=$(find /etc/debootstrap/extrapackages -type f -name '*.deb')
@@ -290,7 +290,7 @@ extrapackages() {
         fi
     fi
 }
-# }}}
+# {{ '}}' }}}
 
 # check if the specified Debian package exists
 package_exists() {
@@ -321,7 +321,7 @@ get_kernel_version() {
   return 1
 }
 
-# install kernel packages {{{
+# install kernel packages {{ '{{' }}{
 kernel() {
   if [ -n "$NOKERNEL" ] ; then
     echo "Skipping installation of kernel packages as requested via --nokernel"
@@ -342,9 +342,9 @@ kernel() {
      echo "Warning: Could not find a kernel for your system. Your system won't be able to boot itself!"
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# reconfigure packages {{{
+# reconfigure packages {{ '{{' }}{
 reconfigure() {
   if [ -n "$RECONFIGURE" ] ; then
      for package in $RECONFIGURE ; do
@@ -355,10 +355,10 @@ reconfigure() {
      done
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# set password of user root {{{
-passwords()
+# set password of user root {{ '{{' }}{
+passwords
 {
   if [ -n "$NOPASSWORD" ] ; then
     echo "Skip setting root password as requested."
@@ -402,9 +402,9 @@ passwords()
      done
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# set up /etc/hosts {{{
+# set up /etc/hosts {{ '{{' }}{
 hosts() {
   if ! [ -f /etc/hosts ] ; then
      cat > /etc/hosts << EOF
@@ -415,9 +415,9 @@ ff02::2         ip6-allrouters
 EOF
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# set default locales {{{
+# set default locales {{ '{{' }}{
 default_locales() {
   if [ -n "$DEFAULT_LOCALES" ] ; then
     if ! [ -x /usr/sbin/update-locale ] ; then
@@ -429,9 +429,9 @@ default_locales() {
     /usr/sbin/update-locale LANGUAGE="$DEFAULT_LANGUAGE" LANG="$DEFAULT_LOCALES"
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# adjust timezone {{{
+# adjust timezone {{ '{{' }}{
 timezone() {
   if [ -n "$TIMEZONE" ] ; then
     echo "Adjusting /etc/localtime"
@@ -445,9 +445,9 @@ timezone() {
     fi
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# helper function for fstab() {{{
+# helper function for fstab() {{ '{{' }}{
 createfstab(){
   echo "Setting up /etc/fstab"
   cat > /etc/fstab <<EOF
@@ -488,7 +488,7 @@ cat >> /etc/fstab << EOF
 proc           /proc        proc    defaults                      0   0
 /dev/cdrom     /mnt/cdrom0  iso9660 ro,user,noauto                0   0
 # some other examples:
-# /dev/sda2       none         swap    sw,pri=0             0  0
+# /dev/sda2       none         swap    sw,pri=0             0   0
 # /dev/hda1       /Grml        ext3    dev,suid,user,noauto 0  2
 # //1.2.3.4/pub   /smb/pub     cifs    user,noauto,uid=grml,gid=grml 0 0
 # linux:/pub      /beer        nfs     defaults             0  0
@@ -496,18 +496,18 @@ proc           /proc        proc    defaults                      0   0
 # /dev/sda5       none         swap    sw                   0  0
 EOF
 }
-# }}}
+# {{ '}}' }}}
 
-# generate /etc/fstab {{{
+# generate /etc/fstab {{ '{{' }}{
 fstab() {
   # set up /etc/fstab if file is UNCONFIGURED (debootstrap, mmdebstrap)
   if grep -q UNCONFIGURED /etc/fstab ; then
      createfstab
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# ensure we have according filesystem tools available {{{
+# ensure we have according filesystem tools available {{ '{{' }}{
 install_fs_tools() {
   local pkg=""
 
@@ -527,9 +527,9 @@ install_fs_tools() {
     DEBIAN_FRONTEND=$DEBIAN_FRONTEND $APTINSTALL "${pkg}"
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# set up hostname {{{
+# set up hostname {{ '{{' }}{
 hostname() {
   if [ -n "$HOSTNAME" ] ; then
      echo "Setting hostname to ${HOSTNAME}."
@@ -561,9 +561,9 @@ hostname() {
      fi
   fi
 }
-# }}}
+# {{ '}}' }}}
 
-# generate initrd/initramfs {{{
+# generate initrd/initramfs {{ '{{' }}{
 initrd() {
   # assume the first available kernel as our main kernel
   # shellcheck disable=SC2012
@@ -587,7 +587,7 @@ initrd() {
      fi
   fi
 }
-# }}}
+# {{ '}}' }}}
 
 efi_setup() {
   if [ -z "$EFI" ] ; then
@@ -614,7 +614,7 @@ efi_setup() {
   efibootmgr || true
 }
 
-# grub configuration/installation {{{
+# grub configuration/installation {{ '{{' }}{
 
 # helper function to get relevant /dev/disk/by-id/* entries,
 # based on GRUB's postinst script
@@ -679,7 +679,7 @@ is_grub_bios_compatible() {
 run_grub_install() {
   grub_install_cmd=( 'grub-install' "$@" )
   if ! "${grub_install_cmd[@]}" ; then
-    echo "Error: failed to execute '${grub_install_cmd[*]}'." >&2
+    echo "Error: failed to execute '${grub_install_cmd[*]'." >&2
     exit 1
   fi
 }
@@ -789,9 +789,9 @@ grub_install() {
 
   return 0
 }
-# }}}
+# {{ '}}' }}}
 
-# execute all scripts present in /etc/debootstrap/chroot-scripts/ {{{
+# execute all scripts present in /etc/debootstrap/chroot-scripts/ {{ '{{' }}{
 custom_scripts() {
   [ -d /etc/debootstrap/chroot-scripts/ ] || return 0
 
@@ -800,9 +800,9 @@ custom_scripts() {
       $script && echo "done" || echo "failed"
   done
 }
-# }}}
+# {{ '}}' }}}
 
-# make sure we don't have any running processes left {{{
+# make sure we don't have any running processes left {{ '{{' }}{
 services() {
   for service in ssh mdadm mdadm-raid ; do
     if [ -x /etc/init.d/"$service" ] ; then
@@ -810,9 +810,9 @@ services() {
     fi
   done
 }
-# }}}
+# {{ '}}' }}}
 
-# unmount /proc and make sure nothing is left {{{
+# unmount /proc and make sure nothing is left {{ '{{' }}{
 finalize() {
   # make sure we don't leave any sensible data
   rm -f /etc/debootstrap/variables
@@ -824,21 +824,21 @@ finalize() {
   umount /sys >/dev/null 2>/dev/null || true
   umount /proc >/dev/null 2>/dev/null || true
 }
-# }}}
+# {{ '}}' }}}
 
-# signal handler {{{
+# signal handler {{ '{{' }}{
 signal_handler() {
   finalize
   [ -n "$1" ] && EXIT="$1" || EXIT="1"
   exit "$EXIT"
 }
-# }}}
+# {{ '}}' }}}
 
-# set signal handler {{{
+# set signal handler {{ '{{' }}{
 trap signal_handler HUP INT QUIT TERM
-# }}}
+# {{ '}}' }}}
 
-# execute the functions {{{
+# execute the functions {{ '{{' }}{
 
  # always execute install_policy_rcd
  install_policy_rcd
@@ -856,12 +856,12 @@ trap signal_handler HUP INT QUIT TERM
   done
   # always execute the finalize stage:
   finalize
-# }}}
+# {{ '}}' }}}
 
-# finally exit the chroot {{{
+# finally exit the chroot {{ '{{' }}{
   echo "Finished chroot installation, exiting."
   exit 0
-# }}}
+# {{ '}}' }}}
 
 ## END OF FILE #################################################################
 # vim: ai tw=80 expandtab foldmethod=marker

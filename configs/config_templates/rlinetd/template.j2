@@ -1,62 +1,27 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          rlinetd
-# Required-Start:    $local_fs $remote_fs $syslog $network
-# Required-Stop:     $local_fs $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start/stop rlinetd server
-# Description:       Rlinetd is a inetd server including rpc support and both udp
-#                    and tcp services. In addition, it supports a number of 
-#                    resourcelimiting features, including full resource limits
-#                    renicing, chroot and limited per-service instances.
-### END INIT INFO
+# Path to the main rlinetd configuration file.
+# This file defines the global settings and includes additional configuration snippets.
+# The rlinetd daemon reads this file to determine which services to forward and how.
 
-# Configuration file path for rlinetd.
-# Defaults to /etc/rlinetd.conf if not specified in inventory variables.
-CONF_FILE="{{ rlinetd_config_file | default('/etc/rlinetd.conf') }}"
+# Include additional configuration files from the specified directory.
+# This allows splitting the configuration into smaller, manageable pieces.
+# The wildcard pattern ignores editor backup files (e.g., file.bak, file.swp).
+#
+# Schema field: rlinetd_config_dir
+# Default: /etc/rlinetd.d
+directory "{{ rlinetd_config_dir | default('/etc/rlinetd.d') }}" "" "(~|\.bak|\.swp|\.ucf-.*|\.dpkg-.*)$";
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/rlinetd
-NAME=rlinetd
-DESC="internet superserver"
+# Global defaults for all services defined in the configuration.
+# These settings apply to all entries unless overridden locally.
+defaults {
+  # Number of rlinetd instances (worker processes) to spawn.
+  # Increasing this number can improve performance for high connection counts.
+  #
+  # Schema field: rlinetd_instances
+  # Default: 5
+  instances {{ rlinetd_instances | default('5') }};
 
-# Insert the path to the configuration file here so the init script
-# (or the daemon wrapper) knows which config to pass to the binary.
-echo "$CONF_FILE"
-
-set -e 
-status=0
-
-. /lib/lsb/init-functions
-
-case "$1" in
-  start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	start-stop-daemon --start --quiet --exec $DAEMON || status=$?
-	log_end_msg $status
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	start-stop-daemon --stop --quiet --oknodo --exec $DAEMON || status=$?
-	log_end_msg $status
-	;;
-  reload|force-reload)
-	log_daemon_msg "Reloading $DESC configuration files" "$NAME"
-	start-stop-daemon --stop --signal 1 --quiet --exec $DAEMON || status=$?
-	log_end_msg $status
-	;;
-  restart)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	start-stop-daemon --stop --quiet --oknodo --exec $DAEMON || true
-	sleep 1
-	start-stop-daemon --start --quiet --exec $DAEMON || status=$?
-	log_end_msg $status
-	;;
-  *)
-	log_failure_msg "Usage: $0 {start|stop|restart|reload|force-reload}"
-	exit 1
-	;;
-esac
-
-exit $status
+  # Optional: Bind specific services to a local interface address.
+  # Uncomment and set to restrict access to a specific network interface.
+  # Example: interface 192.168.1.1;
+  # interface 192.168.1.1;
+}

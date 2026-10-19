@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
 import { AccountGroup, AccountUser } from '../../../core/models/agent.model';
 import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** Block J4c, Cockpit-adaptation — the Accounts section restructured like
  * Cockpit's account-details (../cockpit/pkg/users): a users table where
@@ -20,7 +21,7 @@ import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog
 @Component({
   selector: 'app-host-accounts',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatCheckboxModule, MatMenuModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, MatButtonModule, MatIconModule, MatCheckboxModule, MatMenuModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-mgmt-section">
       <div class="bm-mgmt-toolbar">
@@ -40,7 +41,7 @@ import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog
             <h4>Users ({{ visibleUsers().length }})</h4>
             <div class="bm-acct-new">
               <input type="text" placeholder="new username" [value]="newUser()" (input)="newUser.set($any($event.target).value)" />
-              <button mat-button (click)="createUser()" [disabled]="busy() || !newUser().trim()">Create</button>
+              <button mat-button (click)="createUser()" [disabled]="busy()" [bmBlocked]="!newUser().trim() ? 'Enter a user name' : ''" bmBlockedMode="tip">Create</button>
             </div>
             <table class="bm-mgmt-table">
               <thead><tr><th>Name</th><th>UID</th><th>Shell</th></tr></thead>
@@ -57,7 +58,7 @@ import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog
             <h4>Groups ({{ visibleGroups().length }})</h4>
             <div class="bm-acct-new">
               <input type="text" placeholder="new group name" [value]="newGroup()" (input)="newGroup.set($any($event.target).value)" />
-              <button mat-button (click)="createGroup()" [disabled]="busy() || !newGroup().trim()">Create</button>
+              <button mat-button (click)="createGroup()" [disabled]="busy()" [bmBlocked]="!newGroup().trim() ? 'Enter a group name' : ''" bmBlockedMode="tip">Create</button>
             </div>
             <table class="bm-mgmt-table">
               <thead><tr><th>Name</th><th>GID</th><th>Members</th><th></th></tr></thead>
@@ -128,8 +129,8 @@ import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog
       @media (max-width: 900px) { .bm-acct-grid { grid-template-columns: 1fr; } }
       .bm-acct-new { display: flex; gap: 8px; margin-bottom: 8px; }
       .bm-acct-new input { flex: 1; padding: 6px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px; background: var(--mat-sys-surface); color: inherit; }
-      .bm-mgmt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .bm-mgmt-table th, .bm-mgmt-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+      .bm-mgmt-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+      .bm-mgmt-table th, .bm-mgmt-table td { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-mgmt-unit { font-family: monospace; }
       .bm-urow { cursor: pointer; }
       .bm-urow:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }

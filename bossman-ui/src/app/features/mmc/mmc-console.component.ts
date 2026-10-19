@@ -3,10 +3,12 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { DiagnosisPanelComponent } from '../diagnosis/diagnosis-panel.component';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   MmcService, ConsoleTree, NodeAction, NodeResult, Snapin, SnapinAction, SnapinColumn, ToolSchema,
 } from '../../core/services/mmc.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /**
  * THE MANAGEMENT CONSOLE — MMC's three panes, for any host in the fleet.
@@ -23,7 +25,7 @@ import {
 @Component({
   selector: 'app-mmc-console',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, DatePipe, FormsModule, MatButtonModule, MatIconModule, DiagnosisPanelComponent],
   template: `
     <div class="bm-mmc">
       <!-- ── Scope pane ─────────────────────────────────────────────── -->
@@ -102,9 +104,13 @@ import {
             </div>
             <div class="bm-head-actions">
               @for (a of node()!.node_actions || []; track a.id) {
-                <button mat-stroked-button (click)="openForm(a)">
-                  <mat-icon>{{ a.icon || 'add' }}</mat-icon> {{ a.title }}
-                </button>
+                <!-- AN IMPOSSIBLE ACTION IS GREYED OUT UP FRONT, with the host's own reason (a closed write gate,
+                     a module the host does not publish) — not offered and then refused after the click. -->
+                <span class="bm-why">
+                  <button mat-stroked-button (click)="openForm(a)" [bmBlocked]="formBlocked(a.tool)">
+                    <mat-icon>{{ a.icon || 'add' }}</mat-icon> {{ a.title }}
+                  </button>
+                </span>
               }
               <input class="bm-filter" placeholder="filter rows"
                      [ngModel]="filter()" (ngModelChange)="filter.set($event)" />
@@ -133,11 +139,8 @@ import {
                 </button>
               </div>
               @if (f.schema?.description) { <p class="bm-dim bm-small bm-form-desc">{{ f.schema!.description }}</p> }
-              @if (!f.schema) {
-                <p class="bm-note bm-note--err">
-                  This host did not publish a schema for “{{ f.tool }}”, so there is nothing to render a form
-                  from — the module is either missing or older than this console.
-                </p>
+              @if (formBlocked(f.tool); as why) {
+                <p class="bm-note bm-note--err">{{ why }}</p>
               } @else {
                 <div class="bm-fields">
                   @for (field of f.fields; track field.key) {
@@ -175,14 +178,20 @@ import {
                       Preview only (the module's own dry run)
                     </label>
                   }
+                  <span class="bm-why" [attr.title]="running() === f.action.id ? 'Running…' : null">
                   <button mat-stroked-button [disabled]="running() === f.action.id" (click)="submitForm()">
                     <mat-icon>{{ f.dryRun ? 'science' : 'play_arrow' }}</mat-icon>
                     {{ f.dryRun ? 'Preview' : 'Apply' }}
                   </button>
+                  </span>
                   @if (formResult()) { <span class="bm-last">{{ formResult() }}</span> }
                 </div>
               }
             </div>
+          }
+
+          @if (diagnosing(); as svcName) {
+            <app-diagnosis-panel [agentId]="agentId()" [service]="svcName" (closed)="diagnosing.set(null)" />
           }
 
           <div class="bm-table-wrap">
@@ -211,10 +220,12 @@ import {
                     @if (node()!.actions.length) {
                       <td class="bm-act-col">
                         @for (a of actionsFor(r); track a.id) {
-                          <button mat-icon-button [title]="a.title" [disabled]="running() === a.id"
-                                  (click)="run(a, r, $event)">
-                            <mat-icon>{{ a.icon || 'play_arrow' }}</mat-icon>
-                          </button>
+                          <span class="bm-why">
+                            <button mat-icon-button [attr.aria-label]="a.title" [bmBlocked]="actionBlocked(a)" bmBlockedMode="tip"
+                                    (click)="run(a, r, $event)">
+                              <mat-icon>{{ a.icon || 'play_arrow' }}</mat-icon>
+                            </button>
+                          </span>
                         }
                       </td>
                     }
@@ -237,9 +248,11 @@ import {
             <footer class="bm-actions">
               <div class="bm-dim bm-small">Selected: <strong>{{ label(selectedRow()!) }}</strong></div>
               @for (a of actionsFor(selectedRow()!); track a.id) {
-                <button mat-stroked-button [disabled]="running() === a.id" (click)="run(a, selectedRow()!, null)">
-                  <mat-icon>{{ a.icon || 'play_arrow' }}</mat-icon> {{ a.title }}
-                </button>
+                <span class="bm-why">
+                  <button mat-stroked-button [bmBlocked]="actionBlocked(a)" bmBlockedMode="tip" (click)="run(a, selectedRow()!, null)">
+                    <mat-icon>{{ a.icon || 'play_arrow' }}</mat-icon> {{ a.title }}
+                  </button>
+                </span>
               } @empty {
                 <span class="bm-dim bm-small">No action applies to this row.</span>
               }
@@ -290,11 +303,11 @@ import {
       height: 100%; max-width: 520px; margin: 0 auto; text-align: center; }
     .bm-empty mat-icon { font-size: 46px; width: 46px; height: 46px; opacity: 0.35; }
     .bm-table-wrap { flex: 1; overflow: auto; margin-top: 12px; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th { position: sticky; top: 0; z-index: 1; text-align: left; padding: 7px 10px; font-size: 11px;
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th { position: sticky; top: 0; z-index: 1; text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); font-size: 11px;
       text-transform: uppercase; opacity: 0.65; background: var(--mat-sys-surface);
       border-bottom: 1px solid var(--mat-sys-outline-variant); }
-    .bm-table td { padding: 5px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); white-space: nowrap;
+    .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis; max-width: 460px; }
     .bm-table tbody tr:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
     .bm-table tbody tr.bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
@@ -339,6 +352,8 @@ export class MmcConsoleComponent {
   selected = signal<{ snapin: string; node: string } | null>(null);
   selectedRow = signal<Record<string, unknown> | null>(null);
   running = signal<string | null>(null);
+  /** The service whose diagnosis panel is open (a row action with view: 'diagnosis'), or null. */
+  diagnosing = signal<string | null>(null);
   lastResult = signal<string>('');
   /** A SIGNAL, not a field: `visibleRows` is a computed, and a computed cannot see a plain property change —
    * the filter box typed happily and filtered nothing. Caught in the browser, not by the compiler. */
@@ -352,6 +367,7 @@ export class MmcConsoleComponent {
       if (!id) return;
       this.node.set(null);
       this.selected.set(null);
+      this.diagnosing.set(null);   // another host: the open diagnosis was about a service on the previous one
       this.svc.tree(id).subscribe((t) => {
         this.tree.set(t);
         // The first available snap-in opens, so the console is not an empty room on arrival.
@@ -374,6 +390,7 @@ export class MmcConsoleComponent {
 
   select(snapin: Snapin, nodeId: string): void {
     this.selected.set({ snapin: snapin.id, node: nodeId });
+    this.diagnosing.set(null);
     this.selectedRow.set(null);
     this.lastResult.set('');
     this.reloadNode();
@@ -455,6 +472,31 @@ export class MmcConsoleComponent {
       // "already in that state", which is a correct answer to a question nobody should have been able to ask.
       return String(row[a.hide_when.field] ?? '') !== String(a.hide_when.equals);
     });
+  }
+
+  /** Why the form for `tool` cannot be used on this host, or '' when it can. One rule for the button and the form:
+   * the host's own refusal (its write gate) first, then "could not ask", then "not published". */
+  formBlocked(tool: string): string {
+    const tree = this.tree();
+    const schema = tree?.schemas?.[tool];
+    if (schema?.refused) return `Refused by the host: ${schema.refused}`;
+    if (schema) return '';
+    if (tree?.tools_error) return `The host could not be asked which modules it has: ${tree.tools_error}`;
+    return `This host did not publish a schema for “${tool}”, so there is nothing to render a form from — the module is either missing or older than this console.`;
+  }
+
+  /** Why a row action cannot run right now, or '' when it can. */
+  actionBlocked(a: SnapinAction): string {
+    if (this.running() === a.id) return 'Running…';
+    const tree = this.tree();
+    const refused = tree?.schemas?.[a.tool]?.refused;
+    if (refused) return `Refused by the host: ${refused}`;
+    // A tool the host does not publish cannot run: greyed with the reason, not offered and refused afterwards
+    // (an older agent without service_diagnose answers 501 otherwise). Unknown when the host could not be asked.
+    if (tree && !tree.tools_error && !tree.schemas?.[a.tool]) {
+      return `This host's agent has no ${a.tool} module — update the agent to use “${a.title}”.`;
+    }
+    return '';
   }
 
   label(row: Record<string, unknown>): string {
@@ -584,6 +626,11 @@ export class MmcConsoleComponent {
   run(action: SnapinAction, row: Record<string, unknown>, event: Event | null): void {
     event?.stopPropagation();
     const params = this.fill(action.params, row);
+    if (action.view === 'diagnosis') {
+      // a read: the panel asks Bossman's diagnosis endpoint (which keeps the document) — nothing is changed
+      this.diagnosing.set(String(params['name'] ?? this.label(row)));
+      return;
+    }
     if (action.confirm && !confirm(
       `${action.title} — ${this.label(row)} on ${this.tree()?.host}?\n\n`
       + `This runs the ${action.tool} module with:\n${JSON.stringify(params, null, 2)}`)) {

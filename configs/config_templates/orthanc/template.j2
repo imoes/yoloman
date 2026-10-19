@@ -1,0 +1,526 @@
+{
+  /**
+   * Orthanc DICOM Server Configuration
+   *
+   * This configuration file uses JSON format.
+   * All values are self-documenting via the comments above each key,
+   * which reference the original schema descriptions and defaults.
+   *
+   * @see https://book.orthanc-server.com/users/configuration.html
+   */
+
+  // The logical name of this instance of Orthanc. Displayed in Explorer.
+  // Default: 'Orthanc'
+  "Name" : "{{ name | default('Orthanc') }}",
+
+  // Path to the directory that holds the heavyweight files (raw DICOM instances).
+  // Default: '/var/lib/orthanc/db-v6'
+  "StorageDirectory" : "{{ storage_directory | default('/var/lib/orthanc/db-v6') }}",
+
+  // Path to the directory that holds the SQLite index.
+  // If unset, falls back to StorageDirectory.
+  // Default: '/var/lib/orthanc/db-v6'
+  "IndexDirectory" : "{{ index_directory | default('/var/lib/orthanc/db-v6') }}",
+
+  // Enable transparent compression of DICOM instances.
+  // Default: false
+  "StorageCompression" : {{ storage_compression | default(false) | lower }},
+
+  // Maximum size of the storage in MB. "0" indicates no limit.
+  // Default: 0
+  "MaximumStorageSize" : {{ maximum_storage_size | default(0) }},
+
+  // Maximum number of patients that can be stored. "0" indicates no limit.
+  // Default: 0
+  "MaximumPatientCount" : {{ maximum_patient_count | default(0) }},
+
+  // Action to take when maximum storage is reached.
+  // Values: "Recycle", "Reject"
+  // Default: 'Recycle'
+  "MaximumStorageMode" : "{{ maximum_storage_mode | default('Recycle') }}",
+
+  // Maximum size of the storage cache in MB. "0" disables cache.
+  // Default: 128
+  "MaximumStorageCacheSize" : {{ maximum_storage_cache_size | default(128) }},
+
+  // List of paths to custom Lua scripts.
+  // Orthanc loads these scripts on startup.
+  "LuaScripts" : [
+  ],
+
+  // Period (in seconds) between calls to the "OnHeartBeat" Lua callback.
+  // "0" disables the heartbeat.
+  // Default: 0
+  "LuaHeartBeatPeriod" : {{ lua_heartbeat_period | default(0) }},
+
+  // List of paths to plugins to be loaded.
+  // Directories are scanned non-recursively for shared libraries.
+  // Default: ['/usr/share/orthanc/plugins/']
+  "Plugins" : [
+    "{{ plugins_path | default('/usr/share/orthanc/plugins/') }}"
+  ],
+
+  // Maximum number of processing jobs running simultaneously.
+  // "0" uses all available CPU logical cores.
+  // Default: 2
+  "ConcurrentJobs" : {{ concurrent_jobs | default(2) }},
+
+  // Defines the number of threads for specific job types.
+  // Default: 1 for ResourceModification
+  "JobsEngineThreadsCount" : {
+    "ResourceModification": {{ jobs_engine_threads_count_resource_modification | default(1) }}
+  },
+
+  /**
+   * Configuration of the HTTP server
+   **/
+
+  // Enable the HTTP server. If false, Orthanc acts as a pure DICOM server.
+  // REST API and Explorer will be unavailable.
+  // Default: true
+  "HttpServerEnabled" : {{ http_server_enabled | default(true) | lower }},
+
+  // Enable/disable the Orthanc Explorer Web user interface.
+  // Only meaningful if HttpServerEnabled is true.
+  // Default: true
+  "OrthancExplorerEnabled" : {{ orthanc_explorer_enabled | default(true) | lower }},
+
+  // HTTP port for the REST services and for the GUI.
+  // Default: 8042
+  "HttpPort" : {{ http_port | default(8042) }},
+
+  // Enable JSON error messages in HTTP answers.
+  // Default: true
+  "HttpDescribeErrors" : {{ http_describe_errors | default(true) | lower }},
+
+  // Enable HTTP compression (gzip/deflate).
+  // Default: false
+  "HttpCompressionEnabled" : {{ http_compression_enabled | default(false) | lower }},
+
+  // Enable publication of Orthanc content as a WebDAV share.
+  // Default: true
+  "WebDavEnabled" : {{ webdav_enabled | default(true) | lower }},
+
+  // Allow deletions through the WebDAV share.
+  // Default: false
+  "WebDavDeleteAllowed" : {{ webdav_delete_allowed | default(false) | lower }},
+
+  // Allow uploads through the WebDAV share.
+  // Default: true
+  "WebDavUploadAllowed" : {{ webdav_upload_allowed | default(true) | lower }},
+
+  /**
+   * Configuration of the DICOM server
+   **/
+
+  // Enable the DICOM server. If false, Orthanc is a pure REST server.
+  // Default: true
+  "DicomServerEnabled" : {{ dicom_server_enabled | default(true) | lower }},
+
+  // The DICOM Application Entity Title (AET). Max 16 characters.
+  // Default: 'ORTHANC'
+  "DicomAet" : "{{ dicom_aet | default('ORTHANC') }}",
+
+  // Check if the called AET corresponds to Orthanc's AET during incoming SCU requests.
+  // Default: false
+  "DicomCheckCalledAet" : {{ dicom_check_called_aet | default(false) | lower }},
+
+  // The DICOM port for incoming connections.
+  // Default: 4242
+  "DicomPort" : {{ dicom_port | default(4242) }},
+
+  // Default encoding for DICOM files without SpecificCharacterSet tag.
+  // Values: Ascii, Utf8, Latin1, etc.
+  // Default: 'Latin1'
+  "DefaultEncoding" : "{{ default_encoding | default('Latin1') }}",
+
+  // Accepted transfer syntax UIDs for C-STORE SCP. Wildcards allowed.
+  // Default: ['1.2.840.10008.1.*']
+  "AcceptedTransferSyntaxes" : [
+    "{{ accepted_transfer_syntaxes | default('1.2.840.10008.1.*') }}"
+  ],
+
+  // Whether Orthanc accepts C-STORE for unknown storage SOP classes (promiscuous mode).
+  // Default: false
+  "UnknownSopClassAccepted" : {{ unknown_sop_class_accepted | default(false) | lower }},
+
+  // Timeout (in seconds) after which DICOM associations are closed by the SCP.
+  // "0" means no timeout.
+  // Default: 30
+  "DicomScpTimeout" : {{ dicom_scp_timeout | default(30) }},
+
+  /**
+   * Security-related options for the HTTP server
+   **/
+
+  // Whether remote hosts can connect to the HTTP server.
+  // Default: false
+  "RemoteAccessAllowed" : {{ remote_access_allowed | default(false) | lower }},
+
+  // Whether SSL is enabled for the HTTP server.
+  // Default: false
+  "SslEnabled" : {{ ssl_enabled | default(false) | lower }},
+
+  // Path to the SSL certificate (PEM format, includes private key).
+  // Only meaningful if SslEnabled is true.
+  // Default: 'certificate.pem'
+  "SslCertificate" : "{{ ssl_certificate | default('certificate.pem') }}",
+
+  // Minimum SSL protocol version.
+  // 0: SSL2+SSL3+TLS1.0+TLS1.1+TLS1.2+TLS1.3
+  // 4: TLS1.2+TLS1.3
+  // 5: TLS1.3
+  // Default: 4
+  "SslMinimumProtocolVersion" : {{ ssl_minimum_protocol_version | default(4) }},
+
+  // Whether peer client certificates are checked.
+  // Only meaningful if SslEnabled is true.
+  // Default: false
+  "SslVerifyPeers" : {{ ssl_verify_peers | default(false) | lower }},
+
+  // Path to file containing trusted client SSL certificates (PEM).
+  // Only meaningful if SslVerifyPeers is true.
+  // Default: 'trustedClientCertificates.pem'
+  "SslTrustedClientCertificates" : "{{ ssl_trusted_client_certificates | default('trustedClientCertificates.pem') }}",
+
+  /**
+   * Security-related options for the DICOM connections (SCU/SCP)
+   **/
+
+  // Whether DICOM TLS is enabled in the Orthanc SCP.
+  // Default: false
+  "DicomTlsEnabled" : {{ dicom_tls_enabled | default(false) | lower }},
+
+  // Whether Orthanc rejects DICOM TLS connections from modalities without a certificate.
+  // Default: true
+  "DicomTlsRemoteCertificateRequired" : {{ dicom_tls_remote_certificate_required | default(true) | lower }},
+
+  // Minimum accepted TLS protocol version for the DICOM server.
+  // 0: Default BCP 195 profile
+  // 4: TLS1.2+TLS1.3
+  // 5: TLS1.3
+  // Default: 0
+  "DicomTlsMinimumProtocolVersion" : {{ dicom_tls_minimum_protocol_version | default(0) }},
+
+  // Whether Orthanc SCP allows incoming C-ECHO from unknown modalities.
+  // Default: true
+  "DicomAlwaysAllowEcho" : {{ dicom_always_allow_echo | default(true) | lower }},
+
+  // Whether Orthanc SCP allows incoming C-STORE from unknown modalities.
+  // Default: true
+  "DicomAlwaysAllowStore" : {{ dicom_always_allow_store | default(true) | lower }},
+
+  // Whether Orthanc SCP allows incoming C-FIND from unknown modalities.
+  // Security risk if true.
+  // Default: false
+  "DicomAlwaysAllowFind" : {{ dicom_always_allow_find | default(false) | lower }},
+
+  // Whether Orthanc SCP allows incoming C-FIND for worklists from unknown modalities.
+  // Security risk if true.
+  // Default: false
+  "DicomAlwaysAllowFindWorklist" : {{ dicom_always_allow_find_worklist | default(false) | lower }},
+
+  // Whether Orthanc SCP allows incoming C-GET from unknown modalities.
+  // Security risk if true.
+  // Default: false
+  "DicomAlwaysAllowGet" : {{ dicom_always_allow_get | default(false) | lower }},
+
+  // Whether Orthanc SCP allows incoming C-MOVE from unknown modalities.
+  // Security risk if true.
+  // Default: false
+  "DicomAlwaysAllowMove" : {{ dicom_always_allow_move | default(false) | lower }},
+
+  // Whether Orthanc checks the IP/hostname address of remote modalities.
+  // Default: false
+  "DicomCheckModalityHost" : {{ dicom_check_modality_host | default(false) | lower }},
+
+  /**
+   * Network topology / Modalities
+   **/
+
+  // List of known DICOM modalities.
+  // Ignored if DicomModalitiesInDatabase is true.
+  // Format: "AET" : [ "RemoteAET", "Host", Port, "Manufacturer" ]
+  "DicomModalities" : {
+    // "RemoteModality" : [ "REMOTE_AET", "127.0.0.1", 104 ]
+  },
+
+  // Whether to store DICOM modalities in the Orthanc database.
+  // If true, use REST API to define modalities.
+  // Default: false
+  "DicomModalitiesInDatabase" : {{ dicom_modalities_in_database | default(false) | lower }},
+
+  // Whether C-ECHO SCU is followed by C-FIND SCU to test connectivity.
+  // Default: false
+  "DicomEchoChecksFind" : {{ dicom_echo_checks_find | default(false) | lower }},
+
+  // Default retrieve method after C-Find: "C-MOVE" or "C-GET".
+  // Default: 'C-MOVE'
+  "DicomDefaultRetrieveMethod" : "{{ dicom_default_retrieve_method | default('C-MOVE') }}",
+
+  // Timeout (in seconds) for DICOM associations considered closed by the SCU.
+  // "0" means no timeout.
+  // Default: 10
+  "DicomScuTimeout" : {{ dicom_scu_timeout | default(10) }},
+
+  // Preferred transfer syntax for transcoding if remote modality doesn't support original.
+  // Default: '1.2.840.10008.1.2.1' (Little Endian Explicit)
+  "DicomScuPreferredTransferSyntax" : "{{ dicom_scu_preferred_transfer_syntax | default('1.2.840.10008.1.2.1') }}",
+
+  // Number of threads used by the embedded DICOM server.
+  // Default: 4
+  "DicomThreadsCount" : {{ dicom_threads_count | default(4) }},
+
+  /**
+   * Orthanc Peers
+   **/
+
+  // List of known Orthanc peers.
+  // Ignored if OrthancPeersInDatabase is true.
+  // Format: "PeerName" : [ "URL", "User", "Password" ]
+  "OrthancPeers" : {
+    // "Peer1" : [ "http://127.0.0.1:8043/", "user", "pass" ]
+  },
+
+  // Whether to store Orthanc peers in the Orthanc database.
+  // Default: false
+  "OrthancPeersInDatabase" : {{ orthanc_peers_in_database | default(false) | lower }},
+
+  /**
+   * HTTP Client / Proxy Settings
+   **/
+
+  // Parameters of the HTTP proxy to be used. Empty string means no proxy.
+  // Example: "192.168.0.1:3128" or "user:pass@192.168.0.1:3128"
+  // Default: ''
+  "HttpProxy" : "{{ http_proxy | default('') }}",
+
+  // If true, issue debug messages from libcurl for outgoing HTTP requests.
+  // Default: false
+  "HttpVerbose" : {{ http_verbose | default(false) | lower }},
+
+  // Timeout for HTTP requests issued by Orthanc (in seconds).
+  // Default: 60
+  "HttpTimeout" : {{ http_timeout | default(60) }},
+
+  // Enable verification of peers certificates during HTTPS requests.
+  // Default: true
+  "HttpsVerifyPeers" : {{ https_verify_peers | default(true) | lower }},
+
+  // Path to CA certificates to validate peers in HTTPS requests.
+  // Empty string uses OS native CA store (if supported).
+  // Default: ''
+  "HttpsCACertificates" : "{{ https_ca_certificates | default('') }}",
+
+  /**
+   * Advanced options
+   **/
+
+  // Number of seconds without receiving instances before a resource is "stable".
+  // Default: 60
+  "StableAge" : {{ stable_age | default(60) }},
+
+  // Enable case-sensitive matching for AETs.
+  // Default: false
+  "StrictAetComparison" : {{ strict_aet_comparison | default(false) | lower }},
+
+  // Compute and store MD5 of DICOM files to detect corruption.
+  // Default: true
+  "StoreMD5ForAttachments" : {{ store_md5_for_attachments | default(true) | lower }},
+
+  // Maximum results for a single C-FIND request (Patient/Study/Series level).
+  // "0" means no limit.
+  // Default: 0
+  "LimitFindResults" : {{ limit_find_results | default(0) }},
+
+  // Maximum results for a single C-FIND request (Instance level).
+  // "0" means no limit.
+  // Default: 0
+  "LimitFindInstances" : {{ limit_find_instances | default(0) }},
+
+  // Log resources exported to other modalities or peers.
+  // Default: false
+  "LogExportedResources" : {{ log_exported_resources | default(false) | lower }},
+
+  // Enable or disable HTTP Keep-Alive.
+  // Default: true
+  "KeepAlive" : {{ keep_alive | default(true) | lower }},
+
+  // Keep-Alive timeout in seconds.
+  // Default: 1
+  "KeepAliveTimeout" : {{ keep_alive_timeout | default(1) }},
+
+  // Enable or disable Nagle's algorithm.
+  // Default: true
+  "TcpNoDelay" : {{ tcp_no_delay | default(true) | lower }},
+
+  // Number of threads used by the embedded HTTP server.
+  // Default: 50
+  "HttpThreadsCount" : {{ http_threads_count | default(50) }},
+
+  // If false, run in index-only mode (no DICOM files stored on disk).
+  // Default: true
+  "StoreDicom" : {{ store_dicom | default(true) | lower }},
+
+  // Seconds of inactivity before closing DICOM association used by Lua.
+  // "0" closes immediately.
+  // Default: 5
+  "DicomAssociationCloseDelay" : {{ dicom_association_close_delay | default(5) }},
+
+  // Maximum number of query/retrieve DICOM requests maintained.
+  // Default: 100
+  "QueryRetrieveSize" : {{ query_retrieve_size | default(100) }},
+
+  // Enable case-sensitive match for PN (Patient Name) value representation.
+  // Default: false
+  "CaseSensitivePN" : {{ case_sensitive_pn | default(false) | lower }},
+
+  // If false, do not load default dictionary of private tags.
+  // Default: true
+  "LoadPrivateDictionary" : {{ load_private_dictionary | default(true) | lower }},
+
+  // Whether to run DICOM C-MOVE operations synchronously.
+  // Default: true
+  "SynchronousCMove" : {{ synchronous_c_move | default(true) | lower }},
+
+  // Maximum number of completed jobs kept in memory.
+  // "0" keeps no history.
+  // Default: 10
+  "JobsHistorySize" : {{ jobs_history_size | default(10) }},
+
+  // Whether to save jobs into the Orthanc database (for persistence across restarts).
+  // Default: true
+  "SaveJobs" : {{ save_jobs | default(true) | lower }},
+
+  // How Orthanc reacts when receiving a DICOM instance with existing SOPInstanceUID.
+  // true: overwrite; false: discard new.
+  // Default: false
+  "OverwriteInstances" : {{ overwrite_instances | default(false) | lower }},
+
+  // Maximum number of ZIP/media archives maintained.
+  // Default: 1
+  "MediaArchiveSize" : {{ media_archive_size | default(1) }},
+
+  // Performance setting for storage access during find operations.
+  // Values: "Always", "Never", "Answers"
+  // Default: 'Always'
+  "StorageAccessOnFind" : "{{ storage_access_on_find | default('Always') }}",
+
+  // Whether Orthanc monitors its metrics (Prometheus format).
+  // Default: true
+  "MetricsEnabled" : {{ metrics_enabled | default(true) | lower }},
+
+  // Whether calls to URI "/tools/execute-script" are enabled.
+  // Default: false
+  "ExecuteLuaEnabled" : {{ execute_lua_enabled | default(false) | lower }},
+
+  // Whether the REST API can write to the filesystem.
+  // Default: false
+  "RestApiWriteToFileSystemEnabled": {{ rest_api_write_to_file_system_enabled | default(false) | lower }},
+
+  // Timeout while serving HTTP requests by the embedded Web server (seconds).
+  // Default: 30
+  "HttpRequestTimeout" : {{ http_request_timeout | default(30) }},
+
+  // Default private creator used for private tags.
+  // Default: ''
+  "DefaultPrivateCreator" : "{{ default_private_creator | default('') }}",
+
+  // Maximum number of storage commitment reports kept in memory.
+  // Default: 100
+  "StorageCommitmentReportsSize" : {{ storage_commitment_reports_size | default(100) }},
+
+  // Whether Orthanc transcodes DICOM files to uncompressed transfer syntax over DICOM protocol.
+  // Default: true
+  "TranscodeDicomProtocol" : {{ transcode_dicom_protocol | default(true) | lower }},
+
+  // Order of built-in decoder/transcoder relative to plugins.
+  // Values: "After", "Before", "Disabled"
+  // Default: 'After'
+  "BuiltinDecoderTranscoderOrder" : "{{ builtin_decoder_transcoder_order | default('After') }}",
+
+  // Whether ingest transcoding is applied to uncompressed incoming instances.
+  // Default: true
+  "IngestTranscodingOfUncompressed" : {{ ingest_transcoding_of_uncompressed | default(true) | lower }},
+
+  // Whether ingest transcoding is applied to compressed incoming instances.
+  // Default: true
+  "IngestTranscodingOfCompressed" : {{ ingest_transcoding_of_compressed | default(true) | lower }},
+
+  // Default compression level (1-100) for lossy/JPEG transcoding.
+  // Default: 90
+  "DicomLossyTranscodingQuality" : {{ dicom_lossy_transcoding_quality | default(90) }},
+
+  // Whether "fsync()" is called after each write to the storage area.
+  // Ensures durability but slows down writes.
+  // Default: true
+  "SyncStorageArea" : {{ sync_storage_area | default(true) | lower }},
+
+  // Call mallopt(M_ARENA_MAX, ...) on startup. Reduces memory growth.
+  // "0" disables this behavior.
+  // Default: 5
+  "MallocArenaMax" : {{ malloc_arena_max | default(5) }},
+
+  // Deidentify/anonymize log contents (C-FIND, C-GET, C-MOVE).
+  // Default: true
+  "DeidentifyLogs" : {{ deidentify_logs | default(true) | lower }},
+
+  // DICOM standard version to follow for log deidentification.
+  // Values: "2008", "2017c", "2021b", "2023b"
+  // Default: '2023b'
+  "DeidentifyLogsDicomVersion" : "{{ deidentify_logs_dicom_version | default('2023b') }}",
+
+  // Maximum length of the PDU (Protocol Data Unit) in bytes.
+  // Range: [4096, 131072]
+  // Default: 16384
+  "MaximumPduLength" : {{ maximum_pdu_length | default(16384) }},
+
+  // Whether Orthanc protects modification of metadata using revisions.
+  // Needed for concurrent writers (SQLite doesn't support this).
+  // Default: false
+  "CheckRevisions" : {{ check_revisions | default(false) | lower }},
+
+  // Whether Orthanc streams ZIP archive/media to the HTTP client.
+  // Default: true
+  "SynchronousZipStream" : {{ synchronous_zip_stream | default(true) | lower }},
+
+  // Default number of loader threads when generating Zip archive/media.
+  // "0" means sequential.
+  // Default: 0
+  "ZipLoaderThreads": {{ zip_loader_threads | default(0) }},
+
+  // Enables/disables warnings in the logs.
+  "Warnings" : {
+    // W001: TagsBeingReadFromStorage
+    "W001_TagsBeingReadFromStorage": {{ warnings_w001_tags_being_read_from_storage | default(true) | lower }},
+    
+    // W002: InconsistentDicomTagsInDb
+    "W002_InconsistentDicomTagsInDb": {{ warnings_w002_inconsistent_dicom_tags_in_db | default(true) | lower }},
+
+    // W003: DecoderFailure
+    "W003_DecoderFailure": {{ warnings_w003_decoder_failure | default(true) | lower }},
+
+    // W004: NoMainDicomTagsSignature
+    "W004_NoMainDicomTagsSignature": {{ warnings_w004_no_main_dicom_tags_signature | default(true) | lower }},
+
+    // W005: RequestingTagFromLowerResourceLevel
+    "W005_RequestingTagFromLowerResourceLevel": {{ warnings_w005_requesting_tag_from_lower_resource_level | default(true) | lower }},
+
+    // W006: RequestingTagFromMetaHeader
+    "W006_RequestingTagFromMetaHeader": {{ warnings_w006_requesting_tag_from_meta_header | default(true) | lower }},
+
+    // W007: MissingRequestedTagsNotReadFromDisk
+    "W007_MissingRequestedTagsNotReadFromDisk": {{ warnings_w007_missing_requested_tags_not_read_from_disk | default(true) | lower }}
+  },
+
+  // Configure Orthanc in read-only mode.
+  // Many write features will be unavailable.
+  // Default: false
+  "ReadOnly" : {{ read_only | default(false) | lower }},
+
+  // Maximum number of DCMTK transcoders running simultaneously.
+  // "0" uses all available cores.
+  // Default: 0
+  "MaximumConcurrentDcmtkTranscoders" : {{ maximum_concurrent_dcmtk_transcoders | default(0) }}
+
+}

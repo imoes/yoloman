@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Configuration parameters needed to use SNMP API -->
+<!-- This template configures the eth-tools SNMP agent for monitoring network fabric devices. -->
+<Config>
+	<!-- Common configuration that applies on all Fabric planes -->
+	<Common>
+		<!-- Directory where eth-tools configuration files are stored. -->
+		<ConfigDir>{{ config_dir | default('/etc/eth-tools') }}</ConfigDir>
+		
+		<!-- Default SNMP port for communication. -->
+		<SnmpPort>{{ snmp_port | default(161) }}</SnmpPort>
+
+		<!-- Supported: SNMP_VERSION_2c or SNMP_VERSION_3 -->
+		<!-- SNMP protocol version. Supported values: SNMP_VERSION_2c, SNMP_VERSION_3. -->
+		<SnmpVersion>{{ snmp_version | default('SNMP_VERSION_2c') }}</SnmpVersion>
+
+		<!-- Community string used for SNMPv2c authentication. -->
+		<!-- Note: This is typically shared secret information. -->
+		<SnmpCommunityString>{{ snmp_community_string | default('public') }}</SnmpCommunityString>
+
+		<!-- Username for SNMPv3 session identification. -->
+		<SnmpSecurityName>{{ snmp_security_name | default('EthFastFabricUser') }}</SnmpSecurityName>
+
+		<!-- Security level for SNMPv3. Supported: NOAUTH, AUTHNOPRIV, AUTHPRIV. -->
+		<!-- NOAUTH:  no authentication or encryption                      -->
+		<!-- AUTHNOPRIV: authentication but no encryption                  -->
+		<!-- AUTHPRIV: both authentication and encryption will be enforced -->
+		<SnmpSecurityLevel>{{ snmp_security_level | default('NOAUTH') }}</SnmpSecurityLevel>
+
+		<!-- Authentication protocol for SNMPv3. Supported: MD5, SHA. -->
+		<SnmpAuthenticationProtocol>{{ snmp_authentication_protocol | default('MD5') }}</SnmpAuthenticationProtocol>
+
+		<!-- Encryption protocol for SNMPv3. Supported: AES, DES. -->
+		<SnmpEncryptionProtocol>{{ snmp_encryption_protocol | default('DES') }}</SnmpEncryptionProtocol>
+
+		<!-- Passphrase used for SNMPv3 authentication. -->
+		<!-- Assumes all hosts that will be used for SNMP queries will     -->
+		<!-- be configured to use the same passphrases.  Passphrases for   -->
+		<!-- authentication and encryption can be different, but all hosts -->
+		<!-- should use this same authentication passphrase on all hosts   -->
+		<!-- that is specified in this file -->
+		<SnmpAuthPassphrase>{{ snmp_auth_passphrase | default('DefaultPassphrase') }}</SnmpAuthPassphrase>
+		
+		<!-- Passphrase used for SNMPv3 encryption. -->
+		<SnmpEncrypPassphrase>{{ snmp_encryp_passphrase | default('DefaultPassphrase') }}</SnmpEncrypPassphrase>
+	</Common>
+	
+	<!-- Default plane configuration -->
+	<Plane>
+		<!-- Name of the default plane. -->
+		<!-- Note: value 'ALL' (case sensitive) is reserved to present all enabled planes -->
+		<Name>{{ plane_name | default('plane') }}</Name>
+		
+		<!-- Enable flag for the default plane. 1=enabled, 0=disabled. -->
+		<!-- When disabled (0), this plane is ignored -->
+		<Enable>{{ plane_enable | default('1') }}</Enable>
+		
+		<!-- Filename containing hosts for the default plane. -->
+		<HostsFile>{{ plane_hosts_file | default('allhosts') }}</HostsFile>
+		
+		<!-- Filename containing switches for the default plane. -->
+		<SwitchesFile>{{ plane_switches_file | default('switches') }}</SwitchesFile>
+		
+		<!-- input file to augment and verify fabric information -->
+		<!-- <TopologyFile>topology.xml</TopologyFile> -->
+	</Plane>
+	
+	<!-- Secondary plane configuration example -->
+	<Plane>
+		<!-- Name of the secondary plane example. -->
+		<Name>{{ plane2_name | default('plane2') }}</Name>
+		
+		<!-- Enable flag for the secondary plane. 1=enabled, 0=disabled. -->
+		<Enable>{{ plane2_enable | default('0') }}</Enable>
+		
+		<!-- Filename containing hosts for the secondary plane. -->
+		<HostsFile>{{ plane2_hosts_file | default('allhosts2') }}</HostsFile>
+		
+		<!-- Filename containing switches for the secondary plane. -->
+		<SwitchesFile>{{ plane2_switches_file | default('switches2') }}</SwitchesFile>
+		
+		<!-- example of overwriting an attribute defined in Common -->
+		<!-- SNMP port override for the secondary plane. -->
+		<SnmpPort>{{ plane2_snmp_port | default(1234) }}</SnmpPort>
+	</Plane>
+</Config>

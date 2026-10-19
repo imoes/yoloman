@@ -1,0 +1,83 @@
+# ==============================================================================
+# AWStats Configuration Template for Red Hat Systems
+# ==============================================================================
+# This template generates the Apache configuration directives required to serve
+# the AWStats web interface. It also sets up the necessary environment variables
+# for the Perl CGI scripts.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Directory Roots and Paths
+# --------------------------------------------------------------------------
+
+# The installation root directory for AWStats web assets (classes, css, icons, cgi-bin).
+# This directory contains the static files served via Alias directives below.
+{% set awstats_document_root = awstats_document_root | default('/usr/share/awstats/wwwroot') %}
+
+# The path to the AWStats Perl library directory.
+# Required for the Perl interpreter to find the core AWStats modules.
+{% set awstats_lib_path = awstats_lib_path | default('/usr/share/awstats/lib') %}
+
+# The path to the AWStats Perl plugins directory.
+# Required for the Perl interpreter to find AWStats plugins (e.g., GeoIP, XML parsers).
+{% set awstats_plugins_path = awstats_plugins_path | default('/usr/share/awstats/plugins') %}
+
+# --------------------------------------------------------------------------
+# Apache Alias Directives
+# --------------------------------------------------------------------------
+
+# Define URL aliases to map browser requests to the local file system paths.
+# /awstatsclasses: Serves the Perl classes used by the CGI scripts.
+Alias /awstatsclasses "{{ awstats_document_root }}/classes/"
+
+# /awstatscss: Serves the Cascading Style Sheets for the AWStats web interface.
+Alias /awstatscss "{{ awstats_document_root }}/css/"
+
+# /awstatsicons: Serves the icons/images used in the AWStats web interface.
+Alias /awstatsicons "{{ awstats_document_root }}/icon/"
+
+# /awstats/: Maps the root AWStats URL to the CGI-Bin directory.
+# This is the primary entry point for the AWStats Perl CGI application.
+ScriptAlias /awstats/ "{{ awstats_document_root }}/cgi-bin/"
+
+# --------------------------------------------------------------------------
+# Directory Access Control
+# --------------------------------------------------------------------------
+
+# Restrict access to the AWStats document root directory.
+# Only authorized users/hosts can view or execute AWStats reports.
+<Directory "{{ awstats_document_root }}">
+    # Disable directory listing and other options for security.
+    Options None
+
+    # Do not allow .htaccess files to override these settings.
+    AllowOverride None
+
+    # Access Control: Allow access only from the local machine.
+    # This prevents unauthorized external access to sensitive log analysis data.
+    <IfModule mod_authz_core.c>
+        # Using Apache 2.4+ authorization syntax.
+        Require local
+    </IfModule>
+    
+    # Fallback for older Apache 2.2 (if mod_authz_core is not present).
+    # Note: In modern setups, only the IfModule block above is usually needed.
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+        Allow from 127.0.0.1
+        Allow from ::1
+    </IfModule>
+</Directory>
+
+# --------------------------------------------------------------------------
+# Perl Environment Variables
+# --------------------------------------------------------------------------
+
+# Ensure the Perl interpreter can locate the AWStats library and plugins.
+# This is critical for the CGI scripts to run correctly.
+<IfModule mod_env.c>
+    # PERL5LIB tells Perl where to search for modules (.pm files).
+    # We concatenate the library path and plugins path with a colon separator.
+    SetEnv PERL5LIB "{{ awstats_lib_path }}:{{ awstats_plugins_path }}"
+</IfModule>

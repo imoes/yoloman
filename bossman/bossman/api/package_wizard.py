@@ -7,6 +7,7 @@ supplies the family-specific values it overrides at run time."""
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -41,7 +42,11 @@ def _family(facts: dict) -> str:
         return "suse"
     if "windows" in tokens:
         return "windows"
-    return "debian"
+    if any(t in tokens for t in ("debian", "ubuntu", "raspbian", "linuxmint", "devuan", "kali")):
+        return "debian"
+    # Unknown is a named state, not Debian. A host enrolled seconds ago has no facts yet; calling it Debian gave
+    # an AlmaLinux host Debian's unit names (chrony.service instead of chronyd — Bossman-path final run).
+    return "unknown"
 
 
 #: Order in which another family's values may stand in for a missing one. Debian first because
@@ -103,6 +108,14 @@ def _resolve_family(fams: dict, family: str) -> tuple[dict, dict]:
                 "reason": (f"No {family} entry in the catalog — showing the {alt} names ({names}). "
                            f"They may not exist on {family}."),
             }
+    # THE ENTRY EXISTS, ONLY ACROSS THE LINUX/WINDOWS LINE: a positive fact, not a gap. "No package names in any
+    # family" was the wrong reason for IIS on a Debian host — the catalog names it exactly, for Windows.
+    across = sorted(f for f, b in fams.items() if isinstance(b, dict) and not b.get("unavailable")
+                    and ((f in _NEVER_SUBSTITUTES) != (family in _NEVER_SUBSTITUTES)))
+    if across:
+        only = " / ".join(a.title() if a != "redhat" else "RedHat" for a in across)
+        return {}, {"family_match": "unavailable", "family_used": family, "installable": False,
+                    "reason": f"{only}-only — not available on {family or 'this host'}."}
     return {}, {"family_match": "unknown", "family_used": "", "installable": False,
                 "reason": "The catalog has no package names for this entry in any family."}
 
@@ -113,6 +126,31 @@ def _catalog(settings: Settings) -> dict:
         return json.loads(path.read_text())
     except (OSError, ValueError):
         return {}
+
+
+def _family_fields(settings: Settings) -> dict[tuple[str, str], list[str]]:
+    """{(family, config path): the fields that family's own template has} — for templates whose meta.json names a
+    `family`. A role renders that template on hosts of that family (nt_engine `@<family>:<path>`), and a value set for
+    a field it lacks is refused there, so the wizard greys such fields out with the reason instead of letting the
+    operator fill them in for nothing (squid on EL: 3 directives where Debian documents 207)."""
+    root = Path(settings.config_templates_dir)
+    cached = _FAMILY_FIELDS_CACHE.get(str(root))
+    if cached and time.monotonic() - cached[0] < 60:   # ~5800 template dirs; read at most once a minute
+        return cached[1]
+    out: dict[tuple[str, str], list[str]] = {}
+    for meta in root.glob("*/meta.json"):
+        try:
+            m = json.loads(meta.read_text())
+            schema = json.loads((meta.parent / "schema.json").read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(m, dict) and m.get("family") and m.get("target_path") and isinstance(schema, dict):
+            out[(m["family"], m["target_path"])] = sorted(schema)
+    _FAMILY_FIELDS_CACHE[str(root)] = (time.monotonic(), out)
+    return out
+
+
+_FAMILY_FIELDS_CACHE: dict[str, tuple[float, dict]] = {}
 
 
 @router.get("/api/v1/agents/{agent_id}/package-wizard/context")
@@ -157,6 +195,7 @@ async def wizard_context(
 
     installed: dict[str, str] = {}
     resolved: dict[str, dict] = {}
+    family_fields = _family_fields(settings)
     for pkg, entry in catalog.items():
         fam, meta = _resolve_family(entry.get("families") or {}, family)
         resolved[pkg] = {"packages": fam.get("packages", []), "service": fam.get("service", ""),
@@ -168,6 +207,9 @@ async def wizard_context(
                          "features": fam.get("features", []),
                          "feature_type": fam.get("feature_type", ""),
                          "include_management_tools": bool(fam.get("include_management_tools")),
+                         # The fields this family's OWN template has for the role's file, or None when the role's
+                         # named template renders here. A form field outside the list would be refused on this host.
+                         "family_fields": family_fields.get((family, fam.get("config_path", ""))),
                          **meta}
         # Installed if ANY of the family's package names is present in inventory.
         for name in fam.get("packages", []):

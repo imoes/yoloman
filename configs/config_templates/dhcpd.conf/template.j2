@@ -108,7 +108,7 @@ subnet {{ subnet.network | default('0.0.0.0') }} netmask {{ subnet.netmask | def
   # Custom DHCP options defined in the subnet configuration.
   # Allows for vendor-specific or other non-standard options.
   {% if subnet.options | default({}) %}
-  {% for key, value in subnet.options | default({}) | dict2items %}
+  {% for key, value in subnet.options | default({}) | dictsort %}
   # Custom Option: {{ key }} = {{ value }}
   option {{ key }} {{ value | string | regex_replace('"', '') | regex_replace("'", '') }};
   {% endfor %}
@@ -148,7 +148,7 @@ host {{ host.hostname | default('unknown') }} {
 
   # Custom DHCP options defined for this specific host.
   {% if host.options | default({}) %}
-  {% for key, value in host.options | default({}) | dict2items %}
+  {% for key, value in host.options | default({}) | dictsort %}
   # Custom Option: {{ key }} = {{ value }}
   option {{ key }} {{ value | string | regex_replace('"', '') | regex_replace("'", '') }};
   {% endfor %}

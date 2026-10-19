@@ -21,7 +21,7 @@ from bossman.api.mmc import _catalog, _catalog_path
 
 #: The requirement kinds the server understands. A catalog stating anything else is refused at runtime
 #: (see _requirement_verdict), and this list is the same statement made where it can be tested.
-KNOWN_REQUIREMENT_KEYS = {"os_family", "module", "feature", "endpoint"}
+KNOWN_REQUIREMENT_KEYS = {"os_family", "module", "feature", "endpoint", "any_of"}
 
 #: Column render kinds the UI knows. Anything else falls through to plain text, which is a silent
 #: near-miss — a size column that renders 34359738368 instead of 32 GB looks like data, not like a typo.
@@ -123,6 +123,18 @@ def test_requirements_use_only_kinds_the_server_understands(catalog: dict) -> No
                 key = next(iter(requirement))
                 assert key in KNOWN_REQUIREMENT_KEYS, \
                     f"{snapin['id']}: requirement {key!r} is not one of {sorted(KNOWN_REQUIREMENT_KEYS)}"
+                for alt in requirement.get("any_of") or []:
+                    assert len(alt) == 1 and next(iter(alt)) in KNOWN_REQUIREMENT_KEYS - {"any_of"}, \
+                        f"{snapin['id']}: any_of alternative {alt} is not a plain requirement"
+
+
+def test_any_of_is_available_with_one_alternative_and_names_every_reason_otherwise() -> None:
+    from bossman.api.mmc import _requirement_verdict
+    req = {"any_of": [{"module": "yoloman.package_updates"}, {"module": "windows_update_facts"}]}
+    assert _requirement_verdict(req, {}, {"windows_update_facts"}) == ("available", "")
+    state, why = _requirement_verdict(req, {}, {"service"})
+    assert state == "unavailable" and "yoloman.package_updates" in why and "windows_update_facts" in why
+    assert _requirement_verdict(req, {}, None)[0] == "unknown"
 
 
 def test_endpoint_sources_point_at_routes_this_server_serves(catalog: dict) -> None:

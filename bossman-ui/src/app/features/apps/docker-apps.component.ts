@@ -8,6 +8,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { Agent } from '../../core/models/agent.model';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema, ParamSpec } from '../../shared/param-form/param-form.types';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface DockerVar { name: string; type: string; default?: unknown; required?: boolean; secret?: boolean; choices?: string[]; description?: string; }
 interface DockerTemplate { image: string; name: string; description: string; variables: DockerVar[]; ports: string[]; volumes: string[]; popularity: number; }
@@ -20,7 +21,7 @@ interface DockerTemplate { image: string; name: string; description: string; var
 @Component({
   selector: 'app-docker-apps',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ParamFormComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule, ParamFormComponent],
   template: `
     <div class="bm-da">
       <div class="bm-da-list">
@@ -63,7 +64,7 @@ interface DockerTemplate { image: string; name: string; description: string; var
           }
 
           <div class="bm-da-actions">
-            <button mat-flat-button color="primary" [disabled]="!host() || busy()" (click)="deploy()">
+            <button mat-flat-button color="primary" [disabled]="busy()" [bmBlocked]="!host() ? 'Pick a target host first' : ''" (click)="deploy()">
               <mat-icon>rocket_launch</mat-icon> {{ busy() ? 'Deploying…' : (dryRun() ? 'Preview' : 'Deploy') }}
             </button>
             @if (msg()) { <span class="bm-ok">{{ msg() }}</span> }

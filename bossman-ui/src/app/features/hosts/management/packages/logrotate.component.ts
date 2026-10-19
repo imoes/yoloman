@@ -2,6 +2,7 @@ import { Component, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 interface LrEntry { name: string; content: string; }
 
@@ -15,7 +16,7 @@ interface LrEntry { name: string; content: string; }
 @Component({
   selector: 'app-logrotate',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, MatIconModule, MatButtonModule],
   template: `
     <div class="bm-lr">
       @if (loading()) { <p class="bm-dim">Loading…</p> }
@@ -62,7 +63,7 @@ interface LrEntry { name: string; content: string; }
             <label class="bm-chk"><input type="checkbox" [checked]="nMissingok()" (change)="nMissingok.set($any($event.target).checked)" /> missingok</label>
             <label class="bm-chk"><input type="checkbox" [checked]="nNotifempty()" (change)="nNotifempty.set($any($event.target).checked)" /> notifempty</label>
             <label class="bm-f bm-grow">postrotate (optional)<input placeholder="systemctl reload myapp" [value]="nPostrotate()" (input)="nPostrotate.set($any($event.target).value)" /></label>
-            <button mat-stroked-button (click)="save()" [disabled]="busy() || !nName().trim() || !nPath().trim()"><mat-icon>save</mat-icon> {{ dryRun() ? 'Preview' : 'Save rule' }}</button>
+            <button mat-stroked-button (click)="save()" [disabled]="busy()" [bmBlocked]="!nName().trim() || !nPath().trim() ? 'Enter a rule name and a log path' : ''"><mat-icon>save</mat-icon> {{ dryRun() ? 'Preview' : 'Save rule' }}</button>
           </div>
           <pre class="bm-preview">{{ render() }}</pre>
           <p class="bm-hint">
@@ -85,8 +86,8 @@ interface LrEntry { name: string; content: string; }
     .bm-card > header { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }
-    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: 5px 8px; }
-    .bm-t td { padding: 4px 8px; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; vertical-align: top; }
+    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); vertical-align: top; }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-stanza { white-space: pre-wrap; max-width: 460px; opacity: 0.8; }
     .bm-form { display: flex; gap: 10px; padding: 10px 14px; flex-wrap: wrap; align-items: flex-end; }

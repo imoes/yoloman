@@ -1,0 +1,35 @@
+# Network UPS Tools: hosts.conf
+#
+# This file is used to control the CGI programs (upsstats, upsimage, upsset).
+# If you have not installed them, you may safely ignore or delete this file.
+#
+# -----------------------------------------------------------------------
+#
+# upsstats will use the list of MONITOR entries when displaying the
+# default template (upsstats.html). The "FOREACHUPS" directive in the
+# template will use this file to find systems running upsd.
+#
+# upsstats and upsimage also use this file to determine if a host may be
+# monitored. This keeps evil people from using your system to annoy
+# others with unintended queries.
+#
+# upsset presents a list of systems that may be viewed and controlled
+# using this file.
+#
+# -----------------------------------------------------------------------
+#
+# Usage: list systems running upsd that you want to monitor
+#
+# Format:
+#   MONITOR <system> "<host description>"
+#
+# Variables:
+#   upsd_monitors (list of strings): List of MONITOR directives for UPS systems
+#   managed by NUT. Each entry follows the format: MONITOR <system> "<host description>"
+#   Default: ['MONITOR myups@localhost "Local UPS"', 'MONITOR su2200@10.64.1.1 "Finance department"', 'MONITOR matrix@shs-server.example.edu "Sierra High School data room #1"']
+#
+# Examples:
+#
+{% for monitor_entry in (upsd_monitors | default(['MONITOR myups@localhost "Local UPS"', 'MONITOR su2200@10.64.1.1 "Finance department"', 'MONITOR matrix@shs-server.example.edu "Sierra High School data room #1"'])) %}
+{{ monitor_entry }}
+{% endfor %}

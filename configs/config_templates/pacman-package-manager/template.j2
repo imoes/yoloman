@@ -18,23 +18,23 @@
 
 # DBPath: Database path for pacman metadata.
 # This directory stores the local package database (packages installed on the system).
-DBPath      = {{ db_path | default('/var/lib/pacman/') }}
+{% if db_path is defined and db_path is not none and (db_path is number or db_path is boolean or db_path | length > 0) %}DBPath      = {{ db_path | default('/var/lib/pacman/') }}{% else %}#DBPath      = /var/lib/pacman/{% endif %}
 
 # CacheDir: Directory where downloaded packages are cached.
 # Packages downloaded from mirrors are stored here to allow re-installation without re-downloading.
-CacheDir    = {{ cache_dir | default('/var/cache/pacman/pkg/') }}
+{% if cache_dir is defined and cache_dir is not none and (cache_dir is number or cache_dir is boolean or cache_dir | length > 0) %}CacheDir    = {{ cache_dir | default('/var/cache/pacman/pkg/') }}{% else %}#CacheDir    = /var/cache/pacman/pkg/{% endif %}
 
 # LogFile: Path to the pacman log file.
 # All pacman operations (install, remove, sync, etc.) are recorded here.
-LogFile     = {{ log_file | default('/var/log/pacman.log') }}
+{% if log_file is defined and log_file is not none and (log_file is number or log_file is boolean or log_file | length > 0) %}LogFile     = {{ log_file | default('/var/log/pacman.log') }}{% else %}#LogFile     = /var/log/pacman.log{% endif %}
 
 # GPGDir: Directory for GPG keys used by pacman.
 # Pacman uses GnuPG to verify package signatures. This is where the keyring is stored.
-GPGDir      = {{ gpg_dir | default('/etc/pacman.d/gnupg/') }}
+{% if gpg_dir is defined and gpg_dir is not none and (gpg_dir is number or gpg_dir is boolean or gpg_dir | length > 0) %}GPGDir      = {{ gpg_dir | default('/etc/pacman.d/gnupg/') }}{% else %}#GPGDir      = /etc/pacman.d/gnupg/{% endif %}
 
 # HookDir: Directory for pacman hooks.
 # Scripts in this directory are executed before or after pacman transactions (e.g., grub-mkconfig, systemd updates).
-HookDir     = {{ hook_dir | default('/etc/pacman.d/hooks/') }}
+{% if hook_dir is defined and hook_dir is not none and (hook_dir is number or hook_dir is boolean or hook_dir | length > 0) %}HookDir     = {{ hook_dir | default('/etc/pacman.d/hooks/') }}{% else %}#HookDir     = /etc/pacman.d/hooks/{% endif %}
 
 # HoldPkg: Packages that pacman will never upgrade automatically.
 # Prevents accidental upgrades of critical system components like the package manager itself or the C library.

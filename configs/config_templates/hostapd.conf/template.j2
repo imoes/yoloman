@@ -81,13 +81,17 @@ rsn_pairwise=CCMP
 {% if wpa_passphrase | default('') != '' %}
 # WPA pre-shared key as ASCII passphrase (8–63 characters).
 wpa_passphrase={{ wpa_passphrase | default('') }}
-{% else %}
+{% elif wpa_psk | default('') != '' %}
 # WPA pre-shared key as 64-character hex string (used if passphrase is empty).
-wpa_psk={{ wpa_psk | default('') }}
+wpa_psk={{ wpa_psk }}
+{% else %}
+# wpa_passphrase= — not set: WPA-PSK needs a passphrase or a PSK, a value only the site has. An empty `wpa_psk=`
+# was written here before, which hostapd refuses ("Invalid PSK ''").
 {% endif %}
 
-# Disable WPS (WPS is insecure and should always be disabled)
-wps_state=2
+# Disable WPS (WPS is insecure and should always be disabled). hostapd.conf: 0 = WPS disabled,
+# 1 = enabled but not configured, 2 = enabled and configured — the 2 written here before turned WPS ON.
+wps_state=0
 ap_setup_locked=1
 
 # ------------------------------------------------------------------------------
@@ -109,7 +113,6 @@ accept_mac={{ mac }}
 
 # If true, broadcast SSID is hidden (0 beacons, or null SSID).
 # Note: Hiding SSID does not provide real security and may cause connectivity issues.
-wpa_disable_eapol_key_index_retry={{ 1 if (hide_ssid | default(False) | bool) else 0 }}
 ignore_broadcast_ssid={{ 1 if (hide_ssid | default(False) | bool) else 0 }}
 
 # ------------------------------------------------------------------------------
@@ -135,10 +138,10 @@ logger_stdout_level=2
 # ------------------------------------------------------------------------------
 
 # If true, broadcast 802.11d country information element. Required in some countries.
-dot11d={{ 1 if (enable_dot11d | default(False) | bool) else 0 }}
+ieee80211d={{ 1 if (enable_dot11d | default(False) | bool) else 0 }}
 
 # If true, enable 802.11h (DFS/TPC) — required for some 5 GHz channels.
-dot11h={{ 1 if (enable_dot11h | default(False) | bool) else 0 }}
+ieee80211h={{ 1 if (enable_dot11h | default(False) | bool) else 0 }}
 
 # If true, enable WDS (Wireless Distribution System) for repeater or mesh behavior.
 wds_sta={{ 1 if (enable_wds | default(False) | bool) else 0 }}

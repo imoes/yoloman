@@ -100,3 +100,68 @@ async def test_run_housekeeping_covers_exactly_its_own_tables(db_session):
 
     assert set(deleted.keys()) - OPTIONAL_SWEEPS == ALWAYS_SWEEPS
     assert set(deleted.keys()) <= ALWAYS_SWEEPS | OPTIONAL_SWEEPS
+
+
+async def test_process_prune_skips_a_series_the_poller_is_writing(db_session):
+    """The prune's NOT EXISTS guard reads what was committed when its statement began; a point the poller inserts
+    while it runs was only caught by the FK check, and the prune aborted on metrics_raw_series_id_fkey (measured
+    twice in 40 minutes). A series with an in-flight insert holds a KEY SHARE lock; the prune now skips such rows
+    (FOR UPDATE SKIP LOCKED) instead of waiting into the FK violation. The poller's point survives."""
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from bossman.services.housekeeping import prune_process_series
+
+    agent = await _make_agent(db_session)
+    sid = (await db_session.execute(text(
+        "INSERT INTO metric_series (agent_id, metric, labels) VALUES (:a, 'process_cpu_percent', "
+        "CAST(:l AS jsonb)) RETURNING series_id"), {"a": agent.id, "l": '{"pid":"4242","comm":"hk-test"}'})).scalar_one()
+    await db_session.commit()
+    engine = db_session.bind
+    now = datetime.now(timezone.utc)
+    async with AsyncSession(engine) as poller, AsyncSession(engine) as hk:
+        # A point ten minutes old (before the stale cutoff, after the compression floor), uncommitted: it holds a
+        # KEY SHARE lock on the series row. The prune runs at the REAL time — never a shifted clock on the one
+        # shared database (a shifted `now` makes every live process series look stale).
+        await poller.execute(text("INSERT INTO metrics_raw (time, series_id, value) VALUES (:t, :s, 1.0)"),
+                             {"t": now - timedelta(minutes=10), "s": sid})
+        await asyncio.wait_for(prune_process_series(hk, get_settings(), now), timeout=60)
+        await poller.commit()                                 # the point is not lost
+    left = (await db_session.execute(text("SELECT count(*) FROM metrics_raw WHERE series_id = :s"), {"s": sid})).scalar()
+    assert left == 1
+    await db_session.execute(text("DELETE FROM metrics_raw WHERE series_id = :s"), {"s": sid})
+    await db_session.execute(text("DELETE FROM metric_series WHERE series_id = :s"), {"s": sid})
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_orphan_sweep_skips_a_series_the_poller_is_writing(db_session):
+    """A brand-new series has no committed point while the poller's first insert is in flight, so it looks orphaned;
+    the sweep died on metrics_raw_series_id_fkey right after a restart (measured 2026-10-15). It now skips rows with
+    a KEY SHARE lock (FOR UPDATE SKIP LOCKED) — without that it would wait on the poller here and time out."""
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from bossman.services.housekeeping import sweep_orphan_series
+
+    agent = await _make_agent(db_session)
+    sid = (await db_session.execute(text(
+        "INSERT INTO metric_series (agent_id, metric, labels) VALUES (:a, 'hk_orphan_test', "
+        "CAST(:l AS jsonb)) RETURNING series_id"), {"a": agent.id, "l": '{"case":"in-flight"}'})).scalar_one()
+    await db_session.commit()
+    engine = db_session.bind
+    async with AsyncSession(engine) as poller, AsyncSession(engine) as hk:
+        await poller.execute(text("INSERT INTO metrics_raw (time, series_id, value) VALUES (:t, :s, 1.0)"),
+                             {"t": datetime.now(timezone.utc), "s": sid})
+        await asyncio.wait_for(sweep_orphan_series(hk), timeout=60)
+        await poller.commit()                                 # the first point is not lost
+    left = (await db_session.execute(text("SELECT count(*) FROM metrics_raw WHERE series_id = :s"), {"s": sid})).scalar()
+    assert left == 1
+    await db_session.execute(text("DELETE FROM metrics_raw WHERE series_id = :s"), {"s": sid})
+    await db_session.execute(text("DELETE FROM metric_series WHERE series_id = :s"), {"s": sid})
+    await db_session.delete(agent)
+    await db_session.commit()

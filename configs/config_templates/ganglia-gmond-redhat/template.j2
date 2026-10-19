@@ -1,0 +1,400 @@
+/* Ganglia Monitoring Daemon (gmond) Configuration
+   This file configures the Ganglia metric collection daemon (gmond).
+   It handles clustering, host identification, network interfaces
+   for sending/receiving metrics via multicast or TCP, and module loading.
+*/
+
+/* ==========================================================================
+   Global Settings
+   ========================================================================== */
+globals {
+    /* The user account under which the gmond daemon runs. */
+    user = "{{ user | default('ganglia') }}"
+
+    /* Debug level for gmond output. */
+    debug_level = {{ debug_level | default(0) }}
+
+    /* Maximum UDP message length. */
+    max_udp_msg_len = {{ max_udp_msg_len | default(1472) }}
+
+    /* Whether to mute metrics. */
+    mute = {{ mute | default('no') }}
+
+    /* Whether to deaf metrics. */
+    deaf = {{ deaf | default('no') }}
+
+    /* Whether to allow extra data in messages. */
+    allow_extra_data = {{ allow_extra_data | default('yes') }}
+
+    /* Host expiration time in seconds. */
+    host_dmax = {{ host_dmax | default(86400) }}
+
+    /* Host timeout in seconds. */
+    host_tmax = {{ host_tmax | default(20) }}
+
+    /* Cleanup threshold in seconds. */
+    cleanup_threshold = {{ cleanup_threshold | default(300) }}
+
+    /* Whether to enable gexec. */
+    gexec = {{ gexec | default('no') }}
+
+    /* Interval for sending metadata in seconds. */
+    send_metadata_interval = {{ send_metadata_interval | default(0) }}
+}
+
+/* ==========================================================================
+   Cluster Configuration
+   ========================================================================== */
+cluster {
+    /* Name of the cluster. */
+    name = "{{ cluster_name | default('unspecified') }}"
+
+    /* Owner of the cluster. */
+    owner = "{{ cluster_owner | default('unspecified') }}"
+
+    /* Latitude and longitude of the cluster. */
+    latlong = "{{ cluster_latlong | default('unspecified') }}"
+
+    /* URL of the cluster. */
+    url = "{{ cluster_url | default('unspecified') }}"
+}
+
+/* ==========================================================================
+   Host Configuration
+   ========================================================================== */
+host {
+    /* Location of the host. */
+    location = "{{ host_location | default('unspecified') }}"
+}
+
+/* ==========================================================================
+   Network: Sending Metrics (UDP Multicast)
+   ========================================================================== */
+udp_send_channel {
+    /* Multicast join address for sending UDP metrics. */
+    mcast_join = {{ mcast_join_send | default('239.2.11.71') }}
+
+    /* Port for sending UDP metrics. */
+    port = {{ port_send | default(8649) }}
+
+    /* Time to live for sending UDP metrics. */
+    ttl = {{ ttl_send | default(1) }}
+}
+
+/* ==========================================================================
+   Network: Receiving Metrics (UDP Multicast)
+   ========================================================================== */
+udp_recv_channel {
+    /* Multicast join address for receiving UDP metrics. */
+    mcast_join = {{ mcast_join_recv | default('239.2.11.71') }}
+
+    /* Port for receiving UDP metrics. */
+    port = {{ port_recv | default(8649) }}
+
+    /* Bind address for receiving UDP metrics. */
+    bind = {{ bind_recv | default('239.2.11.71') }}
+
+    /* Whether to retry binding for receiving UDP metrics. */
+    retry_bind = {{ retry_bind | default(true) }}
+}
+
+/* ==========================================================================
+   Network: Accepting Connections (TCP)
+   ========================================================================== */
+tcp_accept_channel {
+    /* Port for accepting TCP connections. */
+    port = {{ port_accept | default(8649) }}
+
+    /* Whether to gzip XML output. */
+    gzip_output = {{ gzip_output | default('no') }}
+}
+
+/* ==========================================================================
+   Modules
+   ========================================================================== */
+modules {
+    /* Core system metrics module. */
+    module {
+        name = "core_metrics"
+    }
+    /* CPU usage metrics module. */
+    module {
+        name = "cpu_module"
+        path = "modcpu.so"
+    }
+    /* Disk I/O and space metrics module. */
+    module {
+        name = "disk_module"
+        path = "moddisk.so"
+    }
+    /* System load average metrics module. */
+    module {
+        name = "load_module"
+        path = "modload.so"
+    }
+    /* Memory usage metrics module. */
+    module {
+        name = "mem_module"
+        path = "modmem.so"
+    }
+    /* Network traffic metrics module. */
+    module {
+        name = "net_module"
+        path = "modnet.so"
+    }
+    /* Process list metrics module. */
+    module {
+        name = "proc_module"
+        path = "modproc.so"
+    }
+    /* System information (OS, uptime) metrics module. */
+    module {
+        name = "sys_module"
+        path = "modsys.so"
+    }
+}
+
+/* ==========================================================================
+   Collection Groups
+   ========================================================================== */
+# Heartbeat/Beacon metrics. Indicates the daemon is running.
+collection_group {
+    collect_once = yes
+    time_threshold = 20
+    metric {
+        name = "heartbeat"
+    }
+}
+
+# General host information. Collected every 60 seconds.
+collection_group {
+    collect_every = 60
+    time_threshold = 60
+    metric {
+        name = "cpu_num"
+        title = "CPU Count"
+    }
+    metric {
+        name = "cpu_speed"
+        title = "CPU Speed"
+    }
+    metric {
+        name = "mem_total"
+        title = "Memory Total"
+    }
+    metric {
+        name = "swap_total"
+        title = "Swap Space Total"
+    }
+    metric {
+        name = "boottime"
+        title = "Last Boot Time"
+    }
+    metric {
+        name = "machine_type"
+        title = "Machine Type"
+    }
+    metric {
+        name = "os_name"
+        title = "Operating System"
+    }
+    metric {
+        name = "os_release"
+        title = "Operating System Release"
+    }
+    metric {
+        name = "location"
+        title = "Location"
+    }
+}
+
+# gexec status. Collected once every 300 seconds.
+collection_group {
+    collect_once = yes
+    time_threshold = 300
+    metric {
+        name = "gexec"
+        title = "Gexec Status"
+    }
+}
+
+# CPU usage breakdown. Collected every 20 seconds.
+collection_group {
+    collect_every = 20
+    time_threshold = 90
+    metric {
+        name = "cpu_user"
+        value_threshold = "1.0"
+        title = "CPU User"
+    }
+    metric {
+        name = "cpu_system"
+        value_threshold = "1.0"
+        title = "CPU System"
+    }
+    metric {
+        name = "cpu_idle"
+        value_threshold = "5.0"
+        title = "CPU Idle"
+    }
+    metric {
+        name = "cpu_nice"
+        value_threshold = "1.0"
+        title = "CPU Nice"
+    }
+    metric {
+        name = "cpu_aidle"
+        value_threshold = "5.0"
+        title = "CPU aidle"
+    }
+    metric {
+        name = "cpu_wio"
+        value_threshold = "1.0"
+        title = "CPU wio"
+    }
+    metric {
+        name = "cpu_steal"
+        value_threshold = "1.0"
+        title = "CPU steal"
+    }
+}
+
+# Load Averages. Collected every 20 seconds.
+collection_group {
+    collect_every = 20
+    time_threshold = 90
+    metric {
+        name = "load_one"
+        value_threshold = "1.0"
+        title = "One Minute Load Average"
+    }
+    metric {
+        name = "load_five"
+        value_threshold = "1.0"
+        title = "Five Minute Load Average"
+    }
+    metric {
+        name = "load_fifteen"
+        value_threshold = "1.0"
+        title = "Fifteen Minute Load Average"
+    }
+}
+
+# Process counts. Collected every 80 seconds.
+collection_group {
+    collect_every = 80
+    time_threshold = 950
+    metric {
+        name = "proc_run"
+        value_threshold = "1.0"
+        title = "Total Running Processes"
+    }
+    metric {
+        name = "proc_total"
+        value_threshold = "1.0"
+        title = "Total Processes"
+    }
+}
+
+# Memory usage. Collected every 40 seconds.
+collection_group {
+    collect_every = 40
+    time_threshold = 180
+    metric {
+        name = "mem_free"
+        value_threshold = "1024.0"
+        title = "Free Memory"
+    }
+    metric {
+        name = "mem_shared"
+        value_threshold = "1024.0"
+        title = "Shared Memory"
+    }
+    metric {
+        name = "mem_buffers"
+        value_threshold = "1024.0"
+        title = "Memory Buffers"
+    }
+    metric {
+        name = "mem_cached"
+        value_threshold = "1024.0"
+        title = "Cached Memory"
+    }
+    metric {
+        name = "swap_free"
+        value_threshold = "1024.0"
+        title = "Free Swap Space"
+    }
+}
+
+# Network traffic (bytes/packets). Collected every 40 seconds.
+collection_group {
+    collect_every = 40
+    time_threshold = 300
+    metric {
+        name = "bytes_out"
+        value_threshold = 4096
+        title = "Bytes Sent"
+    }
+    metric {
+        name = "bytes_in"
+        value_threshold = 4096
+        title = "Bytes Received"
+    }
+    metric {
+        name = "pkts_in"
+        value_threshold = 256
+        title = "Packets Received"
+    }
+    metric {
+        name = "pkts_out"
+        value_threshold = 256
+        title = "Packets Sent"
+    }
+}
+
+# Disk space (total). Collected every 30 minutes.
+collection_group {
+    collect_every = 1800
+    time_threshold = 3600
+    metric {
+        name = "disk_total"
+        value_threshold = 1.0
+        title = "Total Disk Space"
+    }
+}
+
+# Disk space (free) and max usage. Collected every 40 seconds.
+collection_group {
+    collect_every = 40
+    time_threshold = 180
+    metric {
+        name = "disk_free"
+        value_threshold = 1.0
+        title = "Disk Space Available"
+    }
+    metric {
+        name = "part_max_used"
+        value_threshold = 1.0
+        title = "Maximum Disk Space Used"
+    }
+}
+
+# Include additional module configs from conf.d.
+include ("/etc/ganglia/conf.d/*.conf")
+
+# Available memory and slab reclaimable metrics.
+collection_group {
+    collect_every = 40
+    time_threshold = 180
+    metric {
+        name = "mem_available"
+        value_threshold = "1024.0"
+        title = "Available Memory"
+    }
+    metric {
+        name = "mem_sreclaimable"
+        value_threshold = "1024.0"
+        title = "Slab Memory Reclaimable"
+    }
+}

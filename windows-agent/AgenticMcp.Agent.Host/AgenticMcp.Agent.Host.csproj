@@ -20,9 +20,42 @@
                  source URL through the corporate proxy, which answered 503), and an internal error that
                  carries its reason to the caller instead of only into the log.
          0.2.2 = install and uninstall arguments are separate (a recipe's /S was being appended to the
-                 product's own UninstallString, which Windows refuses as invalid syntax). -->
-    <AssemblyVersion>0.2.2</AssemblyVersion>
-    <Version>0.2.2</Version>
+                 product's own UninstallString, which Windows refuses as invalid syntax).
+         0.3.0 = service_diagnose — why a service does not start (the explainable diagnosis, docs/diagnosis.md).
+         0.3.1 = its rules read the last start attempt from event 7000 (the status resets to 0) and 7041 as the
+                 missing logon right — both measured on this host.
+         0.3.2 = the account behind a service (SAM, LSA user rights) and its access to the image (AuthzAccessCheck).
+         0.3.3 = the precedent: what changed before the failure (service key, image, 7040/7045, installs, updates).
+         0.3.4 = a logon right granted since the failed start is no longer reported as the cause (LSA beats history).
+         0.3.5 = windows_update_facts — pending updates, history, server, pending reboot (read-only).
+         0.3.6 = windows_update — search, download, install (selection as in win_updates), verified by a new read.
+         0.3.7 = Windows' own names for the HRESULTs an update run ends with (0x8024200D = WU_E_UH_NEEDANOTHERDOWNLOAD).
+         0.3.8 = a start that hangs (start-pending past the SCM's timeout, no progress) is svc.timeout, not "starting".
+         0.3.9 = the hang finding carries its precedent too (0.3.8 returned before the precedent was read).
+         0.3.10 = windows_update state=removed: the rollback through wusa, verified by a fresh read.
+         0.3.11 = an update only Windows Update lists as installed (the .NET rollup) is refused with the reason, not "not installed".
+         0.3.12 = the rollback goes through DISM by the KB's package (wusa /quiet is deprecated on Server 2016+, it answered 87).
+         0.3.13 = an umbrella update (the .NET rollup) is found through the KBs it bundles; installed per Windows Update is never "not installed".
+         0.3.14 = Windows' own reason for a failed service logon (Security 4625 Status/SubStatus) as evidence — a wrong stored
+                  password is provable; the wait chains of a pending start/stop (Wait Chain Traversal) — a cycle is svc.deadlock.
+         0.3.15 = the 4625 status is read as Windows hands it over (signed — 0.3.14 parsed only unsigned and never matched).
+         0.3.16 = where it crashed: the faulting function from public symbols (dbghelp + Microsoft symbol server) and the .NET
+                  exception with its first managed frame; Application events filtered by provider.
+         0.3.17 = the module version is compared by build+revision from the numeric version (the FileVersion string is stale).
+         0.3.18 = another application's crash is no evidence of this service (40-92 evidences per diagnosis were mostly unrelated).
+         0.3.19 = a hang whose threads block with no lock owner in a .NET process is named as WCT's blind spot (a managed wait);
+                  .NET is detected by the dotnet-diagnostic pipe (a single-file app loads coreclr from memory, not as a module).
+         0.3.21 = svc.blocked_by_policy: AppLocker 8004 / Code Integrity 3077 block of the image; WinVerifyTrust signature as evidence
+                  (catalog-signed Windows files verified via the security catalog, not only an embedded signature).
+         0.3.23 = native signature check with catalog support (SHA256 then SHA1), fixed hash size — catalog-signed OS files
+                  are now recognised; Get-AuthenticodeSignature via the bridge threw in the synchronous collector.
+         0.3.25 = an image with no embedded signature whose catalog could not be confirmed is reported honestly as such,
+                  not as "not signed"; the signature clause in the policy-block finding is limited to clearly untrusted.
+         0.3.26 = only a genuine "valid" from the catalog is claimed; any other catalog result is inconclusive, not untrusted.
+         0.3.20 = the .NET detection fix above actually built in (0.3.19 shipped the module-list version, which finds nothing).
+         ONE number: the SDK derives AssemblyVersion (what /healthz reports) from <Version>. A separate
+         <AssemblyVersion> kept /healthz at 0.3.1 while the binary was 0.3.2 (measured 2026-10-17). -->
+    <Version>0.3.30</Version>
     <RootNamespace>AgenticMcp.Agent.Host</RootNamespace>
     <!-- Self-contained: the target needs no runtime install. NOT single-file, and that is measured rather
          than preferred — the PowerShell SDK ships its module tree twice (runtimes/unix and runtimes/win) and

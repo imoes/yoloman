@@ -46,7 +46,11 @@ parser tweak:
 | `geerlingguy/ansible-role-nginx` | 4 / 10 task files | **10 / 10** |
 
 So Ansible task files are stored as **runbooks**; Salt/Puppet/Chef stay on the **plan** store because their
-parsers emit plan bodies. Re-importing the same tree updates in place (no 409, no duplicates).
+parsers emit plan bodies. Re-importing the same tree into the same folder updates in place (no 409, no duplicates);
+each imported entry carries `status` — `created`, `updated` or `unchanged` (in a preview: what *would* happen). A
+runbook of the same name in a *different* folder is refused in `failed` with the place it is taken, instead of being
+overwritten: every role has a `tasks/main.yml`, and the UI therefore keeps the picked directory's own name in the
+path (`motd-role/tasks/main.yml` → `motd-role-tasks-main`).
 
 ## Measured coverage (upstream HEAD samples, 2026-08)
 

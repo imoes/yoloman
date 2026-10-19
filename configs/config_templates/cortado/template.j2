@@ -1,21 +1,24 @@
-# =============================================================================
-# Cortado Apache Configuration Template
-# =============================================================================
-# This template generates the Apache configuration for the Cortado web application.
-# It defines the URL alias and the document root directory permissions.
-# =============================================================================
+# ==============================================================================
+# Apache2 Configuration for Cortado
+# ==============================================================================
+# This template configures Apache to serve the Cortado Java applet.
+# It defines a URL alias pointing to the application's document root and
+# sets appropriate directory options for security and functionality.
+#
+# Required variables:
+#   cortado_alias_path: The URL path prefix for accessing Cortado (default: /cortado)
+#   cortado_docroot:    The filesystem path where Cortado files reside (default: /usr/share/cortado)
+# ==============================================================================
 
-# --- Alias Configuration ---
-# Alias directive maps a URL path to a filesystem directory.
-# cortado_alias_path: URL alias path for cortado
-#   - Default: '/cortado'
-# cortado_docroot: Filesystem path to cortado's document root
-#   - Default: '/usr/share/cortado'
+# Alias directive: Maps a URL path to a local filesystem directory.
+# This allows users to access Cortado via http://<server>{{ cortado_alias_path | default('/cortado') }}
+# The path must start with a slash.
 Alias {{ cortado_alias_path | default('/cortado') }} {{ cortado_docroot | default('/usr/share/cortado') }}
 
-# --- Directory Permissions ---
-# <Directory> block restricts or grants access to the specified filesystem path.
-# Here, we enable FollowSymlinks for the document root.
+# Directory configuration for the Cortado document root.
+# Applies to the physical directory specified by cortado_docroot.
 <Directory {{ cortado_docroot | default('/usr/share/cortado') }}>
+    # FollowSymlinks: Allows symbolic links within this directory to be followed.
+    # This is often required for Java applets or scripts that rely on relative links.
     Options FollowSymlinks
 </Directory>

@@ -1,42 +1,512 @@
 {
-  "provides": {
+  "TLP_ENABLE": {
     "type": "string",
-    "default": "tlp",
-    "description": "Service name provided by this init script."
+    "default": "#TLP_ENABLE=1",
+    "description": "Set to 0 to disable, 1 to enable TLP."
   },
-  "required_start": {
+  "TLP_WARN_LEVEL": {
     "type": "string",
-    "default": "$remote_fs",
-    "description": "LSB required start services."
+    "default": "#TLP_WARN_LEVEL=3",
+    "description": "Control how warnings about invalid settings are issued."
   },
-  "required_stop": {
+  "TLP_MSG_COLORS": {
     "type": "string",
-    "default": "$remote_fs",
-    "description": "LSB required stop services."
+    "default": "#TLP_MSG_COLORS=\"91 93 1 92\"",
+    "description": "Colorize error, warning, notice and success messages."
   },
-  "default_start": {
+  "TLP_DEFAULT_MODE": {
     "type": "string",
-    "default": "2 3 4 5",
-    "description": "LSB default start runlevels."
+    "default": "#TLP_DEFAULT_MODE=AC",
+    "description": "Operation mode when no power supply can be detected."
   },
-  "default_stop": {
+  "TLP_PERSISTENT_DEFAULT": {
     "type": "string",
-    "default": "0 1 6",
-    "description": "LSB default stop runlevels."
+    "default": "#TLP_PERSISTENT_DEFAULT=0",
+    "description": "Operation mode select."
   },
-  "short_description": {
+  "TLP_PS_IGNORE": {
     "type": "string",
-    "default": "tlp start/stop script",
-    "description": "Short description of the service."
+    "default": "#TLP_PS_IGNORE=\"BAT\"",
+    "description": "Power supply classes to ignore when determining operation mode."
   },
-  "description": {
+  "DISK_IDLE_SECS_ON_AC": {
     "type": "string",
-    "default": "Initialize tlp",
-    "description": "Long description of the service."
+    "default": "#DISK_IDLE_SECS_ON_AC=0",
+    "description": "Seconds laptop mode has to wait after the disk goes idle before doing a sync (AC)."
   },
-  "tlp_path": {
+  "DISK_IDLE_SECS_ON_BAT": {
     "type": "string",
-    "default": "/usr/sbin/tlp",
-    "description": "Path to the tlp executable."
+    "default": "#DISK_IDLE_SECS_ON_BAT=2",
+    "description": "Seconds laptop mode has to wait after the disk goes idle before doing a sync (BAT)."
+  },
+  "MAX_LOST_WORK_SECS_ON_AC": {
+    "type": "string",
+    "default": "#MAX_LOST_WORK_SECS_ON_AC=15",
+    "description": "Dirty page values (timeouts in secs) (AC)."
+  },
+  "MAX_LOST_WORK_SECS_ON_BAT": {
+    "type": "string",
+    "default": "#MAX_LOST_WORK_SECS_ON_BAT=60",
+    "description": "Dirty page values (timeouts in secs) (BAT)."
+  },
+  "CPU_SCALING_GOVERNOR_ON_AC": {
+    "type": "string",
+    "default": "#CPU_SCALING_GOVERNOR_ON_AC=powersave",
+    "description": "Select a CPU frequency scaling governor (AC)."
+  },
+  "CPU_SCALING_GOVERNOR_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_SCALING_GOVERNOR_ON_BAT=powersave",
+    "description": "Select a CPU frequency scaling governor (BAT)."
+  },
+  "CPU_SCALING_MIN_FREQ_ON_AC": {
+    "type": "string",
+    "default": "#CPU_SCALING_MIN_FREQ_ON_AC=0",
+    "description": "Set the min frequency available for the scaling governor (AC)."
+  },
+  "CPU_SCALING_MAX_FREQ_ON_AC": {
+    "type": "string",
+    "default": "#CPU_SCALING_MAX_FREQ_ON_AC=0",
+    "description": "Set the max frequency available for the scaling governor (AC)."
+  },
+  "CPU_SCALING_MIN_FREQ_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_SCALING_MIN_FREQ_ON_BAT=0",
+    "description": "Set the min frequency available for the scaling governor (BAT)."
+  },
+  "CPU_SCALING_MAX_FREQ_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_SCALING_MAX_FREQ_ON_BAT=0",
+    "description": "Set the max frequency available for the scaling governor (BAT)."
+  },
+  "CPU_ENERGY_PERF_POLICY_ON_AC": {
+    "type": "string",
+    "default": "#CPU_ENERGY_PERF_POLICY_ON_AC=balance_performance",
+    "description": "Set CPU energy/performance policies EPP and EPB (AC)."
+  },
+  "CPU_ENERGY_PERF_POLICY_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_ENERGY_PERF_POLICY_ON_BAT=balance_power",
+    "description": "Set CPU energy/performance policies EPP and EPB (BAT)."
+  },
+  "CPU_MIN_PERF_ON_AC": {
+    "type": "string",
+    "default": "#CPU_MIN_PERF_ON_AC=0",
+    "description": "Set Intel CPU P-state performance min (AC)."
+  },
+  "CPU_MAX_PERF_ON_AC": {
+    "type": "string",
+    "default": "#CPU_MAX_PERF_ON_AC=100",
+    "description": "Set Intel CPU P-state performance max (AC)."
+  },
+  "CPU_MIN_PERF_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_MIN_PERF_ON_BAT=0",
+    "description": "Set Intel CPU P-state performance min (BAT)."
+  },
+  "CPU_MAX_PERF_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_MAX_PERF_ON_BAT=30",
+    "description": "Set Intel CPU P-state performance max (BAT)."
+  },
+  "CPU_BOOST_ON_AC": {
+    "type": "string",
+    "default": "#CPU_BOOST_ON_AC=1",
+    "description": "Set the CPU turbo boost feature (AC)."
+  },
+  "CPU_BOOST_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_BOOST_ON_BAT=0",
+    "description": "Set the CPU turbo boost feature (BAT)."
+  },
+  "CPU_HWP_DYN_BOOST_ON_AC": {
+    "type": "string",
+    "default": "#CPU_HWP_DYN_BOOST_ON_AC=1",
+    "description": "Set CPU dynamic boost feature (AC)."
+  },
+  "CPU_HWP_DYN_BOOST_ON_BAT": {
+    "type": "string",
+    "default": "#CPU_HWP_DYN_BOOST_ON_BAT=0",
+    "description": "Set CPU dynamic boost feature (BAT)."
+  },
+  "NMI_WATCHDOG": {
+    "type": "string",
+    "default": "#NMI_WATCHDOG=0",
+    "description": "Kernel NMI Watchdog."
+  },
+  "PLATFORM_PROFILE_ON_AC": {
+    "type": "string",
+    "default": "#PLATFORM_PROFILE_ON_AC=performance",
+    "description": "Select platform profile (AC)."
+  },
+  "PLATFORM_PROFILE_ON_BAT": {
+    "type": "string",
+    "default": "#PLATFORM_PROFILE_ON_BAT=low-power",
+    "description": "Select platform profile (BAT)."
+  },
+  "MEM_SLEEP_ON_AC": {
+    "type": "string",
+    "default": "#MEM_SLEEP_ON_AC=s2idle",
+    "description": "System suspend mode (AC)."
+  },
+  "MEM_SLEEP_ON_BAT": {
+    "type": "string",
+    "default": "#MEM_SLEEP_ON_BAT=deep",
+    "description": "System suspend mode (BAT)."
+  },
+  "DISK_DEVICES": {
+    "type": "string",
+    "default": "#DISK_DEVICES=\"nvme0n1 sda\"",
+    "description": "Define disk devices on which DISK/AHCI_RUNTIME parameters act."
+  },
+  "DISK_APM_LEVEL_ON_AC": {
+    "type": "string",
+    "default": "#DISK_APM_LEVEL_ON_AC=\"254 254\"",
+    "description": "Disk advanced power management level (AC)."
+  },
+  "DISK_APM_LEVEL_ON_BAT": {
+    "type": "string",
+    "default": "#DISK_APM_LEVEL_ON_BAT=\"128 128\"",
+    "description": "Disk advanced power management level (BAT)."
+  },
+  "DISK_APM_CLASS_DENYLIST": {
+    "type": "string",
+    "default": "#DISK_APM_CLASS_DENYLIST=\"usb ieee1394\"",
+    "description": "Exclude disk classes from advanced power management (APM)."
+  },
+  "DISK_SPINDOWN_TIMEOUT_ON_AC": {
+    "type": "string",
+    "default": "#DISK_SPINDOWN_TIMEOUT_ON_AC=\"0 0\"",
+    "description": "Hard disk spin down timeout (AC)."
+  },
+  "DISK_SPINDOWN_TIMEOUT_ON_BAT": {
+    "type": "string",
+    "default": "#DISK_SPINDOWN_TIMEOUT_ON_BAT=\"0 0\"",
+    "description": "Hard disk spin down timeout (BAT)."
+  },
+  "DISK_IOSCHED": {
+    "type": "string",
+    "default": "#DISK_IOSCHED=\"mq-deadline mq-deadline\"",
+    "description": "Select I/O scheduler for the disk devices."
+  },
+  "SATA_LINKPWR_ON_AC": {
+    "type": "string",
+    "default": "#SATA_LINKPWR_ON_AC=\"med_power_with_dipm\"",
+    "description": "AHCI link power management (ALPM) for SATA disks (AC)."
+  },
+  "SATA_LINKPWR_ON_BAT": {
+    "type": "string",
+    "default": "#SATA_LINKPWR_ON_BAT=\"med_power_with_dipm\"",
+    "description": "AHCI link power management (ALPM) for SATA disks (BAT)."
+  },
+  "SATA_LINKPWR_DENYLIST": {
+    "type": "string",
+    "default": "#SATA_LINKPWR_DENYLIST=\"host1\"",
+    "description": "Exclude SATA links from AHCI link power management (ALPM)."
+  },
+  "AHCI_RUNTIME_PM_ON_AC": {
+    "type": "string",
+    "default": "#AHCI_RUNTIME_PM_ON_AC=on",
+    "description": "Runtime Power Management for NVMe, SATA, ATA and USB disks (AC)."
+  },
+  "AHCI_RUNTIME_PM_ON_BAT": {
+    "type": "string",
+    "default": "#AHCI_RUNTIME_PM_ON_BAT=auto",
+    "description": "Runtime Power Management for NVMe, SATA, ATA and USB disks (BAT)."
+  },
+  "AHCI_RUNTIME_PM_TIMEOUT": {
+    "type": "string",
+    "default": "#AHCI_RUNTIME_PM_TIMEOUT=15",
+    "description": "Seconds of inactivity before disk is suspended."
+  },
+  "BAY_POWEROFF_ON_AC": {
+    "type": "string",
+    "default": "#BAY_POWEROFF_ON_AC=0",
+    "description": "Power off optical drive in UltraBay/MediaBay (AC)."
+  },
+  "BAY_POWEROFF_ON_BAT": {
+    "type": "string",
+    "default": "#BAY_POWEROFF_ON_BAT=0",
+    "description": "Power off optical drive in UltraBay/MediaBay (BAT)."
+  },
+  "BAY_DEVICE": {
+    "type": "string",
+    "default": "#BAY_DEVICE=\"sr0\"",
+    "description": "Optical drive device to power off."
+  },
+  "INTEL_GPU_MIN_FREQ_ON_AC": {
+    "type": "string",
+    "default": "#INTEL_GPU_MIN_FREQ_ON_AC=0",
+    "description": "Set the min frequency for the Intel GPU (AC)."
+  },
+  "INTEL_GPU_MIN_FREQ_ON_BAT": {
+    "type": "string",
+    "default": "#INTEL_GPU_MIN_FREQ_ON_BAT=0",
+    "description": "Set the min frequency for the Intel GPU (BAT)."
+  },
+  "INTEL_GPU_MAX_FREQ_ON_AC": {
+    "type": "string",
+    "default": "#INTEL_GPU_MAX_FREQ_ON_AC=0",
+    "description": "Set the max frequency for the Intel GPU (AC)."
+  },
+  "INTEL_GPU_MAX_FREQ_ON_BAT": {
+    "type": "string",
+    "default": "#INTEL_GPU_MAX_FREQ_ON_BAT=0",
+    "description": "Set the max frequency for the Intel GPU (BAT)."
+  },
+  "INTEL_GPU_BOOST_FREQ_ON_AC": {
+    "type": "string",
+    "default": "#INTEL_GPU_BOOST_FREQ_ON_AC=0",
+    "description": "Set the turbo frequency for the Intel GPU (AC)."
+  },
+  "INTEL_GPU_BOOST_FREQ_ON_BAT": {
+    "type": "string",
+    "default": "#INTEL_GPU_BOOST_FREQ_ON_BAT=0",
+    "description": "Set the turbo frequency for the Intel GPU (BAT)."
+  },
+  "RADEON_DPM_PERF_LEVEL_ON_AC": {
+    "type": "string",
+    "default": "#RADEON_DPM_PERF_LEVEL_ON_AC=auto",
+    "description": "AMD GPU power management performance level (AC)."
+  },
+  "RADEON_DPM_PERF_LEVEL_ON_BAT": {
+    "type": "string",
+    "default": "#RADEON_DPM_PERF_LEVEL_ON_BAT=auto",
+    "description": "AMD GPU power management performance level (BAT)."
+  },
+  "RADEON_DPM_STATE_ON_AC": {
+    "type": "string",
+    "default": "#RADEON_DPM_STATE_ON_AC=performance",
+    "description": "Dynamic power management method (DPM) for radeon driver (AC)."
+  },
+  "RADEON_DPM_STATE_ON_BAT": {
+    "type": "string",
+    "default": "#RADEON_DPM_STATE_ON_BAT=battery",
+    "description": "Dynamic power management method (DPM) for radeon driver (BAT)."
+  },
+  "AMDGPU_ABM_LEVEL_ON_AC": {
+    "type": "string",
+    "default": "#AMDGPU_ABM_LEVEL_ON_AC=0",
+    "description": "Display panel adaptive backlight modulation (ABM) level (AC)."
+  },
+  "AMDGPU_ABM_LEVEL_ON_BAT": {
+    "type": "string",
+    "default": "#AMDGPU_ABM_LEVEL_ON_BAT=3",
+    "description": "Display panel adaptive backlight modulation (ABM) level (BAT)."
+  },
+  "WIFI_PWR_ON_AC": {
+    "type": "string",
+    "default": "#WIFI_PWR_ON_AC=off",
+    "description": "Wi-Fi power saving mode (AC)."
+  },
+  "WIFI_PWR_ON_BAT": {
+    "type": "string",
+    "default": "#WIFI_PWR_ON_BAT=on",
+    "description": "Wi-Fi power saving mode (BAT)."
+  },
+  "WOL_DISABLE": {
+    "type": "string",
+    "default": "#WOL_DISABLE=Y",
+    "description": "Disable Wake-on-LAN."
+  },
+  "SOUND_POWER_SAVE_ON_AC": {
+    "type": "string",
+    "default": "#SOUND_POWER_SAVE_ON_AC=1",
+    "description": "Enable audio power saving for Intel HDA, AC97 devices (AC)."
+  },
+  "SOUND_POWER_SAVE_ON_BAT": {
+    "type": "string",
+    "default": "#SOUND_POWER_SAVE_ON_BAT=1",
+    "description": "Enable audio power saving for Intel HDA, AC97 devices (BAT)."
+  },
+  "SOUND_POWER_SAVE_CONTROLLER": {
+    "type": "string",
+    "default": "#SOUND_POWER_SAVE_CONTROLLER=Y",
+    "description": "Disable controller too (HDA only)."
+  },
+  "PCIE_ASPM_ON_AC": {
+    "type": "string",
+    "default": "#PCIE_ASPM_ON_AC=default",
+    "description": "PCIe Active State Power Management (AC)."
+  },
+  "PCIE_ASPM_ON_BAT": {
+    "type": "string",
+    "default": "#PCIE_ASPM_ON_BAT=default",
+    "description": "PCIe Active State Power Management (BAT)."
+  },
+  "RUNTIME_PM_ON_AC": {
+    "type": "string",
+    "default": "#RUNTIME_PM_ON_AC=on",
+    "description": "Runtime Power Management for PCIe bus devices (AC)."
+  },
+  "RUNTIME_PM_ON_BAT": {
+    "type": "string",
+    "default": "#RUNTIME_PM_ON_BAT=auto",
+    "description": "Runtime Power Management for PCIe bus devices (BAT)."
+  },
+  "RUNTIME_PM_DENYLIST": {
+    "type": "string",
+    "default": "#RUNTIME_PM_DENYLIST=\"11:22.3 44:55.6\"",
+    "description": "Exclude listed PCIe device adresses from Runtime PM."
+  },
+  "RUNTIME_PM_DRIVER_DENYLIST": {
+    "type": "string",
+    "default": "#RUNTIME_PM_DRIVER_DENYLIST=\"mei_me nouveau radeon xhci_hcd\"",
+    "description": "Exclude PCIe devices assigned to the listed drivers from Runtime PM."
+  },
+  "RUNTIME_PM_ENABLE": {
+    "type": "string",
+    "default": "#RUNTIME_PM_ENABLE=\"11:22.3\"",
+    "description": "Permanently enable Runtime PM for listed PCIe device addresses."
+  },
+  "RUNTIME_PM_DISABLE": {
+    "type": "string",
+    "default": "#RUNTIME_PM_DISABLE=\"44:55.6\"",
+    "description": "Permanently disable Runtime PM for listed PCIe device addresses."
+  },
+  "USB_AUTOSUSPEND": {
+    "type": "string",
+    "default": "#USB_AUTOSUSPEND=1",
+    "description": "Set to 0 to disable, 1 to enable USB autosuspend feature."
+  },
+  "USB_DENYLIST": {
+    "type": "string",
+    "default": "#USB_DENYLIST=\"1111:2222 3333:4444\"",
+    "description": "Exclude listed devices from USB autosuspend."
+  },
+  "USB_EXCLUDE_AUDIO": {
+    "type": "string",
+    "default": "#USB_EXCLUDE_AUDIO=1",
+    "description": "Exclude audio devices from USB autosuspend."
+  },
+  "USB_EXCLUDE_BTUSB": {
+    "type": "string",
+    "default": "#USB_EXCLUDE_BTUSB=0",
+    "description": "Exclude bluetooth devices from USB autosuspend."
+  },
+  "USB_EXCLUDE_PHONE": {
+    "type": "string",
+    "default": "#USB_EXCLUDE_PHONE=0",
+    "description": "Exclude phone devices from USB autosuspend."
+  },
+  "USB_EXCLUDE_PRINTER": {
+    "type": "string",
+    "default": "#USB_EXCLUDE_PRINTER=1",
+    "description": "Exclude printers from USB autosuspend."
+  },
+  "USB_EXCLUDE_WWAN": {
+    "type": "string",
+    "default": "#USB_EXCLUDE_WWAN=0",
+    "description": "Exclude WWAN devices from USB autosuspend."
+  },
+  "USB_ALLOWLIST": {
+    "type": "string",
+    "default": "#USB_ALLOWLIST=\"1111:2222 3333:4444\"",
+    "description": "Allow USB autosuspend for listed devices even if already denylisted or excluded."
+  },
+  "RESTORE_DEVICE_STATE_ON_STARTUP": {
+    "type": "string",
+    "default": "#RESTORE_DEVICE_STATE_ON_STARTUP=0",
+    "description": "Restore radio device state from previous shutdown on system startup."
+  },
+  "DEVICES_TO_DISABLE_ON_STARTUP": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_STARTUP=\"bluetooth nfc wifi wwan\"",
+    "description": "Radio devices to disable on startup."
+  },
+  "DEVICES_TO_ENABLE_ON_STARTUP": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_STARTUP=\"wifi\"",
+    "description": "Radio devices to enable on startup."
+  },
+  "DEVICES_TO_ENABLE_ON_AC": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_AC=\"bluetooth nfc wifi wwan\"",
+    "description": "Radio devices to enable on AC."
+  },
+  "DEVICES_TO_DISABLE_ON_BAT": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_BAT=\"bluetooth nfc wifi wwan\"",
+    "description": "Radio devices to disable on battery."
+  },
+  "DEVICES_TO_DISABLE_ON_BAT_NOT_IN_USE": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_BAT_NOT_IN_USE=\"bluetooth nfc wifi wwan\"",
+    "description": "Radio devices to disable on battery when not in use."
+  },
+  "START_CHARGE_THRESH_BAT0": {
+    "type": "string",
+    "default": "#START_CHARGE_THRESH_BAT0=75",
+    "description": "Battery charge level below which charging will begin (BAT0)."
+  },
+  "STOP_CHARGE_THRESH_BAT0": {
+    "type": "string",
+    "default": "#STOP_CHARGE_THRESH_BAT0=80",
+    "description": "Battery charge level above which charging will stop (BAT0)."
+  },
+  "START_CHARGE_THRESH_BAT1": {
+    "type": "string",
+    "default": "#START_CHARGE_THRESH_BAT1=75",
+    "description": "Battery charge level below which charging will begin (BAT1)."
+  },
+  "STOP_CHARGE_THRESH_BAT1": {
+    "type": "string",
+    "default": "#STOP_CHARGE_THRESH_BAT1=80",
+    "description": "Battery charge level above which charging will stop (BAT1)."
+  },
+  "RESTORE_THRESHOLDS_ON_BAT": {
+    "type": "string",
+    "default": "#RESTORE_THRESHOLDS_ON_BAT=1",
+    "description": "Restore charge thresholds when AC is unplugged."
+  },
+  "DEVICES_TO_DISABLE_ON_LAN_CONNECT": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_LAN_CONNECT=\"wifi wwan\"",
+    "description": "Radio devices to disable on LAN connect."
+  },
+  "DEVICES_TO_DISABLE_ON_WIFI_CONNECT": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_WIFI_CONNECT=\"wwan\"",
+    "description": "Radio devices to disable on WiFi connect."
+  },
+  "DEVICES_TO_DISABLE_ON_WWAN_CONNECT": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_WWAN_CONNECT=\"wifi\"",
+    "description": "Radio devices to disable on WWAN connect."
+  },
+  "DEVICES_TO_ENABLE_ON_LAN_DISCONNECT": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_LAN_DISCONNECT=\"wifi wwan\"",
+    "description": "Radio devices to enable on LAN disconnect."
+  },
+  "DEVICES_TO_ENABLE_ON_WIFI_DISCONNECT": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_WIFI_DISCONNECT=\"\"",
+    "description": "Radio devices to enable on WiFi disconnect."
+  },
+  "DEVICES_TO_ENABLE_ON_WWAN_DISCONNECT": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_WWAN_DISCONNECT=\"\"",
+    "description": "Radio devices to enable on WWAN disconnect."
+  },
+  "DEVICES_TO_ENABLE_ON_DOCK": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_DOCK=\"\"",
+    "description": "Radio devices to enable when docked."
+  },
+  "DEVICES_TO_DISABLE_ON_DOCK": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_DOCK=\"\"",
+    "description": "Radio devices to disable when docked."
+  },
+  "DEVICES_TO_ENABLE_ON_UNDOCK": {
+    "type": "string",
+    "default": "#DEVICES_TO_ENABLE_ON_UNDOCK=\"wifi\"",
+    "description": "Radio devices to enable when undocked."
+  },
+  "DEVICES_TO_DISABLE_ON_UNDOCK": {
+    "type": "string",
+    "default": "#DEVICES_TO_DISABLE_ON_UNDOCK=\"\"",
+    "description": "Radio devices to disable when undocked."
   }
 }

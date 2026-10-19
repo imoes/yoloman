@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Google Noto Sans Phoenician Font Configuration for RedHat
+    This template configures the system-wide Fontconfig to:
+    1. Prepend the Noto Sans Phoenician font to the 'sans-serif' family alias.
+    2. Enable font hinting if requested.
+    3. Register the font family with its default alias.
+  -->
+
+  <!-- Match the generic sans-serif family to inject our specific font -->
+  <match>
+    <!-- Target the family name 'sans-serif' -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+
+    <!-- Prepend the configured font name to the list of sans-serif fonts -->
+    <edit name="family" mode="prepend">
+      <!-- The name of the font family to configure. -->
+      <!-- Default: 'Noto Sans Phoenician' -->
+      <string>{{ font_name | default('Noto Sans Phoenician') }}</string>
+    </edit>
+
+    <!-- Enable font hinting for better rendering on screens -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hinting (true/false). -->
+      <!-- Default: false -->
+      <bool>{{ font_hint_bool | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Define the alias for the installed font family -->
+  <alias>
+    <!-- The name of the font family to configure. -->
+    <!-- Default: 'Noto Sans Phoenician' -->
+    <family>{{ font_name | default('Noto Sans Phoenician') }}</family>
+    <default>
+      <!-- Fallback family if this font is unavailable -->
+      <family>sans-serif</family>
+    </default>
+  </alias>
+</fontconfig>

@@ -1,8 +1,239 @@
-# snapserver configuration file
-# This file sets command-line options for the snapserver daemon.
-# For detailed usage, see snapserver(1) or the snapserver documentation.
+###############################################################################
+#     ______                                                                  #
+#    / _____)                                                                 #
+#   ( (____   ____   _____  ____    ___  _____   ____  _   _  _____   ____    #
+#    \____ \ |  _ \ (____ ||  _ \  /___)| ___ | / ___)| | | || ___ | / ___)   #
+#    _____) )| | | |/ ___ || |_| ||___ || ____|| |     \ V / | ____|| |       #
+#   (______/ |_| |_|\_____||  __/ (___/ |_____)|_|      \_/  |_____)|_|       #
+#                          |_|                                                #
+#                                                                             #
+#  Snapserver config file                                                     #
+#                                                                             #
+###############################################################################
 
-# Command-line options for snapserver.
-# Leave empty for defaults. If provided, these override built-in defaults.
-# Example: '-f /var/run/snapserver.pid'
-SNAPSERVER_OPTS="{{ snapserver_opts | default('') }}"
+# default values are commented
+# uncomment and edit to change them
+
+# Settings can be overwritten on command line with:
+#  "--<section>.<name>=<value>", e.g. --server.threads=4
+
+
+# General server settings #####################################################
+#
+[server]
+# Number of additional worker threads to use
+# - For values < 0 the number of threads will be 2 (on single and dual cores)
+#   or 4 (for quad and more cores)
+# - 0 will utilize just the processes main thread and might cause audio drops
+#   in case there are a couple of longer running tasks, such as encoding
+#   multiple audio streams
+{% if threads is defined and threads is not none and (threads is number or threads is boolean or threads | length > 0) %}threads = {{ threads }}
+{% else %}#threads = -1
+{% endif %}
+# the pid file when running as daemon (-d or --daemon)
+{% if pidfile is defined and pidfile is not none and (pidfile is number or pidfile is boolean or pidfile | length > 0) %}pidfile = {{ pidfile }}
+{% else %}#pidfile = /var/run/snapserver/pid
+{% endif %}
+# the user to run as when daemonized (-d or --daemon)
+{% if user is defined and user is not none and (user is number or user is boolean or user | length > 0) %}user = {{ user }}
+{% else %}#user = snapserver
+{% endif %}# the group to run as when daemonized (-d or --daemon)
+{% if group is defined and group is not none and (group is number or group is boolean or group | length > 0) %}group = {{ group }}
+{% else %}#group = snapserver
+{% endif %}
+# directory where persistent data is stored (server.json)
+# if empty, data dir will be
+#  - "/var/lib/snapserver/" when running as daemon
+#  - "$HOME/.config/snapserver/" when not running as daemon
+{% if datadir is defined and datadir is not none and (datadir is number or datadir is boolean or datadir | length > 0) %}datadir {{ datadir }}
+{% else %}#datadir =
+{% endif %}
+#
+###############################################################################
+
+
+# Secure Socket Layer #########################################################
+#
+[ssl]
+# Certificate files are either specified by their full or relative path. Certificates with
+# relative path are searched for in the current path and in "/etc/snapserver/certs"
+
+# Certificate file in PEM format
+{% if certificate is defined and certificate is not none and (certificate is number or certificate is boolean or certificate | length > 0) %}certificate {{ certificate }}
+{% else %}#certificate = 
+{% endif %}
+# Private key file in PEM format
+{% if certificate_key is defined and certificate_key is not none and (certificate_key is number or certificate_key is boolean or certificate_key | length > 0) %}certificate_key {{ certificate_key }}
+{% else %}#certificate_key = 
+{% endif %}
+# Password for decryption of the certificate_key (only needed for encrypted certificate_key file)
+{% if key_password is defined and key_password is not none and (key_password is number or key_password is boolean or key_password | length > 0) %}key_password {{ key_password }}
+{% else %}#key_password =
+{% endif %}
+#
+###############################################################################
+
+
+# HTTP RPC ####################################################################
+#
+[http]
+# enable HTTP Json RPC (HTTP POST and websockets)
+#enabled = true
+
+# address to listen on, can be specified multiple times
+# use "0.0.0.0" to bind to any IPv4 address or :: to bind to any IPv6 address
+# or "127.0.0.1" or "::1" to bind to localhost IPv4 or IPv6, respectively
+# use the address of a specific network interface to just listen to and accept
+# connections from that interface
+#bind_to_address = ::
+
+# which port the server should listen to
+#port = 1780
+
+# enable HTTPS Json RPC (HTTPS POST and ssl websockets)
+{% if ssl_enabled is defined and ssl_enabled is not none and (ssl_enabled is number or ssl_enabled is boolean or ssl_enabled | length > 0) %}ssl_enabled = {{ ssl_enabled }}
+{% else %}#ssl_enabled = false
+{% endif %}
+# same as 'bind_to_address' but for SSL
+{% if ssl_bind_to_address is defined and ssl_bind_to_address is not none and (ssl_bind_to_address is number or ssl_bind_to_address is boolean or ssl_bind_to_address | length > 0) %}ssl_bind_to_address = {{ ssl_bind_to_address }}
+{% else %}#ssl_bind_to_address = ::
+{% endif %}
+# same as 'port' but for SSL
+{% if ssl_port is defined and ssl_port is not none and (ssl_port is number or ssl_port is boolean or ssl_port | length > 0) %}ssl_port = {{ ssl_port }}
+{% else %}#ssl_port = 1788
+{% endif %}
+# serve a website from the doc_root location
+# disabled if commented or empty
+doc_root = {{ doc_root | default('/usr/share/snapserver/snapweb') }}
+
+# Hostname or IP under which clients can reach this host
+# used to serve cached cover art
+# use <hostname> as placeholder for your actual host name
+{% if host is defined and host is not none and (host is number or host is boolean or host | length > 0) %}host = {{ host }}
+{% else %}#host = <hostname>
+{% endif %}
+# Optional custom URL prefix for generated URLs where clients can reach
+# cached album art, to e.g. match scheme behind a reverse proxy.
+{% if url_prefix is defined and url_prefix is not none and (url_prefix is number or url_prefix is boolean or url_prefix | length > 0) %}url_prefix = {{ url_prefix }}
+{% else %}#url_prefix = https://<hostname>
+{% endif %}
+#
+###############################################################################
+
+
+# TCP RPC #####################################################################
+#
+[tcp]
+# enable TCP Json RPC
+#enabled = true
+
+# address to listen on, can be specified multiple times
+# use "0.0.0.0" to bind to any IPv4 address or :: to bind to any IPv6 address
+# or "127.0.0.1" or "::1" to bind to localhost IPv4 or IPv6, respectively
+# use the address of a specific network interface to just listen to and accept
+# connections from that interface
+#bind_to_address = ::
+
+# which port the server should listen to
+#port = 1705
+#
+###############################################################################
+
+
+# Stream settings #############################################################
+#
+[stream]
+# address to listen on, can be specified multiple times
+# use "0.0.0.0" to bind to any IPv4 address or :: to bind to any IPv6 address
+# or "127.0.0.1" or "::1" to bind to localhost IPv4 or IPv6, respectively
+# use the address of a specific network interface to just listen to and accept
+# connections from that interface
+#bind_to_address = ::
+
+# which port the server should listen to
+#port = 1704
+
+# source URI of the PCM input stream, can be configured multiple times
+# The following notation is used in this paragraph:
+#  <angle brackets>: the whole expression must be replaced with your specific setting
+# [square brackets]: the whole expression is optional and can be left out
+# [key=value]: if you leave this option out, "value" will be the default for "key"
+#
+# Format: TYPE://host/path?name=<name>[&codec=<codec>][&sampleformat=<sampleformat>][&chunk_ms=<chunk ms>][&controlscript=<control script filename>[&controlscriptparams=<control script command line arguments>]]
+#  parameters have the form "key=value", they are concatenated with an "&" character
+#  parameter "name" is mandatory for all sources, while codec, sampleformat and chunk_ms are optional
+#  and will override the default codec, sampleformat or chunk_ms settings
+# Available types are:
+# pipe: pipe:///<path/to/pipe>?name=<name>[&mode=create], mode can be "create" or "read"
+# librespot: librespot:///<path/to/librespot>?name=<name>[&username=<my username>&password=<my password>][&devicename=Snapcast][&bitrate=320][&wd_timeout=7800][&volume=100][&onevent=""][&nomalize=false][&autoplay=false][&params=<generic librepsot process arguments>]
+#  note that you need to have the librespot binary on your machine
+#  sampleformat will be set to "44100:16:2"
+# file: file:///<path/to/PCM/file>?name=<name>
+# process: process:///<path/to/process>?name=<name>[&wd_timeout=0][&log_stderr=false][&params=<process arguments>]
+# airplay: airplay:///<path/to/airplay>?name=<name>[&port=5000]
+#  note that you need to have the airplay binary on your machine
+#  sampleformat will be set to "44100:16:2"
+# tcp server: tcp://<listen IP, e.g. 127.0.0.1>:<port>?name=<name>[&mode=server]
+# tcp client: tcp://<server IP, e.g. 127.0.0.1>:<port>?name=<name>&mode=client
+# alsa: alsa:///?name=<name>&device=<alsa device>[&send_silence=false][&idle_threshold=100][&silence_threshold_percent=0.0]
+# meta: meta:///<name of source#1>/<name of source#2>/.../<name of source#N>?name=<name>
+source = {{ source | default('pipe:///tmp/snapfifo?name=default') }}
+
+# Plugin directory, containing scripts, referred by "controlscript"
+{% if plugin_dir is defined and plugin_dir is not none and (plugin_dir is number or plugin_dir is boolean or plugin_dir | length > 0) %}plugin_dir = {{ plugin_dir }}
+{% else %}#plugin_dir = /usr/share/snapserver/plug-ins
+{% endif %}
+# Default sample format: <sample rate>:<bits per sample>:<channels>
+{% if sampleformat is defined and sampleformat is not none and (sampleformat is number or sampleformat is boolean or sampleformat | length > 0) %}sampleformat = {{ sampleformat }}
+{% else %}#sampleformat = 48000:16:2
+{% endif %}
+# Default transport codec
+# (flac|ogg|opus|pcm)[:options]
+# Start Snapserver with "--stream:codec=<codec>:?" to get codec specific options
+{% if codec is defined and codec is not none and (codec is number or codec is boolean or codec | length > 0) %}codec = {{ codec }}
+{% else %}#codec = flac
+{% endif %}
+# Default source stream read chunk size [ms].
+# The server will continously read this number of milliseconds from the source into buffer and pass this buffer to the encoder.
+# The encoded buffer is sent to the clients. Some codecs have a higher latency and will need more data, e.g. Flac will need ~26ms chunks
+{% if chunk_ms is defined and chunk_ms is not none and (chunk_ms is number or chunk_ms is boolean or chunk_ms | length > 0) %}chunk_ms = {{ chunk_ms }}
+{% else %}#chunk_ms = 20
+{% endif %}
+# Buffer [ms]
+# The end-to-end latency, from capturing a sample on the server until the sample is played-out on the client
+{% if buffer is defined and buffer is not none and (buffer is number or buffer is boolean or buffer | length > 0) %}buffer = {{ buffer }}
+{% else %}#buffer = 1000
+{% endif %}
+# Send audio to muted clients
+{% if send_to_muted is defined and send_to_muted is not none and (send_to_muted is number or send_to_muted is boolean or send_to_muted | length > 0) %}send_to_muted = {{ send_to_muted }}
+{% else %}#send_to_muted = false
+{% endif %}#
+
+
+# Streaming client options ####################################################
+#
+[streaming_client]
+
+# Volume assigned to new snapclients [percent]
+# Defaults to 100 if unset
+{% if initial_volume is defined and initial_volume is not none and (initial_volume is number or initial_volume is boolean or initial_volume | length > 0) %}initial_volume = {{ initial_volume }}
+{% else %}#initial_volume = 100
+{% endif %}#
+###############################################################################
+
+
+# Logging options #############################################################
+#
+[logging]
+
+# log sink [null,system,stdout,stderr,file:<filename>]
+# when left empty: if running as daemon "system" else "stdout"
+{% if sink is defined and sink is not none and (sink is number or sink is boolean or sink | length > 0) %}sink {{ sink }}
+{% else %}#sink =
+{% endif %}
+# log filter <tag>:<level>[,<tag>:<level>]*
+# with tag = * or <log tag> and level = [trace,debug,info,notice,warning,error,fatal]
+{% if filter_directive is defined and filter_directive is not none and (filter_directive is number or filter_directive is boolean or filter_directive | length > 0) %}filter = {{ filter_directive }}
+{% else %}#filter = *:info
+{% endif %}#
+###############################################################################

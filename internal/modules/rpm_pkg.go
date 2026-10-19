@@ -12,12 +12,10 @@ import (
 // surface for the common case. Yum, Dnf, and Dnf5 each wrap one with a
 // different binary name.
 //
-// Unlike apt (this agent's primary, real-tested packaging target — see
-// docs/plan.md), this family is unit-tested only: there is no RPM-based
-// host in this project's real verification environment. The check/apply
-// logic mirrors apt.go's structure closely (query via the underlying rpm
-// database, act via the frontend binary) but has not been run against a
-// real RHEL/Fedora/CentOS system.
+// The check/apply logic mirrors apt.go's structure (query via the underlying
+// rpm database, act via the frontend binary). dnf has run for real on the
+// AlmaLinux 9 e2e hosts (docs/package-config-e2e.md); yum and dnf5 are
+// unit-tested only.
 type rpmPackageManager struct {
 	binary string // "yum", "dnf", or "dnf5"
 	Runner CommandRunner
@@ -80,7 +78,7 @@ func (r *rpmPackageManager) run(ctx context.Context, params map[string]any, dryR
 			} else {
 				action = "update"
 				before := version
-				if _, err := r.Runner(ctx, r.binary, action, "-y", pkgName); err != nil {
+				if err := r.mutate(ctx, action, pkgName); err != nil {
 					return Result{}, fmt.Errorf("%s: updating %s: %w", r.binary, pkgName, err)
 				}
 				_, after, err := r.rpmStatus(ctx, pkgName)
@@ -94,17 +92,90 @@ func (r *rpmPackageManager) run(ctx context.Context, params map[string]any, dryR
 			}
 		}
 
+		// A preview must fail where the real install would (same rule as apt): ask the repositories whether
+		// they offer the package at all, instead of predicting "would install" for a name nobody ships.
+		wouldInstall := ""
+		if pkgChanged && dryRun && action == "install" {
+			v, err := r.availableVersion(ctx, pkgName)
+			if err != nil {
+				return Result{}, err
+			}
+			wouldInstall = v
+		}
+
 		if pkgChanged && !dryRun {
-			if _, err := r.Runner(ctx, r.binary, action, "-y", pkgName); err != nil {
+			if err := r.mutate(ctx, action, pkgName); err != nil {
 				return Result{}, fmt.Errorf("%s: %sing %s: %w", r.binary, action, pkgName, err)
 			}
 		}
 
 		changed = changed || pkgChanged
-		results = append(results, map[string]any{"name": pkgName, "installed_version": version, "changed": pkgChanged})
+		entry := map[string]any{"name": pkgName, "installed_version": version, "changed": pkgChanged}
+		if wouldInstall != "" {
+			entry["would_install_version"] = wouldInstall
+		}
+		results = append(results, entry)
 	}
 
 	return Result{Changed: changed, Msg: "package state applied", Data: results}, nil
+}
+
+// availableVersion is the version the repositories offer for pkg (`<binary> -q list --available pkg`), or an error
+// naming the package when none does — what the install itself would fail with.
+func (r *rpmPackageManager) availableVersion(ctx context.Context, pkg string) (string, error) {
+	out, err := r.Runner(ctx, r.binary, "-q", "list", "--available", pkg)
+	if err != nil && !isExitError(err) {
+		return "", fmt.Errorf("%s: querying the repositories for %s: %w", r.binary, pkg, err)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 && (f[0] == pkg || strings.HasPrefix(f[0], pkg+".")) {
+			return f[1], nil
+		}
+	}
+	return "", fmt.Errorf("%s: %s is not offered by any enabled repository (%s list --available); installing it "+
+		"would fail with \"No match for argument\"", r.binary, pkg, r.binary)
+}
+
+// staleMetadataSigns are what dnf/yum print when a package file named by its metadata could not be fetched: the
+// mirror has replaced the release (stale metadata), or the download failed on the way. Measured 2026-10-11 on an
+// AlmaLinux e2e host: "dnf install -y openssh-server: exit status 1: [Errno 2] No such file or directory:
+// '/var/cache/dnf/baseos-…/packages/openssh-9.9p1-12.el9_8.alma.1.x86_64.rpm'". That version WAS on the mirror, and
+// the same install in the same image succeeded afterwards — so it was a failed download, not stale metadata; both
+// end the same way for the operator, and both are cured by the same step.
+var staleMetadataSigns = []string{
+	"No such file or directory: '/var/cache/dnf/",
+	"No such file or directory: '/var/cache/yum/",
+	"Status code: 404",
+	"All mirrors were tried",
+	"Cannot download",
+}
+
+func looksLikeStaleMetadata(err error) bool {
+	msg := err.Error()
+	for _, s := range staleMetadataSigns {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// mutate runs `<binary> <action> -y <pkg>`. When a package file could not be fetched, it drops the cached metadata
+// and retries ONCE — what an operator does by hand (`dnf clean metadata`, then again). Any other failure, and a
+// second failure, is returned as it is; when the retry fails too, the error says a refresh was tried.
+func (r *rpmPackageManager) mutate(ctx context.Context, action, pkg string) error {
+	_, err := r.Runner(ctx, r.binary, action, "-y", pkg)
+	if err == nil || !looksLikeStaleMetadata(err) {
+		return err
+	}
+	if _, cerr := r.Runner(ctx, r.binary, "clean", "metadata"); cerr != nil {
+		return fmt.Errorf("%w (refreshing the stale metadata failed too: %v)", err, cerr)
+	}
+	if _, rerr := r.Runner(ctx, r.binary, action, "-y", pkg); rerr != nil {
+		return fmt.Errorf("%w (failed again after refreshing the repository metadata)", rerr)
+	}
+	return nil
 }
 
 // rpmStatus reports whether pkg is currently installed and, if so, its

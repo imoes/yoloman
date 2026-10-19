@@ -16,7 +16,7 @@ MAILTO={{ mailto | default('root') }}
 # If set, CHECKSECURITY_EMAIL is uncommented; otherwise it remains commented out.
 # Requires /usr/bin/mail (bsd-mailx) or mutt installed on the target.
 {% if checksecurity_email is defined and checksecurity_email | trim != '' %}
-CHECKSECURITY_EMAIL="{{ checksecurity_email }}"
+{% if checksecurity_email is defined and checksecurity_email is not none and (checksecurity_email is number or checksecurity_email is boolean or checksecurity_email | length > 0) %}CHECKSECURITY_EMAIL="{{ checksecurity_email }}"{% else %}#CHECKSECURITY_EMAIL="root"{% endif %}
 {% else %}
 #CHECKSECURITY_EMAIL=""
 {% endif %}
@@ -47,15 +47,15 @@ CHECK_DISKFREE="{{ check_diskfree | default('TRUE') }}"
 # We default to empty string to avoid enabling it unless explicitly configured,
 # or you may map this to a boolean-like value if your deployment expects it.
 # Based on the schema, check_passwd is not listed in fields, so we use a safe default.
-CHECK_PASSWD="{{ check_passwd | default('FALSE') }}"
+CHECK_PASSWD="{{ check_passwd | default('TRUE') }}"
 # Configure the checks in /etc/checksecurity/check-passwd.conf
 
 # Enable or disable the setuid file check.
-CHECK_SETUID="{{ check_setuid | default('FALSE') }}"
+CHECK_SETUID="{{ check_setuid | default('TRUE') }}"
 # Configure the checks in /etc/checksecurity/check-setuid.conf
 
 # Enable or disable the open sockets check.
-CHECK_SOCKETS="{{ check_sockets | default('FALSE') }}"
+CHECK_SOCKETS="{{ check_sockets | default('TRUE') }}"
 # Configure the checks in /etc/checksecurity/check-sockets.conf
 
 # Enable or disable the iptables logs check.

@@ -46,11 +46,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/apps/docker-apps.component').then((m) => m.DockerAppsComponent),
   },
   {
-    path: 'blueprint-drafts',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/blueprint/blueprint-manager.component').then((m) => m.BlueprintManagerComponent),
-  },
-  {
     path: 'apps',
     canActivate: [authGuard],
     loadComponent: () => import('./features/apps/app-store.component').then((m) => m.AppStoreComponent),
@@ -64,11 +59,6 @@ export const routes: Routes = [
     path: 'docker-state',
     canActivate: [authGuard],
     loadComponent: () => import('./features/docker-state/docker-state.component').then((m) => m.DockerStateComponent),
-  },
-  {
-    path: 'blueprint',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/blueprint/blueprint.component').then((m) => m.BlueprintComponent),
   },
   {
     path: 'hosts/:id',
@@ -136,8 +126,9 @@ export const routes: Routes = [
     loadComponent: () => import('./features/events/events.component').then((m) => m.EventsComponent),
   },
   {
-    // The binding trigger -> action. Under Monitor rather than Library because a rule REACTS:
-    // it is judged next to the events it answers, and its run history is monitoring history.
+    // The binding trigger -> action. In Library, next to the handlers it binds: a rule is authored
+    // and applied like any other library object (it moved out of Monitor, which shows what HAPPENED —
+    // the events a rule answered stay visible there in the Event Console / Event Browser).
     path: 'event-rules',
     canActivate: [authGuard],
     loadComponent: () => import('./features/events/event-rules.component').then((m) => m.EventRulesComponent),
@@ -168,6 +159,16 @@ export const routes: Routes = [
     path: 'rollouts',
     canActivate: [authGuard],
     loadComponent: () => import('./features/rollouts/rollouts.component').then((m) => m.RolloutsComponent),
+  },
+  {
+    path: 'vm-deployments',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/vm-deploy/vm-deployments.component').then((m) => m.VmDeploymentsComponent),
+  },
+  {
+    path: 'role-deployments',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/role-deployments/role-deployments.component').then((m) => m.RoleDeploymentsComponent),
   },
   {
     path: 'compliance',
@@ -247,14 +248,40 @@ export const routes: Routes = [
     loadComponent: () => import('./features/clusters/clusters.component').then((m) => m.ClustersComponent),
   },
   {
+    // Kubernetes clusters: registered by their access host; the explorer is the per-cluster console.
+    path: 'kubernetes',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/kubernetes/kubernetes-clusters.component').then((m) => m.KubernetesClustersComponent),
+  },
+  {
+    path: 'kubernetes/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/kubernetes/kubernetes-explorer.component').then((m) => m.KubernetesExplorerComponent),
+  },
+  {
+    // the Application form: new, or an existing workload re-opened as the form
+    path: 'kubernetes/:id/apps/new',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/kubernetes/kubernetes-app-wizard.component').then((m) => m.KubernetesAppWizardComponent),
+  },
+  {
+    path: 'kubernetes/:id/apps/:namespace/:name',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/kubernetes/kubernetes-app-wizard.component').then((m) => m.KubernetesAppWizardComponent),
+  },
+  {
     path: 'host-placement',
     canActivate: [authGuard],
     loadComponent: () => import('./features/host-placement/host-placement.component').then((m) => m.HostPlacementComponent),
   },
   {
+    // The catalogue plan list duplicated Roles (/plan-library): api/plans.py documents the catalogue and the
+    // stored plans as the same documents in two stores during a migration — two screens listing one thing is
+    // two ways to the same result. The list redirects to Roles; /plans/:name stays as the read-before-run
+    // page, which Roles links to ("Run…") for every plan the catalogue can execute.
     path: 'plans',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/plans/plans-list.component').then((m) => m.PlansListComponent),
+    redirectTo: 'plan-library',
+    pathMatch: 'full',
   },
   {
     path: 'plans/:name',

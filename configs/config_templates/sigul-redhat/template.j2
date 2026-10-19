@@ -1,0 +1,83 @@
+# ==============================================================================
+# sigul-redhat Configuration Template
+# ==============================================================================
+# This configuration file defines the client settings for connecting to the
+# SIGUL (Secure Interoperable Generic Update Library) server infrastructure.
+# It handles bridge connectivity, Koji integration, NSS database parameters,
+# and binding modules.
+
+[client]
+# ==============================================================================
+# Client Identity and Connectivity
+# ==============================================================================
+
+# Host name of the publically accessible bridge to the server.
+# This is the hostname the client uses to reach the update service.
+bridge-hostname: {{ bridge_hostname | default('localhost') }}
+
+# Port on which the bridge expects client connections.
+# Default is 44334 for SIGUL's custom protocol.
+; bridge-port: 44334
+
+# Nickname of the client's certificate in the NSS database specified below.
+# This certificate is used for authentication with the server.
+; client-cert-nickname: sigul-client-cert
+
+# Host name of the private server, used for verifying its certificate.
+# Used for certificate pinning or validation against the internal CA.
+server-hostname: {{ server_hostname | default('localhost') }}
+
+# Name of the invoking user, defaults to login name on the local machine.
+# Override this if running as a specific system user.
+; user-name: nobody
+
+[koji]
+# ==============================================================================
+# Koji Build System Integration
+# ==============================================================================
+
+# Config file used to connect to the Koji hub.
+# Points to the standard Koji client configuration.
+; koji-config: ~/.koji/config
+
+# Recognized alternative instances.
+# Allows connecting to multiple Koji instances (e.g., for different architectures).
+; koji-instances:
+
+# Example configuration of alternative instances:
+# koji-instances: ppc64 s390
+# Configuration paths for alternative instances:
+# koji-config-ppc64: ~/.koji-ppc64.conf
+# koji-config-s390: ~/.sigul-s390.conf
+
+[nss]
+# ==============================================================================
+# NSS (Network Security Services) Database Configuration
+# ==============================================================================
+
+# Path to a directory containing a NSS database.
+# Stores certificates, keys, and trust settings.
+; nss-dir: ~/.sigul
+
+# Password for accessing the NSS database.
+# If not specified, the client will ask on startup.
+# Note: sigul_setup_client typically stores this in ~/.sigul/client.conf.
+; nss-password is not specified by default, but sigul_setup_client stores
+; it in ~/.sigul/client.conf
+
+# Minimum version of TLS used for secure connections.
+# Controls the lower bound of supported TLS protocols.
+nss-min-tls: {{ nss_min_tls | default('tls1.2') }}
+
+# Maximum version of TLS used for secure connections.
+# Controls the upper bound of supported TLS protocols.
+nss-max-tls: {{ nss_max_tls | default('tls1.2') }}
+
+[binding]
+# ==============================================================================
+# Binding Modules
+# ==============================================================================
+
+# List of binding modules enabled, comma separated.
+# These modules handle specific transport or protocol bindings.
+enabled: {{ binding_enabled | default('') }}

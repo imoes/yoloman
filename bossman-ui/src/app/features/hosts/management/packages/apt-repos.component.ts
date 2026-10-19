@@ -2,6 +2,7 @@ import { Component, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 interface Repo { file: string; entry: string; removable: boolean; }
 
@@ -15,7 +16,7 @@ interface Repo { file: string; entry: string; removable: boolean; }
 @Component({
   selector: 'app-apt-repos',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, MatIconModule, MatButtonModule],
   template: `
     <div class="bm-apt">
       @if (loading()) { <p class="bm-dim">Loading APT sources…</p> }
@@ -51,7 +52,7 @@ interface Repo { file: string; entry: string; removable: boolean; }
             <div class="bm-form">
               <input placeholder="filename (e.g. docker)" [value]="olName()" (input)="olName.set($any($event.target).value)" />
               <input placeholder="deb https://… stable main" [value]="olRepo()" (input)="olRepo.set($any($event.target).value)" />
-              <button mat-stroked-button (click)="addOneLine()" [disabled]="busy() || !olName().trim() || !olRepo().trim()"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
+              <button mat-stroked-button (click)="addOneLine()" [disabled]="busy()" [bmBlocked]="!olName().trim() || !olRepo().trim() ? 'Enter a file name and a repository line' : ''"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
             </div>
           </section>
 
@@ -63,7 +64,7 @@ interface Repo { file: string; entry: string; removable: boolean; }
               <input placeholder="suites (e.g. bookworm)" [value]="d822Suites()" (input)="d822Suites.set($any($event.target).value)" />
               <input placeholder="components (e.g. main contrib)" [value]="d822Comp()" (input)="d822Comp.set($any($event.target).value)" />
               <input placeholder="signed_by key path (optional)" [value]="d822Key()" (input)="d822Key.set($any($event.target).value)" />
-              <button mat-stroked-button (click)="addDeb822()" [disabled]="busy() || !d822Name().trim() || !d822Uris().trim() || !d822Suites().trim()"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
+              <button mat-stroked-button (click)="addDeb822()" [disabled]="busy()" [bmBlocked]="!d822Name().trim() || !d822Uris().trim() || !d822Suites().trim() ? 'Enter name, URIs and suites' : ''"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
             </div>
           </section>
         </div>
@@ -80,8 +81,8 @@ interface Repo { file: string; entry: string; removable: boolean; }
     .bm-card > header { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }
-    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: 5px 8px; }
-    .bm-t td { padding: 4px 8px; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; }
+    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
     .bm-form { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
     .bm-form input { padding: 7px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig configuration for Khmer OS Fasthand fonts.
+  This template sets up an alias for the Khmer OS Fasthand font family and
+  configures locale-specific overrides for Khmer language content.
+-->
+<fontconfig>
+  <!--
+    Define generic name aliases.
+    Maps generic font families to the specific Khmer OS Fasthand font.
+  -->
+  <alias>
+    <!-- The primary font family name to use -->
+    <family>{{ font_family | default('Khmer OS Fasthand') }}</family>
+    
+    <!-- Fallback font family if the primary is unavailable -->
+    <default>
+      <family>{{ fallback_family | default('fantasy') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Locale-specific font matching rules.
+    Ensures that when the system language is Khmer, the correct font is used.
+  -->
+  <match>
+    <!-- Test if the document's language code matches the configured locale -->
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+    
+    <!-- Check if the current font candidate is the generic fallback -->
+    <test name="family">
+      <string>{{ fallback_family | default('fantasy') }}</string>
+    </test>
+    
+    <!-- Action: Prepend the Khmer font to the font list for this match -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Khmer OS Fasthand') }}</string>
+    </edit>
+  </match>
+</fontconfig>

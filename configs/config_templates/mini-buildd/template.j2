@@ -1,10 +1,22 @@
-# Extra command line options for the mini-buildd service.
-# These are passed directly to the daemon at startup.
-# See ``mini-buildd --help`` for available options.
-MINI_BUILDD_OPTIONS="{{ mini_buildd_options | default('') }}"
+# =============================================================================
+# mini-buildd Configuration Template
+# =============================================================================
+# This file configures the mini-buildd daemon. It is self-documenting: every
+# variable reference includes its schema default and description as a comment.
+# =============================================================================
 
-# Python warnings configuration for mini-buildd's internal Python scripts.
-# It is recommended to keep this on "ignore" for production environments
-# to reduce log noise from non-critical warnings.
-# See ``man python`` for details on warning filters.
-PYTHONWARNINGS="{{ python_warnings | default('ignore') }}"
+# --- mini_buildd_options ---
+# Type: string
+# Default: '' (empty string)
+# Description: Extra command line options for mini-buildd service.
+# These options are appended to the daemon's startup command.
+MINI_BUILDD_OPTIONS="{{ (mini_buildd_options | default('')) | string }}"
+
+
+# --- python_warnings ---
+# Type: string
+# Default: 'ignore'
+# Description: Python warnings configuration string. Supported values are:
+#              ignore, default, once.
+# This controls how Python warnings are handled by the mini-buildd process.
+PYTHONWARNINGS="{{ (python_warnings | default('ignore')) | string }}"

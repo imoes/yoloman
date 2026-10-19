@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Font alias configuration for Noto Sans Ugaritic.
+    This block matches the target sans-serif family and prepends the
+    specific Ugaritic font, ensuring fallback if the specific font
+    glyphs are missing.
+  -->
+  <match>
+    <!-- Match against the alias family name defined in schema -->
+    <test name="family">
+      <string>{{ sans_serif_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Insert the specific font at the front of the fallback chain -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Ugaritic') }}</string>
+    </edit>
+    <!-- Enable font hinting optimization if required by schema -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hash_hint | default('false') | bool }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias definition block.
+    Maps the specific font family to a generic default family.
+  -->
+  <alias>
+    <!-- The specific font family name -->
+    <family>{{ font_family | default('Noto Sans Ugaritic') }}</family>
+    <default>
+      <!-- The fallback family to use if the specific font is unavailable -->
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

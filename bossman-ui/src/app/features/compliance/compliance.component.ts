@@ -80,11 +80,12 @@ import { OuService } from '../../core/services/ou.service';
               </div>
             </div>
             <div class="bm-rule-act">
-              <button mat-stroked-button (click)="evaluate(r)" [disabled]="busy() === r.id">{{ busy() === r.id ? '…' : 'Evaluate' }}</button>
+              <span class="bm-why" [attr.title]="busy() === r.id ? 'Evaluating…' : null"><button mat-stroked-button (click)="evaluate(r)" [disabled]="busy() === r.id">{{ busy() === r.id ? '…' : 'Evaluate' }}</button></span>
               <button mat-button (click)="edit(r)">Edit</button>
               <button mat-button (click)="remove(r)">Delete</button>
             </div>
           </div>
+          @if (evalErrors()[r.id]; as err) { <p class="bm-err" role="alert">Evaluation failed: {{ err }}</p> }
           @if (results()[r.id]; as res) {
             <div class="bm-results">
               @for (h of res; track h.agent_id) {
@@ -146,6 +147,7 @@ export class ComplianceComponent implements OnInit {
   groupList = signal<{ id: string; name: string }[]>([]);
   ouList = signal<{ id: string; name: string }[]>([]);
   editing = signal(false);
+  evalErrors = signal<Record<string, string>>({});
   busy = signal<string | null>(null);
   formError = signal('');
   requiredText = '';
@@ -215,9 +217,14 @@ export class ComplianceComponent implements OnInit {
   }
   evaluate(r: ComplianceRule): void {
     this.busy.set(r.id);
+    this.evalErrors.update((m) => ({ ...m, [r.id]: '' }));
+    // A failed evaluation is said on the rule, not swallowed — otherwise the old results would read as current.
     this.svc.evaluate(r.id).subscribe({
       next: () => { this.busy.set(null); this.loadResults(r.id); },
-      error: () => this.busy.set(null),
+      error: (e: { error?: { detail?: string } }) => {
+        this.busy.set(null);
+        this.evalErrors.update((m) => ({ ...m, [r.id]: e?.error?.detail || 'unknown error' }));
+      },
     });
   }
   remove(r: ComplianceRule): void { this.svc.remove(r.id).subscribe(() => this.reload()); }

@@ -1,0 +1,46 @@
+fqcn: yoloman.sched_ext
+name: sched_ext
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Run a sched_ext BPF CPU scheduler (scx_bpfland, scx_lavd, scx_rusty, ...) or return to the kernel's fair scheduler
+description: >-
+  Kernel-tuning tunable (docs/kernel-tuning.md). Starts a scheduler from the scx project as
+  yoloman's own service (systemd unit yoloman-sched-ext.service, OpenRC script
+  /etc/init.d/yoloman-sched-ext) and waits until /sys/kernel/sched_ext/state is "enabled";
+  state=disabled stops it and waits for "disabled", which returns every task to the kernel's fair
+  class (EEVDF). The kernel is the safety net: a BPF scheduler that stalls tasks is ejected by the
+  sched_ext watchdog and the fair class takes over by itself. Requires ctx.facts().kernel_caps
+  sched_ext != unsupported and BTF present; a sched_ext scheduler that yoloman did not start is a
+  conflict and is never stopped. The service has no automatic restart, so an ejected scheduler stays
+  off and is visible as such. Returns before/after (state, ops), persistence and rollback parameters.
+options:
+  state:
+    type: str
+    default: enabled
+    choices: [enabled, disabled]
+    description: enabled runs the scheduler; disabled stops yoloman's scheduler.
+  scheduler:
+    type: str
+    description: The scx scheduler without prefix (bpfland, lavd, rusty, layered, flash, ...); the binary scx_<scheduler> must be installed.
+  args:
+    type: list
+    elements: str
+    description: "Arguments for the scheduler binary (letters, digits and = , . _ : / - only)."
+  persistent:
+    type: bool
+    default: true
+    description: Also start it at boot (systemctl enable / rc-update add). false runs it until the next reboot.
+  wait:
+    type: int
+    default: 10
+    description: Seconds to wait for the kernel to report the new state.
+examples: |
+  - yoloman.sched_ext:
+      scheduler: bpfland
+  - yoloman.sched_ext:
+      scheduler: lavd
+      args: ["--performance"]
+      persistent: false
+  - yoloman.sched_ext:
+      state: disabled

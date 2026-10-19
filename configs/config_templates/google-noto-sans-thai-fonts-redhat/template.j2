@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    This configuration matches fonts based on language and generic family,
+    then prepends the specific Noto Sans Thai font family.
+    It also enables font hinting preferences if configured.
+    Finally, it sets up an alias so that the generic family falls back to this specific font.
+  -->
+
+  <!-- Match any font request where the language code is contained in the font's language list -->
+  <match>
+    <!-- Test: Check if the font's 'lang' attribute contains the specified language code -->
+    <test name="lang" compare="contains">
+      <!-- The BCP 47 language code to match (e.g., 'th' for Thai) -->
+      <string>{{ lang_code | default('th') }}</string>
+    </test>
+
+    <!-- Test: Check if the font's family name matches the target generic family -->
+    <test name="family">
+      <!-- The generic font family name to match against (e.g., 'sans-serif') -->
+      <string>{{ target_family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Edit: Prepend the specific font family to the list of available fonts for this match -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name to inject or alias -->
+      <string>{{ font_family | default('Noto Sans Thai') }}</string>
+    </edit>
+  </match>
+
+  <!--
+    Edit: Append hinting preference.
+    Note: In Fontconfig, 'fonthashint' is not a standard property for enabling hinting globally
+    via an alias. Standard hinting is usually controlled via 'hinting' boolean in 'system' matches.
+    However, preserving the original intent/template structure:
+  -->
+  <!-- This block was in the original template, though 'fonthashint' is non-standard. -->
+  <match>
+    <!-- If hinting is enabled, append the boolean preference -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to append font hinting preferences (true for enabled, false for disabled) -->
+      <bool>{{ hinting_enabled | default(false) }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias definition: Map the specific font family to the generic family -->
+  <alias>
+    <!-- The font family name that users can explicitly request -->
+    <family>{{ font_family | default('Noto Sans Thai') }}</family>
+    <default>
+      <!-- The generic family name that will use the above font as default if not installed -->
+      <family>{{ target_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

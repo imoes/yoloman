@@ -1,0 +1,96 @@
+# ==============================================================================
+# Apache HTTPD VirtualHost/Directory Configuration for Web Assets
+# ==============================================================================
+# This template configures access control and aliasing for static web assets
+# managed by the web-assets-httpd-redhat package.
+# ==============================================================================
+
+# -------------------------------------------------------------------------
+# Document Root for Web Assets
+# -------------------------------------------------------------------------
+# Schema: web_assets_dir (string, default='/usr/share/web-assets')
+# Description: Document root for web assets.
+
+<Directory {{ web_assets_dir | default('/usr/share/web-assets') }}>
+    # Disable directory listing to prevent information leakage
+    Options -Indexes
+    # Follow symbolic links within this directory
+    Options +FollowSymLinks
+
+    # Apache 2.4 Access Control
+    <IfModule mod_authz_core.c>
+        # Allow access to all users for these static assets
+        Require all granted
+    </IfModule>
+
+    # Apache 2.2 Access Control (Legacy fallback)
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Allow from all
+    </IfModule>
+</Directory>
+
+# -------------------------------------------------------------------------
+# Document Root for JavaScript Files
+# -------------------------------------------------------------------------
+# Schema: javascript_dir (string, default='/usr/share/javascript')
+# Description: Document root for JavaScript files.
+
+<Directory {{ javascript_dir | default('/usr/share/javascript') }}>
+    # Disable directory listing to prevent information leakage
+    Options -Indexes
+    # Follow symbolic links within this directory
+    Options +FollowSymLinks
+
+    # Apache 2.4 Access Control
+    <IfModule mod_authz_core.c>
+        # Allow access to all users for these static assets
+        Require all granted
+    </IfModule>
+
+    # Apache 2.2 Access Control (Legacy fallback)
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Allow from all
+    </IfModule>
+</Directory>
+
+# -------------------------------------------------------------------------
+# Document Root for Font Files
+# -------------------------------------------------------------------------
+# Schema: fonts_dir (string, default='/usr/share/fonts')
+# Description: Document root for font files.
+
+<Directory {{ fonts_dir | default('/usr/share/fonts') }}>
+    # Disable directory listing to prevent information leakage
+    Options -Indexes
+
+    # Apache 2.4 Access Control
+    <IfModule mod_authz_core.c>
+        # Allow access to all users for these static assets
+        Require all granted
+    </IfModule>
+
+    # Apache 2.2 Access Control (Legacy fallback)
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Allow from all
+    </IfModule>
+</Directory>
+
+# -------------------------------------------------------------------------
+# URL Aliases for System Assets
+# -------------------------------------------------------------------------
+# These aliases map specific URL prefixes to the configured directories.
+
+# Alias for JavaScript files under /sysassets/javascript
+Alias /.sysassets/javascript {{ javascript_dir | default('/usr/share/javascript') }}
+
+# Alias for JavaScript files under /sysassets/js (shortcut)
+Alias /.sysassets/js {{ javascript_dir | default('/usr/share/javascript') }}
+
+# Alias for Font files under /sysassets/fonts
+Alias /.sysassets/fonts {{ fonts_dir | default('/usr/share/fonts') }}
+
+# Alias for general web assets under /sysassets
+Alias /.sysassets {{ web_assets_dir | default('/usr/share/web-assets') }}

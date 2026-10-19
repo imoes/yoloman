@@ -1,57 +1,478 @@
 ######################################################################
-# /etc/sysconfig/perdition (RPM based systems)
-# /etc/default/perdition   (Debian)
+# perdition.conf
 #
-# Run time configuration parameters for perdition
+# Sample configuration file for perdition.  The file consists of two
+# kind of lines, those which have some effect and those which do not.
+#
+# Comment lines and blank lines have no effect, i.e. they are ignored.
+# All other lines refer to perdition options, and the values of those
+# options.  The options are the same as those specified on the command
+# line and can be specified either on the command line or in the file.
+#
+# If an option is specified both on the command line and in the file,
+# the value in the file is ignored.  Options which make no sense in
+# the file such as 'help' and 'config_file' are ignored.  Any syntax
+# errors in the file cause perdition to print the 'help' information
+# and exit without further processing.
+#
+# For each option specified in the file, one line is required in the
+# file.  As an aid to legibility, blank lines and continuation lines
+# are permitted, see below.
+#
+# There are two different types of option: boolean and non-boolean.
+# Depending on the type of option, a line in the configuration file
+# must be in one of two formats.
+#
+# Boolean options such as -d (--debug) or -i (--inetd_mode) can take
+# the boolean values TRUE or FALSE.  If a boolean option is mentioned
+# in the configuration file it takes the value TRUE, and this has the
+# same effect as specifying it on the command line.  The default value
+# is FALSE (the same as not specifying it on the command line) and if
+# the option is not required simply comment out the line or delete it
+# from the configuration file.
+#
+# Non-boolean options take values which are specified as text strings.
+# Strings may be quoted or unquoted as you choose.  A text string
+# value may be empty ("") in which case the option will not be used
+# unless noted otherwise.
+#
+# For options taking non-boolean values a line in the configuration
+# file is of the floolwing form (the quotes are usually optional)
+#
+# "option" "value"
+#
+# Blank lines are ignored, as is a '#' (hash) and anything after it
+# unless the hash is escaped with a '\' (backslash).  If a backslash
+# immediately precedes a new line then the following line will be
+# concatenated.  If a '\' precedes any other character, including a
+# '#' or '\' it will be treated as a literal.  Anything inside single
+# quotes (') will be treated as a literal.  Anything other than a (')
+# inside double quotes (") will be treated as a literal.  Whitespace
+# in options must be escaped or quoted.  Whitespace in values need not
+# be escaped or quoted.
+#
+# See the perdition(8) man page for more details about the behaviour
+# of options.
+#
+# You can use either the long form or the short form of any option.
+# When you use an option in the file, omit the leading '--' from the
+# long form or the leading '-' from the short.  For example to get
+# debugging output simply include a line containing the word 'debug'
+# in the file, or alternativey a line containing just the letter 'd'.
+#
+# The defaults given in this file refer to the values if perdition is
+# configured with --sysconfdir=/etc as it would be for many binary
+# distributions.  To see the actual defaults of a given perdition
+# binary, run "perdition --help".
+#
 ######################################################################
 
-# Run perdition
-# Set to "yes" to run perdition
-# Set to any other value to not run perdition, this overrides all other settings
-RUN_PERDITION={{ run_perdition }}
+# A|add_domain STATE[,STATE...][,STRIP_DEPTH]:
+# Appends a domain to the USER based on the IP address connected to in
+# given state(s).
+# (default "")
+{% if a is defined and a is not none and (a is number or a is boolean or a | length > 0) %}A {{ a }}
+{% else %}#A servername_lookup,1
+{% endif %}{% if add_domain is defined and add_domain is not none and (add_domain is number or add_domain is boolean or add_domain | length > 0) %}add_domain {{ add_domain }}
+{% else %}#add_domain servername_lookup,1
+{% endif %}
+# a|authenticate_in:
+# User is authenticated by perdition before connection to real-server.
+#a
+#authenticate_in
 
-# Command line parameters to pass to perdition when run in any mode.
-# This is in addition to any mode specific flags.
-# That is, it is in addition to any command line options supplied
-# by POP3_FLAGS, POP3S_FLAGS, IMAP4_FLAGS, IMAP4S_FLAGS or MANAGESIEVE_FLAGS
-#FLAGS=
+# B|no_bind_banner:
+#  Use uname to generate banner of even if bind_address is in effect.
+#B
+#no_bind_banner
 
-# Run an instance of perdition in POP3 mode
-# Set to "yes" to run this instance of perdition
-# Set to any other value to not run this instance of perdition
-POP3={{ pop3_enabled }}
+# b|bind_address SERVER[,SERVER...]
+# Bind to these addresses and ports.
+# (default "")
+{% if b is defined and b is not none and (b is number or b is boolean or b | length > 0) %}b {{ b }}
+{% else %}#b 127.0.0.1
+{% endif %}{% if bind_address is defined and bind_address is not none and (bind_address is number or bind_address is boolean or bind_address | length > 0) %}bind_address {{ bind_address }}
+{% else %}#bind_address 127.0.0.1
+{% endif %}
+# C|connection_logging:
+# Log all comminication recieved from end-users or real servers or sent
+# from perdition.
+# Note: debug must be in effect for this option to take effect.
+#C
+#connection_logging
 
-#Command line parameters to pass to perdition when run in POP3 mode
-POP3_FLAGS={{ pop3_flags }}
+# connect_relog SECONDS:
+# How often to relog the connection.
+# Zero for no relogging.
+# (default 300)
+#connect_relog 300
 
-# Run an instance of perdition in POP3S mode
-# Set to "yes" to run this instance of perdition
-# Set to any other value to not run this instance of perdition
-POP3S={{ pop3s_enabled }}
+# c|client_server_specification:
+# Allow end-user to specify the real-server.
+#c
+#client_server_specification
 
-#Command line parameters to pass to perdition when run in POP3S mode
-POP3S_FLAGS={{ pop3s_flags }}
+# D|domain_delimiter STRING:
+# Delimiter between username and domain.
+# (default "@")
+{% if d is defined and d is not none and (d is number or d is boolean or d | length > 0) %}D {{ d }}
+{% else %}#D @
+{% endif %}{% if domain_delimiter is defined and domain_delimiter is not none and (domain_delimiter is number or domain_delimiter is boolean or domain_delimiter | length > 0) %}domain_delimiter {{ domain_delimiter }}
+{% else %}#domain_delimiter \#
+{% endif %}
+# d|debug:
+# Turn on verbose debuging.
+#d
+#debug
 
-# Run an instance of perdition in IMAP4 mode
-# Set to "yes" to run this instance of perdition
-# Set to any other value to not run this instance of perdition
-IMAP4={{ imap4_enabled }}
+# e|explicit_domain STRING
+# With -A, use STRING as the default domain rather than deriving
+# from the IP address connected to.
+{% if explicit_domain is defined and explicit_domain is not none and (explicit_domain is number or explicit_domain is boolean or explicit_domain | length > 0) %}explicit_domain {{ explicit_domain }}
+{% else %}#explicit_domain some.domain
+{% endif %}
+# F|log_facility FACILITY:
+# Facility to log to.
+# (default "mail")
+{% if f is defined and f is not none and (f is number or f is boolean or f | length > 0) %}F {{ f }}
+{% else %}#F mail
+{% endif %}{% if log_facility is defined and log_facility is not none and (log_facility is number or log_facility is boolean or log_facility | length > 0) %}log_facility {{ log_facility }}
+{% else %}#log_facility /dev/null
+{% endif %}
+# g|group GROUP:
+# Group to run as. 
+# (default "nobody")
+{% if g is defined and g is not none and (g is number or g is boolean or g | length > 0) %}g {{ g }}
+{% else %}#g nobody
+{% endif %}{% if group is defined and group is not none and (group is number or group is boolean or group | length > 0) %}group {{ group }}
+{% else %}#group nobody
+{% endif %}
+# imap_capability STRING:
+# Capabilities for IMAP4 and IMAP4S
+#imap_capability IMAP4 IMAP4REV1
+#imap_capability IMAP4 IMAP4REV1 LITERAL+
 
-#Command line parameters to pass to perdition when run in IMAP4 mode
-IMAP4_FLAGS={{ imap4_flags }}
+#managesieve_capability \
+"\"IMPLEMENTATION\" \"perdition\"  "\
+"\"SIEVE\" \"comparator-i;octet "\
+"comparator-i;ascii-casemap "\
+"fileinto "\
+"reject "\
+"envelope "\
+"encoded-character "\
+"vacation "\
+"subaddress "\
+"comparator-i;ascii-numeric "\
+"relational "\
+"regex "\
+"imap4flags "\
+"copy i"\
+"nclude "\
+"variables "\
+"body "\
+"enotify "\
+"environment "\
+"mailbox "\
+"date\"  "\
+"\"SASL\" \"PLAIN\"  "\
+"\"NOTIFY\" \"mailto\"  "\
+"\"VERSION\" \"1.18\""
 
-# Run an instance of perdition in IMAP4S mode
-# Set to "yes" to run this instance of perdition
-# Set to any other value to not run this instance of perdition
-IMAP4S={{ imaps_enabled }}
+# i|inetd_mode: 
+# Run in inetd mode.
+#i
+#inetd_mode
 
-#Command line parameters to pass to perdition when run in IMAP4S mode
-IMAP4S_FLAGS={{ imaps_flags }}
+# L|connection_limit LIMIT:
+# Maximum number of connections to accept simultaneously. A value of zero
+# sets no limit on the number of simultaneous connections.
+# (default 0)
+{% if l is defined and l is not none and (l is number or l is boolean or l | length > 0) %}L {{ l }}
+{% else %}#L 64
+{% endif %}{% if connection_limit is defined and connection_limit is not none and (connection_limit is number or connection_limit is boolean or connection_limit | length > 0) %}connection_limit {{ connection_limit }}
+{% else %}#connection_limit 64
+{% endif %}
+# l|listen_port PORT_NUMBER|PORT_NAME:
+# Port to listen on. 
+# (default "protocol dependent")
+#l 110
+{% if listen_port is defined and listen_port is not none and (listen_port is number or listen_port is boolean or listen_port | length > 0) %}listen_port {{ listen_port }}
+{% else %}#listen_port 110
+{% endif %}
+# login_disabled
+# Do not allow users to log in.
+#login_disabled
 
-# Run an instance of perdition in managesieve mode
-# Set to "yes" to run this instance of perdition
-# Set to any other valye to not run this instance of perdition
-MANAGESIEVE={{ managesieve_enabled }}
+# log_passwd STATE
+# Log the users password, otherwise just report it as "XXXXXX".
+# (default "never")
+#log_passwd never
+#log_passwd fail
+#log_passwd ok
+#log_passwd always
 
-#Command line parameters to pass to perdition when run in managesieve mode
-MANAGESIEVE_FLAGS={{ managesieve_flags }}
+
+# lower_case STATE[,STATE...]:
+# Convert usernames to lower case according the the locale in given
+# state(s). 
+# (default "")
+#lower_case servername_lookup
+
+# M|map_library FILENAME:
+# Library to open that provides functions to look up the server for a user.
+# M /usr/lib/libperditiondb_gdbm.so.0
+# map_library /usr/lib/libperditiondb_gdbm.so.0
+# map_library ""
+
+# m|map_library_opt STRING:
+# String option for the map_library.
+# (default "")
+{% if m is defined and m is not none and (m is number or m is boolean or m | length > 0) %}m {{ m }}
+{% else %}#m ""
+{% endif %}{% if map_library_opt is defined and map_library_opt is not none and (map_library_opt is number or map_library_opt is boolean or map_library_opt | length > 0) %}map_library_opt {{ map_library_opt }}
+{% else %}#map_library_opt ""
+{% endif %}
+# no_daemon:
+# Do not detach from terminal. 
+#no_daemon
+
+# n|no_lookup
+# Disable host and port lookup.
+#n
+#no_lookup
+
+# O|ok_line
+# Use STRING as the OK line to send to the client.
+# Overriden by server_ok_line.
+{% if o is defined and o is not none and (o is number or o is boolean or o | length > 0) %}O {{ o }}
+{% else %}#O You are so in
+{% endif %}{% if ok_line is defined and ok_line is not none and (ok_line is number or ok_line is boolean or ok_line | length > 0) %}ok_line {{ ok_line }}
+{% else %}#ok_line blah blah blah
+{% endif %}
+# server_ok_line:
+# This option is depricated and now has the same effect as o|server_resp_line
+# It may be removed in a future release
+
+# o|server_resp_line:
+# If authentication with the back-end server is successful then send the
+# servers +OK line to the client, instead of generting one.
+#o
+#server_resp_line
+
+# P|protocol PROTOCOL:
+# Protocol to use 
+# (default "POP3")
+{% if p is defined and p is not none and (p is number or p is boolean or p | length > 0) %}P {{ p }}
+{% else %}#P POP3
+{% endif %}{% if protocol is defined and protocol is not none and (protocol is number or protocol is boolean or protocol | length > 0) %}protocol {{ protocol }}
+{% else %}#protocol POP3
+{% endif %}
+# p|outgoing_port PORT_NAME|PORT_NUMBER:
+# Default real-server port.
+# (default "protocol dependent")
+#p 110
+{% if outgoing_port is defined and outgoing_port is not none and (outgoing_port is number or outgoing_port is boolean or outgoing_port | length > 0) %}outgoing_port {{ outgoing_port }}
+{% else %}#outgoing_port 110
+{% endif %}
+# s|outgoing_server: SERVER[,SERVER...]
+# Default server(s).
+# (default "")
+{% if s is defined and s is not none and (s is number or s is boolean or s | length > 0) %}s  {{ s }}
+{% else %}#s  sarah:110,locahost
+{% endif %}#outgoing_server  sarah:110,localhost
+#outgoing_server  sarah:110
+#outgoing_server  sarah
+
+# pid_file FILENAME
+# Path for pidfile. Must be a full path starting with a '/'.
+# To allow perdition to remove the pid file after the owner of
+# the perdition process is changed to a non-root user, it is advised to
+# specify a pid file in a subdirectory of the system var state directory
+# (usually /var/run).  This subdirectory should be unique to this perdition
+# invocation and will be created and have its owner and permitions set to
+# allow perdition to subsequently remove the pid file.  
+# Empty for no pid file. Not used in inetd mode.
+# default <var_state_dir>/<basename>/<basename>.pid
+#pid_file /var/run/perdition/perdition.pid
+#pid_file /var/run/perdition.pop3/perdition.pop3.pid
+#pid_file /var/run/perdition.pop3s/perdition.pop3s.pid
+#pid_file /var/run/perdition.imap4/perdition.imap4.pid
+#pid_file /var/run/perdition.imap4s/perdition.imap4s.pid
+
+# pop_capability STRING:
+# Capabilities for POP3 and POP3S
+# Each capability should be delimited by two spaces
+#pop_capability "UIDL.USER"
+
+# S|strip_domain: STATE[,STATE...]
+# Allow domain portion of username to be striped in given state(s)
+# (default "")
+#S all
+{% if strip_domain is defined and strip_domain is not none and (strip_domain is number or strip_domain is boolean or strip_domain | length > 0) %}strip_domain {{ strip_domain }}
+{% else %}#strip_domain servername_lookup
+{% endif %}
+# t|timeout SECONDS:
+# Idle timeout. Zero for infinite timeout.
+# (default 1800)
+{% if t is defined and t is not none and (t is number or t is boolean or t | length > 0) %}t {{ t }}
+{% else %}#t 1800
+{% endif %}{% if timeout is defined and timeout is not none and (timeout is number or timeout is boolean or timeout | length > 0) %}timeout {{ timeout }}
+{% else %}#timeout 1800
+{% endif %}
+# u|username USERNAME:
+# User to run as.
+# (default "nobody")
+{% if u is defined and u is not none and (u is number or u is boolean or u | length > 0) %}u {{ u }}
+{% else %}#u nobody
+{% endif %}{% if username is defined and username is not none and (username is number or username is boolean or username | length > 0) %}username {{ username }}
+{% else %}#username nobody
+{% endif %}
+# U|username_from_database:
+# Substitute username from popmap lookup.
+#U
+#username_from_database
+
+# q|quiet:
+# Only log errors. Overriden by debug.
+#q
+#quiet
+
+# query_key FORMAT[,FORMAT...]:
+# Speficy a list of query strings to search for in the popmap.
+#query_key \\U
+#query_key \\u,\\D\\d
+#query_key \\I
+#query_key \\u\\da_domain,\\da_domain
+
+
+######################################################################
+# Options below relate to SSL/TLS support.
+# They are not available if perdition is compiled without SSL support.
+######################################################################
+
+# ssl_mode MODE[,MODE ...]::
+# Use SSL and or TLS for the listening and/or outgoing connections.
+#ssl_mode ssl_listen
+
+# ssl_ca_chain_file:
+# Chain file containing Certificate Authorities to use when 
+# verifying certificates. Overrides ssl_ca_file and ssl_ca_path
+# (default "")
+{% if ssl_ca_chain_file is defined and ssl_ca_chain_file is not none and (ssl_ca_chain_file is number or ssl_ca_chain_file is boolean or ssl_ca_chain_file | length > 0) %}ssl_ca_chain_file {{ ssl_ca_chain_file }}
+{% else %}#ssl_ca_chain_file /etc/perdition/perdition.ca.pem
+{% endif %}
+# ssl_ca_file FILENAME:
+# File containing Certificate Authorities to use when verifying certificates.
+# When building the Certificate Authorities chain, ssl_ca_file is used
+# first, if set, and then ssl_ca_path, if set.
+# (default "")
+#(recommended location "/etc/perdition/perdition.ca.pem")
+#ssl_ca_file /etc/perdition/perdition.ca.pem
+
+# ssl_ca_path PATHNAME:
+# Derectory containing Certificate Authorities files to use when verifying 
+# certificates. 
+# When building the Certificate Authorities chain, ssl_ca_file is used
+# first, if set, and then ssl_ca_path, if set.
+# (default "/etc/perdition/perdition.ca/")
+#ssl_ca_path /etc/perdition/perdition.ca/
+
+# ssl_ca_accept_self_signed:
+# Accept self-signed certificates.
+#ssl_ca_accept_self_signed
+
+# ssl_cert_file FILENAME:
+# Certificate chain to use when listening for SSL or TLS connections.
+# (default "/etc/perdition/perdition.crt.pem")
+#ssl_cert_file /etc/perdition/perdition.crt.pem
+
+# ssl_dh_params_file FILENAME:
+# Diffie-Hellman parameters to use when offering EDH ciphersuites to clients.
+# (default is to look for the DH params in the ssl_cert_file)
+#ssl_dh_params_file /etc/perdition/perdition.crt.pem
+
+# ssl_cert_accept_self_signed:
+# Accept self-signed certificates.
+#ssl_cert_accept_self_signed
+
+# ssl_cert_accept_expired:
+# Accept expired certificates. This includes server certificates
+# and certificats authority certificates.
+#ssl_cert_accept_expired
+
+# ssl_cert_accept_not_yet_valid:
+# Accept certificates that are not yet valid. This includes server
+# certificates and certificats authority certificates.
+#ssl_cert_accept_not_yet_valid
+
+# ssl_cert_verify_depth DEPTH:
+# Chain Depth to recurse to when vierifying certificates.
+# (default 9)
+#ssl_cert_verify_depth 9
+
+# ssl_key_file FILENAME:
+# Public key to use when listening for SSL or TLS connections.
+# (default "/etc/perdition/perdition.key.pem")
+#ssl_key_file /etc/perdition/perdition.key.pem
+
+# ssl_listen_ciphers STRING:
+# Cipher list when listening for SSL or TLS connections.
+# If empty ("") then openssl's default will be used.
+# (default "")
+#ssl_listen_ciphers "ALL:!ADH:RC4+RSA:+SSLv2:@STRENGTH"
+
+# ssl_outgoing_ciphers STRING:
+# Cipher list when making outgoing SSL or TLS connections.
+# If empty ("") then openssl's default will be used.
+# (default "")
+#ssl_outgoing_ciphers "ALL:!ADH:RC4+RSA:+SSLv2:@STRENGTH"
+
+# ssl_no_cert_verify:
+# Don't cryptographically verify the real-server's certificate.
+#ssl_no_cert_verify
+
+# ssl_no_cn_verify:
+# Don't verify the real-server's common name with the name used
+# to connect to the server.
+#ssl_no_cn_verify
+
+# ssl_listen_min_proto_version PROTOCOL_VERSION:
+# Minimum permited SSL/TLS protocol version when accepting incoming
+# connections.
+# May not be empty ("").
+# (default "tlsv1")
+#ssl_listen_min_proto_version "tlsv1"
+
+# ssl_outgoing_min_proto_version PROTOCOL_VERSION:
+# Minimum permited SSL/TLS protocol version when making outgoing
+# connections.
+# May not be empty ("").
+# (default "tlsv1")
+#ssl_outgoing_min_proto_version "tlsv1"
+
+# ssl_listen_max_proto_version PROTOCOL_VERSION:
+# Maximum permited SSL/TLS protocol version when accepting incomaxg
+# connections.
+# If empty ("") then openssl's default will be used.
+# (default "")
+#ssl_listen_max_proto_version "tlsv1.2"
+
+# ssl_outgoing_max_proto_version PROTOCOL_VERSION:
+# Maximum permited SSL/TLS protocol version when making outgoing
+# connections.
+# If empty ("") then openssl's default will be used.
+# (default "")
+#ssl_outgoing_max_proto_version "tlsv1.2"
+
+# ssl_listen_compression
+# Allow SSL/TLS compression when accepting incoming connections.
+#ssl_listen_compression
+
+# ssl_outgoing_compression
+# Allow SSL/TLS compression when making outgoing connections.
+#ssl_outgoing_compression
+
+# ssl_no_cipher_server_preference
+# Disable SSL/TLS cipher server preference when accepting incoming
+# connections
+#ssl_no_cipher_server_preference

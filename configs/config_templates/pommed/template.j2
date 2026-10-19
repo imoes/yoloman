@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<!--
+  POMMED D-Bus System Bus Configuration
+  ======================================
+  This template generates the D-Bus system bus policy configuration file
+  for the pommed (Power Manager) service. It grants specific privileges
+  to the system user responsible for running the service, allowing it
+  to own its bus name and accept messages.
+
+  This file is typically installed in /etc/dbus-1/system.d/ or
+  /etc/dbus/system.d/ depending on the distribution's D-Bus version.
+-->
+<busconfig>
+
+  <!--
+    Policy Definition for the POMMED Service User
+    ----------------------------------------------
+    Grants ownership of the D-Bus service name to the specified user.
+    This ensures that only the authorized system user can claim the
+    service name on the system bus.
+  -->
+  <policy user="{{ pommed_dbus_user | default('root') }}">
+    <!--
+      Own the D-Bus Bus Name
+      ----------------------
+      Allows the user to own the specific D-Bus bus name assigned to
+      pommed. This is required for other applications to find and
+      communicate with the pommed service via D-Bus.
+    -->
+    <allow own="{{ pommed_dbus_bus_name | default('org.pommed') }}"/>
+  </policy>
+
+  <!--
+    Default Policy Restrictions
+    ----------------------------
+    Defines the security policy for all other messages not explicitly
+    covered above. Since the system-wide ../system.conf often denies
+    everything by default, this block explicitly permits connections
+    to the pommed bus name from any source (or specifically authenticated
+    sources, depending on D-Bus daemon configuration).
+  -->
+  <policy context="default">
+    <!--
+      Allow Send Messages to POMMED
+      -----------------------------
+      Permits any client to send messages to the pommed service bus
+      name. This effectively "punches a hole" in the default deny
+      policy, enabling communication with the service.
+    -->
+    <allow send_destination="{{ pommed_dbus_bus_name | default('org.pommed') }}"/>
+  </policy>
+
+</busconfig>

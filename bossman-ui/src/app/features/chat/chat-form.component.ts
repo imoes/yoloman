@@ -8,6 +8,7 @@ import { RunService } from '../../core/services/run.service';
 import { AgentService } from '../../core/services/agent.service';
 import { Agent } from '../../core/models/agent.model';
 import { ChatForm, ChatFormField } from '../../core/models/chat.model';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 type Stage = 'form' | 'previewing' | 'previewed' | 'applying' | 'applied';
 interface HostRun {
@@ -29,7 +30,7 @@ interface HostRun {
 @Component({
   selector: 'app-chat-form',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-cform">
       <div class="bm-cform-head"><mat-icon>assignment</mat-icon> {{ form().intent }}
@@ -95,8 +96,8 @@ interface HostRun {
         }
         <div class="bm-cform-actions">
           <span class="bm-cform-targets">{{ targetHosts().length }} host(s)</span>
-          <button mat-stroked-button [disabled]="!canRun()" (click)="preview()"><mat-icon>science</mat-icon> Preview (dry run)</button>
-          <button mat-raised-button color="primary" [disabled]="!canRun()" (click)="apply()"><mat-icon>play_arrow</mat-icon> Ausführen</button>
+          <button mat-stroked-button [bmBlocked]="!(form().plan || form().generated_plan) ? 'No plan yet — generate one first' : !targetHosts().length ? 'Pick at least one target host' : ''" bmBlockedMode="tip" (click)="preview()"><mat-icon>science</mat-icon> Preview (dry run)</button>
+          <button mat-raised-button color="primary" [bmBlocked]="!(form().plan || form().generated_plan) ? 'No plan yet — generate one first' : !targetHosts().length ? 'Pick at least one target host' : ''" (click)="apply()"><mat-icon>play_arrow</mat-icon> Ausführen</button>
         </div>
       }
 

@@ -1,0 +1,392 @@
+# -*- mode: conf -*-
+# vim:ft=cfg
+
+# Config file for Radicale - A simple calendar server
+#
+# Place it into /etc/radicale/config (global)
+# or ~/.config/radicale/config (user)
+#
+# The current values are the default ones
+
+
+[server]
+
+# CalDAV server hostnames separated by a comma
+# IPv4 syntax: address:port
+# IPv6 syntax: [address]:port
+# Hostname syntax (using "getaddrinfo" to resolve to IPv4/IPv6 adress(es)): hostname:port
+# For example: 0.0.0.0:9999, [::]:9999, localhost:9999
+{% if server_hosts is defined and server_hosts is not none and server_hosts != '' %}hosts = {{ server_hosts }}
+{% else %}#hosts = localhost:5232
+{% endif %}
+# Max parallel connections
+{% if server_max_connections is defined and server_max_connections is not none and server_max_connections != '' %}max_connections = {{ server_max_connections }}
+{% else %}#max_connections = 8
+{% endif %}
+# Max size of request body (bytes)
+{% if server_max_content_length is defined and server_max_content_length is not none and server_max_content_length != '' %}max_content_length = {{ server_max_content_length }}
+{% else %}#max_content_length = 100000000
+{% endif %}
+# Socket timeout (seconds)
+{% if server_timeout is defined and server_timeout is not none and server_timeout != '' %}timeout = {{ server_timeout }}
+{% else %}#timeout = 30
+{% endif %}
+# SSL flag, enable HTTPS protocol
+{% if server_ssl is defined and server_ssl is not none and server_ssl != '' %}ssl = {{ (server_ssl | bool) | string }}
+{% else %}#ssl = False
+{% endif %}
+# SSL certificate path
+certificate = {{ server_certificate | default('/etc/ssl/certs/ssl-cert-snakeoil.pem') }}
+
+# SSL private key
+key = {{ server_key | default('/etc/ssl/private/ssl-cert-snakeoil.key') }}
+
+# CA certificate for validating clients. This can be used to secure
+# TCP traffic between Radicale and a reverse proxy
+{% if server_certificate_authority is defined and server_certificate_authority is not none and server_certificate_authority != '' %}certificate_authority ={{ server_certificate_authority }}
+{% else %}#certificate_authority =
+{% endif %}
+# SSL protocol, secure configuration: ALL -SSLv3 -TLSv1 -TLSv1.1
+{% if server_protocol is defined and server_protocol is not none and server_protocol != '' %}protocol = {{ server_protocol }}
+{% else %}#protocol = (default)
+{% endif %}
+# SSL ciphersuite, secure configuration: DHE:ECDHE:-NULL:-SHA (see also "man openssl-ciphers")
+{% if server_ciphersuite is defined and server_ciphersuite is not none and server_ciphersuite != '' %}ciphersuite = {{ server_ciphersuite }}
+{% else %}#ciphersuite = (default)
+{% endif %}
+# script name to strip from URI if called by reverse proxy
+{% if server_script_name is defined and server_script_name is not none and server_script_name != '' %}script_name = {{ server_script_name }}
+{% else %}#script_name = (default taken from HTTP_X_SCRIPT_NAME or SCRIPT_NAME)
+{% endif %}
+
+[encoding]
+
+# Encoding for responding requests
+{% if encoding_request is defined and encoding_request is not none and encoding_request != '' %}request = {{ encoding_request }}
+{% else %}#request = utf-8
+{% endif %}
+# Encoding for storing local collections
+{% if encoding_stock is defined and encoding_stock is not none and encoding_stock != '' %}stock = {{ encoding_stock }}
+{% else %}#stock = utf-8
+{% endif %}
+
+[auth]
+
+# Authentication method
+# Value: none | htpasswd | remote_user | http_x_remote_user | dovecot | ldap | oauth2 | pam | denyall
+{% if auth_type is defined and auth_type is not none and auth_type != '' %}type = {{ auth_type }}
+{% else %}#type = denyall
+{% endif %}
+# Cache logins for until expiration time
+{% if auth_cache_logins is defined and auth_cache_logins is not none and auth_cache_logins != '' %}cache_logins = {{ (auth_cache_logins | bool) | string | lower }}
+{% else %}#cache_logins = false
+{% endif %}
+# Expiration time for caching successful logins in seconds
+{% if auth_cache_successful_logins_expiry is defined and auth_cache_successful_logins_expiry is not none and auth_cache_successful_logins_expiry != '' %}cache_successful_logins_expiry = {{ auth_cache_successful_logins_expiry }}
+{% else %}#cache_successful_logins_expiry = 15
+{% endif %}
+## Expiration time of caching failed logins in seconds
+{% if auth_cache_failed_logins_expiry is defined and auth_cache_failed_logins_expiry is not none and auth_cache_failed_logins_expiry != '' %}cache_failed_logins_expiry = {{ auth_cache_failed_logins_expiry }}
+{% else %}#cache_failed_logins_expiry = 90
+{% endif %}
+# Ignore modifyTimestamp and createTimestamp attributes. Required e.g. for Authentik LDAP server
+{% if auth_ldap_ignore_attribute_create_modify_timestamp is defined and auth_ldap_ignore_attribute_create_modify_timestamp is not none and auth_ldap_ignore_attribute_create_modify_timestamp != '' %}ldap_ignore_attribute_create_modify_timestamp = {{ (auth_ldap_ignore_attribute_create_modify_timestamp | bool) | string | lower }}
+{% else %}#ldap_ignore_attribute_create_modify_timestamp = false
+{% endif %}
+# URI to the LDAP server
+{% if auth_ldap_uri is defined and auth_ldap_uri is not none and auth_ldap_uri != '' %}ldap_uri = {{ auth_ldap_uri }}
+{% else %}#ldap_uri = ldap://localhost
+{% endif %}
+# The base DN where the user accounts have to be searched
+{% if auth_ldap_base is defined and auth_ldap_base is not none and auth_ldap_base != '' %}ldap_base = {{ auth_ldap_base }}
+{% else %}#ldap_base = ##BASE_DN##
+{% endif %}
+# The reader DN of the LDAP server
+{% if auth_ldap_reader_dn is defined and auth_ldap_reader_dn is not none and auth_ldap_reader_dn != '' %}ldap_reader_dn = {{ auth_ldap_reader_dn }}
+{% else %}#ldap_reader_dn = CN=ldapreader,CN=Users,##BASE_DN##
+{% endif %}
+# Password of the reader DN
+{% if auth_ldap_secret is defined and auth_ldap_secret is not none and auth_ldap_secret != '' %}ldap_secret = {{ auth_ldap_secret }}
+{% else %}#ldap_secret = ldapreader-secret
+{% endif %}
+# Path of the file containing password of the reader DN
+{% if auth_ldap_secret_file is defined and auth_ldap_secret_file is not none and auth_ldap_secret_file != '' %}ldap_secret_file = {{ auth_ldap_secret_file }}
+{% else %}#ldap_secret_file = /run/secrets/ldap_password
+{% endif %}
+# the attribute to read the group memberships from in the user's LDAP entry (default: not set)
+{% if auth_ldap_groups_attribute is defined and auth_ldap_groups_attribute is not none and auth_ldap_groups_attribute != '' %}ldap_groups_attribute = {{ auth_ldap_groups_attribute }}
+{% else %}#ldap_groups_attribute = memberOf
+{% endif %}
+# The filter to find the DN of the user. This filter must contain a python-style placeholder for the login
+{% if auth_ldap_filter is defined and auth_ldap_filter is not none and auth_ldap_filter != '' %}ldap_filter = {{ auth_ldap_filter }}
+{% else %}#ldap_filter = (&(objectClass=person)(uid={0}))
+{% endif %}
+# the attribute holding the value to be used as username after authentication
+{% if auth_ldap_user_attribute is defined and auth_ldap_user_attribute is not none and auth_ldap_user_attribute != '' %}ldap_user_attribute = {{ auth_ldap_user_attribute }}
+{% else %}#ldap_user_attribute = cn
+{% endif %}
+# Use ssl on the ldap connection
+# Soon to be deprecated, use ldap_security instead
+{% if auth_ldap_use_ssl is defined and auth_ldap_use_ssl is not none and auth_ldap_use_ssl != '' %}ldap_use_ssl = {{ (auth_ldap_use_ssl | bool) | string }}
+{% else %}#ldap_use_ssl = False
+{% endif %}
+# the encryption mode to be used: tls, starttls, default is none
+{% if auth_ldap_security is defined and auth_ldap_security is not none and auth_ldap_security != '' %}ldap_security = {{ auth_ldap_security }}
+{% else %}#ldap_security = none
+{% endif %}
+# The certificate verification mode. Works for ssl and starttls. NONE, OPTIONAL, default is REQUIRED
+{% if auth_ldap_ssl_verify_mode is defined and auth_ldap_ssl_verify_mode is not none and auth_ldap_ssl_verify_mode != '' %}ldap_ssl_verify_mode = {{ auth_ldap_ssl_verify_mode }}
+{% else %}#ldap_ssl_verify_mode = REQUIRED
+{% endif %}
+# The path to the CA file in pem format which is used to certificate the server certificate
+{% if auth_ldap_ssl_ca_file is defined and auth_ldap_ssl_ca_file is not none and auth_ldap_ssl_ca_file != '' %}ldap_ssl_ca_file ={{ auth_ldap_ssl_ca_file }}
+{% else %}#ldap_ssl_ca_file =
+{% endif %}
+# Connection type for dovecot authentication (AF_UNIX|AF_INET|AF_INET6)
+# Note: credentials are transmitted in cleartext
+{% if auth_dovecot_connection_type is defined and auth_dovecot_connection_type is not none and auth_dovecot_connection_type != '' %}dovecot_connection_type = {{ auth_dovecot_connection_type }}
+{% else %}#dovecot_connection_type = AF_UNIX
+{% endif %}
+# The path to the Dovecot client authentication socket (eg. /run/dovecot/auth-client on Fedora). Radicale must have read / write access to the socket.
+{% if auth_dovecot_socket is defined and auth_dovecot_socket is not none and auth_dovecot_socket != '' %}dovecot_socket = {{ auth_dovecot_socket }}
+{% else %}#dovecot_socket = /var/run/dovecot/auth-client
+{% endif %}
+# Host of via network exposed dovecot socket
+{% if auth_dovecot_host is defined and auth_dovecot_host is not none and auth_dovecot_host != '' %}dovecot_host = {{ auth_dovecot_host }}
+{% else %}#dovecot_host = localhost
+{% endif %}
+# Port of via network exposed dovecot socket
+{% if auth_dovecot_port is defined and auth_dovecot_port is not none and auth_dovecot_port != '' %}dovecot_port = {{ auth_dovecot_port }}
+{% else %}#dovecot_port = 12345
+{% endif %}
+# IMAP server hostname
+# Syntax: address | address:port | [address]:port | imap.server.tld
+{% if auth_imap_host is defined and auth_imap_host is not none and auth_imap_host != '' %}imap_host = {{ auth_imap_host }}
+{% else %}#imap_host = localhost
+{% endif %}
+# Secure the IMAP connection
+# Value: tls | starttls | none
+{% if auth_imap_security is defined and auth_imap_security is not none and auth_imap_security != '' %}imap_security = {{ auth_imap_security }}
+{% else %}#imap_security = tls
+{% endif %}
+# OAuth2 token endpoint URL
+{% if auth_oauth2_token_endpoint is defined and auth_oauth2_token_endpoint is not none and auth_oauth2_token_endpoint != '' %}oauth2_token_endpoint = {{ auth_oauth2_token_endpoint }}
+{% else %}#oauth2_token_endpoint = <URL>
+{% endif %}
+# PAM service
+{% if auth_pam_serivce is defined and auth_pam_serivce is not none and auth_pam_serivce != '' %}pam_serivce = {{ auth_pam_serivce }}
+{% else %}#pam_serivce = radicale
+{% endif %}
+# PAM group user should be member of
+{% if auth_pam_group_membership is defined and auth_pam_group_membership is not none and auth_pam_group_membership != '' %}pam_group_membership ={{ auth_pam_group_membership }}
+{% else %}#pam_group_membership =
+{% endif %}
+# Htpasswd filename
+{% if auth_htpasswd_filename is defined and auth_htpasswd_filename is not none and auth_htpasswd_filename != '' %}htpasswd_filename = {{ auth_htpasswd_filename }}
+{% else %}#htpasswd_filename = /etc/radicale/users
+{% endif %}
+# Htpasswd encryption method
+# Value: plain | bcrypt | md5 | sha256 | sha512 | argon2 | autodetect
+# bcrypt requires the installation of 'bcrypt' module.
+# argon2 requires the installation of 'argon2-cffi' module.
+{% if auth_htpasswd_encryption is defined and auth_htpasswd_encryption is not none and auth_htpasswd_encryption != '' %}htpasswd_encryption = {{ auth_htpasswd_encryption }}
+{% else %}#htpasswd_encryption = autodetect
+{% endif %}
+# Enable caching of htpasswd file based on size and mtime_ns
+{% if auth_htpasswd_cache is defined and auth_htpasswd_cache is not none and auth_htpasswd_cache != '' %}htpasswd_cache = {{ (auth_htpasswd_cache | bool) | string }}
+{% else %}#htpasswd_cache = False
+{% endif %}
+# Incorrect authentication delay (seconds)
+{% if auth_delay is defined and auth_delay is not none and auth_delay != '' %}delay = {{ auth_delay }}
+{% else %}#delay = 1
+{% endif %}
+# Message displayed in the client when a password is needed
+{% if auth_realm is defined and auth_realm is not none and auth_realm != '' %}realm = {{ auth_realm }}
+{% else %}#realm = Radicale - Password Required
+{% endif %}
+# Convert username to lowercase, must be true for case-insensitive auth providers
+{% if auth_lc_username is defined and auth_lc_username is not none and auth_lc_username != '' %}lc_username = {{ (auth_lc_username | bool) | string }}
+{% else %}#lc_username = False
+{% endif %}
+# Strip domain name from username
+{% if auth_strip_domain is defined and auth_strip_domain is not none and auth_strip_domain != '' %}strip_domain = {{ (auth_strip_domain | bool) | string }}
+{% else %}#strip_domain = False
+{% endif %}
+
+[rights]
+
+# Rights backend
+# Value: authenticated | owner_only | owner_write | from_file
+type = {{ rights_type | default('from_file') }}
+
+# File for rights management from_file
+file = {{ rights_file | default('/etc/radicale/rights') }}
+
+# Permit delete of a collection (global)
+{% if rights_permit_delete_collection is defined and rights_permit_delete_collection is not none and rights_permit_delete_collection != '' %}permit_delete_collection = {{ (rights_permit_delete_collection | bool) | string }}
+{% else %}#permit_delete_collection = True
+{% endif %}
+# Permit overwrite of a collection (global)
+{% if rights_permit_overwrite_collection is defined and rights_permit_overwrite_collection is not none and rights_permit_overwrite_collection != '' %}permit_overwrite_collection = {{ (rights_permit_overwrite_collection | bool) | string }}
+{% else %}#permit_overwrite_collection = True
+{% endif %}
+# URL Decode the given username (when URL-encoded by the client - useful for iOS devices when using email address)
+# urldecode_username = False
+
+[storage]
+
+# Storage backend
+# Value: multifilesystem | multifilesystem_nolock
+{% if storage_type is defined and storage_type is not none and storage_type != '' %}type = {{ storage_type }}
+{% else %}#type = multifilesystem
+{% endif %}
+# Folder for storing local collections, created if not present
+{% if storage_filesystem_folder is defined and storage_filesystem_folder is not none and storage_filesystem_folder != '' %}filesystem_folder = {{ storage_filesystem_folder }}
+{% else %}#filesystem_folder = /var/lib/radicale/collections
+{% endif %}
+# Folder for storing cache of local collections, created if not present
+# Note: only used in case of use_cache_subfolder_* options are active
+# Note: can be used on multi-instance setup to cache files on local node (see below)
+{% if storage_filesystem_cache_folder is defined and storage_filesystem_cache_folder is not none and storage_filesystem_cache_folder != '' %}filesystem_cache_folder = {{ storage_filesystem_cache_folder }}
+{% else %}#filesystem_cache_folder = (filesystem_folder)
+{% endif %}
+# Use subfolder 'collection-cache' for 'item' cache file structure instead of inside collection folder
+# Note: can be used on multi-instance setup to cache 'item' on local node
+{% if storage_use_cache_subfolder_for_item is defined and storage_use_cache_subfolder_for_item is not none and storage_use_cache_subfolder_for_item != '' %}use_cache_subfolder_for_item = {{ (storage_use_cache_subfolder_for_item | bool) | string }}
+{% else %}#use_cache_subfolder_for_item = False
+{% endif %}
+# Use subfolder 'collection-cache' for 'history' cache file structure instead of inside collection folder
+# Note: use only on single-instance setup, will break consistency with client in multi-instance setup
+{% if storage_use_cache_subfolder_for_history is defined and storage_use_cache_subfolder_for_history is not none and storage_use_cache_subfolder_for_history != '' %}use_cache_subfolder_for_history = {{ (storage_use_cache_subfolder_for_history | bool) | string }}
+{% else %}#use_cache_subfolder_for_history = False
+{% endif %}
+# Use subfolder 'collection-cache' for 'sync-token' cache file structure instead of inside collection folder
+# Note: use only on single-instance setup, will break consistency with client in multi-instance setup
+{% if storage_use_cache_subfolder_for_synctoken is defined and storage_use_cache_subfolder_for_synctoken is not none and storage_use_cache_subfolder_for_synctoken != '' %}use_cache_subfolder_for_synctoken = {{ (storage_use_cache_subfolder_for_synctoken | bool) | string }}
+{% else %}#use_cache_subfolder_for_synctoken = False
+{% endif %}
+# Use last modifiction time (nanoseconds) and size (bytes) for 'item' cache instead of SHA256 (improves speed)
+# Note: check used filesystem mtime precision before enabling
+# Note: conversion is done on access, bulk conversion can be done offline using storage verification option: radicale --verify-storage
+{% if storage_use_mtime_and_size_for_item_cache is defined and storage_use_mtime_and_size_for_item_cache is not none and storage_use_mtime_and_size_for_item_cache != '' %}use_mtime_and_size_for_item_cache = {{ (storage_use_mtime_and_size_for_item_cache | bool) | string }}
+{% else %}#use_mtime_and_size_for_item_cache = False
+{% endif %}
+# Use configured umask for folder creation (not applicable for OS Windows)
+# Useful value: 0077 | 0027 | 0007 | 0022
+{% if storage_folder_umask is defined and storage_folder_umask is not none and storage_folder_umask != '' %}folder_umask = {{ storage_folder_umask }}
+{% else %}#folder_umask = (system default, usual 0022)
+{% endif %}
+# Delete sync token that are older (seconds)
+{% if storage_max_sync_token_age is defined and storage_max_sync_token_age is not none and storage_max_sync_token_age != '' %}max_sync_token_age = {{ storage_max_sync_token_age }}
+{% else %}#max_sync_token_age = 2592000
+{% endif %}
+# Skip broken item instead of triggering an exception
+{% if storage_skip_broken_item is defined and storage_skip_broken_item is not none and storage_skip_broken_item != '' %}skip_broken_item = {{ (storage_skip_broken_item | bool) | string }}
+{% else %}#skip_broken_item = True
+{% endif %}
+# Command that is run after changes to storage, default is emtpy
+#  Supported placeholders:
+#   %(user)s: logged-in user
+#   %(cwd)s : current working directory
+#   %(path)s: full path of item
+#  Command will be executed with base directory defined in filesystem_folder
+#  For "git" check DOCUMENTATION.md for bootstrap instructions
+# Example(test): echo \"user=%(user)s path=%(path)s cwd=%(cwd)s\"
+# Example(git): git add -A && (git diff --cached --quiet || git commit -m "Changes by \"%(user)s\"")
+{% if storage_hook is defined and storage_hook is not none and storage_hook != '' %}hook ={{ storage_hook }}
+{% else %}#hook =
+{% endif %}
+# Create predefined user collections
+#
+# json format:
+#
+#  {
+#    "def-addressbook": {
+#       "D:displayname": "Personal Address Book",
+#       "tag": "VADDRESSBOOK"
+#    },
+#    "def-calendar": {
+#       "C:supported-calendar-component-set": "VEVENT,VJOURNAL,VTODO",
+#       "D:displayname": "Personal Calendar",
+#       "tag": "VCALENDAR"
+#    }
+#  }
+#
+{% if storage_predefined_collections is defined and storage_predefined_collections is not none and storage_predefined_collections != '' %}predefined_collections ={{ storage_predefined_collections }}
+{% else %}#predefined_collections =
+{% endif %}
+
+[web]
+
+# Web interface backend
+# Value: none | internal
+{% if web_type is defined and web_type is not none and web_type != '' %}type = {{ web_type }}
+{% else %}#type = internal
+{% endif %}
+
+[logging]
+
+# Threshold for the logger
+# Value: debug | info | warning | error | critical
+{% if logging_level is defined and logging_level is not none and logging_level != '' %}level = {{ logging_level }}
+{% else %}#level = info
+{% endif %}
+# Don't include passwords in logs
+{% if logging_mask_passwords is defined and logging_mask_passwords is not none and logging_mask_passwords != '' %}mask_passwords = {{ (logging_mask_passwords | bool) | string }}
+{% else %}#mask_passwords = True
+{% endif %}
+# Log bad PUT request content
+{% if logging_bad_put_request_content is defined and logging_bad_put_request_content is not none and logging_bad_put_request_content != '' %}bad_put_request_content = {{ (logging_bad_put_request_content | bool) | string }}
+{% else %}#bad_put_request_content = False
+{% endif %}
+# Log backtrace on level=debug
+{% if logging_backtrace_on_debug is defined and logging_backtrace_on_debug is not none and logging_backtrace_on_debug != '' %}backtrace_on_debug = {{ (logging_backtrace_on_debug | bool) | string }}
+{% else %}#backtrace_on_debug = False
+{% endif %}
+# Log request header on level=debug
+{% if logging_request_header_on_debug is defined and logging_request_header_on_debug is not none and logging_request_header_on_debug != '' %}request_header_on_debug = {{ (logging_request_header_on_debug | bool) | string }}
+{% else %}#request_header_on_debug = False
+{% endif %}
+# Log request content on level=debug
+{% if logging_request_content_on_debug is defined and logging_request_content_on_debug is not none and logging_request_content_on_debug != '' %}request_content_on_debug = {{ (logging_request_content_on_debug | bool) | string }}
+{% else %}#request_content_on_debug = False
+{% endif %}
+# Log response content on level=debug
+{% if logging_response_content_on_debug is defined and logging_response_content_on_debug is not none and logging_response_content_on_debug != '' %}response_content_on_debug = {{ (logging_response_content_on_debug | bool) | string }}
+{% else %}#response_content_on_debug = False
+{% endif %}
+# Log rights rule which doesn't match on level=debug
+{% if logging_rights_rule_doesnt_match_on_debug is defined and logging_rights_rule_doesnt_match_on_debug is not none and logging_rights_rule_doesnt_match_on_debug != '' %}rights_rule_doesnt_match_on_debug = {{ (logging_rights_rule_doesnt_match_on_debug | bool) | string }}
+{% else %}#rights_rule_doesnt_match_on_debug = False
+{% endif %}
+# Log storage cache actions on level=debug
+{% if logging_storage_cache_actions_on_debug is defined and logging_storage_cache_actions_on_debug is not none and logging_storage_cache_actions_on_debug != '' %}storage_cache_actions_on_debug = {{ (logging_storage_cache_actions_on_debug | bool) | string }}
+{% else %}#storage_cache_actions_on_debug = False
+{% endif %}
+[headers]
+
+# Additional HTTP headers
+#Access-Control-Allow-Origin = *
+
+
+[hook]
+
+# Hook types
+# Value: none | rabbitmq
+{% if hook_type is defined and hook_type is not none and hook_type != '' %}type = {{ hook_type }}
+{% else %}#type = none
+{% endif %}{% if hook_rabbitmq_endpoint is defined and hook_rabbitmq_endpoint is not none and hook_rabbitmq_endpoint != '' %}rabbitmq_endpoint ={{ hook_rabbitmq_endpoint }}
+{% else %}#rabbitmq_endpoint =
+{% endif %}{% if hook_rabbitmq_topic is defined and hook_rabbitmq_topic is not none and hook_rabbitmq_topic != '' %}rabbitmq_topic ={{ hook_rabbitmq_topic }}
+{% else %}#rabbitmq_topic =
+{% endif %}{% if hook_rabbitmq_queue_type is defined and hook_rabbitmq_queue_type is not none and hook_rabbitmq_queue_type != '' %}rabbitmq_queue_type = {{ hook_rabbitmq_queue_type }}
+{% else %}#rabbitmq_queue_type = classic
+{% endif %}
+
+[reporting]
+
+# When returning a free-busy report, limit the number of returned
+# occurences per event to prevent DOS attacks.
+{% if reporting_max_freebusy_occurrence is defined and reporting_max_freebusy_occurrence is not none and reporting_max_freebusy_occurrence != '' %}max_freebusy_occurrence = {{ reporting_max_freebusy_occurrence }}
+{% else %}#max_freebusy_occurrence = 10000
+{% endif %}

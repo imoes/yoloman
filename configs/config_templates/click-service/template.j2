@@ -1,38 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  D-Bus Bus Configuration for click-service
-
-  This file defines security policies for the D-Bus system or session bus
-  specific to the click-service. It restricts ownership of the service
-  interface to root and defines default permissions for message sending
-  and receiving.
-
-  Variables:
-    service_dbus_name: The D-Bus name (interface) this service owns.
+  This template generates a D-Bus bus configuration file for a Click application service.
+  It defines security policies allowing the service to own its name and communicate.
 -->
 <!DOCTYPE busconfig PUBLIC
- "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
 
-  <!--
-    Policy for the root user.
-    Allows 'root' to own the D-Bus service interface.
-  -->
-  <policy user="root">
-    <allow own="{{ service_dbus_name | default('com.lomiri.click') }}"/>
-  </policy>
+	<!--
+	  Policy for the root user.
+	  Allows the root user to own (claim) the D-Bus service name associated with this Click service.
+	  This is typically required for system-level services or daemons.
+	-->
+	<policy user="root">
+		<!--
+		  service_dbus_name: The unique D-Bus service name (interface) for the click-service.
+		  Defaults to 'com.lomiri.click' if not specified in variables.
+		-->
+		<allow own="{{ service_dbus_name | default('com.lomiri.click') }}"/>
+	</policy>
 
-  <!--
-    Default policy for all other users.
-    Defines what messages are allowed to be sent to or received from
-    this service interface.
-  -->
-  <policy context="default">
-    <!-- Allow sending messages to the service interface -->
-    <allow send_destination="{{ service_dbus_name | default('com.lomiri.click') }}"/>
-    <!-- Allow receiving messages from the service interface -->
-    <allow receive_sender="{{ service_dbus_name | default('com.lomiri.click') }}"/>
-  </policy>
+	<!--
+	  Default policy for all other users/clients.
+	  Defines what actions are permitted for clients connecting to the bus when no more specific policy applies.
+	-->
+	<policy context="default">
+		<!--
+		  Allows any client to send messages TO this service.
+		  The destination must match the service's unique name.
+		-->
+		<allow send_destination="{{ service_dbus_name | default('com.lomiri.click') }}"/>
+		<!--
+		  Allows any client to receive messages FROM this service.
+		  The sender must be the service's unique name.
+		-->
+		<allow receive_sender="{{ service_dbus_name | default('com.lomiri.click') }}"/>
+	</policy>
 
 </busconfig>

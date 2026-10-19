@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from bossman.config import Settings
 from bossman.db.models import Agent, HostCve
 from bossman.services.agent_client import AgentClientError, client_for
-from bossman.services.cve_correlate import correlate
+from bossman.services.cve_correlate import correlate, correlate_windows
 
 logger = logging.getLogger("bossman.cve_collect")
 
@@ -31,9 +31,24 @@ def _tool_data(result) -> dict:
 
 
 async def collect_host(session: AsyncSession, agent: Agent, client, feed) -> list[dict]:
-    """Fetch one host's pending updates, correlate, and replace its HostCve rows."""
-    result = await client.call_tool("yoloman.package_updates", {"state": "list"})
-    rows = correlate(feed, _tool_data(result))
+    """Fetch one host's pending updates, correlate, and replace its HostCve rows. A Windows host is read through
+    `windows_update_facts` (plan B13) — before, it had no package_updates module and dropped out of the sweep."""
+    if str((agent.facts or {}).get("os_family") or "").lower() == "windows":
+        facts = _tool_data(await client.call_tool("windows_update_facts", {}))
+        if facts.get("search_result") != "Succeeded":
+            # An incomplete search must not replace the host's rows: right after a reboot Windows Update answers
+            # SucceededWithErrors with an empty list, and the security view showed the host clean (measured on
+            # bossman-wintest). The last complete state stays until a search succeeds.
+            logger.warning("cve collect %s: Windows Update search ended %s — keeping the last complete state",
+                           agent.name, facts.get("search_result") or "without a result")
+            return []
+        rows, unmapped = correlate_windows(feed, facts)
+        if unmapped:
+            logger.info("cve collect %s: %d pending update(s) without a known CVE: %s", agent.name, len(unmapped),
+                        ", ".join(unmapped[:10]))
+    else:
+        result = await client.call_tool("yoloman.package_updates", {"state": "list"})
+        rows = correlate(feed, _tool_data(result))
     await session.execute(sa_delete(HostCve).where(HostCve.agent_id == agent.id))
     for r in rows:
         session.add(HostCve(agent_id=agent.id, **r))

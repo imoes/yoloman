@@ -1,0 +1,43 @@
+{# ==============================================================================
+   # Kitty Terminal Emulator - Fish Shell Integration
+   #
+   # This script sets up automatic shell integration for the Kitty terminal emulator
+   # when running within Fish shell. It enables Kitty-specific features (such as
+   # OSC 7/8 sequences, focus tracking, and image display) and adds Kitty's
+   # completions to the Fish completion path.
+   #
+   # Usage: Source this script in your Fish config (e.g., config.fish) or include
+   # it via an Ansible task that writes it to ~/.config/fish/conf.d/ or similar.
+   # ============================================================================== #}
+
+{# Determine the installation directory for Kitty binaries and resources.
+   # Default is the standard system path on Red Hat-based systems. #}
+set -l KITTY_INSTALLATION_DIR {{ KITTY_INSTALLATION_DIR | default('/usr/lib64/kitty') }}
+
+{# Check if we are currently running inside a Kitty terminal.
+   # The environment variable KITTY_PID is set by Kitty's shell integration
+   # scripts upon startup. If it is empty or unset, we are not in Kitty. #}
+if test -n "$KITTY_PID"
+    
+    {# Verify that the Fish vendor configuration file for Kitty integration exists.
+       # This ensures we don't error out on systems where Kitty is installed but
+       # the Fish integration components were not included or are in a different location. #}
+    if test -f "$KITTY_INSTALLATION_DIR"/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish
+        
+        {# Enable Kitty shell integration globally for the current session.
+           # This allows Kitty to track the current working directory via OSC 7
+           # and other terminal capabilities. #}
+        set --global KITTY_SHELL_INTEGRATION enabled
+        
+        {# Source the main Fish integration script provided by Kitty.
+           # This script defines the necessary functions (like `_kitty_cd`, etc.)
+           # and hooks into Fish's auto-generated events to manage state. #}
+        source "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish"
+        
+        {# Prepend Kitty's completion definitions directory to Fish's completion search path.
+           # This allows Fish to offer tab-completion for Kitty commands (kitty, kitty-launcher, etc.)
+           # without requiring manual configuration of fish_complete_path in the user's config. #}
+        set --prepend fish_complete_path "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_completions.d"
+        
+    end
+end

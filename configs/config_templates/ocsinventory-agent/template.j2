@@ -1,50 +1,40 @@
-#!/bin/bash
+################################################################################
 #
-# OCSInventory Agent Wrapper Script
+# OCS Inventory NG Agent - Log Rotation Configuration
 #
-# This script serves as a wrapper to execute the ocsinventory-agent
-# with specific runtime configurations defined by the Ansible role.
-# It checks for the executable presence and runs the agent, discarding output.
+# This file configures logrotate for the OCS Inventory agent.
+# It ensures that agent logs are rotated daily, compressed, and retained
+# for a specified number of days.
 #
+# Self-Documented: All variables include defaults and descriptions to ensure
+# the template can be reused safely in any Ansible role without external
+# context.
+################################################################################
 
-# Path to the ocsinventory-agent executable.
-# Defaults to /usr/bin/ocsinventory-agent if not specified in the schema.
-PROG={{ prog_path | default('/usr/bin/ocsinventory-agent') }}
+# Log Path: Directory containing OCS Inventory agent logs.
+# Default: /var/log/ocsinventory-client
+# This variable defines the base path for the log files to be managed.
+set log_path = {{ log_path | default('/var/log/ocsinventory-client') }}
 
-# Directory where run files are stored.
-# Defaults to /var/run. Used for generating the enabled-file path.
-RUNDIR={{ run_dir | default('/var/run') }}
+# Log Extension: File extension of the logs to rotate.
+# Default: log
+# This variable specifies the file extension of the log files.
+set ext = {{ ext | default('log') }}
 
-# Path to the file indicating if the service is enabled.
-# Defaults to /var/run/ocsinventory-client-enabled.
-# Note: Current logic comments out the check for this file,
-# but the variable is defined for potential future use or manual override.
-ENABLED_FILE={{ enabled_file | default('/var/run/ocsinventory-client-enabled') }}
+# Log Rotate Days: Number of days to keep old compressed logs.
+# Default: 7
+# This variable controls the retention period for rotated logs.
+set log_rotate_days = {{ log_rotate_days | default('7') }}
 
-# Check if the executable exists and is executable.
-# If the binary is missing, exit silently to prevent errors in cron/systemd.
-if [ ! -x "$PROG" ]; then
-    exit 0
-fi
-
-# Service Enabled Check (Currently Disabled)
-# The following block is commented out in the original template.
-# If enabled, it would verify the existence of ENABLED_FILE.
-# If the file is missing, it logs a message to /var/log/ocsinventory-client/ocsinv.log
-# and exits without running the agent.
-#
-#if [ ! -f "$ENABLED_FILE" ]; then
-#    perl -e \
-#       'print localtime()." => Service disabled: not running the cron job\n"'\
-#       >> /var/log/ocsinventory-client/ocsinv.log
-#    exit 0
-#fi
-
-# Stagger execution to avoid all UNIX agents contacting the server at the
-# exact same time. This prevents a thundering herd effect on the OCS server.
-sleep $(( $RANDOM/100 ))
-
-# Execute the OCSInventory Agent.
-# Standard output and standard error are discarded (/dev/null) as the
-# agent typically handles its own logging or reports via network protocols.
-$PROG > /dev/null 2>&1
+{#
+    Construct the log file pattern dynamically using the path and extension.
+    The pattern is: <log_path>/*.<ext>
+#}
+{%- set log_pattern = (log_path | default('/var/log/ocsinventory-client')) ~ '/*.' ~ (ext | default('log')) %}
+{{ log_pattern }} {
+    daily
+    rotate {{ log_rotate_days | default('7') | int }}
+    compress
+    notifempty
+    missingok
+}

@@ -1,186 +1,105 @@
-#!/bin/sh
+# ============================================================================
+# distccd Configuration Template
+# ============================================================================
+# This configuration file controls the behavior of the distccd distributed
+# compilation daemon. It defines access control, logging, and runtime
+# parameters.
+#
+# See: man distccd
+# ============================================================================
 
-### BEGIN INIT INFO
-# Provides:          distcc
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Should-Start:      $network
-# Should-Stop:       $network
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: simple distributed compiler server
-# Description:       Control distccd, the server component of the
-#                    distributed compiler system.  This service should
-#                    be running on any host which shall provide remote
-#                    compilation.
-### END INIT INFO
+# ----------------------------------------------------------------------------
+# Access Control: Allowed Clients
+# ----------------------------------------------------------------------------
+# Description: List of client networks/IPs (CIDR or single IP) allowed to connect.
+#
+# The distccd daemon uses this list to whitelist incoming connections.
+# Unauthorized connections are rejected immediately.
+#
+# IMPORTANT: Only allow trusted hosts. Any user on a trusted host can execute
+# commands as the distccd user.
+# ----------------------------------------------------------------------------
 
-DAEMON=/usr/bin/distccd
-NAME=distccd
-DESC="Distributed Compiler Daemon"
+# Format: One IP or CIDR range per line.
+# Example:
+#   192.168.1.100
+#   192.168.2.0/24
 
-# Path to the PID file used for daemon management.
-# default: /var/run/distccd.pid
-PID_FILE="{{ pid_file | default('/var/run/distccd.pid') }}"
+{% for client in allowed_clients | default(['127.0.0.0/8', '::1']) %}{{ client }}
+{% endfor %}
 
-# Path to the log file.
-# default: /var/log/distcc/distccd.log
-LOG_FILE="{{ log_file | default('/var/log/distcc/distccd.log') }}"
+# ----------------------------------------------------------------------------
+# Daemon Runtime Arguments (Systemd/sysconfig)
+# ----------------------------------------------------------------------------
+# Description: This section generates the command-line arguments passed to
+# the distccd service. These arguments typically go into /etc/sysconfig/distccd
+# (RHEL/CentOS/Fedora) or a systemd drop-in unit file.
 
-# Daemon arguments passed to distccd.
-# default: --pid-file=<pid_file> --log-file=<log_file> --daemon
-DAEMON_ARGS="--pid-file={{ pid_file | default('/var/run/distccd.pid') }} --log-file={{ log_file | default('/var/log/distcc/distccd.log') }} --daemon"
+# Bind Address
+# Description: Network interface or IP to bind the daemon to.
+# Default: 0.0.0.0 (Listen on all interfaces)
+# Directive: -N <address> (or passed via systemd ExecStart)
+DISTCC_ARGS="${DISTCC_ARGS} -N {{ listen | default('0.0.0.0') }}"
 
-# List of client networks/IPs (CIDR or single IP) allowed to connect.
-# default: ['127.0.0.0/8', '::1']
-# These are injected as multiple --allow flags.
-ALLOWEDNETS="{{ allowed_clients | default(['127.0.0.0/8', '::1']) | join(' ') }}"
+# Max Jobs
+# Description: Maximum number of parallel compilation jobs the server will accept.
+# Default: 8
+# Directive: -j <number>
+DISTCC_ARGS="${DISTCC_ARGS} -j {{ max_jobs | default(8) }}"
 
-# Network interface or IP to bind the daemon to.
-# default: 0.0.0.0
-LISTENER="{{ listen | default('0.0.0.0') }}"
+# Warm Jobs
+# Description: Number of idle worker processes to keep warm for faster response.
+# Default: 2
+# Directive: -w <number>
+DISTCC_ARGS="${DISTCC_ARGS} -w {{ warm_jobs | default(2) }}"
 
-# Maximum number of parallel compilation jobs the server will accept.
-# default: 8
-JOBS="{{ max_jobs | default(8) }}"
+# Log Level
+# Description: Log verbosity (0 = silent, 1 = errors only, 2 = warnings, 3 = info, 4 = debug).
+# Default: 2 (Warnings)
+# Directive: -L <level>
+DISTCC_ARGS="${DISTCC_ARGS} -L {{ log_level | default(2) }}"
 
-# Disable insecure legacy features like IPv6 fallback and RFC 2553 compatibility for production safety.
-# default: True
-{% if disable_insecure | default(True) | bool %}
-# NOTE: Insecure legacy features are explicitly disabled for security.
-{% endif %}
+# Log File
+# Description: Path to the log file.
+# Default: /var/log/distcc/distccd.log
+# Directive: --log-file <path>
+DISTCC_ARGS="${DISTCC_ARGS} --log-file {{ log_file | default('/var/log/distcc/distccd.log') }}"
 
-# Warm jobs: Number of idle worker processes to keep warm for faster response.
-# Note: The original init script did not support --keepalive; this variable is reserved
-# for future compatibility or manual daemon management if the service unit changes.
-WARM_JOBS="{{ warm_jobs | default(2) }}"
+# PID File
+# Description: Path to the PID file used for daemon management.
+# Default: /var/run/distccd.pid
+# Directive: --pid-file <path>
+DISTCC_ARGS="${DISTCC_ARGS} --pid-file {{ pid_file | default('/var/run/distccd.pid') }}"
 
-# Enable transparent mode (distcc automatically falls back to local compilation if remote jobs fail).
-# Note: The original init script did not support --transparent; this variable is reserved for future use.
-{% if enable_transparent | default(False) | bool %}
-# NOTE: Transparent mode is enabled. Ensure firewall rules and kernel config allow this.
-{% endif %}
+# Standalone Mode
+# Description: Whether to start distccd as a standalone daemon (required for server mode).
+# Default: False
+# Directive: --standalone
+{% if enable_standalone | default(False) | bool %}DISTCC_ARGS="${DISTCC_ARGS} --standalone"{% endif %}
 
-# Enable standalone daemon mode.
-# default: False
-{% if enable_standalone | default(False) | bool %}
-# NOTE: Standalone mode enabled. The daemon will detach from the controlling terminal.
-{% endif %}
+# Transparent Mode
+# Description: Enable transparent mode (distcc automatically falls back to local compilation if remote jobs fail).
+# Default: False
+# Directive: --allow-transparency
+{% if enable_transparent | default(False) | bool %}DISTCC_ARGS="${DISTCC_ARGS} --allow-transparency"{% endif %}
 
-# Additional command-line arguments passed to distccd.
-# default: ''
-EXTRA_ARGS="{{ extra_args | default('') }}"
+# Disable Insecure Features
+# Description: Disable insecure legacy features like IPv6 fallback and RFC 2553 compatibility for production safety.
+# Default: True
+# Directive: --disable-insecure
+{% if disable_insecure | default(True) | bool %}DISTCC_ARGS="${DISTCC_ARGS} --disable-insecure"{% endif %}
 
-# unset TMPDIR before starting the daemon to avoid problems with
-# root's value for this being unwritable by the distccd user; to
-# provide distccd with a sensible TMPDIR set it in /etc/default/distcc
-unset TMPDIR
+# Extra Arguments
+# Description: Additional command-line arguments passed to distccd.
+# Default: '' (Empty)
+{% if extra_args | default('') | trim != '' %}DISTCC_ARGS="${DISTCC_ARGS} {{ extra_args | default('') }}"{% endif %}
 
-set -e
+# ----------------------------------------------------------------------------
+# Final Command Construction
+# ----------------------------------------------------------------------------
+# This variable is intended to be sourced by the init script or systemd unit.
+# The --allow option is handled via the /etc/distcc/clients file (above).
+# ----------------------------------------------------------------------------
 
-. /lib/lsb/init-functions
-
-# Reads config file (will override defaults above)
-[ -r /etc/default/distcc ] && . /etc/default/distcc
-
-test -x $DAEMON || exit 0
-
-# construct access list
-ALLOW=""
-for net in $ALLOWEDNETS
-do
-	ALLOW="$ALLOW --allow $net"
-done
-
-if test -n "$ALLOW"; then
-	DAEMON_ARGS="$DAEMON_ARGS $ALLOW"
-fi
-
-if test -n "$LISTENER"; then
-	DAEMON_ARGS="$DAEMON_ARGS --listen $LISTENER"
-fi
-
-if test -n "$JOBS"; then
-	DAEMON_ARGS="$DAEMON_ARGS --jobs $JOBS"
-fi
-
-# Append extra args if defined
-if test -n "$EXTRA_ARGS"; then
-	DAEMON_ARGS="$DAEMON_ARGS $EXTRA_ARGS"
-fi
-
-should_start() {
-	if [ "$STARTDISTCC" != "true" ] && [ "$STARTDISTCC" != "YES" ]; then
-		log_warning_msg "STARTDISTCC is set to false in /etc/default/distcc"
-		log_warning_msg "$DAEMON not starting"
-		exit 0
-	fi
-	# we need permission to write to the pid file
-	touch {{ pid_file | default('/var/run/distccd.pid') }}
-	chown distccd {{ pid_file | default('/var/run/distccd.pid') }}
-}
-
-case "$1" in
-  start)
-	should_start
-	log_begin_msg "Starting $DESC: $NAME "
-	start-stop-daemon --start --quiet --pidfile {{ pid_file | default('/var/run/distccd.pid') }} \
-	--chuid distccd --oknodo \
-	--exec $DAEMON -- $DAEMON_ARGS ||
-	{
-	    code=$?
-	    log_warning_msg "$0: start failed with error code $code" >&2
-	    log_end_msg $code
-	    exit $code
-	}
-	log_end_msg 0
-	;;
-  stop)
-	log_begin_msg "Stopping $DESC: $NAME "
-	start-stop-daemon --stop --quiet --pidfile {{ pid_file | default('/var/run/distccd.pid') }} \
-		--oknodo \
-		--exec $DAEMON ||
-	{
-	    code=$?
-	    log_warning_msg "$0: stop failed with error code $code" >&2
-	    log_end_msg $code
-	    exit $code
-	}
-	rm -f {{ pid_file | default('/var/run/distccd.pid') }} >/dev/null 2>&1
-	log_end_msg 0
-	;;
-  restart|force-reload)
-	#
-	#	If the "reload" option is implemented, move the "force-reload"
-	#	option to the "reload" entry above. If not, "force-reload" is
-	#	just the same as "restart".
-	#
-	log_begin_msg "Restarting $DESC: $NAME "
-	start-stop-daemon --stop --quiet --pidfile {{ pid_file | default('/var/run/distccd.pid') }} \
-		--oknodo \
-		--exec $DAEMON
-	sleep 1
-	should_start
-	start-stop-daemon --start --quiet --pidfile {{ pid_file | default('/var/run/distccd.pid') }} \
-		--chuid distccd --oknodo \
-		--exec $DAEMON -- $DAEMON_ARGS ||
-	{
-	    code=$?
-	    rm -f {{ pid_file | default('/var/run/distccd.pid') }} >/dev/null 2>&1
-	    log_warning_msg "$0: restart failed with error code $code" >&2
-	    log_end_msg $code
-	    exit $code
-	}
-	log_end_msg 0
-	;;
-  status)
-	status_of_proc $DAEMON $NAME
-	;;
-  *)
-	N=/etc/init.d/$NAME
-	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
-	exit 1
-	;;
-esac
-
-exit 0
+# Export the final arguments string for the service manager
+export DISTCC_ARGS

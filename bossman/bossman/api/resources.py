@@ -82,6 +82,9 @@ async def resource_kinds(_identity=Depends(get_current_identity)) -> dict[str, A
 async def resource_read(
     agent_id: UUID, kind: str, name: str, verb: str,
     namespace: str = Query("default"),
+    cluster: str | None = Query(None, description="k8s only: the Kubernetes cluster id"),
+    api_version: str | None = Query(None, description="k8s only: the object's apiVersion, e.g. apps/v1"),
+    object_kind: str | None = Query(None, description="k8s only: the object's kind, e.g. Deployment"),
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
@@ -103,7 +106,7 @@ async def resource_read(
             f"{verb!r} is not a read verb — expected one of: {', '.join(resources.READ_VERBS)}"))
     return await _read(kind, verb, agent_id=agent_id, name=name, session=session,
                        settings=settings, client_factory=client_factory, identity=identity,
-                       namespace=namespace)
+                       namespace=namespace, cluster=cluster, api_version=api_version, object_kind=object_kind)
 
 
 @router.get("/api/v1/agents/{agent_id}/resources/config/{verb}")
@@ -237,6 +240,121 @@ async def helm_rollback(
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
     return await r.rollback(body.generation)
 
+
+
+# --- Kubernetes object tier (same four-verb contract + a DELETE verb) ------------
+# Identity = cluster + namespace + apiVersion + kind + name; the agent in the URL is
+# the cluster's access host. Built through resources.build so the registry's checks
+# (cluster exists, belongs to this host) are the only copy of them.
+
+class K8sSpec(BaseModel):
+    manifest: dict[str, Any] = {}
+
+
+class K8sApplyBody(K8sSpec):
+    dry_run: bool = True
+    note: str | None = None
+    # Without global YOLO mode an apply files a ChangeProposal instead of applying (see
+    # services/resources/kubernetes_object.py). Waive only for a change already approved elsewhere.
+    require_approval: bool = True
+
+
+async def _k8s_resource(agent_id: UUID, name: str, cluster: str, namespace: str | None, api_version: str,
+                        object_kind: str, session, settings, client_factory, identity):
+    try:
+        return await resources.build("k8s", agent_id=agent_id, name=name, session=session, settings=settings,
+                                     client_factory=client_factory, identity=identity, cluster=cluster,
+                                     namespace=namespace, api_version=api_version, object_kind=object_kind)
+    except resources.NoSuchResource as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except resources.ResourceUnreachable as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
+def _k8s_http(exc: Exception) -> HTTPException:
+    from bossman.services.agent_client import AgentClientError
+    from bossman.services.kubernetes import KubectlFailed
+
+    if isinstance(exc, KubectlFailed):
+        return HTTPException(status_code=502, detail={"error": "kubectl failed", "verb": exc.verb, "rc": exc.rc, "stderr": exc.stderr.strip()[:1000]})
+    if isinstance(exc, AgentClientError):
+        return HTTPException(status_code=502, detail=str(exc))
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=422, detail=str(exc))
+    raise exc
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/k8s/{name}/plan")
+async def k8s_plan(
+    agent_id: UUID, name: str, body: K8sSpec,
+    cluster: str = Query(...), namespace: str | None = Query(None), api_version: str = Query("v1"), object_kind: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """What applying this manifest WOULD do: a server-side dry run (admission, validation, Pod Security,
+    quota — nothing persisted) plus `kubectl diff`. `action` is create | update | noop | refused; a refusal
+    carries the server's reason, so the real apply is never the first place a bad manifest fails."""
+    r = await _k8s_resource(agent_id, name, cluster, namespace, api_version, object_kind, session, settings, client_factory, identity)
+    try:
+        return await r.plan(body.model_dump())
+    except Exception as exc:  # noqa: BLE001 — mapped to HTTP by kind below, re-raised otherwise
+        raise _k8s_http(exc) from exc
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/k8s/{name}/apply")
+async def k8s_apply(
+    agent_id: UUID, name: str, body: K8sApplyBody,
+    cluster: str = Query(...), namespace: str | None = Query(None), api_version: str = Query("v1"), object_kind: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Server-side apply of the manifest (field manager "bossman", strict validation), recorded as a
+    Bossman generation. **`dry_run` defaults to `true`.** Outside global YOLO mode and without
+    `require_approval: false` the change is filed as a ChangeProposal with its preview and NOT applied —
+    the answer says `awaiting_approval: true` and names the proposal; no generation is recorded until the
+    approval applies it. Kubernetes' own rollout revisions are a separate numbering."""
+    r = await _k8s_resource(agent_id, name, cluster, namespace, api_version, object_kind, session, settings, client_factory, identity)
+    try:
+        return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
+    except Exception as exc:  # noqa: BLE001
+        raise _k8s_http(exc) from exc
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/k8s/{name}/rollback")
+async def k8s_rollback(
+    agent_id: UUID, name: str, body: RollbackBody,
+    cluster: str = Query(...), namespace: str | None = Query(None), api_version: str = Query("v1"), object_kind: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Re-apply an earlier generation's manifest as a NEW generation (forward-converge). `generation` is
+    Bossman's number from `GET .../generations`, not a Kubernetes rollout revision. Rolling back to a
+    generation that recorded a deletion deletes again, and says so. Goes through the same approval gate."""
+    r = await _k8s_resource(agent_id, name, cluster, namespace, api_version, object_kind, session, settings, client_factory, identity)
+    try:
+        return await r.rollback(body.generation)
+    except Exception as exc:  # noqa: BLE001
+        raise _k8s_http(exc) from exc
+
+
+@router.delete("/api/v1/agents/{agent_id}/resources/k8s/{name}/object")
+async def k8s_delete(
+    agent_id: UUID, name: str, preview: bool = Query(True), note: str | None = Query(None),
+    require_approval: bool = Query(True),
+    cluster: str = Query(...), namespace: str | None = Query(None), api_version: str = Query("v1"), object_kind: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Delete the object. **`preview` defaults to `true`**: the answer lists what goes with it (dependents by
+    ownerReference — a Deployment's ReplicaSets and Pods) and what STAYS (PersistentVolumeClaims, with the
+    reason), and deletes nothing. `preview=false` deletes and records the deletion as a generation, so the
+    object shows as vanished in its history rather than disappearing — through the same approval gate as an
+    apply or a scale: outside YOLO mode and without `require_approval=false` it files a change proposal."""
+    r = await _k8s_resource(agent_id, name, cluster, namespace, api_version, object_kind, session, settings, client_factory, identity)
+    try:
+        return await r.delete(preview=preview, note=note, require_approval=require_approval)
+    except Exception as exc:  # noqa: BLE001
+        raise _k8s_http(exc) from exc
 
 # --- Config file tier (delegates to the agent state store) ----------------
 

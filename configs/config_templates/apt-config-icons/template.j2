@@ -1,26 +1,25 @@
-# ============================================================
-# apt-config-icons: DEP-11 Icons Download Configuration
-# ============================================================
-#
-# Purpose:
-#   Controls whether APT downloads DEP-11 icon metadata for
-#   software centers (GNOME Software, KDE Plasma Discover, etc.).
-#   Applications without icons may be hidden if downloads are disabled.
-#
-# Schema Fields:
-#   - icons_small_enabled (bool/string): Enable small (64x64px) icon downloads.
-#   - icons_full_enabled  (bool/string): Enable full-size icon downloads.
-# ============================================================
+# Configuration for APT DEP-11 icon downloading.
+# This file controls whether the package manager downloads
+# icon metadata for software centers (GNOME Software, Plasma Discover, etc.).
+# Without these icons, applications may not appear in the software center UI.
 
-## Enable downloading of small 64x64px DEP-11 icons for software centers.
-## Defaults to 'true'. Set to 'false' to disable small icon retrieval.
+# Enable downloading of small 64x64px DEP-11 icons for software centers.
+# These are optimized for quick loading in application lists.
+# Values: "true" or "false"
 Acquire::IndexTargets {
     deb::DEP-11-icons-small  {
-        DefaultEnabled "{{ icons_small_enabled | default(true) }}";
+        # Schema field: icons_small_enabled
+        DefaultEnabled "{{ icons_small_enabled | default('true') }}";
     };
-    ## Enable downloading of full-size DEP-11 icons for software centers.
-    ## Defaults to 'true'. Set to 'false' to disable full icon retrieval.
+
+    # DEPRECATED/ALIAS: 'deb::DEP-11-icons' is often used as the key for full-size icons
+    # in older apt versions or specific distributions, though 'deb::DEP-11-icons-full'
+    # is the modern canonical name. We use the variable name provided in schema.
     deb::DEP-11-icons  {
-        DefaultEnabled "{{ icons_full_enabled | default(true) }}";
+        # Schema field: icons_full_enabled
+        # Enable downloading of full-size DEP-11 icons for software centers.
+        # These provide higher resolution assets for detailed app views.
+        # Values: "true" or "false"
+        DefaultEnabled "{{ icons_full_enabled | default('true') }}";
     };
 };

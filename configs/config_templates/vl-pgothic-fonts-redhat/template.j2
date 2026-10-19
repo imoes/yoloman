@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  VL P Gothic Font Configuration
+  This XML document configures font fallback and hinting behavior for the VL P Gothic font family.
+-->
+<fontconfig>
+    <!--
+      Generic names rule:
+      Sets the primary font family for generic aliases (like 'sans-serif')
+      to the specified font_family, with fallback_family as the ultimate fallback.
+    -->
+    <alias>
+        <!-- The primary font family name to configure. -->
+        <family>{{ (font_family | default('VL PGothic')) }}</family>
+        <default>
+            <!-- The fallback family for generic name aliasing. -->
+            <family>{{ (fallback_family | default('sans-serif')) }}</family>
+        </default>
+    </alias>
+
+    <!--
+      Locale-specific overrides rule:
+      If the document locale matches locale_lang and the family is
+      locale_fallback_family, prepend font_family to the list.
+    -->
+    <match>
+        <test name="lang" compare="contains">
+            <!-- The locale language code for specific override rules. -->
+            <string>{{ (locale_lang | default('ja')) }}</string>
+        </test>
+        <test name="family" ignore-blanks="true">
+            <!-- The family name to match in locale-specific override rules. -->
+            <string>{{ (locale_fallback_family | default('sans-serif')) }}</string>
+        </test>
+        <edit name="family" mode="prepend">
+            <string>{{ (font_family | default('VL PGothic')) }}</string>
+        </edit>
+    </match>
+
+    <!--
+      Disabling hinting rule:
+      For the configured font_family, explicitly set hinting to the
+      value of disable_hinting.
+    -->
+    <match target="font">
+        <test name="family" ignore-blanks="true">
+            <string>{{ (font_family | default('VL PGothic')) }}</string>
+        </test>
+        <edit name="hinting" mode="assign">
+            <!-- Whether to disable font hinting for the configured font. -->
+            <bool>{{ (disable_hinting | default(false) | bool) }}</bool>
+        </edit>
+    </match>
+</fontconfig>

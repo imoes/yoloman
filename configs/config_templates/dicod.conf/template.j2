@@ -1,71 +1,165 @@
-# DICOD Configuration Template
-# Self-documenting: every directive is preceded by its schema description.
-# Variables use explicit defaults to ensure safe rendering even when variables are undefined.
+# DICOD Configuration File
+# Managed by Ansible. Do not edit manually.
+# See schema fields for descriptions and defaults.
 
-# IP address the DICOD service listens on. Use 0.0.0.0 to listen on all interfaces.
-# bind_address default: '127.0.0.1'
-bind: {{ (bind_address | default('127.0.0.1')) | string }}:{{ (bind_port | default(8090)) | int }}
+capability (mime,xversion);
+timing yes;
 
-# Maximum number of simultaneous client connections allowed.
-# max_connections default: 100
-max_connections: {{ max_connections | default(100) | int }}
+# Path to the PID file for the dicod daemon.
+pidfile {{ pid_file | default('/var/run/dicod/dicod.pid') }};
 
-# Filesystem path where DICOD stores its data and metadata.
-# storage_path default: '/var/lib/dicod'
-storage:
-  path: {{ storage_path | default('/var/lib/dicod') | string }}
-  # Whether to enable automatic background compaction of old data to reclaim space.
-  # compact_enabled default: True
-  compact: {{ compact_enabled | default(true) | lower }}
+# Directory where Dico modules are located.
+module-load-path ("{{ module_load_path | default('/usr/lib/dico') }}");
 
-# Logging verbosity level: debug, info, warn, error, fatal.
-# log_level default: 'info'
-log:
-  level: {{ log_level | default('info') | string }}
-  # Path to the DICOD log file.
-  # log_file default: '/var/log/dicod/dicod.log'
-  file: {{ log_file | default('/var/log/dicod/dicod.log') | string }}
+# Enable handling of databases in dict.org format:
+load-module dictorg {
+	command "dictorg sort trim-ws dbdir=/usr/share/dictd";
+}
 
-# Number of worker threads to process incoming requests.
-# worker_count default: 4
-workers:
-  count: {{ worker_count | default(4) | int }}
-  # Maximum size of the per-worker job queue.
-  # worker_queue_size default: 1000
-  queue_size: {{ worker_queue_size | default(1000) | int }}
-
-# List of allowed client IP ranges (CIDR) or hostnames. Connections from other sources will be rejected.
-# allowed_clients default: ['127.0.0.1/32']
-{% for client in (allowed_clients | default(['127.0.0.1/32'])) %}
-allow: {{ client | string }}
-{% endfor %}
-
-# Whether to enable TLS encryption for client connections.
-# tls_enabled default: False
-{% if tls_enabled | default(false) %}
-tls:
-  # Path to the TLS certificate file (PEM format). Required if TLS is enabled.
-  # tls_cert_file default: '/etc/dicod/tls.crt'
-  cert_file: {{ tls_cert_file | default('/etc/dicod/tls.crt') | string }}
-  # Path to the TLS private key file (PEM format). Required if TLS is enabled.
-  # tls_key_file default: '/etc/dicod/tls.key'
-  key_file: {{ tls_key_file | default('/etc/dicod/tls.key') | string }}
+# dicodconfig automatically generates the database sections for dictorg
+# formatted dictionaries, the following line makes use of this facility:
+{% if dictorg_db_list | default('') %}
+# Using user-specified database list path:
+include {{ dictorg_db_list | default('') }}
+{% else %}
+# Using default database list path:
+#include </var/lib/dicod/dictorg-db.list>
 {% endif %}
 
-# List of per-IP rate limits (optional). Leave empty to disable rate limiting.
-# rate_limits default: []
-{% for rate_limit in (rate_limits | default([])) %}
-rate_limit:
-  ip: {{ rate_limit.ip | string }}
-  requests_per_minute: {{ rate_limit.requests_per_minute | int }}
-{% endfor %}
+// Uncomment the following to enable handling of databases in Emacs outline
+// format:
+/* load-module outline {
+	command "outline";
+}
+*/
 
-# Whether to expose an internal metrics endpoint.
-# metrics_enabled default: False
-{% if metrics_enabled | default(false) %}
-metrics:
-  enabled: {{ metrics_enabled | default(false) | lower }}
-  # Port for the metrics endpoint (only active if metrics are enabled).
-  # metrics_port default: 9090
-  port: {{ metrics_port | default(9090) | int }}
-{% endif %}
+// Uncomment the following to enable Guile interface:
+/* load-module guile {
+	command "guile";
+}
+*/
+
+// Uncomment the following to enable Guile interface:
+/* load-module python {
+	command "python load-path=/usr/share/dico/python";
+}
+*/
+
+// Emacs outline database example:
+/* database {
+	name "devdict";
+	handler "outline /usr/share/dico/outline/devils.out";
+}
+*/
+
+#database {
+#	name "plnum";
+#	handler "guile"
+#	        " init-script=/tmp/dico-2.0/tests/example.scm "
+#		" init-fun=example-init"
+#		" example.db";
+#}
+
+# WikiMedia via `debpkg:dico-module-mediawiki`
+# <https://www.gnu.org.ua/software/dico/manual/dico.html#Preprocessor>
+/*
+m4_define([defdbwikimedia], [
+database {
+        name "$1";
+        handler "python load-path=/usr/share/dico/python init-script=mediawiki $2";
+        mime-headers <<- EOT
+          Content-Type: text/x-wiki
+          Content-Transfer-Encoding: quoted-printable
+          X-Wiki-Language: $1
+        EOT;
+m4_ifelse([$2],,,[
+        description "$2";])
+m4_ifelse([$3],,,[
+        info <<- EOT
+$3
+EOT;])
+}
+])
+
+defdbwikimedia(wikipedia-en,
+  [en.wikipedia.org],
+  [English language Wikipedia, a collaborative project to produce a
+   free-content multilingual encyclopedia.])
+defdbwikimedia(wikipedia-fr, [fr.wikipedia.org])
+defdbwikimedia(wiktionary-en,
+  [en.wiktionary.org],
+  [English language Wiktionary, a collaborative project to produce a
+   free-content multilingual dictionary.])
+defdbwikimedia(wiktionary-fr, [fr.wiktionary.org])
+*/
+
+alias d DEFINE;
+alias da d "*";
+alias df d "!";
+alias m MATCH;
+alias mas m "*";
+alias mfs m "!";
+alias ma mas ".";
+alias mf mfs ".";
+alias s STATUS;
+alias h HELP;
+alias q QUIT;
+
+# Help text for debugging commands.
+help-text <<- EOT
+	+
+  The following commands are abbreviations that Gray likes to use when
+  debugging the daemon.  You may or may not find them useful.  However
+  it is, do not write your client software to relay on them.  They may
+  disappear or change any time Gray pleases, without notice.
+
+  d database word                 -- DEFINE database word
+  da word                         -- DEFINE * word
+  df word                         -- DEFINE ! word
+  ma word                         -- MATCH * . word
+  mf word                         -- MATCH ! . word
+  mas strategy word               -- MATCH * strategy word
+  mfs strategy word               -- MATCH ! strategy word
+  m database strategy word        -- MATCH database strategy word
+  s                               -- STATUS
+  h                               -- HELP
+  q                               -- QUIT
+EOT;
+
+# OS user to run as.
+user dicod;
+
+# Maximum number of child processes allowed to serve clients.
+max-children {{ max_children | default('18') }};
+#inactivity-timeout 5;
+
+# Server info string.
+server-info <<EOT
+This is a Dico server.
+EOT;
+
+# The "Match everything (experimental)" strategy is not suited for
+# production servers, it consumes all CPU, leading to an easy DOS attack
+# method. It can be enabled by uncommenting the following:
+/* load-module stratall {
+  command "stratall";
+}
+
+# Deny this strategy in default searches:
+strategy all {
+  deny-all yes;
+}
+*/
+
+# New strategy `substr' matches a substring anywhere in the headword.
+# To enable this strategy, uncomment the following:
+/* load-module substr {
+  command "substr";
+}
+
+# Substr strategy can be quite resource consuming, hence it is better to limit
+# it to 3+ pattern length:
+strategy substr {
+  deny-length-lt 3;
+}
+*/

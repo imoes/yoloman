@@ -1,0 +1,246 @@
+# Ansible Configuration File
+# This is the main configuration file for Ansible.
+# It controls the default behavior of Ansible commands and modules.
+# For a complete list of options and their defaults, run:
+#   ansible-config dump --only-changed -t all
+
+# Global plugin paths
+# Allows specifying additional directories where Ansible looks for plugins (modules, filters, etc.).
+# This variable should be a list of paths. If not provided, the default plugin paths are used.
+# {{ ansible_config_paths | default([]) | join(':') }}
+
+[defaults]
+# The main path to the inventory file.
+# This file contains the list of hosts or groups to manage.
+inventory = {{ ansible_inventory | default('inventory') }}
+
+# The user used to execute commands on remote hosts.
+remote_user = {{ ansible_user | default('root') }}
+
+# The SSH private key file to use for authentication.
+ansible_ssh_private_key_file = {{ ansible_ssh_private_key_file | default('~/.ssh/id_rsa') }}
+
+# Timeout in seconds for SSH connections.
+ansible_ssh_timeout = {{ ansible_ssh_timeout | default(30) }}
+
+# The directory for temporary files used during execution (e.g., for transferring modules).
+remote_tmp = {{ remote_tmp | default('~/.ansible/tmp') }}
+
+# The local temporary directory on the control node.
+local_tmp = {{ local_tmp | default('~/.ansible/tmp') }}
+
+# The log file path for Ansible logs.
+log_path = {{ log_path | default('/var/log/ansible.log') }}
+
+# Determines if Ansible should ask for the SSH password if the key is not provided.
+ansible_ask_pass = {{ ansible_ask_pass | default(false) }}
+
+# Determines if Ansible should ask for the become (sudo) password.
+ansible_become_ask_pass = {{ ansible_become_ask_pass | default(false) }}
+
+# The default sudo user to use when using become.
+ansible_become_user = {{ ansible_become_user | default('root') }}
+
+# Galaxy User Agent string.
+# Uses the version string from ansible_version if available, otherwise defaults to 0.0.0.
+# Note: ansible_version is an Ansible fact/variable. If running as a template without facts,
+# it may be undefined. We provide a safe fallback.
+ansible_galaxy_user_agent = {{ 'ansible/%s' | format((ansible_version | default({'full': '0.0.0'})).full | default('0.0.0')) }}
+
+# Controls the verbosity of the output. 0 is quiet, 1-5 is increasingly verbose.
+ansible_verbosity = {{ ansible_verbosity | default(0) }}
+
+# Controls whether facts are gathered from remote hosts.
+ansible_gathering = {{ ansible_gathering | default('smart') }}
+
+# Controls whether facts are cached.
+ansible_fact_caching = {{ ansible_fact_caching | default('jsonfile') }}
+
+# The timeout for fact gathering.
+ansible_gathering_timeout = {{ ansible_gathering_timeout | default(10) }}
+
+# The fact caching connection plugin settings.
+ansible_fact_caching_connection = {{ ansible_fact_caching_connection | default('/tmp/ansible fact cache') }}
+
+# The fact caching timeout.
+ansible_fact_caching_timeout = {{ ansible_fact_caching_timeout | default(86400) }}
+
+# Controls whether to check if the remote host is reachable.
+ansible_check_mode = {{ ansible_check_mode | default(false) }}
+
+# Controls whether to diff changes when --diff is used.
+ansible_diff = {{ ansible_diff | default(false) }}
+
+# Controls whether to force change when --force is used.
+ansible_force_handlers = {{ ansible_force_handlers | default(false) }}
+
+# Controls whether to skip handlers.
+ansible_skip_tags = {{ ansible_skip_tags | default([]) | join(',') }}
+
+# Controls which tags to execute.
+ansible_tags = {{ ansible_tags | default([]) | join(',') }}
+
+# Controls whether to use become.
+ansible_become = {{ ansible_become | default(false) }}
+
+# Controls whether to use become method (sudo, su, etc.).
+ansible_become_method = {{ ansible_become_method | default('sudo') }}
+
+# Controls whether to use connection type (ssh, smart, etc.).
+ansible_connection = {{ ansible_connection | default('smart') }}
+
+# Controls whether to use pipelining for SSH connections (faster, but requires specific server config).
+ansible_ssh_pipelining = {{ ansible_ssh_pipelining | default(false) }}
+
+# Controls whether to use the SSH control path (multiplexing).
+ansible_ssh_control_path = {{ ansible_ssh_control_path | default('%(directory)s/ansible-ssh-%%h-%%p-%%r') }}
+
+# Controls the SSH control master timeout.
+ansible_ssh_control_persist = {{ ansible_ssh_control_persist | default('1h') }}
+
+# Controls the SSH control persist timeout.
+ansible_ssh_control_persist_timeout = {{ ansible_ssh_control_persist_timeout | default(3600) }}
+
+# Controls the SSH control path directory.
+ansible_ssh_control_path_dir = {{ ansible_ssh_control_path_dir | default('~/.ansible/cp') }}
+
+# Controls the number of forks (parallel tasks).
+ansible_forks = {{ ansible_forks | default(5) }}
+
+# Controls the maximum number of simultaneous connections to hosts.
+ansible_max_sockets = {{ ansible_max_sockets | default(100) }}
+
+# Controls the retry count for connection failures.
+ansible_retry_on_unreachable = {{ ansible_retry_on_unreachable | default(false) }}
+
+# Controls the retry count for host key verification failures.
+ansible_host_key_checking = {{ ansible_host_key_checking | default(true) }}
+
+# Controls the verbosity of module output.
+ansible_module_compression = {{ ansible_module_compression | default('ZIP') }}
+
+# Controls the module loading strategy.
+ansible_module_lang = {{ ansible_module_lang | default('en_US.UTF-8') }}
+
+# Controls the module environment.
+ansible_module_unarchive = {{ ansible_module_unarchive | default(true) }}
+
+# Controls the module unzip executable.
+ansible_unarchive_exe = {{ ansible_unarchive_exe | default('unzip') }}
+
+# Controls the module tar executable.
+ansible_tar_exe = {{ ansible_tar_exe | default('tar') }}
+
+# Controls the module gzip executable.
+ansible_gzip_exe = {{ ansible_gzip_exe | default('gzip') }}
+
+# Controls the module bzip2 executable.
+ansible_bzip2_exe = {{ ansible_bzip2_exe | default('bzip2') }}
+
+# Controls the module xz executable.
+ansible_xz_exe = {{ ansible_xz_exe | default('xz') }}
+
+# Controls the module lzma executable.
+ansible_lzma_exe = {{ ansible_lzma_exe | default('xz') }}
+
+# Controls the module zstd executable.
+ansible_zstd_exe = {{ ansible_zstd_exe | default('zstd') }}
+
+# Controls the module 7z executable.
+ansible_7z_exe = {{ ansible_7z_exe | default('7z') }}
+
+[privilege_escalation]
+# Controls whether privilege escalation is enabled by default.
+become = {{ ansible_become | default(false) }}
+
+# Controls the become method (sudo, su, etc.).
+become_method = {{ ansible_become_method | default('sudo') }}
+
+# Controls the become user.
+become_user = {{ ansible_become_user | default('root') }}
+
+# Controls whether to ask for become password.
+become_ask_pass = {{ ansible_become_ask_pass | default(false) }}
+
+[ssh_connection]
+# Controls the SSH control path.
+control_path = {{ ansible_ssh_control_path | default('%(directory)s/ansible-ssh-%%h-%%p-%%r') }}
+
+# Controls the SSH control persist timeout.
+control_persist = {{ ansible_ssh_control_persist | default('1h') }}
+
+# Controls the SSH control path directory.
+control_path_dir = {{ ansible_ssh_control_path_dir | default('~/.ansible/cp') }}
+
+# Controls the SSH timeout.
+timeout = {{ ansible_ssh_timeout | default(30) }}
+
+# Controls whether to use pipelining.
+pipelining = {{ ansible_ssh_pipelining | default(false) }}
+
+[persistent_connection]
+# Controls the connection timeout.
+connect_timeout = {{ ansible_persistent_connection_timeout | default(30) }}
+
+# Controls the command timeout.
+command_timeout = {{ ansible_persistent_command_timeout | default(30) }}
+
+[accelerate]
+# Controls whether accelerate mode is enabled.
+accelerate = {{ ansible_accelerate | default(false) }}
+
+# Controls the accelerate port.
+accelerate_port = {{ ansible_accelerate_port | default(5099) }}
+
+# Controls the accelerate timeout.
+accelerate_timeout = {{ ansible_accelerate_timeout | default(300) }}
+
+# Controls the accelerate connect timeout.
+accelerate_connect_timeout = {{ ansible_accelerate_connect_timeout | default(10) }}
+
+# Controls the accelerate daemon timeout.
+accelerate_daemon_timeout = {{ ansible_accelerate_daemon_timeout | default(30) }}
+
+# Controls the accelerate max attempts.
+accelerate_max_attempts = {{ ansible_accelerate_max_attempts | default(10) }}
+
+[colors]
+# Controls the highlight color.
+highlight = {{ ansible_color_highlight | default('magenta') }}
+
+# Controls the verbose color.
+verbose = {{ ansible_color_verbose | default('green') }}
+
+# Controls the changed color.
+changed = {{ ansible_color_changed | default('dark yellow') }}
+
+# Controls the ok color.
+ok = {{ ansible_color_ok | default('green') }}
+
+# Controls the unreachable color.
+unreachable = {{ ansible_color_unreachable | default('red') }}
+
+# Controls the error color.
+error = {{ ansible_color_error | default('dark red') }}
+
+# Controls the debug color.
+debug = {{ ansible_color_debug | default('cyan') }}
+
+# Controls the diff color.
+diff = {{ ansible_color_diff | default('yellow') }}
+
+# Controls the action color.
+action = {{ ansible_color_action | default('cyan') }}
+
+# Controls the warning color.
+warning = {{ ansible_color_warning | default('red') }}
+
+# Controls the prompt color.
+prompt = {{ ansible_color_prompt | default('white') }}
+
+[galaxy]
+# Controls the galaxy server URL.
+server_url = {{ ansible_galaxy_server_url | default('https://galaxy.ansible.com') }}
+
+# Controls whether to verify SSL certificates for Galaxy.
+ignore_certs = {{ ansible_galaxy_ignore_certs | default(false) }}

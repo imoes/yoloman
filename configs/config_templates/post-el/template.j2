@@ -1,20 +1,14 @@
-;; -*-emacs-lisp-*-
+;; -*-emacs-lisp--;
 ;;
 ;; Emacs startup file for post-el package
 ;;
 ;; Shamelessly stolen from the emacs-goodies-el package.
 ;;
-;; This configuration file sets up the load path for the post-el package
-;; and optionally registers post-mode in Emacs' auto-mode-alist to handle
-;; mail/newss composition files automatically.
-;;
 ;; Variables:
-;; - site_lisp_path: Relative path under /usr/share/ where post-el is installed.
-;; - post_insert_auto_mode_default: Whether to auto-register post-mode on load.
+;; - site_lisp_path: The relative path under /usr/share/ where post-el is installed (e.g., site-lisp).
+;; - post_insert_auto_mode_default: Whether to automatically insert post-mode into auto-mode-alist on load.
 
 ;; We have to add this to the load-path:
-;; This block checks for a Debian-specific helper function. If available,
-;; it uses it to construct the load path; otherwise, it manually prepends the path.
 (if (fboundp 'debian-pkg-add-load-path-item)
     (setq load-path (debian-pkg-add-load-path-item
                      (concat "/usr/share/"
@@ -22,14 +16,14 @@
                              "/{{ site_lisp_path | default('site-lisp') }}/post-el")) )
   (setq load-path (cons (concat "/usr/share/"
                                 (symbol-name debian-emacs-flavor)
-                                "/{{ site_lisp_path | default('site-lisp') }}/post-el") load-path)))
+                                "/{{ site_lisp_path | default('site-lisp') }}/post-el") load-path))))
 
 ; load for now, fix it for autoloading later
 ;(load "post")
 
 (autoload 'post-mode "post" "Major mode for composing email or news with an external agent.
-To customize it, type \\[[customize]] and select [Applications] [Mail] [Post].
-When you finish editing this message, type \\[[post-save-current-buffer-and-exit]] to save and exit Emacs.
+To customize it, type \\[customize] and select [Applications] [Mail] [Post].
+When you finish editing this message, type \\[post-save-current-buffer-and-exit] to save and exit Emacs.
 
 \\{post-mode-map}" t)
 
@@ -40,29 +34,22 @@ du jour, or slrn, the spiffy Unix news reader du jour.  You can get
 Mutt from http://www.mutt.org/."
   :group 'mail)
 
-(defcustom post-mail-message "\(mutt-[a-zA-Z0-9-.]+-[0-9]+-[0-9]+\(-[a-fA-F0-9]+\)?\|mutt[a-zA-Z0-9._-]\{6\}\)\'"
+(defcustom post-mail-message "\\(mutt-[a-zA-Z0-9-.]+-[0-9]+-[0-9]+\\(-[a-fA-F0-9]+\\)?\\|mutt[a-zA-Z0-9._-]\\{6\\}\\)\\'"
   "*Regular expression which matches your mailer's temporary files."
   :type 'regexp
   :group 'post)
 
-(defcustom post-news-posting "\.\\(followup\\|letter\\|article\)$"
+(defcustom post-news-posting "\\.\\(followup\\|letter\\|article\\)$"
   "*Regular expression which matches your news reader's composition files"
   :type 'string
   :group 'post)
 
-;; post-insert-to-auto-mode-alist-on-load
-;; Description: Whether to automatically insert post-mode into auto-mode-alist on load.
-;; Type: boolean
-;; Default: t (True)
-(defcustom post-insert-to-auto-mode-alist-on-load {{ post_insert_auto_mode_default | default(true) | lower }}
+; Whether to automatically insert post-mode into auto-mode-alist on load.
+(defcustom post-insert-to-auto-mode-alist-on-load {{ post_insert_auto_mode_default | default('t') }}
   "Automatically insert post-mode with post-mail-message to auto-mode-alist"
   :type 'boolean
   :group 'post)
 
-;; When the auto-registration feature is enabled, this block ensures that
-;; post-mode is added to auto-mode-alist if not already present. This allows
-;; Emacs to automatically switch to post-mode for files matching the
-;; post-mail-message or post-news-posting regular expressions.
 (when post-insert-to-auto-mode-alist-on-load
   (unless (assq post-mail-message auto-mode-alist)
     (setq auto-mode-alist

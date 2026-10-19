@@ -1,0 +1,60 @@
+" === vim-minimal-redhat configuration template ===
+" This file configures Vim for a Red Hat-based minimal environment.
+" It sets up character encoding fallbacks, command history size,
+" template insertion for .spec files, and terminal color support.
+
+" --- Character Encoding ---
+# Description: Default character encoding fallbacks for file reading.
+# If the detected language environment ends in utf8 or UTF-8, use these
+# encodings as fallbacks when the file's encoding cannot be determined.
+if v:lang =~ "utf8$" || v:lang =~ "UTF-8$"
+    set fileencodings={{ fileencodings_default | default('ucs-bom,utf-8,latin1') }}
+endif
+
+" --- Vim Compatibility & Basic Settings ---
+set nocompatible	" Use Vim defaults (much better!)
+set bs=indent,eol,start		" allow backspacing over everything in insert mode
+"set ai			" always set autoindenting on
+"set backup		" keep a backup file
+
+" --- History ---
+# Description: Number of command line history lines to keep.
+# Controls how many previously entered command-line commands are remembered.
+set history={{ history_default | default('50') }}		" keep 50 lines of command line history
+
+set ruler		" show the cursor position all the time
+
+" --- Red Hat Specific Autocommands ---
+" Only do this part when compiled with support for autocommands
+if has("autocmd")
+  augroup redhat
+  autocmd!
+  
+  " In text files, always limit the width of text to 78 characters
+  " autocmd BufRead *.txt set tw=78
+  
+  " When editing a file, always jump to the last cursor position
+  autocmd BufReadPost *
+  \ if line("'\"") > 0 && line ("'\"") <= line("$") |
+  \   exe "normal! g'\"" |
+  \ endif
+  
+  " don't write swapfile on most commonly used directories for NFS mounts or USB sticks
+  autocmd BufNewFile,BufReadPre /media/*,/run/media/*,/mnt/* set directory=~/tmp,/var/tmp,/tmp
+  
+  " --- Template Spec Path ---
+  # Description: Path to the RPM spec file template inserted when creating new .spec files.
+  # When a new file with a .spec extension is created, insert this template at line 0.
+  autocmd BufNewFile *.spec 0r {{ template_spec_path | default('/usr/share/vim/vimfiles/template.spec') }}
+  
+  augroup END
+endif
+
+" --- Terminal Color Settings ---
+# Description: Number of colors supported by the terminal when term is xterm.
+# Configures the color palette size for xterm-compatible terminals.
+if &term=="xterm"
+    set t_Co={{ t_Co_default | default('8') }}
+    set t_Sb=\033[4%dm
+    set t_Sf=\033[3%dm
+endif

@@ -1,0 +1,202 @@
+! SshAskpass.ad:  Default resources for the X11-based ssh-askpass for OpenSSH
+! created 1999-Nov-17 03:40 Jim Knoble <jmknoble@pobox.com>
+! autodate: 2001-Sep-16 18:08
+!
+! by Jim Knoble <jmknoble@pobox.com>
+! Copyright (C) 1999,2000 Jim Knoble
+!
+! Disclaimer:
+!
+! The software is provided "as is", without warranty of any kind,
+! express or implied, including but not limited to the warranties of
+! merchantability, fitness for a particular purpose and
+! noninfringement. In no event shall the author(s) be liable for any
+! claim, damages or other liability, whether in an action of
+! contract, tort or otherwise, arising from, out of or in connection with
+! the software or the use or other dealings in the software.
+!
+! Permission to use, copy, modify, distribute, and sell this software
+! and its documentation for any purpose is hereby granted without
+! fee, provided that the above copyright notice appear in all copies and that
+! both that copyright notice and this permission notice appear in supporting
+! documentation.
+!
+! =============================================================================
+! Self-Documenting Configuration Template for ssh-askpass
+! =============================================================================
+! This template generates an X11 Application Default Resource file (.ad) that
+! configures the appearance and behavior of the ssh-askpass dialog used by
+! OpenSSH for passphrase entry.
+!
+! All variables are mapped to schema fields with explicit defaults to ensure
+! idempotent and safe rendering.
+
+! +-----------------------------+
+! | Default theme (like SSH v1) |
+! +-----------------------------+
+
+! Font specification for the dialog text.
+! Defaults to a standard Adobe Helvetica font.
+*Dialog.font:			{{ dialog_font | default('-adobe-helvetica-bold-r-normal-*-*-120-*-*-*-*-iso8859-1') }}
+
+! X11 Color Definitions (Hardcoded Theme Colors)
+*?.foreground:			rgb:00/00/00
+*?.background:			rgb:cc/cc/cc
+*topShadowColor:		rgb:ff/ff/ff
+*bottomShadowColor:		rgb:7f/7f/7f
+*borderColor:			rgb:20/20/20
+
+! Default shadow thickness for the dialog.
+! Controls the visual depth of the main window border.
+*shadowThickness:		{{ shadow_thickness_default | default('3') }}
+
+! Default border width for the dialog.
+! Defines the width of the main dialog border in pixels.
+*borderWidth:			{{ border_width_default | default('1') }}
+
+! Default horizontal spacing for the dialog.
+! Internal horizontal padding/margin within the main dialog.
+*horizontalSpacing:		{{ horizontal_spacing_default | default('5') }}
+
+! Default vertical spacing for the dialog.
+! Internal vertical padding/margin within the main dialog.
+*verticalSpacing:		{{ vertical_spacing_default | default('6') }}
+
+! --- Button Configuration ---
+
+! Font specification for button text.
+! Defaults to match the dialog font family.
+*Button.font:			{{ button_font | default('-adobe-helvetica-bold-r-normal-*-*-120-*-*-*-*-iso8859-1') }}
+
+! Shadow thickness for buttons.
+! Visual depth for button elements.
+*Button.shadowThickness:	{{ button_shadow_thickness | default('2') }}
+
+! Border width for buttons.
+! Width of the button border in pixels.
+*Button.borderWidth:		{{ button_border_width | default('1') }}
+
+! Horizontal spacing for buttons.
+! Horizontal padding within buttons.
+*Button.horizontalSpacing:	{{ button_horizontal_spacing | default('5') }}
+
+! Vertical spacing for buttons.
+! Vertical padding within buttons.
+*Button.verticalSpacing:	{{ button_vertical_spacing | default('2') }}
+
+! --- Indicator Configuration ---
+
+! Indicator foreground color (hardcoded theme)
+*Indicator.foreground:		rgb:9b/cd/9b
+
+! Indicator background color (hardcoded theme)
+*Indicator.background:		rgb:00/00/80
+
+! Shadow thickness for the indicator.
+! Depth of the shadow around the progress/activity indicator.
+*Indicator.shadowThickness:	{{ indicator_shadow_thickness | default('2') }}
+
+! Border width for the indicator.
+! Width of the indicator border in pixels.
+*Indicator.borderWidth:		{{ indicator_border_width | default('0') }}
+
+! Height of the indicator.
+! Vertical size of the indicator element in pixels.
+*Indicator.height:		{{ indicator_height | default('7') }}
+
+! Width of the indicator.
+! Horizontal size of the indicator element in pixels.
+*Indicator.width:		{{ indicator_width | default('15') }}
+
+! Horizontal spacing for the indicator.
+! Horizontal padding around the indicator.
+*Indicator.horizontalSpacing:	{{ indicator_horizontal_spacing | default('2') }}
+
+! Vertical spacing for the indicator.
+! Vertical padding around the indicator.
+*Indicator.verticalSpacing:	{{ indicator_vertical_spacing | default('4') }}
+
+! Minimum count for the indicator.
+! Minimum number of pulses/segments for the animation.
+*Indicator.minimumCount:	{{ indicator_minimum_count | default('8') }}
+
+! Maximum count for the indicator.
+! Maximum number of pulses/segments for the animation.
+*Indicator.maximumCount:	{{ indicator_maximum_count | default('24') }}
+
+! =============================================================================
+! X11 Resolution Scaling
+! =============================================================================
+! X11 does a miserable job of providing resolution-independent drawing
+! facilities---it expects everything to be done in pixels. So if you
+! happen to run your X server at a resolution of 100 pixels per inch
+! (or some other strange value) instead of the widely used default of 75,
+! x11-ssh-askpass looks might tiny. [Sigh].
+!
+! To get around this, umm, limitation, we declare the resolution that
+! the spacing and width/height pixels values are "valid" for, along
+! with a fuzz factor. If the current actual resolution is outside of
+! the range of <DEFAULT - FUZZ>..<DEFAULT + FUZZ>, then we scale pixel
+! measurements to fit the actual resolution.
+!
+! (And if you think *this* is a horrid hack, then take a look at the
+! actual code, which has to deal with conversion to [cheesy fanfare]
+! that's right---millimeters!!! The right hand managed to slip that
+! one in while the left hand was adding a '-dpi' switch to the sample
+! server implementation. I think both left feet were adding the
+! RESOLUTION_X and RESOLUTION_Y fields [in dots per inch, naturally]
+! to the X Logical Font Description. The irony is underwhelming.)
+
+! Default X resolution for scaling pixel measurements.
+! Used as the baseline DPI for calculating widget sizes.
+*defaultXResolution:		{{ default_x_resolution | default('75/in') }}
+
+! Default Y resolution for scaling pixel measurements.
+! Used as the baseline DPI for calculating widget heights.
+*defaultYResolution:		{{ default_y_resolution | default('75/in') }}
+
+! Fuzz factor for X resolution scaling.
+! Tolerance range around defaultXResolution before scaling is applied.
+*xResolutionFuzz:		{{ x_resolution_fuzz | default('20/in') }}
+
+! Fuzz factor for Y resolution scaling.
+! Tolerance range around defaultYResolution before scaling is applied.
+*yResolutionFuzz:		{{ y_resolution_fuzz | default('20/in') }}
+
+! Number of seconds to wait for input before giving up.
+! 0 means wait forever (infinite timeout).
+*inputTimeout:			{{ input_timeout | default('0') }}
+
+! =============================================================================
+! Keyboard/Pointer Grabbing (Commented out by default)
+! =============================================================================
+
+! Ssh-askpass grabs the keyboard by default.
+! To stop it from grabbing the keyboard, use:
+!*grabKeyboard:			false
+
+! Ssh-askpass does not grab the pointer by default.
+! To make it grab the pointer, use:
+!*grabPointer:			true
+
+! Ssh-askpass does not grab the server by default.
+! To make it grab the server, use:
+!*grabServer:			true
+
+! =============================================================================
+! Dialog Text and Labels
+! =============================================================================
+
+! Title of the authentication dialog.
+! Appears in the window title bar.
+*Dialog.title:			{{ dialog_title | default('OpenSSH Authentication Passphrase Request') }}
+
+! Label text asking for the passphrase.
+! Displayed inside the dialog box.
+*Dialog.label:			{{ dialog_label | default('Please enter your authentication passphrase:') }}
+
+! Label for the OK button.
+*okButton.label:		{{ ok_button_label | default('OK') }}
+
+! Label for the Cancel button.
+*cancelButton.label:		{{ cancel_button_label | default('Cancel') }}

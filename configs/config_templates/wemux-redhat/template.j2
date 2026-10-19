@@ -1,0 +1,94 @@
+## wemux Configuration
+##
+## This configuration file defines how wemux (tmux multiplexer) behaves for users.
+## It controls host permissions, client connection modes, announcements, and socket locations.
+## See wemux documentation for details on each setting.
+
+####### HOST OPTIONS #######
+
+# List of usernames allowed to act as wemux hosts.
+# Hosts can create wemux servers for other users to attach to.
+# Default is an empty list (no specific users forced into host mode by name).
+host_list=({{ host_list | default([]) | join(' ') }})
+
+# List of system groups whose members are allowed to act as wemux hosts.
+# Any user belonging to one of these groups gains host privileges.
+# Default is an empty list.
+host_groups=({{ host_groups | default([]) | join(' ') }})
+
+####### CLIENT OPTIONS #######
+
+# Allow users to attach to the wemux server in pair mode.
+# Pair mode allows two users to share a single tmux session (one view, one input).
+# When set to 'false', clients will only be able to attach in mirror mode.
+# Default: true
+{% if allow_pair_mode is defined and allow_pair_mode is not none and (allow_pair_mode is number or allow_pair_mode is boolean or allow_pair_mode | length > 0) %}allow_pair_mode="{{ allow_pair_mode | default('true') }}"{% else %}# allow_pair_mode="false"{% endif %}
+
+# Allow users to attach to the wemux server in rogue mode.
+# Rogue mode allows a user to take over an existing tmux session forcefully.
+# When set to 'false', clients can only attach in pair or mirror modes.
+# Default: true
+{% if allow_rogue_mode is defined and allow_rogue_mode is not none and (allow_rogue_mode is number or allow_rogue_mode is boolean or allow_rogue_mode | length > 0) %}allow_rogue_mode="{{ allow_rogue_mode | default('true') }}"{% else %}# allow_rogue_mode="false"{% endif %}
+
+# Default mode for client connections when no mode is specified.
+# 'pair' joins a pair session; 'mirror' joins or creates a mirror session.
+# Default: mirror
+{% if default_client_mode is defined and default_client_mode is not none and (default_client_mode is number or default_client_mode is boolean or default_client_mode | length > 0) %}default_client_mode="{{ default_client_mode | default('mirror') }}"{% else %}# default_client_mode="pair"{% endif %}
+
+# Allow hosts to kick users from the server and remove the kicked users' wemux sessions.
+# This is a management action for hosts to maintain session hygiene.
+# Default: true
+{% if allow_kick_user is defined and allow_kick_user is not none and (allow_kick_user is number or allow_kick_user is boolean or allow_kick_user | length > 0) %}allow_kick_user="{{ allow_kick_user | default('true') }}"{% else %}# allow_kick_user="false"{% endif %}
+
+####### MULTI-HOST OPTIONS #######
+
+# Allow users to change their server in multi-host environments.
+# If 'false', users are locked to their assigned server or the default.
+# Default: false
+{% if allow_server_change is defined and allow_server_change is not none and (allow_server_change is number or allow_server_change is boolean or allow_server_change | length > 0) %}allow_server_change="{{ allow_server_change | default('false') }}"{% else %}# allow_server_change="true"{% endif %}
+
+# Name for the default wemux server.
+# This name is used with 'wemux reset' and when allow_server_change is disabled.
+# If empty/None, wemux uses its built-in default behavior.
+{% if default_server_name is defined and default_server_name is not none %}default_server_name="{{ default_server_name }}"
+{% else %}# default_server_name=""
+{% endif %}
+
+# Allow users to list all currently running wemux sockets/servers.
+# This information is exposed to clients via the wemux CLI.
+# Automatically disabled if allow_server_change is 'false'.
+# Default: true
+{% if allow_server_list is defined and allow_server_list is not none and (allow_server_list is number or allow_server_list is boolean or allow_server_list | length > 0) %}allow_server_list="{{ allow_server_list | default('true') }}"{% else %}# allow_server_list="false"{% endif %}
+
+####### ANNOUNCEMENT OPTIONS #######
+
+# Allow users to see list of currently connected wemux users.
+# Shows active sessions and attached users in the server status.
+# Default: true
+{% if allow_user_list is defined and allow_user_list is not none and (allow_user_list is number or allow_user_list is boolean or allow_user_list | length > 0) %}allow_user_list="{{ allow_user_list | default('true') }}"{% else %}# allow_user_list="false"{% endif %}
+
+# Announce when users attach/detach from a tmux server.
+# Sends a message to the host/other users in the session.
+# Default: true
+{% if announce_attach is defined and announce_attach is not none and (announce_attach is number or announce_attach is boolean or announce_attach | length > 0) %}announce_attach="{{ announce_attach | default('true') }}"{% else %}# announce_attach="false"{% endif %}
+
+# Announce when users change the wemux server they are using.
+# Relevant only if allow_server_change is enabled.
+# Default: true
+{% if announce_server_change is defined and announce_server_change is not none and (announce_server_change is number or announce_server_change is boolean or announce_server_change | length > 0) %}announce_server_change="{{ announce_server_change | default('true') }}"{% else %}# announce_server_change="false"{% endif %}
+
+####### OTHER OPTIONS #######
+
+# Location of tmux socket prefix.
+# The actual socket will be created at `${socket_prefix}/${server_name}`.
+# If empty/None, wemux uses its default location (typically /tmp/wemux).
+{% if socket_prefix is defined and socket_prefix is not none %}socket_prefix="{{ socket_prefix }}"
+{% else %}# socket_prefix="/tmp/wemux"
+{% endif %}
+
+# Additional options passed directly to the underlying tmux process.
+# Common example: "-u" to enforce UTF-8 mode.
+# If empty/None, uses wemux's internal defaults.
+{% if options is defined and options is not none %}options="{{ options }}"
+{% else %}# options="-u"
+{% endif %}

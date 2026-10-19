@@ -1,0 +1,120 @@
+# APC Masterswitch Plus configuration via SNMP v1.
+# This template generates a powerman specification file for controlling
+# APC PDU units over the network using SNMP commands.
+#
+# Variables used correspond to fields in the 'powerman-redhat' role schema.
+# All variables are provided with defaults to ensure safety if undefined.
+
+specification "{{ apc_snmp_specification | default('apc-snmp') }}" {
+	# Timeout for SNMP commands in seconds
+	# Default: 10
+	timeout 	{{ apc_snmp_timeout | default('10   # about 5 sec for cycle command') }}
+
+	# List of plug names/IDs
+	# Default: "1" "2" "3" "4" "5" "6" "7" "8"
+	plug name { {{ apc_snmp_plug_names | default('"1" "2" "3" "4" "5" "6" "7" "8"') }} }
+
+	script login {
+		# Expected prompt before login
+		# Default: snmppower>
+		expect "{{ apc_snmp_login_expect | default('snmppower> ') }}"
+
+		# Login command string
+		# Default: start_v1 private\n
+		send "{{ apc_snmp_login_send | default('start_v1 private\\n') }}"
+
+		# Expected prompt after login
+		# Default: snmppower>
+		expect "{{ apc_snmp_login_expect2 | default('snmppower> ') }}"
+	}
+
+	script logout {
+		# Logout command string
+		# Default: finish\n
+		send "{{ apc_snmp_logout_send | default('finish\\n') }}"
+
+		# Expected prompt after logout
+		# Default: snmppower>
+		expect "{{ apc_snmp_logout_expect | default('snmppower> ') }}"
+	}
+
+	# PowerNet-MIB::sPDUMasterState.0
+	script status_all {
+		# SNMP command to get status of all plugs
+		# Default: get enterprises.318.1.1.4.2.2.0\n
+		send "{{ apc_snmp_status_all_send | default('get enterprises.318.1.1.4.2.2.0\\n') }}"
+
+		# Expected output pattern for status_all
+		# Default: enterprises.318.1.1.4.2.2.0: (On|Off)...
+		expect   "{{ apc_snmp_status_all_expect | default('enterprises.318.1.1.4.2.2.0: (On|Off)[[:space:]]+(On|Off)[[:space:]]+(On|Off)[[:space:]]+(On|Off)[[:space:]]+(On|Off)[[:space:]]+(On|Off)[[:space:]]+(On|Off)[[:space:]]+(On|Off)[[:space:]]*\\n') }}"
+
+		setplugstate "1" $1 off="Off" on="On"
+		setplugstate "2" $2 off="Off" on="On"
+		setplugstate "3" $3 off="Off" on="On"
+		setplugstate "4" $4 off="Off" on="On"
+		setplugstate "5" $5 off="Off" on="On"
+		setplugstate "6" $6 off="Off" on="On"
+		setplugstate "7" $7 off="Off" on="On"
+		setplugstate "8" $8 off="Off" on="On"
+	}
+
+	# PowerNet-MIB::sPDUOutletControl.sPDUOutletControlTable.
+	# 	        sPDUOutletControlEntry.sPDUOutletCtl.<outlet:1-8>
+	script on {
+		# SNMP command to turn a plug on
+		# Default: set enterprises.318.1.1.4.4.2.1.3.%s i 1\n
+		send "{{ apc_snmp_on_send | default('set enterprises.318.1.1.4.4.2.1.3.%s i 1\\n') }}"
+
+		# Expected output after turning on
+		# Default: enterprises.318.1.1.4.4.2.1.3.[1-8]: 1\n
+		expect   "{{ apc_snmp_on_expect | default('enterprises.318.1.1.4.4.2.1.3.[1-8]: 1\\n') }}"
+
+		# Expected prompt after turning on
+		# Default: snmppower>
+		expect "{{ apc_snmp_on_expect2 | default('snmppower> ') }}"
+	}
+
+	script off {
+		# SNMP command to turn a plug off
+		# Default: set enterprises.318.1.1.4.4.2.1.3.%s i 2\n
+		send "{{ apc_snmp_off_send | default('set enterprises.318.1.1.4.4.2.1.3.%s i 2\\n') }}"
+
+		# Expected output after turning off
+		# Default: enterprises.318.1.1.4.4.2.1.3.[1-8]: 2\n
+		expect   "{{ apc_snmp_off_expect | default('enterprises.318.1.1.4.4.2.1.3.[1-8]: 2\\n') }}"
+
+		# Expected prompt after turning off
+		# Default: snmppower>
+		expect "{{ apc_snmp_off_expect2 | default('snmppower> ') }}"
+	}
+
+	script cycle {
+		# SNMP command to turn plug off (first part of cycle)
+		# Default: set enterprises.318.1.1.4.4.2.1.3.%s i 2\n
+		send "{{ apc_snmp_cycle_send1 | default('set enterprises.318.1.1.4.4.2.1.3.%s i 2\\n') }}"
+
+		# Expected output after turning off (first part of cycle)
+		# Default: enterprises.318.1.1.4.4.2.1.3.[1-8]: 2\n
+		expect   "{{ apc_snmp_cycle_expect1 | default('enterprises.318.1.1.4.4.2.1.3.[1-8]: 2\\n') }}"
+
+		# Expected prompt after turning off (first part of cycle)
+		# Default: snmppower>
+		expect "{{ apc_snmp_cycle_expect2 | default('snmppower> ') }}"
+
+		# Delay in seconds between turning off and on in cycle command
+		# Default: 5
+		delay {{ apc_snmp_cycle_delay | default('5') }}
+
+		# SNMP command to turn plug on (second part of cycle)
+		# Default: set enterprises.318.1.1.4.4.2.1.3.%s i 1\n
+		send "{{ apc_snmp_cycle_send2 | default('set enterprises.318.1.1.4.4.2.1.3.%s i 1\\n') }}"
+
+		# Expected output after turning on (second part of cycle)
+		# Default: enterprises.318.1.1.4.4.2.1.3.[1-8]: 1\n
+		expect   "{{ apc_snmp_cycle_expect3 | default('enterprises.318.1.1.4.4.2.1.3.[1-8]: 1\\n') }}"
+
+		# Expected prompt after turning on (second part of cycle)
+		# Default: snmppower>
+		expect "{{ apc_snmp_cycle_expect4 | default('snmppower> ') }}"
+	}
+}

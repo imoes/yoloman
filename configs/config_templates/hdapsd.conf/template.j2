@@ -1,71 +1,31 @@
-# hdapsd configuration file
-# This configuration controls the Hard Drive Active Protection System daemon (hdapsd).
-# It protects mechanical hard drives from shock and vibration by parking heads when necessary.
+# Which device(s) should be protected by hdapsd?
+# Can be either a single string (one device):
+{% if device is defined and device is not none and (device is number or device is boolean or device | length > 0) %}{% if device is string %}device="{{ device }}";{% else %}device=[{% for d in device %}"{{ d }}"{{ ", " if not loop.last else "" }}{% endfor %}];{% endif %}
+{% else %}#  device="sda";
+{% endif %}# Or an array of strings (multiple devices):
+#  device=["sda", "sdb"];
+# Will be autodetected if not set.
 
-[hdaps]
-
-# List of block devices to protect (e.g. 'sda', 'hda').
-# Can be specified multiple times in the array.
-# Defaults to 'sda' if not provided.
-device = {{ devices | default(['sda']) | join(', ') }}
-
-# Sensitivity threshold for detecting motion.
-# Higher values mean less sensitive to movement.
-# Default is 15.
-sensitivity = {{ sensitivity | default(15) }}
-
-# Enable adaptive threshold.
-# Automatic increase in sensitivity threshold when built-in keyboard/mouse are used.
-# Corresponds to the --adaptive flag.
-# 1 = enabled, 0 = disabled.
-adaptive = {{ adaptive | default(false) | ternary(1, 0) }}
-
-# Force unloading heads even if kernel thinks different (on pre ATA7 drives).
-# Corresponds to the --force flag.
-# 1 = enabled, 0 = disabled.
-force = {{ force | default(false) | ternary(1, 0) }}
-
-# Autodetect drives as rotational, even if kernel thinks they are not.
-# Corresponds to the --force-rotational flag.
-# 1 = enabled, 0 = disabled.
-force_rotational = {{ force_rotational | default(false) | ternary(1, 0) }}
-
-# Run the process in the background (daemonize).
-# Corresponds to the --background flag.
-# 1 = enabled, 0 = disabled.
-background = {{ background | default(false) | ternary(1, 0) }}
-
-# Don't actually park the drive (test mode).
-# Corresponds to the --dry-run flag.
-# 1 = enabled, 0 = disabled.
-dry_run = {{ dry_run | default(false) | ternary(1, 0) }}
-
-# Force use of sysfs interface to accelerometer.
-# Corresponds to the --poll-sysfs flag.
-# 1 = enabled, 0 = disabled.
-poll_sysfs = {{ poll_sysfs | default(false) | ternary(1, 0) }}
-
-# Uses the hardware fall detection logic instead of the software one.
-# Options --sensitivity and --adaptive have no effect in this mode.
-# Corresponds to the --hardware-logic flag.
-# 1 = enabled, 0 = disabled.
-hardware_logic = {{ hardware_logic | default(false) | ternary(1, 0) }}
-
-# Uses the software fall detection logic even if the hardware one is available.
-# Corresponds to the --software-logic flag.
-# 1 = enabled, 0 = disabled.
-software_logic = {{ software_logic | default(false) | ternary(1, 0) }}
-
-# Don't blink the LEDs when a shock is detected.
-# Corresponds to the --no-leds flag.
-# 1 = enabled, 0 = disabled.
-no_leds = {{ no_leds | default(false) | ternary(1, 0) }}
-
-# Log to syslog instead of stdout/stderr.
-# Corresponds to the --syslog flag.
-# 1 = enabled, 0 = disabled.
-syslog = {{ syslog | default(false) | ternary(1, 0) }}
-
-# PID file location when running in background.
-# Defaults to /var/run/hdapsd.pid if --pidfile is not specified.
-pidfile = {{ pidfile | default('/var/run/hdapsd.pid') }}
+# How sensitive should hdapsd be? Defaults to 15.
+# You probably want to change this.
+{% if sensitivity is defined and sensitivity is not none and sensitivity != '' %}sensitivity={{ sensitivity }};
+{% else %}#  sensitivity=15;
+{% endif %}
+# Enables adaptive mode, where hdapsd adjusts the sensitity
+# while the mouse and keyboard are used.
+# You probably want to enable this.
+{% if adaptive is defined and adaptive is not none and adaptive != '' %}adaptive={{ 'true' if adaptive | bool else 'false' }};
+{% else %}#  adaptive=true;
+{% endif %}
+# Run hdapsd in background as a daemon.
+{% if background is defined and background is not none and background != '' %}background={{ 'true' if background | bool else 'false' }};
+{% else %}#  background=true;
+{% endif %}
+# Write a pid file.
+{% if pidfile is defined and pidfile is not none and pidfile != '' %}pidfile="{{ pidfile }}";
+{% else %}#  pidfile="/var/run/hdapsd.pid";
+{% endif %}
+# Enable logging to syslog.
+{% if syslog is defined and syslog is not none and syslog != '' %}syslog={{ 'true' if syslog | bool else 'false' }};
+{% else %}#  syslog=true;
+{% endif %}

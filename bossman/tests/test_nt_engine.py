@@ -233,3 +233,188 @@ async def test_handlers_run_once_in_definition_order():
     res = await run_runbook(doc, client)
     handler_cmds = [c[1]["cmd"] for c in client.calls if c[0] == "command"]
     assert handler_cmds == ["one", "two"]   # definition order, each once (not notify order)
+
+
+class _StateClient(FakeClient):
+    async def state_apply(self, body, check_mode):
+        self.calls.append(("state_apply", body))
+        return {"changes": [{"action": "update"}]}
+
+
+async def test_config_template_prefers_the_hosts_family_template_for_that_file():
+    """A role names ONE template — the Debian one. Measured in the package e2e: on a RedHat host the wizard
+    would have written Debian's nginx.conf (user www-data, sites-enabled). The family's own template for the
+    destination file wins; without one the named template is used as before."""
+    doc = rb("  - config_template:\n      template: nginx\n      dest: /etc/nginx/nginx.conf\n")
+    templates = {"nginx": "user www-data;\n", "@redhat:/etc/nginx/nginx.conf": "user nginx;\n"}
+    rh, deb = _StateClient(), _StateClient()
+    await run_runbook(doc, rh, {"_family": "redhat"}, templates=templates)
+    await run_runbook(doc, deb, {"_family": "debian"}, templates=templates)
+    assert rh.calls[0][1]["resources"][0]["template"] == "user nginx;\n"
+    assert deb.calls[0][1]["resources"][0]["template"] == "user www-data;\n"
+
+
+def test_a_family_template_carries_its_own_defaults():
+    """The role's form names the Debian template's fields; the RedHat template's `user` stayed unset and nginx got
+    `user ;`. The family entry now sets every field to its own shipped default unless the form supplies it."""
+    from bossman.api.config_templates import with_own_defaults
+
+    body = with_own_defaults("user {{ user }};\nworkers {{ w }};\n",
+                             {"user": {"type": "string", "default": "nginx"}, "w": {"type": "number", "default": 4},
+                              "bad-name": {"default": "x"}, "unset": {"default": None}})
+    assert "{%- set user = user | default(\"nginx\", true) -%}" in body
+    assert "{%- set w = w | default(4, true) -%}" in body
+    assert "bad-name" not in body and "unset" not in body
+    import jinja2
+    assert jinja2.Template(body).render() == "user nginx;\nworkers 4;"
+    assert jinja2.Template(body).render(user="www-data") == "user www-data;\nworkers 4;"
+
+
+async def test_on_a_family_template_the_role_defaults_yield_to_the_family_defaults():
+    """The role's defaults are the Debian template's values; on AlmaLinux php-fpm got `user = www-data`. A value
+    still equal to the role default is dropped for a family template (its own default applies); a value the
+    operator changed is kept; the named (Debian) template still receives everything."""
+    doc = rb("  - config_template:\n      template: php-fpm\n      dest: /etc/php-fpm.d/www.conf\n")
+    templates = {"php-fpm": "user = {{ user }}\n",
+                 "@redhat:/etc/php-fpm.d/www.conf": "user = {{ user }}\npm = {{ pm }}\n"}
+    role_defaults = {"user": "www-data", "pm": "dynamic"}
+    rh = _StateClient()
+    await run_runbook(doc, rh, {"_family": "redhat", "user": "www-data", "pm": "static",
+                                "_role_defaults": role_defaults}, templates=templates)
+    values = rh.calls[0][1]["resources"][0]["values"]
+    assert "user" not in values and values["pm"] == "static" and "_role_defaults" not in values
+    deb = _StateClient()
+    await run_runbook(doc, deb, {"_family": "debian", "user": "www-data", "_role_defaults": role_defaults},
+                      templates=templates)
+    assert deb.calls[0][1]["resources"][0]["values"]["user"] == "www-data"
+
+
+async def test_a_set_value_the_family_file_has_no_setting_for_is_refused():
+    """squid on EL ships 3 directives where Debian documents 207: a value the operator set for a Debian-only field
+    would vanish on the EL host. Refused with the field named; nothing is written."""
+    doc = rb("  - config_template:\n      template: squid\n      dest: /etc/squid/squid.conf\n")
+    templates = {"squid": "http_port {{ http_port }}\ncache_mem {{ cache_mem }}\n",
+                 "@redhat:/etc/squid/squid.conf": "http_port {{ http_port }}\n"}
+    role_defaults = {"http_port": "3128", "cache_mem": "256 MB"}
+    rh = _StateClient()
+    res = await run_runbook(doc, rh, {"_family": "redhat", "http_port": "3128", "cache_mem": "1 GB",
+                                      "_role_defaults": role_defaults}, templates=templates)
+    assert not rh.calls
+    assert "no setting for cache_mem" in res.steps[0].error
+    ok = _StateClient()   # only fields the EL file has: rendered
+    await run_runbook(doc, ok, {"_family": "redhat", "http_port": "3129", "cache_mem": "256 MB",
+                                "_role_defaults": role_defaults}, templates=templates)
+    assert ok.calls[0][1]["resources"][0]["values"]["http_port"] == "3129"
+
+
+async def test_a_value_for_another_familys_field_is_refused_on_this_host():
+    """The role's form is the union of its families' templates; `_family_only` names the fields only some files
+    have. A value the operator set for an EL-only field would be written nowhere on a Debian host — refused, naming
+    the field and where it applies. Left at its default it is no choice and passes; on EL it renders."""
+    doc = rb("  - config_template:\n      template: squid\n      dest: /etc/squid/squid.conf\n")
+    templates = {"squid": "http_port {{ http_port }}\n",
+                 "@redhat:/etc/squid/squid.conf": "http_port {{ http_port }}\nmax_filedescriptors {{ max_fd }}\n"}
+    role_defaults = {"http_port": "3128", "max_fd": "16384"}
+    family_only = {"max_fd": ["redhat"]}
+    deb = _StateClient()
+    res = await run_runbook(doc, deb, {"_family": "debian", "http_port": "3128", "max_fd": "4096",
+                                       "_role_defaults": role_defaults, "_family_only": family_only},
+                            templates=templates)
+    assert not deb.calls
+    assert "max_fd exist(s) only in the redhat file" in res.steps[0].error
+    deb_ok = _StateClient()
+    await run_runbook(doc, deb_ok, {"_family": "debian", "http_port": "3129", "max_fd": "16384",
+                                    "_role_defaults": role_defaults, "_family_only": family_only}, templates=templates)
+    vals = deb_ok.calls[0][1]["resources"][0]["values"]
+    assert vals["http_port"] == "3129" and "_family_only" not in vals
+    rh = _StateClient()
+    await run_runbook(doc, rh, {"_family": "redhat", "http_port": "3128", "max_fd": "4096",
+                                "_role_defaults": role_defaults, "_family_only": family_only}, templates=templates)
+    assert rh.calls[0][1]["resources"][0]["values"]["max_fd"] == "4096"
+
+
+async def test_a_pattern_destination_is_refused_not_written():
+    """php-fpm on Debian wrote /etc/php/*/fpm/pool.d/www.conf literally (a directory named `*`) and read the same
+    path back as "compliant" while the daemon kept its real file."""
+    doc = rb("  - config_template:\n      template: php-fpm\n      dest: /etc/php/*/fpm/pool.d/www.conf\n")
+    c = _StateClient()
+    res = await run_runbook(doc, c, {"_family": "debian"}, templates={"php-fpm": "x\n"})
+    assert not res.ok and "is a pattern, not a file" in res.steps[0].error and not c.calls
+
+
+async def test_a_command_that_exits_non_zero_fails_the_step_and_stops_the_run():
+    """`nginx -t` rc=1 used to count as `changed`; the run then restarted nginx with the broken file."""
+    doc = rb("  - name: validate\n    command:\n      cmd: nginx -t\n"
+             "  - name: restart\n    service:\n      name: nginx\n      state: restarted\n")
+    client = FakeClient({"command": {"changed": True, "msg": "executed",
+                                     "data": {"rc": 1, "stderr": "invalid number of arguments in \"user\""}}})
+    res = await run_runbook(doc, client)
+    assert [c[0] for c in client.calls] == ["command"]
+    assert res.steps[0].status == "failed" and "exit code 1" in res.steps[0].error
+    assert "invalid number of arguments" in res.steps[0].error
+
+
+async def test_ignore_errors_accepts_a_non_zero_exit_deliberately():
+    doc = rb("  - name: probe\n    command:\n      cmd: test -f /x\n    ignore_errors: true\n"
+             "  - name: next\n    ping:\n")
+    client = FakeClient({"command": {"changed": True, "data": {"rc": 1}}})
+    res = await run_runbook(doc, client)
+    assert [c[0] for c in client.calls] == ["command", "ping"]
+
+
+class _AgentShapeClient(FakeClient):
+    """The agent's real /state/apply answer: changes nested under `plan`, in check mode and in apply."""
+
+    def __init__(self, action):
+        super().__init__()
+        self.action = action
+
+    async def state_apply(self, body, check_mode):
+        self.calls.append(("state_apply", body))
+        return {"dry_run": check_mode, "generation": 0,
+                "plan": {"changes": [{"type": "template_render", "path": "/etc/x", "action": self.action}],
+                         "changed_count": 0 if self.action == "noop" else 1}}
+
+
+async def test_config_template_reads_the_agents_plan_changes():
+    """Measured on e2e-deb-1: a managed value edited by hand stayed "compliant", because the engine read a
+    top-level `changes` the agent never sends. Drift must be seen in check mode, and a real change must notify."""
+    doc = rb("  - name: render\n    config_template:\n      template: t\n      dest: /etc/x\n    notify: h\n",
+             "  - name: h\n    command: reload\n")
+    drift = await run_runbook(doc, _AgentShapeClient("update"), templates={"t": "x"}, check_mode=True)
+    assert drift.changed and drift.steps[0].changed
+    same = await run_runbook(doc, _AgentShapeClient("noop"), templates={"t": "x"}, check_mode=True)
+    assert not same.changed
+    applied = _AgentShapeClient("update")
+    await run_runbook(doc, applied, templates={"t": "x"})
+    assert ("command", {"cmd": "reload"}) in [(c[0], c[1]) for c in applied.calls if c[0] == "command"]
+
+
+async def test_dotted_schema_keys_reach_the_template_nested_and_an_empty_dest_is_skipped_with_its_reason():
+    doc = rb("  - config_template:\n      template: avahi\n      dest: /etc/avahi/avahi-daemon.conf\n"
+             "  - config_template:\n      template: avahi\n      dest: ''\n")
+    client = _StateClient()
+    res = await run_runbook(doc, client, {"server.host_name": "box"}, templates={"avahi": "host-name={{ server.host_name }}"})
+    values = client.calls[0][1]["resources"][0]["values"]
+    assert values["server"] == {"host_name": "box"} and values["server.host_name"] == "box"
+    assert res.steps[1].status == "skipped" and "no configuration file" in res.steps[1].error
+
+
+async def test_a_template_is_never_written_over_a_file_it_does_not_render():
+    """cups' template records /etc/cups/snmp.conf; the role's config path is cupsd.conf."""
+    doc = rb("  - config_template:\n      template: cups\n      dest: /etc/cups/cupsd.conf\n")
+    client = _StateClient()
+    res = await run_runbook(doc, client, {}, templates={"cups": "x", "@target:cups": "/etc/cups/snmp.conf"})
+    assert client.calls == []
+    assert res.steps[0].status == "failed" and "renders /etc/cups/snmp.conf" in res.steps[0].error
+    ok = _StateClient()
+    await run_runbook(doc, ok, {}, templates={"cups": "x", "@target:cups": "/etc/cups/cupsd.conf"})
+    assert ok.calls and ok.calls[0][0] == "state_apply"
+
+
+def test_a_default_ending_in_a_backslash_stays_out_of_the_family_prelude():
+    """gonja cannot lex "…\\\\" (exim4-redhat failed to parse on AlmaLinux); such a default is left to the template."""
+    from bossman.api.config_templates import with_own_defaults
+
+    body = with_own_defaults("x {{ a }}\n", {"a": {"default": "line \\"}, "b": {"default": "ok"}})
+    assert "set a =" not in body and "set b = b | default(\"ok\", true)" in body

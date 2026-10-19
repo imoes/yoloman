@@ -1,28 +1,15 @@
 # /etc/krb5kdc/allow-extract -- List of principals for keytab retrieval.
 #
-# This file defines which Kerberos principals are allowed to retrieve their
-# keytabs via the keytab-backend service. Each line must be a valid regular
-# expression that matches a principal name.
+# Any principal matching a regular expression in this file will be
+# eligible for keytab retrieval through keytab-backend.  Be careful to
+# anchor the regular expressions and include realm information if needed.
 #
-# Best practices:
-# - Anchor your regexes (start ^ and end $) to avoid partial matches.
-# - Include realm information if principals from multiple realms are present.
-# - Empty file (or no regexes) means NO principals are eligible.
+# This list is defined by the `allow_rules` variable. If `allow_rules` is
+# not provided or is empty, the file will be empty (or contain only this
+# header depending on upstream software behavior).
 #
-# Variables:
-#   allow_rules: List of regex strings.
+# Each item in `allow_rules` is treated as a string (regular expression).
 
-{% set rules = allow_rules | default([]) %}
-
-# --- Allowed Principals ---
-# The following section is populated by the 'allow_rules' variable.
-# Each item in the list is rendered as a standalone regular expression line.
-# If 'allow_rules' is empty or undefined, this section remains empty.
-
-{% for rule in rules %}
-{{ rule | string | trim }}
+{% for rule in (allow_rules | default([])) %}
+{{ rule }}
 {% endfor %}
-
-{% if rules is not defined or rules is none or rules | length == 0 %}
-# No rules defined. Keytab retrieval is denied for all principals by default.
-{% endif %}

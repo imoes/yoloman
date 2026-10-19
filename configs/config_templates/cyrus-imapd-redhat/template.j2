@@ -1,0 +1,91 @@
+# =============================================================================
+# Cyrus IMAPD - Services and Event Configuration Template
+#
+# This template configures the `master` process for Cyrus IMAP, defining
+# the number of preforked processes for various services (IMAP, POP3, LMTP, etc.)
+# and scheduled events (database checkpointing, pruning).
+#
+# Variables are mapped directly from the Ansible role's inventory/defaults.
+# Each directive is preceded by a comment describing its purpose based on
+# the provided schema.
+# =============================================================================
+
+# Standard standalone server implementation, with preforked processes
+START {
+    # Do not delete this entry!
+    # Recovery command executed on server startup.
+    recover       cmd="ctl_cyrusdb -r"
+}
+
+# UNIX sockets start with a slash and are put into /run/cyrus/socket
+SERVICES {
+    # Number of preforked processes for the IMAP service.
+    imap          cmd="imapd" listen="imap" prefork={{ imap_prefork | default('5') }}
+
+    # Number of preforked processes for the IMAPS (IMAP over SSL) service.
+    imaps         cmd="imapd -s" listen="imaps" prefork={{ imaps_prefork | default('1') }}
+
+    # Number of preforked processes for the POP3 service.
+    pop3          cmd="pop3d" listen="pop3" prefork={{ pop3_prefork | default('3') }}
+
+    # Number of preforked processes for the POP3S (POP3 over SSL) service.
+    pop3s         cmd="pop3d -s" listen="pop3s" prefork={{ pop3s_prefork | default('1') }}
+
+    # Number of preforked processes for the Sieve (mail filtering) service.
+    sieve         cmd="timsieved" listen="sieve" prefork={{ sieve_prefork | default('0') }}
+
+    # These are only necessary if receiving/exporting usenet via NNTP.
+    # Number of preforked processes for the NNTP service (commented out by default).
+    # nntp          cmd="nntpd" listen="nntp" prefork={{ nntp_prefork | default('3') }}
+    # Number of preforked processes for the NNTPS service (commented out by default).
+    # nntps         cmd="nntpd -s" listen="nntps" prefork={{ nntps_prefork | default('1') }}
+
+    # These are only necessary if using HTTP for CalDAV, CardDAV, or RSS.
+    # Number of preforked processes for the HTTP service (CalDAV/CardDAV/RSS).
+    http          cmd="httpd" listen="http" prefork={{ http_prefork | default('3') }}
+
+    # Number of preforked processes for the HTTPS service (CalDAV/CardDAV/RSS).
+    https         cmd="httpd -s" listen="https" prefork={{ https_prefork | default('1') }}
+
+    # At least one LMTP is required for delivery.
+    # Number of preforked processes for the LMTP service over TCP (commented out by default).
+    # lmtp          cmd="lmtpd" listen="lmtp" prefork={{ lmtp_prefork | default('0') }}
+
+    # Number of preforked processes for the LMTP service over Unix socket.
+    lmtpunix      cmd="lmtpd" listen="/run/cyrus/socket/lmtp" prefork={{ lmtpunix_prefork | default('1') }}
+
+    # This is required if using socketmap.
+    # Number of preforked processes for the Socketmap service (commented out by default).
+    # smmap         cmd="smmapd" listen="/run/cyrus/socket/smmap" prefork={{ smmap_prefork | default('1') }}
+
+    # This is only necessary if using notifications.
+    # Number of preforked processes for the notification service (commented out by default).
+    # notify        cmd="notifyd" listen="/run/cyrus/socket/notify" proto="udp" prefork={{ notify_prefork | default('1') }}
+}
+
+EVENTS {
+    # This is required.
+    # Checkpoint period in seconds for the ctl_cyrusdb command.
+    checkpoint    cmd="ctl_cyrusdb -c" period={{ checkpoint_period | default('30') }}
+
+    # This is only necessary if using duplicate delivery suppression,
+    # Sieve or NNTP.
+    # Time of day to run duplicate delivery suppression/Sieve/NNTP pruning in HHMM format.
+    delprune      cmd="cyr_expire -E 3" at={{ delprune_at | default('0400') }}
+
+    # Expire data older than 28 days.
+    # Time of day to run message deletion pruning in HHMM format.
+    deleteprune   cmd="cyr_expire -E 4 -D 28" at={{ deleteprune_at | default('0430') }}
+
+    # Time of day to run expunge pruning in HHMM format.
+    expungeprune  cmd="cyr_expire -E 4 -X 28" at={{ expungeprune_at | default('0445') }}
+
+    # This is only necessary if caching TLS sessions.
+    # Time of day to run TLS session pruning in HHMM format.
+    tlsprune      cmd="tls_prune" at={{ tlsprune_at | default('0400') }}
+}
+
+# This is only necessary if using idled for IMAP IDLE.
+DAEMON {
+    # idled         cmd="idled"
+}

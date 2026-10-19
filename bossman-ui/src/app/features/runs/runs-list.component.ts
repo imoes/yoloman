@@ -4,8 +4,7 @@ import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { RunService } from '../../core/services/run.service';
 import { DeploymentService } from '../../core/services/deployment.service';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
-import { runStatusBadge } from '../../shared/status.util';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /** Block F6 — unified Runs: plan runs, runbook runs, and deployments in one
  * timeline with a type filter (was three fragmented places). A plan run links
@@ -25,7 +24,7 @@ interface UnifiedRun {
 @Component({
   selector: 'app-runs-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, HostStatusBadgeComponent],
+  imports: [StatusPillComponent, RouterLink, DatePipe, MatCardModule],
   template: `
     <div class="bm-page">
       <h1>Runs</h1>
@@ -45,7 +44,7 @@ interface UnifiedRun {
                 <tr [routerLink]="run.link" class="bm-row-link">
                   <td><span class="bm-type bm-type-{{ run.type }}">{{ run.type }}</span></td>
                   <td>{{ run.name }}</td>
-                  <td><app-status-badge [status]="badge(run.status)" [label]="run.status" /></td>
+                  <td><bm-status-pill [status]="run.status" /></td>
                   <td>{{ run.dryRun ? 'yes' : 'no' }}</td>
                   <td>{{ run.by || '—' }}</td>
                   <td>{{ run.when | date: 'medium' }}</td>
@@ -54,7 +53,7 @@ interface UnifiedRun {
                 <tr>
                   <td><span class="bm-type bm-type-{{ run.type }}">{{ run.type }}</span></td>
                   <td>{{ run.name }}</td>
-                  <td><app-status-badge [status]="badge(run.status)" [label]="run.status" /></td>
+                  <td><bm-status-pill [status]="run.status" /></td>
                   <td>{{ run.dryRun ? 'yes' : 'no' }}</td>
                   <td>{{ run.by || '—' }}</td>
                   <td>{{ run.when | date: 'medium' }}</td>
@@ -75,8 +74,8 @@ interface UnifiedRun {
       .bm-chip { padding: 5px 14px; border-radius: 16px; border: 1px solid var(--mat-sys-outline-variant); background: transparent; color: inherit; cursor: pointer; font-size: 13px; }
       .bm-chip-on { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); border-color: transparent; }
       .bm-table { width: 100%; border-collapse: collapse; }
-      .bm-table th { text-align: left; font-size: 12px; opacity: 0.7; padding: 10px 12px; }
-      .bm-table td { padding: 10px 12px; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-table th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) 12px; }
+      .bm-table td { padding: var(--bm-cell-py) 12px; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-row-link { cursor: pointer; }
       .bm-row-link:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
       .bm-empty { opacity: 0.6; text-align: center; }
@@ -131,7 +130,4 @@ export class RunsListComponent implements OnInit {
     this.all.update((cur) => [...cur, ...rows]);
   }
 
-  badge(status: string) {
-    return runStatusBadge(status);
-  }
 }

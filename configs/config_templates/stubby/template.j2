@@ -51,16 +51,19 @@ dns_transport_list:
 # is included in the transport list above.
 # For Strict use        GETDNS_AUTHENTICATION_REQUIRED
 # For Opportunistic use GETDNS_AUTHENTICATION_NONE
-tls_authentication: GETDNS_AUTHENTICATION_REQUIRED
+# Authentication mode: GETDNS_AUTHENTICATION_REQUIRED (Strict) or GETDNS_AUTHENTICATION_NONE (Opportunistic).
+tls_authentication: {{ tls_authentication | default('GETDNS_AUTHENTICATION_REQUIRED') }}
 
 # EDNS0 option to pad the size of the DNS query to the given blocksize
 # 128 is currently recommended by
 # https://tools.ietf.org/html/draft-ietf-dprive-padding-policy-03
-tls_query_padding_blocksize: {{ listen_port }}
+# Block size for EDNS0 padding extension.
+tls_query_padding_blocksize: {{ tls_query_padding_blocksize | default(128) }}
 
 # EDNS0 option for ECS client privacy as described in Section 7.1.2 of
 # https://tools.ietf.org/html/rfc7871
-edns_client_subnet_private : 1
+# Enables or disables EDNS Client Subnet privacy extension.
+edns_client_subnet_private: {{ edns_client_subnet_private | default(1) }}
 
 ############################# CONNECTION SETTINGS ##############################
 # Set to 1 to instruct stubby to distribute queries across all available name
@@ -68,17 +71,15 @@ edns_client_subnet_private : 1
 # better performance in most (but not all) cases.
 # Set to 0 to treat the upstreams below as an ordered list and use a single
 # upstream until it becomes unavailable, then use the next one.
-round_robin_upstreams: {{ round_robin_upstreams | lower }}
+# Whether to distribute queries across all upstreams (true) or use them in ordered fallback (false).
+round_robin_upstreams: {{ round_robin_upstreams | default('1') }}
 
 # EDNS0 option for keepalive idle timeout in milliseconds as specified in
 # https://tools.ietf.org/html/rfc7828
 # This keeps idle TLS connections open to avoid the overhead of opening a new
-# connection for every query. Note that if a given server doesn't implement 
-# EDNS0 keepalive and uses an idle timeout shorter than this stubby will backoff
-# from using that server because the server is always closing the connection.
-# This can degrade performance for certain configurations so reducing the
-# idle_timeout to below that of that lowest server value is recommended.
-idle_timeout: 10000
+# connection for every query.
+# Idle timeout for keepalive connections in milliseconds.
+idle_timeout: {{ idle_timeout | default(10000) }}
 
 # Control the maximum number of connection failures that will be permitted
 # before Stubby backs-off from using an individual upstream (default 2)
@@ -110,20 +111,23 @@ idle_timeout: 10000
 
 # Set the minimum acceptable TLS version. Works with OpenSSL >= 1.1.1 only.
 # This option can also be given per upstream.
-# tls_min_version: GETDNS_TLS1_2
+# Minimum TLS version: 'GETDNS_TLS1_2' or 'GETDNS_TLS1_3'.
+tls_min_version: {{ tls_min_version | default('GETDNS_TLS1_2') }}
 
 # Set the maximum acceptable TLS version. Works with OpenSSL >= 1.1.1 only.
-# This option can also be given per upstream.
 # tls_max_version: GETDNS_TLS1_3
 
 ################################ LISTEN ADDRESS ################################
 # Set the listen addresses for the stubby DAEMON. This specifies localhost IPv4
 # and IPv6. It will listen on port 53 by default. Use <IP_address>@<port> to
 # specify a different port
+# IP addresses to bind the local DNS listener to. Include '0.0.0.0' or '::' to accept remote queries (not recommended for privacy).
 listen_addresses:
-{% for addr in listen_addresses %}
-  - {{ addr }}
+{# An address starting with ':' is written with a leading 0 (::1 → 0::1, as the shipped file does): stubby's YAML
+   reader refuses a list item that begins with a colon ("Could not parse config file"). #}
+{% for addr in listen_addresses | default(['127.0.0.1', '0::1']) %}  - {{ addr | string | regex_replace('^:', '0:') }}
 {% endfor %}
+
 ############################### DNSSEC SETTINGS ################################
 # Require DNSSEC validation. This will withhold answers with BOGUS DNSSEC
 # status and answers that could not be validated (i.e. with DNSSEC status
@@ -136,7 +140,7 @@ listen_addresses:
 # Stubby tries to fetch and validate the DNSSEC root trust anchor on the fly
 # when needed (Zero configuration DNSSEC), but only if it can store then
 # somewhere.  The default location to store these files is the ".getdns"
-# subdirectory in the user's home directory on Unixes, and the %appdata%
+# subdirectory in the user's home directory on Unixes, and the %appdata%\getdns
 # directory on Windows. If there is no home directory, or
 # the required subdirectory could not be created (or is not present), Stubby
 # will fall back to the current working directory to try to store the
@@ -192,35 +196,32 @@ upstream_recursive_servers:
 ####### IPv4 addresses ######
 ### Test servers ###
 # The Surfnet/Sinodun servers
-{% for upstream in upstream_servers %}
-{% if upstream.address_data|ipversion == 4 %}
-  - address_data: {{ upstream.address_data }}
-{% if upstream.fqdn %}
-    tls_auth_name: "{{ upstream.fqdn }}"
-{% endif %}
-{% if upstream.pubkey %}
+# List of DoT upstream servers to use. Each entry specifies the IP address, optional FQDN for TLS authentication, and optional SPKI pinset for authentication.
+{% for server in upstream_servers | default([{'address_data': '145.100.185.15', 'fqdn': 'dnsovertls.sinodun.com', 'pubkey': '62lKu9HsDVbyiPenApnc4sfmSYTHOVfFgL3pyB+cBL4='}, {'address_data': '145.100.185.16', 'fqdn': 'dnsovertls1.sinodun.com', 'pubkey': 'cE2ecALeE5B+urJhDrJlVFmf38cJLAvqekONvjvpqUA='}, {'address_data': '185.49.141.37', 'fqdn': 'getdnsapi.net', 'pubkey': 'foxZRnIh9gZpWnl+zEiKa0EJ2rdCGroMWm02gaxSc9Q='}]) %}  - address_data: {{ server.address_data }}
+    tls_auth_name: "{{ server.fqdn }}"
     tls_pubkey_pinset:
       - digest: "sha256"
-        value: {{ upstream.pubkey }}
-{% endif %}
-{% endif %}
+        value: {{ server.pubkey }}
 {% endfor %}
 ####### IPv6 addresses ######
 ### Test servers ###
 # The Surfnet/Sinodun servers
-{% for upstream in upstream_servers %}
-{% if upstream.address_data|ipversion == 6 %}
-  - address_data: {{ upstream.address_data }}
-{% if upstream.fqdn %}
-    tls_auth_name: "{{ upstream.fqdn }}"
-{% endif %}
-{% if upstream.pubkey %}
+  - address_data: 2001:610:1:40ba:145:100:185:15
+    tls_auth_name: "dnsovertls.sinodun.com"
     tls_pubkey_pinset:
       - digest: "sha256"
-        value: {{ upstream.pubkey }}
-{% endif %}
-{% endif %}
-{% endfor %}
+        value: 62lKu9HsDVbyiPenApnc4sfmSYTHOVfFgL3pyB+cBL4=
+  - address_data: 2001:610:1:40ba:145:100:185:16
+    tls_auth_name: "dnsovertls1.sinodun.com"
+    tls_pubkey_pinset:
+      - digest: "sha256"
+        value: cE2ecALeE5B+urJhDrJlVFmf38cJLAvqekONvjvpqUA=
+# The getdnsapi.net server
+  - address_data: 2a04:b900:0:100::38
+    tls_auth_name: "getdnsapi.net"
+    tls_pubkey_pinset:
+      - digest: "sha256"
+        value: foxZRnIh9gZpWnl+zEiKa0EJ2rdCGroMWm02gaxSc9Q=
 
 
 ############################ OPTIONAL UPSTREAMS  ###############################
@@ -299,13 +300,13 @@ upstream_recursive_servers:
 #    tls_auth_name: "dot.securedns.eu"
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: h3mufC43MEqRD6uE4lz6gAgULZ5/riqH/E+U+jE3H8g=
+#        value: h3mufC4MEqRD6uE4lz6gAgULZ5/riqH/E+U+jE3H8g=
 ## dns-tls.bitwiseshift.net
 #  - address_data: 81.187.221.24
 #    tls_auth_name: "dns-tls.bitwiseshift.net"
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: YmcYWZU5dd2EoblZHNf1jTUPVS+uK3280YYCdz4l4wo=
+#        value: YmcYWZUdd2EoblZHNf1jTUPVS+uK3280YYCdz4l4wo=
 ## ns1.dnsprivacy.at
 #  - address_data: 94.130.110.185
 #    tls_auth_name: "ns1.dnsprivacy.at"
@@ -323,12 +324,12 @@ upstream_recursive_servers:
 #    tls_auth_name: "dns.bitgeek.in"
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: FndaG4ezEBQs4k0Ya3xt3z4BjFEyQHd7B75nRyP1nTs=
+#        value: FndaGzEBQs4k0Ya3xt3z4BjFEyQHd7B75nRyP1nTs=
 ## Lorraine Data Network  (self-signed cert).
 #  - address_data: 80.67.188.188
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: WaG0kHUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
+#        value: WaG0kUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
 ## dns.neutopia.org
 #  - address_data: 89.234.186.112
 #    tls_auth_name: "dns.neutopia.org"
@@ -420,13 +421,13 @@ upstream_recursive_servers:
 #    tls_auth_name: "dot.securedns.eu"
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: h3mufC43MEqRD6uE4lz6gAgULZ5/riqH/E+U+jE3H8g=
+#        value: h3mufC4MEqRD6uE4lz6gAgULZ5/riqH/E+U+jE3H8g=
 ## dns-tls.bitwiseshift.net
 #  - address_data: 2001:8b0:24:24::24
 #    tls_auth_name: "dns-tls.bitwiseshift.net"
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: YmcYWZU5dd2EoblZHNf1jTUPVS+uK3280YYCdz4l4wo=
+#        value: YmcYWZUdd2EoblZHNf1jTUPVS+uK3280YYCdz4l4wo=
 ## ns1.dnsprivacy.at
 #  - address_data: 2a01:4f8:c0c:3c03::2
 #    tls_auth_name: "ns1.dnsprivacy.at"
@@ -449,7 +450,7 @@ upstream_recursive_servers:
 #  - address_data: 2001:913::8
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: WaG0kHUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
+#        value: WaG0kUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
 ## dns.neutopia.org
 #  - address_data: 2a00:5884:8209::2
 #    tls_auth_name: "dns.neutopia.org"
@@ -481,7 +482,6 @@ upstream_recursive_servers:
 #      - digest: "sha256"
 #        value: 62lKu9HsDVbyiPenApnc4sfmSYTHOVfFgL3pyB+cBL4=
 #  - address_data: 145.100.185.16
-#    tls_port: 443
 #    tls_auth_name: "dnsovertls1.sinodun.com"
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
@@ -500,7 +500,7 @@ upstream_recursive_servers:
 #    tls_port: 443
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: WaG0kHUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
+#        value: WaG0kUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
 ## dns.neutopia.org
 #  - address_data: 89.234.186.112
 #    tls_port: 443
@@ -535,7 +535,7 @@ upstream_recursive_servers:
 #    tls_port: 443
 #    tls_pubkey_pinset:
 #      - digest: "sha256"
-#        value: WaG0kHUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
+#        value: WaG0kUS5N/ny0labz85HZg+v+f0b/UQ73IZjFep0nM=
 ## dns.neutopia.org
 #  - address_data: 2a00:5884:8209::2
 #    tls_port: 443

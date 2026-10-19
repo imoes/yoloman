@@ -1,154 +1,256 @@
-# =============================================================================
-# I2PD Configuration Template (i2pd.conf)
-# =============================================================================
-# This file configures the I2P Daemon (I2PD).
-# All settings use the schema-provided defaults if not overridden by Ansible variables.
-# =============================================================================
+## Configuration file for a typical i2pd user
+## See https://i2pd.readthedocs.io/en/latest/user-guide/configuration/
+## for more options you can use in this file.
 
-# --- Logging ---
+## Lines that begin with "## " try to explain what's going on. Lines
+## that begin with just "#" are disabled commands: you can enable them
+## by removing the "#" symbol.
 
-# Logging verbosity: error, warn, info, debug, trace
-loglevel = {{ log_level | default('info') }}
+## Tunnels config file
+## Default: ~/.i2pd/tunnels.conf or /var/lib/i2pd/tunnels.conf
+# tunconf = /var/lib/i2pd/tunnels.conf
 
-# Path to log file
-logfile = {{ log_file | default('/var/log/i2pd/i2pd.log') }}
+## Tunnels config files path
+## Use that path to store separated tunnels in different config files.
+## Default: ~/.i2pd/tunnels.d or /var/lib/i2pd/tunnels.d
+# tunnelsdir = /var/lib/i2pd/tunnels.d
 
-# --- Network Settings ---
+## Path to certificates used for verifying .su3, families
+## Default: ~/.i2pd/certificates or /var/lib/i2pd/certificates
+# certsdir = /var/lib/i2pd/certificates
 
-# Bind host for I2P router (e.g., 0.0.0.0 for all interfaces)
-host = {{ host | default('127.0.0.1') }}
+## Where to write pidfile (default: /run/i2pd.pid, not used in Windows)
+# pidfile = /run/i2pd.pid
 
-# Port for I2P router (NTCP/SSU)
-port = {{ port | default(4444) }}
+## Logging configuration section
+## By default logs go to stdout with level 'info' and higher
+## For Windows OS by default logs go to file with level 'warn' and higher
+##
+## Logs destination (valid values: stdout, file, syslog)
+##  * stdout - print log entries to stdout
+##  * file - log entries to a file
+##  * syslog - use syslog, see man 3 syslog
+# log = file
+## Path to logfile
+{% if log_file is defined and log_file is not none and (log_file is number or log_file is boolean or log_file | length > 0) %}logfile = {{ log_file | default('/var/log/i2pd/i2pd.log') }}
+{% else %}# logfile = /var/log/i2pd/i2pd.log
+{% endif %}## Log messages above this level
+{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}loglevel = {{ log_level | default('warn') }}
+{% else %}# loglevel = warn
+{% endif %}## Write full CLF-formatted date and time to log
+# logclftime = true
 
-# --- Limits and Timeouts ---
+## Daemon mode
+{% if daemon_mode is defined and daemon_mode is not none and (daemon_mode is number or daemon_mode is boolean or daemon_mode | length > 0) %}daemon = {{ daemon_mode | default('true') }}
+{% else %}# daemon = true
+{% endif %}
+## Specify a family
+# family =
 
-# Maximum simultaneous network connections
-maxconn = {{ max_connections | default(128) }}
+## Network interface to bind to
+# ifname =
+# ifname4 =
+# ifname6 =
 
-# Timeout (in seconds) for tunnel build attempts
-tunnelbuildtimeout = {{ tunnel_build_timeout | default(10) }}
+## Local address to bind transport sockets to
+# address4 =
+# address6 =
 
-# --- Bandwidth Limits ---
+## External IPv4 or IPv6 address to listen for connections
+{% if host is defined and host is not none and (host is number or host is boolean or host | length > 0) %}host = {{ host | default('1.2.3.4') }}
+{% else %}# host = 1.2.3.4
+{% endif %}
+## Port to listen for connections
+# port = {{ port | default(4444) }}
 
-# Outbound bandwidth limit in KB/s
-bandwidth = {{ outbound_bandwidth | default(1024) }}
+## Enable communication through ipv4
+ipv4 = true
+## Enable communication through ipv6
+ipv6 = false
 
-# Inbound bandwidth limit in KB/s (share for transit)
-share = {{ inbound_bandwidth | default(1024) }}
+## Bandwidth configuration
+## L limit bandwidth to 32 KB/sec, O - to 256 KB/sec, P - to 2048 KB/sec,
+## X - unlimited
+## Default is L (regular node) and X if floodfill mode enabled.
+# bandwidth = L
+## Max % of bandwidth limit for transit
+{% if share_ratio is defined and share_ratio is not none and (share_ratio is number or share_ratio is boolean or share_ratio | length > 0) %}share = {{ share_ratio | default('100') }}
+{% else %}# share = 100
+{% endif %}
+## Router will not accept transit tunnels
+{% if transit_enabled is defined and transit_enabled is not none and (transit_enabled is number or transit_enabled is boolean or transit_enabled | length > 0) %}notransit = {{ transit_enabled | default(True) | ternary('false', 'true') }}
+{% else %}# notransit = true
+{% endif %}
+## Router will be floodfill
+# floodfill = true
 
-# --- Tunnel Settings ---
+[ntcp2]
+## Enable NTCP2 transport
+# enabled = true
+## Publish address in RouterInfo
+# published = true
+## Port for incoming connections
+# port = {{ port | default(4444) }}
 
-# Number of gateway routers per tunnel
-gateways = {{ tunnel_gateways | default(3) }}
+[ssu2]
+## Enable SSU2 transport
+# enabled = true
+## Publish address in RouterInfo
+# published = true
+## Port for incoming connections
+# port = {{ port | default(4444) }}
 
-# Number of hops in each tunnel (0 = un-anonymized)
-hops = {{ tunnel_hops | default(2) }}
+[http]
+## Web Console settings
+## Enable the Web Console
+# enabled = {{ enable_webconsole | default('true') }}
+## Address and port service will listen on
+# address = {{ webconsole_host | default('127.0.0.1') }}
+# port = {{ webconsole_port | default(7070) }}
+## Path to web console
+# webroot = /
+## Enable Web Console authentication
+{% if enable_webconsole is defined and enable_webconsole is not none and (enable_webconsole is number or enable_webconsole is boolean or enable_webconsole | length > 0) %}auth = {{ enable_webconsole | default('true') }}
+{% else %}# auth = true
+{% endif %}## HTTP basic auth credentials (format: username:password)
+{% if webconsole_auth is defined and webconsole_auth is not none and (webconsole_auth is number or webconsole_auth is boolean or webconsole_auth | length > 0) %}user = {{ webconsole_auth | default('user:pass') | regex_replace('^([^:]*):.*$', '\\1') }}
+{% else %}# user = i2pd
+{% endif %}{% if webconsole_auth is defined and webconsole_auth is not none and (webconsole_auth is number or webconsole_auth is boolean or webconsole_auth | length > 0) %}pass = {{ webconsole_auth | default('user:pass') | regex_replace('^[^:]*:(.*)$', '\\1') }}
+{% else %}# pass = changeme
+{% endif %}## Select webconsole language
+# lang = english
 
-# Length of tunnel (in hops, overrides 'hops' for new tunnels)
-tunnellength = {{ tunnel_length | default(3) }}
+[httpproxy]
+## Enable the HTTP proxy
+# enabled = true
+## Address and port service will listen on
+# address = 127.0.0.1
+# port = 4444
+## Optional keys file for proxy local destination
+# keys = http-proxy-keys.dat
+## Enable address helper for adding .i2p domains with "jump URLs"
+# addresshelper = true
+## Address of a proxy server inside I2P
+# outproxy = http://false.i2p
 
-# Number of tunnels to build at once
-tunnelquantity = {{ tunnel_quantity | default(1) }}
+[socksproxy]
+## Enable the SOCKS proxy
+# enabled = true
+## Address and port service will listen on
+# address = 127.0.0.1
+# port = 4447
+## Optional keys file for proxy local destination
+# keys = socks-proxy-keys.dat
+## Enable using of SOCKS outproxy
+# outproxy.enabled = false
+## Address and port of outproxy
+# outproxy = 127.0.0.1
+# outproxyport = 9050
 
-# --- Sharing ---
+[sam]
+## Enable the SAM bridge
+# enabled = false
+## Address and ports service will listen on
+# address = 127.0.0.1
+# port = 7656
+# portudp = 7655
 
-# Bandwidth sharing percentage (0–100); higher = more transit participation
-shareratio = {{ share_ratio | default(80) }}
+[bob]
+## Enable the BOB command channel
+# enabled = false
+## Address and port service will listen on
+# address = 127.0.0.1
+# port = 2827
 
-# --- Daemon Operation ---
+[i2cp]
+## Enable the I2CP protocol
+# enabled = false
+## Address and port service will listen on
+# address = 127.0.0.1
+# port = 7654
 
-# Run I2PD as a background daemon
-daemon = {{ daemon_mode | default(true) | lower }}
+[i2pcontrol]
+## Enable the I2PControl protocol
+# enabled = false
+## Address and port service will listen on
+# address = 127.0.0.1
+# port = 7650
+## Authentication password
+# password = itoopie
 
-# Enable SSDP to discover UPnP/NAT-PMP devices
-ssdp = {{ enable_ssdp | default(true) | lower }}
+[precomputation]
+## Enable or disable elgamal precomputation table
+# elgamal = true
 
-# Enable automatic NAT-PMP/UPnP port mapping
-upnp = {{ enable_upnp | default(true) | lower }}
+[upnp]
+## Enable or disable UPnP
+# enabled = {{ enable_upnp | default(True) }}
+## Name i2pd appears in UPnP forwardings list
+# name = I2Pd
 
-# --- Paths ---
+[meshnets]
+## Enable connectivity over the Yggdrasil network
+# yggdrasil = false
+## You can bind address from your Yggdrasil subnet
+# yggaddress =
 
-# Directory for persistent data (keys, tunnels, etc.)
-datadir = {{ data_dir | default('/var/lib/i2pd') }}
+[reseed]
+## Options for bootstrapping into I2P network
+## Enable reseed data verification
+verify = true
+## URLs to request reseed data from
+# urls = https://reseed.i2p-projekt.de/,https://i2p.mooo.com/netDb/,https://netdb.i2p2.no/
+## Reseed URLs through the Yggdrasil
+# yggurls = http://[324:71e:281a:9ed3::ace]:7070/
+## Path to local reseed data file (.su3) for manual reseeding
+# file = /path/to/i2pseeds.su3
+## or HTTPS URL to reseed from
+# file = https://legit-website.com/i2pseeds.su3
+## Path to local ZIP file or HTTPS URL to reseed from
+# zipfile = /path/to/netDb.zip
+## If you run i2pd behind a proxy server, set proxy server for reseeding here
+# proxy = http://127.0.0.1:8118
+## Minimum number of known routers, below which i2pd triggers reseeding
+# threshold = 25
 
-# Directory for config and profile files
-confdir = {{ conf_dir | default('/etc/i2pd') }}
+[addressbook]
+## AddressBook subscription URL for initial setup
+## Optional subscriptions URLs, separated by comma
+{% if addressbook_urls is defined and addressbook_urls is not none and (addressbook_urls is number or addressbook_urls is boolean or addressbook_urls | length > 0) %}subscriptions = {{ addressbook_urls | default(['http://stats.i2p/cgi-bin/newbase60.pl', 'http://i2p.mooo.com/netdb/']) | join(',') }}
+{% else %}# subscriptions = http://reg.i2p/hosts.txt,http://identiguy.i2p/hosts.txt,http://stats.i2p/cgi-bin/newhosts.txt
+{% endif %}
+[limits]
+## Maximum active transit sessions
+{% if transit_tunnels is defined and transit_tunnels is not none and (transit_tunnels is number or transit_tunnels is boolean or transit_tunnels | length > 0) %}transittunnels = {{ transit_tunnels | default('5000') }}
+{% else %}# transittunnels = 5000
+{% endif %}## Limit number of open file descriptors
+# openfiles = 0
+## Maximum size of corefile in Kb
+# coresize = 0
 
-# --- Web Console ---
+[trust]
+## Enable explicit trust options
+# enabled = true
+## Make direct I2P connections only to routers in specified Family
+# family = MyFamily
+## Make direct I2P connections only to routers specified here
+# routers =
+## Should we hide our router from other routers
+# hidden = true
 
-# Enable the web-based admin console
-webconsole = {{ enable_webconsole | default(false) | lower }}
-
-# Bind host for the webconsole
-webconsolehost = {{ webconsole_host | default('127.0.0.1') }}
-
-# Port for the webconsole
-webconsoleport = {{ webconsole_port | default(7070) }}
-
-# HTTP basic auth credentials as 'username:password'
-webconsoleauth = {{ webconsole_auth | default('user:pass') }}
-
-# Path to TLS certificate for HTTPS webconsole
-webconsolecert = {{ webconsole_cert | default('/etc/i2pd/webconsole.crt') }}
-
-# Path to TLS private key for HTTPS webconsole
-webconsolekey = {{ webconsole_key | default('/etc/i2pd/webconsole.key') }}
-
-# --- Optional Services ---
-
-# Enable fee-based tunnel prioritization (requires fees.conf)
-fees = {{ enable_fees | default(true) | lower }}
-
-# List of address book publisher URLs
-# Note: In the config file, these are joined by spaces or newlines depending on parser version.
-# Here we join with space as a safe delimiter for ini-style parsers.
-addressbookurls = {{ addressbook_urls | default(['http://stats.i2p/cgi-bin/newbase60.pl', 'http://i2p.mooo.com/netdb/']) | join(' ') }}
-
-# --- Transit Settings ---
-
-# Allow routing of I2P traffic for other users
-transit = {{ transit_enabled | default(true) | lower }}
-
-# Maximum number of transit tunnels to maintain
-transittunnels = {{ transit_tunnels | default(40) }}
-
-# --- Transport Settings ---
-
-# Enable legacy NTCP transport
-ntcp = {{ enable_ntcp | default(true) | lower }}
-
-# Enable SSU transport (recommended)
-ssu = {{ enable_ssu | default(true) | lower }}
-
-# Enable NTCP2 transport (future-proof)
-ntcp2 = {{ enable_ntcp2 | default(true) | lower }}
-
-# --- Local Services ---
-
-# List of local I2P services to expose (e.g., HTTP, IRC, SSH)
-# Each service block defines the local binding for a destination.
-{% for service in services | default([]) %}
-# --- Service: {{ service.name | default('unnamed') }} ---
-
-# Local port for this service
-{{ service.name | default('unnamed') }}.port = {{ service.port | default(0) }}
-
-# Bind host for this service (usually 127.0.0.1 for local-only)
-{{ service.name | default('unnamed') }}.host = {{ service.host | default('127.0.0.1') }}
-
-# Inbound tunnel length for this service
-{{ service.name | default('unnamed') }}.inbound.length = {{ service.inbound_length | default(3) }}
-
-# Outbound tunnel length for this service
-{{ service.name | default('unnamed') }}.outbound.length = {{ service.outbound_length | default(3) }}
-
-# Inbound tunnel quantity for this service
-{{ service.name | default('unnamed') }}.inbound.quantity = {{ service.inbound_quantity | default(1) }}
-
-# Outbound tunnel quantity for this service
-{{ service.name | default('unnamed') }}.outbound.quantity = {{ service.outbound_quantity | default(1) }}
-
-# Path to the private key for this destination
-{{ service.name | default('unnamed') }}.privatekey = {{ service.private_key_path | default('/dev/null') }}
-{% endfor %}
+[exploratory]
+## Exploratory tunnels settings with default values
+{% if tunnel_hops is defined and tunnel_hops is not none and (tunnel_hops is number or tunnel_hops is boolean or tunnel_hops | length > 0) %}inbound.length = {{ tunnel_hops | default('2') }}
+{% else %}# inbound.length = 2
+{% endif %}{% if tunnel_quantity is defined and tunnel_quantity is not none and (tunnel_quantity is number or tunnel_quantity is boolean or tunnel_quantity | length > 0) %}inbound.quantity = {{ tunnel_quantity | default('3') }}
+{% else %}# inbound.quantity = 3
+{% endif %}{% if tunnel_hops is defined and tunnel_hops is not none and (tunnel_hops is number or tunnel_hops is boolean or tunnel_hops | length > 0) %}outbound.length = {{ tunnel_hops | default('2') }}
+{% else %}# outbound.length = 2
+{% endif %}{% if tunnel_quantity is defined and tunnel_quantity is not none and (tunnel_quantity is number or tunnel_quantity is boolean or tunnel_quantity | length > 0) %}outbound.quantity = {{ tunnel_quantity | default('3') }}
+{% else %}# outbound.quantity = 3
+{% endif %}
+[persist]
+## Save peer profiles on disk
+# profiles = true
+## Save full addresses on disk
+# addressbook = true

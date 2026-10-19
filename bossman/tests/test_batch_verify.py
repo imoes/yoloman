@@ -234,3 +234,38 @@ async def test_execution_snmp_skips_model(monkeypatch):
     chat = FakeChatClient(json_obj={"execution": "service"})   # would be wrong if used
     assert await cce.classify_one(chat, "if64") == "snmp"
     assert chat.calls == 0                                      # deterministic, no model call
+
+
+def test_two_loop_variables_over_dict2items_are_refused_and_fixed():
+    """Measured with the agent's engine: `for k, v in X | dict2items` renders every entry as the literal
+    `key = value` (a role's postfix main.cf got "key = value"). The contract refuses it; the fixer rewrites to
+    `| dictsort`, which yields the pairs, and leaves the one-variable Ansible idiom alone."""
+    from bossman.tools.batch_verify import fix_dict2items_unpack, verify_template
+
+    bad = "{% for key, value in tls | dict2items %}{{ key }} = {{ value }}\n{% endfor %}"
+    assert any("dict2items" in p for p in verify_template(bad, {}))
+    fixed = fix_dict2items_unpack(bad)
+    assert "| dictsort" in fixed and "dict2items" not in fixed
+    assert verify_template(fixed, {}) == []
+    nested = "{% for a, b in (cfg | default({}) | dict2items) %}{% for k, v in b|dict2items %}{% endfor %}{% endfor %}"
+    assert "dict2items" not in fix_dict2items_unpack(nested)
+    ok = "{% for item in tls | dict2items %}{{ item.key }}{% endfor %}"
+    assert fix_dict2items_unpack(ok) == ok and verify_template(ok, {}) == []
+
+
+def test_attribute_access_on_an_object_without_default_is_made_null_safe():
+    from bossman.tools.batch_verify import null_safe_objects
+
+    schema = {"pve": {"type": "object", "default": None}, "srv": {"type": "object"}, "name": {"type": "string"}}
+    t = "auth: {{ pve.auth_url }}\n{% for k, v in srv.items() %}{{ k }}{% endfor %}\n# pve.auth_url stays prose\n{{ name.x }}"
+    out, touched = null_safe_objects(t, schema)
+    assert "(pve | default({})).auth_url" in out and "(srv | default({})) | dictsort" in out
+    assert "# pve.auth_url stays prose" in out and "{{ name.x }}" in out and set(touched) == {"pve", "srv"}
+    assert null_safe_objects(out, schema)[0] == out      # idempotent
+
+
+def test_a_nested_chain_is_guarded_at_every_level():
+    from bossman.tools.batch_verify import null_safe_objects
+
+    out, _ = null_safe_objects("{{ systemd.journal.default }}", {"systemd": {"type": "object", "default": None}})
+    assert out == "{{ ((systemd | default({})).journal | default({})).default }}"

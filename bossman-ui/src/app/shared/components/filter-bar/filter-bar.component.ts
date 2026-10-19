@@ -56,13 +56,13 @@ export function filterParams(values: FilterValues): Record<string, string> {
           @switch (f.kind) {
             @case ('select') {
               <label class="bm-filter-lbl">{{ f.label }}</label>
-              <select [ngModel]="strVal(f.ident)" (ngModelChange)="set(f.ident, $event)">
+              <select [attr.aria-label]="f.label" [ngModel]="strVal(f.ident)" (ngModelChange)="set(f.ident, $event)">
                 <option value="">All</option>
                 @for (o of f.options ?? []; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
               </select>
             }
             @case ('text') {
-              <input type="text" [placeholder]="f.placeholder || f.label"
+              <input type="text" [attr.aria-label]="f.label" [placeholder]="f.placeholder || f.label"
                      [ngModel]="strVal(f.ident)" (ngModelChange)="setDebounced(f.ident, $event)" />
             }
             @case ('checkbox') {

@@ -1,0 +1,36 @@
+#!/bin/sh
+# ==============================================================================
+# kf5-plasma-redhat: First-Run Cache Cleanup Script
+# ==============================================================================
+# This script performs a one-time cleanup of Plasma cache files on first run.
+# It checks a configuration key to ensure cleanup happens only once per session
+# or as defined by the `FirstRun` state.
+#
+# Configuration is read from the KDE config file specified by config_file.
+# The default config file is 'fedora-plasma-cacherc'.
+# ==============================================================================
+
+# Check if this is the first run by reading the 'FirstRun' key from the
+# configuration group '5.116.0' in file fedora-plasma-cacherc.
+# If the key is missing or matches 'true' (default), we proceed with cleanup.
+#
+# Variables:
+#   config_file: Name of the KDE config file (default: fedora-plasma-cacherc)
+#   first_run_key_group: The config group key (default: 5.116.0)
+#   first_run_key: The specific config key (default: FirstRun)
+#   first_run_default: Default value if key missing (default: true)
+#   first_run_check_value: Value triggering cleanup (default: true)
+if [ "`kreadconfig5 --file {{ config_file | default('fedora-plasma-cacherc') }} --group {{ first_run_key_group | default('5.116.0') }} --key {{ first_run_key | default('FirstRun') }} --default {{ first_run_default | default('true') }}`" = "{{ first_run_check_value | default('true') }}" ]; then
+
+    # Remove cached files matching the glob pattern for *.kcache and plasma-svgelements-*
+    # Paths are resolved using XDG_CACHE_HOME or falling back to ~/.cache.
+    # Variable: cache_pattern (default: {*.kcache,plasma-svgelements-*})
+    # NOTE: The glob braces { } are literal shell glob characters, not Jinja delimiters.
+    rm -fv "${XDG_CACHE_HOME:-${HOME}/.cache"/{{ cache_pattern | default('{*.kcache,plasma-svgelements-*}') }}
+
+    # Mark the first run as completed by setting the 'FirstRun' key
+    # in group '5.116.0' to 'false'.
+    # This prevents future executions of this cleanup logic.
+    # Variable: first_run_set_value (default: false)
+    kwriteconfig5 --file {{ config_file | default('fedora-plasma-cacherc') }} --group {{ first_run_key_group | default('5.116.0') }} --key {{ first_run_key | default('FirstRun') }} --type bool {{ first_run_set_value | default('false') }}
+fi

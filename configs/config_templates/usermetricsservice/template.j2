@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<!--
+  D-Bus System Bus Configuration for User Metrics Service
+  This template generates a busconfig that grants a specific system user
+  ownership of a D-Bus service name and allows default communication.
+-->
+<busconfig>
+
+  <!--
+    Policy for the service owner user.
+    Grants the specified user the ability to own the service name.
+  -->
+  <!-- user: The system user allowed to own the D-Bus service. -->
+  <policy user="{{ user | default('usermetrics') }}">
+    <!-- dbus_service_name: The D-Bus service name to be owned and allowed for communication. -->
+    <allow own="{{ dbus_service_name | default('com.lomiri.UserMetrics') }}"/>
+  </policy>
+
+  <!--
+    Default Policy for all other users.
+    Controls what non-owner users can do regarding this service name.
+  -->
+  <policy context="default">
+    <!-- Allow sending messages to the service owner -->
+    <allow send_destination="{{ dbus_service_name | default('com.lomiri.UserMetrics') }}"/>
+    <!-- Allow receiving messages sent by the service owner -->
+    <allow receive_sender="{{ dbus_service_name | default('com.lomiri.UserMetrics') }}"/>
+  </policy>
+
+</busconfig>

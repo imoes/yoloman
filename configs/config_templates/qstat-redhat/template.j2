@@ -1,0 +1,996 @@
+# =============================================================================
+# QStat Configuration Template
+# =============================================================================
+# This file configures qstat (Quick Status) to query various game servers.
+# Each 'gametype' block defines a protocol handler for a specific game or master
+# server list. Fields like 'name', 'template var', and 'default port' are
+# populated from Ansible variables defined in the role's defaults/main.yml.
+#
+# Reference: http://www.qstat.org
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Soldier of Fortune 2 (SOF2)
+# -----------------------------------------------------------------------------
+# gametype SOF2S: Defines the protocol for querying SOF2 game servers.
+gametype SOF2S new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Soldier of Fortune 2
+    # default port: The UDP port SOF2 servers listen on for status queries.
+    default port = {{ qstat_sof2s_port | default(20100) }}
+    # template var: Internal variable name used by qstat for this game.
+    template var = SOLDIEROFFORTUNE2
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+end
+
+# -----------------------------------------------------------------------------
+# SOF2 Master Server
+# -----------------------------------------------------------------------------
+# gametype SOF2M: Defines the protocol for querying the SOF2 public master list.
+gametype SOF2M new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = SOF2 Master
+    # default port: The UDP port the SOF2 Master server listens on.
+    default port = {{ qstat_sof2m_port | default(20110) }}
+    # template var: Internal variable name for this master server type.
+    template var = SOF2MASTER
+    # master protocol: The version of the master server protocol to use (2004 for SOF2 1.02).
+    master protocol = 2004
+    # master query: The query type sent to the master server (SOF2FULL).
+    master query = SOF2FULL
+    # master for gametype: The underlying game type this master serves (sof2s).
+    master for gametype = sof2s
+end
+
+# -----------------------------------------------------------------------------
+# SOF2 Master Server (Legacy 1.0)
+# -----------------------------------------------------------------------------
+# gametype SOF2M1.0: Legacy master server definition for SOF2 1.0.
+gametype SOF2M1.0 new extend SOF2M
+    # name: Human-readable name for this legacy master server type.
+    name = SOF2 Master (1.0)
+    # master protocol: The legacy protocol version (2002).
+    master protocol = 2002
+end
+
+# -----------------------------------------------------------------------------
+# Command and Conquer: Renegade
+# -----------------------------------------------------------------------------
+# gametype CRS: Defines the protocol for querying C&C: Renegade servers.
+gametype CRS new extend GPS
+    # name: Human-readable name for this game type.
+    name = Command and Conquer: Renegade
+    # default port: The UDP port C&C: Renegade servers listen on.
+    default port = {{ qstat_crs_port | default(25300) }}
+    # template var: Internal variable name for this game type.
+    template var = CNCRENEGADE
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+end
+
+# -----------------------------------------------------------------------------
+# Medal of Honor: Allied Assault (Gamespy Protocol)
+# -----------------------------------------------------------------------------
+# gametype MAS: Defines the protocol for MOHAA using the Gamespy status protocol.
+gametype MAS new extend GPS
+    # name: Human-readable name for this game type.
+    name = Medal of Honor: Allied Assault
+    # default port: The UDP port MOHAA (Gamespy) servers listen on.
+    default port = {{ qstat_mas_port | default(12300) }}
+    # template var: Internal variable name for this game type.
+    template var = MOHALLIEDASSAULT
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+end
+
+# -----------------------------------------------------------------------------
+# Medal of Honor: Allied Assault (Quake 3 Protocol)
+# -----------------------------------------------------------------------------
+# gametype MAQS: Defines the protocol for MOHAA using the Quake 3 status protocol.
+# Note: The Q3 protocol response is limited compared to Gamespy.
+gametype MAQS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Medal of Honor: Allied Assault (Q)
+    # default port: The UDP port MOHAA (Q3) servers listen on.
+    default port = {{ qstat_maqs_port | default(12300) }}
+    # template var: Internal variable name for this game type.
+    template var = MOHALLIEDASSAULT
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+    # status packet: The raw packet bytes for the 'getinfo' query.
+    status packet = \xff\xff\xff\xff\x02getinfo\n
+    # status2 packet: The raw packet bytes for the 'getstatus' query.
+    status2 packet = \xff\xff\xff\xff\x02getstatus\n
+end
+
+# -----------------------------------------------------------------------------
+# Half-Life (Quake 2 Style)
+# -----------------------------------------------------------------------------
+# gametype HLQS: Defines the protocol for Half-Life servers using Q2 status.
+gametype HLQS new extend Q2S
+    # name: Human-readable name for this game type.
+    name = Half-Life
+    # template var: Internal variable name for this game type.
+    template var = HALFLIFE
+    # default port: The UDP port Half-Life (Q2) servers listen on.
+    default port = {{ qstat_hlqs_port | default(27015) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamedir
+    # status packet: The raw packet bytes for the status query.
+    status packet = \xff\xff\xff\xffinfostring\x00
+end
+
+# -----------------------------------------------------------------------------
+# Serious Sam
+# -----------------------------------------------------------------------------
+# gametype SMS: Defines the protocol for Serious Sam servers.
+gametype SMS new extend GPS
+    # name: Human-readable name for this game type.
+    name = Serious Sam
+    # default port: The UDP port Serious Sam servers listen on.
+    default port = {{ qstat_sms_port | default(25600) }}
+    # status port offset: Offset applied to the status query port.
+    status port offset = 1
+    # template var: Internal variable name for this game type.
+    template var = SERIOUSSAM
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+end
+
+# -----------------------------------------------------------------------------
+# Medal of Honor: Allied Assault (MHS Protocol)
+# -----------------------------------------------------------------------------
+# gametype MHS: Defines the protocol for MOHAA using the MHS status protocol.
+gametype MHS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Medal of Honor: Allied Assault
+    # default port: The UDP port MOHAA (MHS) servers listen on.
+    default port = {{ qstat_mhs_port | default(12204) }}
+    # template var: Internal variable name for this game type.
+    template var = MOHALLIEDASSAULT
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+    # status packet: The raw packet bytes for the 'getinfo' query.
+    status packet = \377\377\377\377\002getinfo xxx
+    # status2 packet: The raw packet bytes for the 'getstatus' query.
+    status2 packet = \377\377\377\377\002getstatus xxx
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty
+# -----------------------------------------------------------------------------
+# gametype CODS: Defines the protocol for Call of Duty game servers.
+gametype CODS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Call of Duty
+    # default port: The UDP port COD servers listen on.
+    default port = {{ qstat_cods_port | default(28960) }}
+    # template var: Internal variable name for this game type.
+    template var = CALLOFDUTY
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty Master Server
+# -----------------------------------------------------------------------------
+# gametype CODM: Defines the protocol for the COD public master list.
+gametype CODM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Call of Duty Master
+    # default port: The UDP port the COD Master server listens on.
+    default port = {{ qstat_codm_port | default(20510) }}
+    # template var: Internal variable name for this master server type.
+    template var = CODMASTER
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 5
+    # master for gametype: The underlying game type this master serves (CODS).
+    master for gametype = CODS
+    # master query: The query type sent to the master server.
+    master query = full empty
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty 2
+# -----------------------------------------------------------------------------
+# gametype COD2S: Defines the protocol for Call of Duty 2 game servers.
+gametype COD2S new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Call of Duty 2
+    # default port: The UDP port COD2 servers listen on.
+    default port = {{ qstat_cod2s_port | default(28960) }}
+    # template var: Internal variable name for this game type.
+    template var = CALLOFDUTY2
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty 2 Master Server
+# -----------------------------------------------------------------------------
+# gametype COD2M: Defines the protocol for the COD2 public master list.
+gametype COD2M new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Call of Duty 2 Master
+    # default port: The UDP port the COD2 Master server listens on.
+    default port = {{ qstat_cod2m_port | default(20710) }}
+    # template var: Internal variable name for this master server type.
+    template var = COD2MASTER
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 118
+    # master for gametype: The underlying game type this master serves (COD2S).
+    master for gametype = COD2S
+    # master query: The query type sent to the master server.
+    master query = full empty
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty 4
+# -----------------------------------------------------------------------------
+# gametype COD4S: Defines the protocol for Call of Duty 4 game servers.
+gametype COD4S new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Call of Duty 4
+    # default port: The UDP port COD4 servers listen on.
+    default port = {{ qstat_cod4s_port | default(28960) }}
+    # template var: Internal variable name for this game type.
+    template var = CALLOFDUTY4
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty 4 Master Server
+# -----------------------------------------------------------------------------
+# gametype COD4M: Defines the protocol for the COD4 public master list.
+gametype COD4M new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Call of Duty 4 Master
+    # default port: The UDP port the COD4 Master server listens on.
+    default port = {{ qstat_cod4m_port | default(20810) }}
+    # template var: Internal variable name for this master server type.
+    template var = COD4MASTER
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 6
+    # master for gametype: The underlying game type this master serves (COD4S).
+    master for gametype = COD4S
+    # master query: The query type sent to the master server.
+    master query = full empty
+end
+
+# -----------------------------------------------------------------------------
+# Call of Duty World at War
+# -----------------------------------------------------------------------------
+# gametype WAWS: Defines the protocol for COD: WaW game servers.
+gametype WAWS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Call of Duty World at War
+    # default port: The UDP port COD: WaW servers listen on.
+    default port = {{ qstat_waws_port | default(28960) }}
+    # template var: Internal variable name for this game type.
+    template var = CALLOFDUTYWAW
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gametype
+end
+
+# -----------------------------------------------------------------------------
+# Enemy Territory
+# -----------------------------------------------------------------------------
+# gametype WOETS: Defines the protocol for Enemy Territory game servers.
+gametype WOETS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Enemy Territory
+    # template var: Internal variable name for this game type.
+    template var = ENEMYTERRITORY
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype WOETM: Defines the protocol for the Enemy Territory public master list.
+gametype WOETM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Enemy Territory Master
+    # template var: Internal variable name for this master server type.
+    template var = WOETSMASTER
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 84
+    # master for gametype: The underlying game type this master serves (WOETS).
+    master for gametype = WOETS
+    # master query: The query type sent to the master server.
+    master query = empty full
+end
+
+# -----------------------------------------------------------------------------
+# NetPanzer
+# -----------------------------------------------------------------------------
+# gametype NETP: Defines the protocol for NetPanzer game servers.
+gametype NETP new extend GPS
+    # name: Human-readable name for this game type.
+    name = NetPanzer
+    # template var: Internal variable name for this game type.
+    template var = NETPANZER
+end
+
+# gametype NETPM: Defines the protocol for the NetPanzer public master list.
+gametype NETPM new extend GSM
+    # name: Human-readable name for this master server type.
+    name = NetPanzer Master
+    # template var: Internal variable name for this master server type.
+    template var = NETPANZERMASTER
+    # master for gametype: The underlying game type this master serves (NETP).
+    master for gametype = NETP
+end
+
+# -----------------------------------------------------------------------------
+# Steam Master for Half-Life 2
+# -----------------------------------------------------------------------------
+# gametype STMHL2: Defines the protocol for querying the Steam HL2 Master.
+gametype STMHL2 new extend STM
+    # name: Human-readable name for this master server type.
+    name = Steam Master for HL2
+    # template var: Internal variable name for this master server type.
+    template var = STEAMMASTERHL2
+    # master for gametype: The underlying game type this master serves (HL2S).
+    master for gametype = HL2S
+    # default port: The UDP port the Steam HL2 Master listens on.
+    default port = {{ qstat_stmhl2_port | default(27011) }}
+end
+
+# -----------------------------------------------------------------------------
+# Steam Master for A2S (Source Engine)
+# -----------------------------------------------------------------------------
+# gametype STMA2S: Defines the protocol for querying the Steam A2S Master.
+gametype STMA2S new extend STM
+    # name: Human-readable name for this master server type.
+    name = Steam Master for A2S
+    # template var: Internal variable name for this master server type.
+    template var = STEAMMASTERA2S
+    # master for gametype: The underlying game type this master serves (A2S).
+    master for gametype = A2S
+    # default port: The UDP port the Steam A2S Master listens on.
+    default port = {{ qstat_stma2s_port | default(27011) }}
+end
+
+# -----------------------------------------------------------------------------
+# Unreal Tournament 2004
+# -----------------------------------------------------------------------------
+# gametype UT2004S: Defines the protocol for UT2004 game servers.
+gametype UT2004S new extend UT2S
+    # name: Human-readable name for this game type.
+    name = UT2004
+    # template var: Internal variable name for this game type.
+    template var = UT2004
+end
+
+# gametype UT2004M: Defines the protocol for the UT2004 public master list.
+gametype UT2004M modify
+    # master for gametype: The underlying game type this master serves (UT2004S).
+    master for gametype = UT2004S
+end
+
+# -----------------------------------------------------------------------------
+# Nexuiz
+# -----------------------------------------------------------------------------
+# gametype NEXUIZS: Defines the protocol for Nexuiz game servers.
+gametype NEXUIZS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Nexuiz
+    # template var: Internal variable name for this game type.
+    template var = NEXUIZ
+    # default port: The UDP port Nexuiz servers listen on.
+    default port = {{ qstat_nexuizs_port | default(26000) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype NEXUIZM: Defines the protocol for the Nexuiz public master list.
+gametype NEXUIZM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Nexuiz Master
+    # template var: Internal variable name for this master server type.
+    template var = NEXUIZMASTER
+    # default port: The UDP port the Nexuiz Master server listens on.
+    default port = {{ qstat_nexuizm_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers Nexuiz %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 3
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (NEXUIZS).
+    master for gametype = NEXUIZS
+end
+
+# -----------------------------------------------------------------------------
+# Xonotic
+# -----------------------------------------------------------------------------
+# gametype XONOTICS: Defines the protocol for Xonotic game servers.
+gametype XONOTICS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Xonotic
+    # template var: Internal variable name for this game type.
+    template var = XONOTIC
+    # default port: The UDP port Xonotic servers listen on.
+    default port = {{ qstat_xonotics_port | default(26000) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype XONOTICM: Defines the protocol for the Xonotic public master list.
+gametype XONOTICM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Xonotic Master
+    # template var: Internal variable name for this master server type.
+    template var = XONOTICMASTER
+    # default port: The UDP port the Xonotic Master server listens on.
+    default port = {{ qstat_xonoticm_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers Xonotic %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 3
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (XONOTICS).
+    master for gametype = XONOTICS
+end
+
+# -----------------------------------------------------------------------------
+# Warsow
+# -----------------------------------------------------------------------------
+# gametype WARSOWS: Defines the protocol for Warsow game servers.
+gametype WARSOWS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Warsow
+    # template var: Internal variable name for this game type.
+    template var = WARSOW
+    # default port: The UDP port Warsow servers listen on.
+    default port = {{ qstat_warsows_port | default(44400) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+    # status packet: The raw packet bytes for the 'getinfo' query.
+    status packet = \377\377\377\377getinfo
+    # status2 packet: The raw packet bytes for the 'getstatus' query.
+    status2 packet = \377\377\377\377getstatus
+end
+
+# gametype WARSOWM: Defines the protocol for the Warsow public master list.
+gametype WARSOWM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Warsow Master
+    # template var: Internal variable name for this master server type.
+    template var = WARSOWMASTER
+    # default port: The UDP port the Warsow Master server listens on.
+    default port = {{ qstat_warsowm_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers Warsow %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 22
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (WARSOWS).
+    master for gametype = WARSOWS
+end
+
+# -----------------------------------------------------------------------------
+# Tremulous
+# -----------------------------------------------------------------------------
+# gametype TREMULOUSS: Defines the protocol for Tremulous game servers.
+gametype TREMULOUSS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Tremulous
+    # template var: Internal variable name for this game type.
+    template var = TREMULOUSS
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype TREMULOUSM: Defines the protocol for the Tremulous public master list.
+gametype TREMULOUSM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Tremulous Master
+    # template var: Internal variable name for this master server type.
+    template var = TREMULOUSMASTER
+    # default port: The UDP port the Tremulous Master server listens on.
+    default port = {{ qstat_tremulousm_port | default(30710) }}
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 69
+    # master for gametype: The underlying game type this master serves (TREMULOUSS).
+    master for gametype = TREMULOUSS
+end
+
+# -----------------------------------------------------------------------------
+# Tremulous GPP
+# -----------------------------------------------------------------------------
+# gametype TREMULOUSGPPS: Defines the protocol for Tremulous GPP game servers.
+gametype TREMULOUSGPPS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Tremulous GPP
+    # template var: Internal variable name for this game type.
+    template var = TREMULOUSGPPS
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype TREMULOUSGPPM: Defines the protocol for the Tremulous GPP public master list.
+gametype TREMULOUSGPPM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Tremulous GPP Master
+    # template var: Internal variable name for this master server type.
+    template var = TREMULOUSGPPMASTER
+    # default port: The UDP port the Tremulous GPP Master server listens on.
+    default port = {{ qstat_tremulousgppm_port | default(30700) }}
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 70
+    # master for gametype: The underlying game type this master serves (TREMULOUSGPPS).
+    master for gametype = TREMULOUSGPPS
+end
+
+# -----------------------------------------------------------------------------
+# Unvanquished
+# -----------------------------------------------------------------------------
+# gametype UNVANQUISHEDS: Defines the protocol for Unvanquished game servers.
+gametype UNVANQUISHEDS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Unvanquished
+    # template var: Internal variable name for this game type.
+    template var = UNVANQUISHED
+    # default port: The UDP port Unvanquished servers listen on.
+    default port = {{ qstat_unvanquisheds_port | default(27960) }}
+    # status packet: The raw packet bytes for the 'getstatus' query.
+    status packet = \xff\xff\xff\xffgetstatus
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype UNVANQUISHEDM: Defines the protocol for the Unvanquished public master list.
+gametype UNVANQUISHEDM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Unvanquished Master
+    # template var: Internal variable name for this master server type.
+    template var = UNVANQUISHEDMASTER
+    # default port: The UDP port the Unvanquished Master server listens on.
+    default port = {{ qstat_unvanquishedm_port | default(27950) }}
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 86
+    # master for gametype: The underlying game type this master serves (UNVANQUISHEDS).
+    master for gametype = UNVANQUISHEDS
+end
+
+# -----------------------------------------------------------------------------
+# Half-Life 2 (Source Engine A2S)
+# -----------------------------------------------------------------------------
+# gametype HLA2S: Defines the protocol for Half-Life 2 (Source) game servers.
+gametype HLA2S new extend A2S
+    # name: Human-readable name for this game type.
+    name = Half-Life
+    # template var: Internal variable name for this game type.
+    template var = HLA2S
+end
+
+# gametype HLA2SM: Defines the protocol for the Half-Life 2 Steam Master.
+gametype HLA2SM new extend STM
+    # master for gametype: The underlying game type this master serves (HLA2S).
+    master for gametype = HLA2S
+    # default port: The UDP port the Half-Life 2 Steam Master listens on.
+    default port = {{ qstat_hla2sm_port | default(27010) }}
+end
+
+# -----------------------------------------------------------------------------
+# Prey
+# -----------------------------------------------------------------------------
+# gametype PREYM: Defines the protocol for the Prey public master list.
+gametype PREYM new extend DM3M
+    # name: Human-readable name for this master server type.
+    name = Prey Master
+    # template var: Internal variable name for this master server type.
+    template var = PREYMASTER
+    # default port: The UDP port the Prey Master server listens on.
+    default port = {{ qstat_preym_port | default(27655) }}
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (PREYS).
+    master for gametype = PREYS
+end
+
+# -----------------------------------------------------------------------------
+# Jedi Knight 2
+# -----------------------------------------------------------------------------
+# gametype JK2S: Defines the protocol for Jedi Knight 2 game servers.
+gametype JK2S new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Jedi Knight 2
+    # default port: The UDP port Jedi Knight 2 servers listen on.
+    default port = {{ qstat_jk2s_port | default(28070) }}
+    # template var: Internal variable name for this game type.
+    template var = JEDIKNIGHT2
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype JK2M: Defines the protocol for the Jedi Knight 2 public master list.
+gametype JK2M new extend JK3M
+    # name: Human-readable name for this master server type.
+    name = Jedi Knight 2
+    # default port: The UDP port the Jedi Knight 2 Master server listens on.
+    default port = {{ qstat_jk2m_port | default(28060) }}
+    # template var: Internal variable name for this master server type.
+    template var = JK2MASTER
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 16
+    # master for gametype: The underlying game type this master serves (JK2S).
+    master for gametype = JK2S
+end
+
+# -----------------------------------------------------------------------------
+# Unreal Tournament 3
+# -----------------------------------------------------------------------------
+# gametype UT3S: Defines the protocol for UT3 game servers.
+gametype UT3S new extend GS4
+    # name: Human-readable name for this game type.
+    name = UT3
+    # default port: The UDP port UT3 servers listen on.
+    default port = {{ qstat_ut3s_port | default(6500) }}
+    # template var: Internal variable name for this game type.
+    template var = UT3
+end
+
+# -----------------------------------------------------------------------------
+# OpenArena
+# -----------------------------------------------------------------------------
+# gametype OPENARENAS: Defines the protocol for OpenArena game servers.
+gametype OPENARENAS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = OpenArena
+    # template var: Internal variable name for this game type.
+    template var = OPENARENA
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype OPENARENAM: Defines the protocol for the OpenArena public master list.
+gametype OPENARENAM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = OpenArena Master
+    # template var: Internal variable name for this master server type.
+    template var = OPENARENAMASTER
+    # default port: The UDP port the OpenArena Master server listens on.
+    default port = {{ qstat_openarenam_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 71
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (OPENARENAS).
+    master for gametype = OPENARENAS
+end
+
+# -----------------------------------------------------------------------------
+# Q3 Rally
+# -----------------------------------------------------------------------------
+# gametype Q3RALLYS: Defines the protocol for Q3 Rally game servers.
+gametype Q3RALLYS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Q3 Rally
+    # template var: Internal variable name for this game type.
+    template var = Q3RALLY
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype Q3RALLYM: Defines the protocol for the Q3 Rally public master list.
+gametype Q3RALLYM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Q3 Rally Master
+    # template var: Internal variable name for this master server type.
+    template var = Q3RALLYMASTER
+    # default port: The UDP port the Q3 Rally Master server listens on.
+    default port = {{ qstat_q3rallym_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers Q3Rally %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 71
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (Q3RALLYS).
+    master for gametype = Q3RALLYS
+end
+
+# -----------------------------------------------------------------------------
+# World Of Padman
+# -----------------------------------------------------------------------------
+# gametype WOPS: Defines the protocol for World Of Padman game servers.
+gametype WOPS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = World Of Padman
+    # template var: Internal variable name for this game type.
+    template var = WOP
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype WOPM: Defines the protocol for the World Of Padman public master list.
+gametype WOPM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = World Of Padman Master
+    # template var: Internal variable name for this master server type.
+    template var = WOPMASTER
+    # default port: The UDP port the World Of Padman Master server listens on.
+    default port = {{ qstat_wopm_port | default(27955) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers WorldofPadman %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 71
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (WOPS).
+    master for gametype = WOPS
+end
+
+# -----------------------------------------------------------------------------
+# Urban Terror
+# -----------------------------------------------------------------------------
+# gametype IOURTS: Defines the protocol for Urban Terror game servers.
+gametype IOURTS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Urban Terror
+    # template var: Internal variable name for this game type.
+    template var = IOURT
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype IOURTM: Defines the protocol for the Urban Terror public master list.
+gametype IOURTM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Urban Terror Master
+    # template var: Internal variable name for this master server type.
+    template var = IOURTMASTER
+    # default port: The UDP port the Urban Terror Master server listens on.
+    default port = {{ qstat_iourt_m_port | default(27900) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 68
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (IOURTS).
+    master for gametype = IOURTS
+end
+
+# -----------------------------------------------------------------------------
+# Reaction
+# -----------------------------------------------------------------------------
+# gametype REACTIONS: Defines the protocol for Reaction game servers.
+gametype REACTIONS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Reaction
+    # template var: Internal variable name for this game type.
+    template var = REACTION
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype REACTIONM: Defines the protocol for the Reaction public master list.
+gametype REACTIONM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Reaction Master
+    # template var: Internal variable name for this master server type.
+    template var = REACTIONMASTER
+    # default port: The UDP port the Reaction Master server listens on.
+    default port = {{ qstat_reactionm_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 68
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (REACTIONS).
+    master for gametype = REACTIONS
+end
+
+# -----------------------------------------------------------------------------
+# Smokin' Guns
+# -----------------------------------------------------------------------------
+# gametype SMOKINGUNSS: Defines the protocol for Smokin' Guns game servers.
+gametype SMOKINGUNSS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Smokin' Guns
+    # template var: Internal variable name for this game type.
+    template var = SMOKINGUNS
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype SMOKINGUNSM: Defines the protocol for the Smokin' Guns public master list.
+gametype SMOKINGUNSM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Smokin' Guns Master
+    # template var: Internal variable name for this master server type.
+    template var = SMOKINGUNSMASTER
+    # default port: The UDP port the Smokin' Guns Master server listens on.
+    default port = {{ qstat_smokingunsm_port | default(27960) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 68
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (SMOKINGUNSS).
+    master for gametype = SMOKINGUNSS
+end
+
+# -----------------------------------------------------------------------------
+# ZEQ2 Lite
+# -----------------------------------------------------------------------------
+# gametype ZEQ2LITES: Defines the protocol for ZEQ2 Lite game servers.
+gametype ZEQ2LITES new extend Q3S
+    # name: Human-readable name for this game type.
+    name = ZEQ2 Lite
+    # template var: Internal variable name for this game type.
+    template var = ZEQ2LITE
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype ZEQ2LITEM: Defines the protocol for the ZEQ2 Lite public master list.
+gametype ZEQ2LITEM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = ZEQ2 Lite Master
+    # template var: Internal variable name for this master server type.
+    template var = ZEQ2LITEMASTER
+    # default port: The UDP port the ZEQ2 Lite Master server listens on.
+    default port = {{ qstat_zeq2litem_port | default(27960) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 75
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (ZEQ2LITES).
+    master for gametype = ZEQ2LITES
+end
+
+# -----------------------------------------------------------------------------
+# Turtle Arena
+# -----------------------------------------------------------------------------
+# gametype TURTLEARENAS: Defines the protocol for Turtle Arena game servers.
+gametype TURTLEARENAS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Turtle Arena
+    # template var: Internal variable name for this game type.
+    template var = TURTLEARENA
+    # default port: The UDP port Turtle Arena servers listen on.
+    default port = {{ qstat_turtlearenas_port | default(27960) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = game
+end
+
+# gametype TURTLEARENAM: Defines the protocol for the Turtle Arena public master list.
+gametype TURTLEARENAM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Turtle Arena Master
+    # template var: Internal variable name for this master server type.
+    template var = TURTLEARENAMASTER
+    # default port: The UDP port the Turtle Arena Master server listens on.
+    default port = {{ qstat_turtlearenam_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers TurtleArena %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 11
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (TURTLEARENAS).
+    master for gametype = TURTLEARENAS
+end
+
+# -----------------------------------------------------------------------------
+# Alien Arena
+# -----------------------------------------------------------------------------
+# gametype ALIENARENAS: Defines the protocol for Alien Arena game servers.
+gametype ALIENARENAS new extend Q2S
+    # name: Human-readable name for this game type.
+    name = Alien Arena
+    # template var: Internal variable name for this game type.
+    template var = ALIENARENA
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype ALIENARENAM: Defines the protocol for the Alien Arena public master list.
+gametype ALIENARENAM new extend Q2M
+    # name: Human-readable name for this master server type.
+    name = Alien Arena Master
+    # template var: Internal variable name for this master server type.
+    template var = ALIENARENAMASTER
+    # default port: The UDP port the Alien Arena Master server listens on.
+    default port = {{ qstat_alienarenam_port | default(27900) }}
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 34
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (ALIENARENAS).
+    master for gametype = ALIENARENAS
+end
+
+# -----------------------------------------------------------------------------
+# Titanfall 2
+# -----------------------------------------------------------------------------
+# gametype TF2: Defines the protocol for Titanfall 2 game servers (Protocol v1).
+gametype TF2 new extend TF
+    # name: Human-readable name for this game type.
+    name = Titanfall 2
+    # status packet: The raw packet bytes for the status query.
+    status packet = \xff\xff\xff\xff\x4f\x03
+end
+
+# gametype TF2E: Defines the protocol for Titanfall 2 game servers (Protocol v2).
+gametype TF2E new extend TF
+    # name: Human-readable name for this game type.
+    name = Titanfall 2 Protocol v2
+    # status packet: The raw packet bytes for the status query.
+    status packet = \xff\xff\xff\xff\x4d\x03
+end
+
+# -----------------------------------------------------------------------------
+# Quetoo
+# -----------------------------------------------------------------------------
+# gametype QUETOOS: Defines the protocol for Quetoo game servers.
+gametype QUETOOS new extend Q2S
+    # name: Human-readable name for this game type.
+    name = Quetoo
+    # template var: Internal variable name for this game type.
+    template var = QUETOO
+    # default port: The UDP port Quetoo servers listen on.
+    default port = {{ qstat_quetoos_port | default(1998) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = game_name
+end
+
+# gametype QUETOOM: Defines the protocol for the Quetoo public master list.
+gametype QUETOOM new extend Q2M
+    # name: Human-readable name for this master server type.
+    name = Quetoo Master
+    # template var: Internal variable name for this master server type.
+    template var = QUETOOMASTER
+    # default port: The UDP port the Quetoo Master server listens on.
+    default port = {{ qstat_quetoom_port | default(1996) }}
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (QUETOOS).
+    master for gametype = QUETOOS
+end
+
+# -----------------------------------------------------------------------------
+# Doombringer
+# -----------------------------------------------------------------------------
+# gametype DOOMBRINGERS: Defines the protocol for Doombringer game servers.
+gametype DOOMBRINGERS new extend Q3S
+    # name: Human-readable name for this game type.
+    name = Doombringer
+    # template var: Internal variable name for this game type.
+    template var = DOOMBRINGER
+    # default port: The UDP port Doombringer servers listen on.
+    default port = {{ qstat_doombringers_port | default(26000) }}
+    # game rule: The rule key used to identify the game in status packets.
+    game rule = gamename
+end
+
+# gametype DOOMBRINGERM: Defines the protocol for the Doombringer public master list.
+gametype DOOMBRINGERM new extend Q3M
+    # name: Human-readable name for this master server type.
+    name = Doombringer Master
+    # template var: Internal variable name for this master server type.
+    template var = DOOMBRINGERMASTER
+    # default port: The UDP port the Doombringer Master server listens on.
+    default port = {{ qstat_doombringer_m_port | default(27950) }}
+    # master packet: The raw packet bytes for the master query.
+    master packet = \377\377\377\377getservers DOOMBRINGER %s %s
+    # master protocol: The version of the master server protocol to use.
+    master protocol = 3
+    # master query: The query type sent to the master server.
+    master query = empty full
+    # master for gametype: The underlying game type this master serves (DOOMBRINGERS).
+    master for gametype = DOOMBRINGERS
+end

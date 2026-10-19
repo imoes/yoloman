@@ -70,7 +70,7 @@ func isPhysicalDisk(device string) bool {
 // Their I/O is real and worth graphing per device — on a hypervisor that IS the
 // per-VM view — but it must not be added to the server total, because every op
 // also passes through the backing device and is counted there again. Measured on
-// vpp0221: total 32.8 IOPS = drbd 5.2 + physical 27.7, i.e. the DRBD share
+// pve1: total 32.8 IOPS = drbd 5.2 + physical 27.7, i.e. the DRBD share
 // counted twice.
 func isStackedDevice(device string) bool {
 	for _, prefix := range []string{"drbd", "zd", "md"} {
@@ -86,9 +86,9 @@ func isStackedDevice(device string) bool {
 // is not worth their detail: nine resources on a node of this cluster is 63 series, since each carries
 // seven counters.
 //
-// Off is NOT the default, and the measurement is why. On vpp0222 and vpp0223 every DRBD resource has a
+// Off is NOT the default, and the measurement is why. On pve2 and pve3 every DRBD resource has a
 // ZFS zvol underneath it reporting the same I/O with the same `vm` label, so dropping the DRBD layer
-// there costs nothing. But vpp0221 has nine DRBD devices and ZERO zvols — there the DRBD devices are
+// there costs nothing. But pve1 has nine DRBD devices and ZERO zvols — there the DRBD devices are
 // the only per-guest view of disk I/O that exists, and switching them off would make "which VM
 // saturates nvme0n1" unanswerable on that host. So this is a knob an operator turns per host after
 // checking what else reports, not a default anyone should inherit.

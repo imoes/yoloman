@@ -1,87 +1,57 @@
-#!/bin/sh
-set -e
+# rawdns: Upstart service definition for the rawdns utility
+# rawdns acts as a raw DNS interface to the Docker API, allowing DNS queries
+# to be resolved against Docker containers.
 
-### BEGIN INIT INFO
-# Provides:           {{ base | default('rawdns') }}
-# Required-Start:     $syslog $remote_fs
-# Required-Stop:      $syslog $remote_fs
-# Default-Start:      2 3 4 5
-# Default-Stop:       0 1 6
-# Short-Description:  raw DNS interface to the Docker API
-# Description:
-#  "rawdns" is a DNS forwarder that allows for DNS requests to return the IP
-#  addresses of Docker containers directly.
-### END INIT INFO
+# -----------------------------------------------------------------------------
+# Service Identification
+# -----------------------------------------------------------------------------
+# Description of the service job.
+description "raw DNS interface to the Docker API"
 
-# Service configuration defaults
-# base: The base name of the service (binary, config, pid, log files)
-BASE=$(basename $0)
+# Author information.
+author "Tianon Gravi <admwiggin@gmail.com>"
 
-BINARY=/usr/bin/{{ base | default('rawdns') }}
-CONFIG=/etc/{{ base | default('rawdns') }}.json
-PIDFILE=/var/run/{{ base | default('rawdns') }}.pid
-LOGFILE=/var/log/{{ base | default('rawdns') }}.log
-DESC="{{ base | default('rawdns') }}"
+# -----------------------------------------------------------------------------
+# Lifecycle Triggers
+# -----------------------------------------------------------------------------
+# Start this service when local filesystems are mounted.
+start on local-filesystems
 
-. /lib/lsb/init-functions
+# Stop this service when entering runlevels other than 2, 3, 4, or 5.
+stop on runlevel [!2345]
 
-# Load optional environment overrides from /etc/default/rawdns
-if [ -f /etc/default/{{ base | default('rawdns') }} ]; then
-	. /etc/default/{{ base | default('rawdns') }}
-fi
+# -----------------------------------------------------------------------------
+# Respawn Behavior
+# -----------------------------------------------------------------------------
+# Automatically restart the service if it exits unexpectedly.
+respawn
 
-# Upstart compatibility check
-if init_is_upstart; then
-	log_failure_msg "$BASE is managed via upstart, try using service $BASE $1"
-	exit 1
-fi
+# -----------------------------------------------------------------------------
+# Execution Script
+# -----------------------------------------------------------------------------
+script
+    # -----------------------------------------------------------------
+    # Variable Definitions
+    # -----------------------------------------------------------------
+    # The base name of the service, used for binary, config, pid, and log files.
+    # Defaults to the Upstart job name if not explicitly set.
+    BINARY=/usr/bin/{{ base | default('$UPSTART_JOB') }}
+    CONFIG=/etc/{{ base | default('$UPSTART_JOB') }}.json
 
-# Binary existence check
-if [ ! -x "$BINARY" ]; then
-	log_failure_msg "$BINARY not present or not executable"
-	exit 1
-fi
+    # -----------------------------------------------------------------
+    # Configuration Loading
+    # -----------------------------------------------------------------
+    # If a default configuration file exists, source it to export
+    # environment variables or override defaults for the binary.
+    if [ -f /etc/default/{{ base | default('$UPSTART_JOB') }} ]; then
+        . /etc/default/{{ base | default('$UPSTART_JOB') }}
+    fi
 
-fail_unless_root() {
-	if [ "$(id -u)" != '0' ]; then
-		log_failure_msg "$DESC must be run as root"
-		exit 1
-	fi
-}
+    # -----------------------------------------------------------------
+    # Service Launch
+    # -----------------------------------------------------------------
+    # Execute the rawdns binary with the JSON configuration file as an argument.
+    exec "$BINARY" "$CONFIG"
+end script
 
-case "$1" in
-	start)
-		fail_unless_root
-		log_begin_msg "Starting $DESC"
-		start-stop-daemon --start --background \
-			--no-close \
-			--exec "$BINARY" \
-			--pidfile "$PIDFILE" \
-			--make-pidfile \
-			-- "$CONFIG" \
-				>> "$LOGFILE" 2>&1
-		log_end_msg $?
-		;;
-	
-	stop)
-		fail_unless_root
-		log_begin_msg "Stopping $DESC"
-		start-stop-daemon --stop --pidfile "$PIDFILE"
-		log_end_msg $?
-		;;
-	
-	restart|force-reload)
-		fail_unless_root
-		$0 stop
-		$0 start
-		;;
-	
-	status)
-		status_of_proc -p "$PIDFILE" "$BINARY" "$DESC"
-		;;
-	
-	*)
-		echo "usage: $0 {start|stop|restart|status}"
-		exit 1
-		;;
-esac
+# vim:set ft=upstart:

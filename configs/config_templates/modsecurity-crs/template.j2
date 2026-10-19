@@ -86,49 +86,55 @@
 #
 # White-list ASV network block (no blocking or logging of AVS traffic) Update
 # IP network block as appropriate for your AVS traffic
-
+#
 # IP network block for Authorized Vulnerability Scanning (AVS) traffic to exclude from inspection.
-# SecRule REMOTE_ADDR "@ipMatch {{avs_network_block | default('192.168.1.100')}}" \
-#     "id:1000,\
-#     phase:1,\
-#     pass,\
-#     nolog,\
-#     ctl:ruleEngine=Off"
-#
-#
+SecRule REMOTE_ADDR "@ipMatch {{avs_network_block | default('192.168.1.100')}}" \
+    "id:1000,\
+    phase:1,\
+    pass,\
+    nolog,\
+    ctl:ruleEngine=Off"
+
+
 # Example Exclusion Rule: Removing a specific ARGS parameter from inspection
 #                         for an individual rule
 #
-# This rule shows how to conditionally exclude the "password"
-# parameter for rule 942100 when the REQUEST_URI is {{exclusion_uri | default('/index.php')}}
-# ModSecurity Rule Exclusion: 942100 SQL Injection Detected via libinjection
-
+# This rule shows how to conditionally exclude the "password" parameter for rule 942100 when the REQUEST_URI is specified.
 # URI prefix to exclude specific parameters from inspection in examples.
-# SecRule REQUEST_URI "@beginsWith {{exclusion_uri | default('/index.php')}}" \
+# ModSecurity Rule Exclusion: 942100 SQL Injection Detected via libinjection
+{% if exclusion_uri | default(None) is not none %}
+SecRule REQUEST_URI "@beginsWith {{exclusion_uri | default(None)}}" \
+    "id:1001,\
+    phase:1,\
+    pass,\
+    nolog,\
+    ctl:ruleRemoveTargetById=942100;ARGS:password"
+{% else %}
+# SecRule REQUEST_URI "@beginsWith /index.php" \
 #     "id:1001,\
 #     phase:1,\
 #     pass,\
 #     nolog,\
 #     ctl:ruleRemoveTargetById=942100;ARGS:password"
-#
-#
+{% endif %}
+
+
 # Example Exclusion Rule: Removing a specific ARGS parameter from inspection
 #                         for only certain attacks
 #
 # Attack rules within the CRS are tagged, with tags such as 'attack-lfi',
 # 'attack-sqli', 'attack-xss', 'attack-injection-php', et cetera.
 #
+# Filename suffix to exclude specific parameters from inspection in examples.
 # ModSecurity Rule Exclusion: Disable inspection of ARGS:pwd
 #                             for all rules tagged attack-sqli
+SecRule REQUEST_FILENAME "@endsWith {{exclusion_filename | default('/wp-login.php')}}" \
+    "id:1002,\
+    phase:2,\
+    pass,\
+    nolog,\
+    ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:pwd"
 
-# Filename suffix to exclude specific parameters from inspection in examples.
-# SecRule REQUEST_FILENAME "@endsWith {{exclusion_filename | default('/wp-login.php')}}" \
-#     "id:1002,\
-#     phase:2,\
-#     pass,\
-#     nolog,\
-#     ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:pwd"
-#
 
 # Example Exclusion Rule: Removing a specific ARGS parameter from inspection
 #                         for all CRS rules
@@ -147,6 +153,7 @@
 #     nolog,\
 #     ctl:ruleRemoveTargetByTag=OWASP_CRS;ARGS:pwd"
 
+
 #
 # Example Exclusion Rule: Removing a range of rules
 #
@@ -154,14 +161,16 @@
 # This uses the fact, that rules are grouped by topic in rule files covering
 # a certain id range.
 #
+# URI prefix for admin area to exclude specific rule ranges in examples.
 # ModSecurity Rule Exclusion: Disable all SQLi and XSS rules
-# SecRule REQUEST_FILENAME "@beginsWith {{admin_uri_prefix | default('/admin')}}" \
-#     "id:1004,\
-#     phase:2,\
-#     pass,\
-#     nolog,\
-#     ctl:ruleRemoveById=941000-942999"
-#
+SecRule REQUEST_FILENAME "@beginsWith {{admin_uri_prefix | default('/admin')}}" \
+    "id:1004,\
+    phase:2,\
+    pass,\
+    nolog,\
+    ctl:ruleRemoveById=941000-942999"
+
+
 #
 # The application specific rule exclusion files
 # REQUEST-903.9001-DRUPAL-EXCLUSION-RULES.conf

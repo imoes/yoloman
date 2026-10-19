@@ -26,6 +26,19 @@ ROOT="$(pwd)"
 CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o agentic-mcpd ./cmd/agentic-mcpd
 
 mkdir -p deploy-artifacts
+# scx schedulers (scripts/build-scx.sh) for yoloman.scx_install's bundled source: stage the default version's
+# build when there is one. Without it the package carries only the README and scx_install builds from upstream.
+SCX_VERSION="$(sed -n 's/^_DEFAULT_VERSION = "\(v[0-9.]*\)"$/\1/p' internal/starmodules/embedded/modules/yoloman/scx_install.star)"
+rm -rf packaging/stage/scx && mkdir -p packaging/stage/scx
+if [ -f "deploy-artifacts/scx/${SCX_VERSION}/BUILD-INFO" ]; then
+    cp -a "deploy-artifacts/scx/${SCX_VERSION}" "packaging/stage/scx/${SCX_VERSION}"
+    echo ">> bundling scx ${SCX_VERSION}: $(cd "packaging/stage/scx/${SCX_VERSION}" && ls scx_* | tr '\n' ' ')"
+else
+    echo ">> no scx ${SCX_VERSION} build in deploy-artifacts/scx (scripts/build-scx.sh) — the package carries none"
+fi
+printf '%s\n' "scx schedulers bundled with yoloman-agent for yoloman.scx_install (source=bundled)." \
+    "Built by scripts/build-scx.sh; each version directory holds BUILD-INFO with commit, rustc and glibc ceiling." \
+    > packaging/stage/scx/README
 # The config templates the package carries: the reachable subset, not the whole tree. This also ASSERTS
 # closure — if the index or the catalog names a template that is not on disk, the build stops here rather
 # than shipping a console that offers a path it cannot serve. See the script's header for the measurement.

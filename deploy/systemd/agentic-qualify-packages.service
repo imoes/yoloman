@@ -1,0 +1,35 @@
+[Unit]
+Description=Agentic package qualification (codec/template/enum/enrich, Debian + RedHat) — LLM endpoint set HERE, not hardcoded
+After=network.target docker.service
+# A configuration error (exit 1 from the env check) must not flap 17 000 times.
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/home/mutkluge/Dev/code/yolo-man/bossman
+Environment=AGENTIC_REPO=/home/mutkluge/Dev/code/yolo-man
+Environment=AGENTIC_BATCH_LOG_DIR=/home/mutkluge/.local/state/agentic-batches
+# --- network: .deb/.rpm downloads and the docs fetch go through the corporate proxy; the LLM does not ---
+Environment=YOLOMAN_HTTP_PROXY=http://proxy.example.internal:80
+Environment=YOLOMAN_NO_PROXY_SUFFIX=.example.internal
+Environment=YOLOMAN_SEARX_BASE=http://llm.example.internal:8080
+# --- LLM endpoint (CONFIGURABLE here, never hardwired in the script) ---
+# Chosen by measurement: bossman.tools.benchmark_qualify_models → configs/model_benchmark_qualify.json.
+Environment=YOLOMAN_LLM_BASE=https://llm.example.internal
+Environment=QUALIFY_LLM_URL=https://llm.example.internal/qwen35b
+Environment=QUALIFY_LLM_MODEL=Qwen3.6-35B-A3B-UD-Q4_K_XL
+# Environment=QUALIFY_LLM_TOKEN=            # set if the endpoint needs a bearer token
+# ONE process against the shared endpoint — see the supervisor header.
+Environment=QUALIFY_CONCURRENCY=1
+Environment="QUALIFY_FAMILIES=debian redhat"
+# The enrich gonja gate needs the render-check binary. Point at a prebuilt one so the service needs no
+# `go` at runtime; PATH still carries go as a fallback (render_check_bin rebuilds if the binary is gone).
+Environment=RENDER_CHECK_BIN=/home/mutkluge/Dev/code/yolo-man/bossman/bin/render-check
+Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/mutkluge/Dev/code/yolo-man/deploy/systemd/qualify-supervisor.sh
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=default.target

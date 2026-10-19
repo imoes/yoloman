@@ -114,7 +114,9 @@ _SCRIPT_SHEBANG = re.compile(r"^#!\s*/(usr/)?s?bin/(env\s+)?(sh|bash|dash|ksh|zs
 
 #: A ufw APPLICATION PROFILE — `[Name]` followed by title=/description=/ports=. These live in
 #: /etc/ufw/applications.d/ and are never a service's own configuration.
-_UFW_PROFILE = re.compile(r"^\[[^\]]+\]\s*\n\s*title\s*=", re.M)
+# A ufw application profile: `[Name]` then `title=` — also when the title line is commented (`# title=`), the form
+# the samba role's template had: it rendered "[Samba] … ports=137,138/udp|139,445" over /etc/samba/smb.conf.
+_UFW_PROFILE = re.compile(r"^\[[^\]]+\]\s*\n\s*(#\s*)?title\s*=", re.M)
 
 
 def placed(field: str, body: str) -> bool:

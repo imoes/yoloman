@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/mutkluge/agentic-mcp/internal/kernelcaps"
+	"github.com/mutkluge/agentic-mcp/internal/osfamily"
 	"github.com/mutkluge/agentic-mcp/internal/proc"
 )
 
@@ -23,6 +25,9 @@ type Setup struct {
 	// (motherboard vendor, product, serial, BIOS) so runbooks can key on
 	// hardware the way Ansible's ansible_board_*/ansible_product_* facts do.
 	DMIRoot string
+	// Kernel detects the tuning capabilities (BTF, sched_ext, CONFIG_*,
+	// boot loader, init system); nil omits yoloman_kernel_caps.
+	Kernel *kernelcaps.Detector
 }
 
 // NewSetup returns a Setup module reading from the real host: /proc,
@@ -35,6 +40,7 @@ func NewSetup() *Setup {
 		Architecture:  unameArch(runtime.GOARCH),
 		HostnameFunc:  os.Hostname,
 		DMIRoot:       "/sys/class/dmi/id",
+		Kernel:        kernelcaps.Default(),
 	}
 }
 
@@ -158,6 +164,11 @@ func (s *Setup) Run(ctx context.Context, params map[string]any, dryRun bool) (Re
 	}
 	facts["ansible_facts"] = nested
 
+	// Native only: Ansible has no such fact, so it gets no ansible_ alias.
+	if s.Kernel != nil {
+		facts["yoloman_kernel_caps"] = s.Kernel.Detect().Map()
+	}
+
 	return Result{Changed: false, Data: facts}, nil
 }
 
@@ -195,22 +206,10 @@ func readFirstLine(path string) (string, error) {
 }
 
 // osFamilyFromRelease maps an os-release ID / ID_LIKE into a coarse package
-// family (debian | redhat | suse | arch | alpine), or "" when unknown.
+// family (debian | redhat | suse | arch | alpine), or "" when unknown. The
+// table lives in internal/osfamily, shared with the Starlark ctx.facts().
 func osFamilyFromRelease(id, idLike string) string {
-	tokens := strings.Fields(strings.ToLower(id + " " + idLike))
-	fam := map[string]string{
-		"debian": "debian", "ubuntu": "debian", "mint": "debian", "raspbian": "debian", "pop": "debian",
-		"rhel": "redhat", "centos": "redhat", "fedora": "redhat", "rocky": "redhat", "almalinux": "redhat",
-		"ol": "redhat", "oracle": "redhat",
-		"suse": "suse", "opensuse": "suse", "sles": "suse",
-		"arch": "arch", "alpine": "alpine",
-	}
-	for _, t := range tokens {
-		if f, ok := fam[t]; ok {
-			return f
-		}
-	}
-	return ""
+	return osfamily.FromRelease(id, idLike)
 }
 
 // parseOSRelease parses a /etc/os-release-style file (KEY=VALUE per line,

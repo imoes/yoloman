@@ -28,6 +28,7 @@ from bossman.db.session import get_session
 from bossman.services import ansible_playbook, nt_compile, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.runbook_exec import execute_runbook
+from bossman.services.role_catalog import publish_authored_role
 from bossman.services.vault import Vault
 
 router = APIRouter()
@@ -182,7 +183,9 @@ async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_sess
 
 
 @router.post("/api/v1/runbooks")
-async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(get_session), identity: Identity = Depends(get_current_identity)) -> dict[str, Any]:
+async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(get_session),
+                         settings: Settings = Depends(get_settings),
+                         identity: Identity = Depends(get_current_identity)) -> dict[str, Any]:
     """Store a runbook. The document is **linted before it is accepted**, not at run time.
 
     What the lint catches is the **document's shape**: a malformed step, a missing required key, a
@@ -201,21 +204,42 @@ async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(
     r = Runbook(tenant_id=DEFAULT_TENANT_ID, name=doc["name"], kind=doc.get("kind", "runbook"),
                 folder=(body.folder or "").strip("/"), doc=doc, created_by=identity.name)
     session.add(r)
+    artifact = None
     try:
+        await session.flush()
+        if r.kind == "role":
+            role = nt_runbook.parse_data(doc, source="stored role")
+            artifact = await publish_authored_role(
+                session, role, actor=identity.name, source_runbook_id=r.id, settings=settings,
+            )
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(status_code=409, detail=f"a runbook named {doc['name']!r} already exists") from exc
-    return {"id": str(r.id), "name": r.name, "kind": r.kind}
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"id": str(r.id), "name": r.name, "kind": r.kind, **_artifact_ref(artifact)}
+
+
+def _artifact_ref(plan) -> dict[str, Any]:
+    """For a role: the deployable artifact the save published — saving the same text again publishes
+    nothing, so the version says whether this save changed what can be deployed."""
+    if plan is None:
+        return {}
+    return {"artifact": {"id": str(plan.id), "name": plan.name, "version": plan.current_version}}
 
 
 @router.put("/api/v1/runbooks/{runbook_id}")
-async def update_runbook(runbook_id: UUID, body: SaveRunbookBody, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+async def update_runbook(runbook_id: UUID, body: SaveRunbookBody,
+                         session: AsyncSession = Depends(get_session),
+                         settings: Settings = Depends(get_settings),
+                         identity: Identity = Depends(get_current_identity)) -> dict[str, Any]:
     """Replace a runbook's document, linted as on create.
 
-    Anything already running keeps the version it started with; a role compiled from this runbook is
-    not recompiled by this call. Editing the source of something that has been used is not the same
-    as changing what was done.
+    Anything already running keeps the version it started with. Updating a role publishes a new,
+    immutable orchestration version, but existing deployments stay pinned to their selected version;
+    editing the source is therefore not the same as changing what was deployed.
     """
     r = await session.get(Runbook, runbook_id)
     if r is None:
@@ -229,8 +253,18 @@ async def update_runbook(runbook_id: UUID, body: SaveRunbookBody, session: Async
     if body.folder is not None:
         r.folder = body.folder.strip("/")
     r.doc = doc
-    await session.commit()
-    return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or ""}
+    artifact = None
+    try:
+        if r.kind == "role":
+            role = nt_runbook.parse_data(doc, source="stored role")
+            artifact = await publish_authored_role(
+                session, role, actor=identity.name, source_runbook_id=r.id, settings=settings,
+            )
+        await session.commit()
+    except (IntegrityError, ValueError) as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "", **_artifact_ref(artifact)}
 
 
 @router.delete("/api/v1/runbooks/{runbook_id}", status_code=204)
@@ -509,9 +543,13 @@ async def put_scope_vars(
 
 
 @router.post("/api/v1/runbooks/role/compile")
-async def compile_role(body: LintBody, _identity=Depends(get_current_identity)) -> dict[str, Any]:
-    """Compile a role into an OrchestrationPlan create-payload (name/display_name/plan_type/version with
-    steps + generated_monitoring + notifications) — POST it to /api/v1/orchestration/plans to store it.
+async def compile_role(
+    body: LintBody,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity: Identity = Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Publish a role as an immutable OrchestrationPlan version and return its normalized payload.
 
     A role is Ansible task syntax under a `role:` key, plus `monitoring.checks` / `notifications.routes`."""
     if body.playbook is None:
@@ -522,4 +560,10 @@ async def compile_role(body: LintBody, _identity=Depends(get_current_identity)) 
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not isinstance(doc, nt_runbook.Role):
         raise HTTPException(status_code=422, detail="that is a runbook, not a role (needs a top-level `role:`)")
-    return {"plan_input": nt_compile.role_to_plan_input(doc)}
+    try:
+        plan = await publish_authored_role(session, doc, actor=identity.name, settings=settings)
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"plan_input": nt_compile.role_to_plan_input(doc), "plan_id": str(plan.id), "version": plan.current_version}

@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/auth/auth.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** The one place in the whole app that gets a stronger branding moment
  * (see docs/plan.md's Bossman plan, section C.2) — everywhere else stays
@@ -14,7 +15,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     ReactiveFormsModule,
     MatCardModule,
     MatFormFieldModule,
@@ -63,7 +64,7 @@ import { AuthService } from '../../../core/auth/auth.service';
               color="primary"
               type="submit"
               class="bm-full-width"
-              [disabled]="form.invalid || loading"
+              [disabled]="loading" [bmBlocked]="form.invalid ? 'Enter user name and password' : ''"
             >
               @if (loading) {
                 <mat-spinner diameter="20"></mat-spinner>

@@ -1,48 +1,34 @@
-# NextEPC HSS (Home Subscriber Server) Configuration Template
-# This file configures the HSS component of the NextEPC 4G/5G core network.
-# It manages subscriber data, authentication vectors, and Diameter signaling
-# via integration with MongoDB for storage and freeDiameter for SIP/Diameter transport.
+# NextEPC HSS Configuration Template
+# This file configures the Home Subscriber Server (HSS) component of NextEPC.
+# It defines database connectivity, logging behavior, and Diameter protocol integration.
 
-# ==============================================================================
-# Database Configuration
-# ==============================================================================
-
+# === Database Configuration ===
 # MongoDB connection URI for the HSS database.
-# This URI specifies the host, port, database name, and optional authentication
-# credentials for the MongoDB instance storing HSS subscriber data.
-# Roles: host, port, name, user, password
+# This URI contains the host, port, database name, and potentially authentication details.
+# Format: mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
 db_uri: {{ db_uri | default('mongodb://localhost/nextepc') }}
 
-# ==============================================================================
-# Logging Configuration
-# ==============================================================================
-
+# === Logger Configuration ===
 logger:
     # Path to the HSS log file.
-    # Specifies the absolute path where the HSS daemon writes its operational logs.
     file: {{ logger_file | default('/var/log/nextepc/hss.log') }}
+    
+    # Trace settings for debugging and monitoring.
+    trace: 
+        # Enable/Disable application tracing.
+        # 1 = enabled, 0 = disabled.
+        app: {{ logger_trace_app | default('1') }}
+        
+        # Enable/Disable Diameter protocol tracing.
+        # 1 = enabled, 0 = disabled.
+        diameter: {{ logger_trace_diameter | default('1') }}
 
-    trace:
-        # Enable/Disable application tracing (1=enabled, 0=disabled).
-        # Controls the verbosity of general application-level debug traces.
-        app: {{ logger_trace_app | default(1) }}
-
-        # Enable/Disable Diameter protocol tracing (1=enabled, 0=disabled).
-        # Controls the verbosity of Diameter protocol-level debug traces for
-        # diagnosing signaling issues between HSS and other network functions.
-        diameter: {{ logger_trace_diameter | default(1) }}
-
-# ==============================================================================
-# HSS Specific Parameters
-# ==============================================================================
-
+# === Parameter Block ===
+# Placeholder for general parameters. Currently empty in the base schema.
 parameter:
-    # Placeholder for future HSS-specific global parameters.
-    # No directives currently defined here in the base schema.
 
+# === HSS Specific Configuration ===
 hss:
     # Path to the freeDiameter configuration file for HSS.
-    # The HSS uses the freeDiameter stack to handle Diameter Cx/Dx interfaces.
-    # This path points to the specific configuration file defining Diameter
-    # domain, hosts, and certificate settings.
+    # This file handles the Diameter protocol stack configuration (PEERs, AVPs, etc.).
     freeDiameter: {{ hss_freeDiameter | default('/etc/nextepc/freeDiameter/hss.conf') }}

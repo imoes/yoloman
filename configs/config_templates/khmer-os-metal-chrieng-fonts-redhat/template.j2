@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Configuration for Khmer OS Metal Chrieng fonts.
+    This template generates a fontconfig XML snippet that:
+    1. Aliases the generic font family to this specific font.
+    2. Overrides font selection for the specified locale to prefer this font.
+  -->
+
+  <!-- Generic name aliasing: Maps the generic family to the specific font -->
+  <alias>
+    <!-- The specific font family name -->
+    <!-- Schema: font_family (default: 'Khmer OS Metal Chrieng') -->
+    <family>{{ font_family | default('Khmer OS Metal Chrieng') }}</family>
+
+    <!-- The generic font family being replaced/supplemented -->
+    <!-- Schema: default_family (default: 'fantasy') -->
+    <default>
+      <family>{{ default_family | default('fantasy') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Locale-specific font matching:
+    Ensures that for the specified language code, this font is preferred
+    over the generic fallback family.
+  -->
+  <match>
+    <!-- Test: Check if the current locale matches the configured language -->
+    <!-- Schema: locale_code (default: 'km') -->
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+
+    <!-- Test: Check if the current family is the generic fallback -->
+    <test name="family">
+      <string>{{ default_family | default('fantasy') }}</string>
+    </test>
+
+    <!-- Action: Prepend the specific font to the candidate list -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Khmer OS Metal Chrieng') }}</string>
+    </edit>
+  </match>
+</fontconfig>

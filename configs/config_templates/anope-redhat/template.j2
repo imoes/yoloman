@@ -1,0 +1,815 @@
+/*
+ * =============================================================================
+ * Anope IRC Services Configuration
+ * =============================================================================
+ * This configuration file controls Anope's connection to the IRC network,
+ * its internal behavior, logging, mail capabilities, and database storage.
+ *
+ * Self-Documentation:
+ * Every variable is sourced from Ansible host/group vars. If a variable is
+ * not defined in Ansible, the schema default (specified in the comment above)
+ * will be used.
+ *
+ * To override a setting, define the corresponding Ansible variable.
+ * Example: services_host = "irc.mynet.example.com"
+ * =============================================================================
+ */
+
+/*
+ * [OPTIONAL] Defines
+ *
+ * Defines allow you to set values that can be reused elsewhere in the config.
+ */
+define
+{
+	name = "services.host"
+	/*
+	 * services_host: The hostname that Anope will be seen as and used in defines.
+	 * Default: services.example.com
+	 */
+	value = "{{ services_host | default('services.example.com') }}"
+}
+
+/*
+ * [OPTIONAL] Additional Includes
+ *
+ * You can include additional configuration files here.
+ * You may also include executable files, which will be executed and
+ * the output from it will be included into your configuration.
+ *
+ * NOTE: The example below includes example files that are commented out.
+ * Uncomment and modify if you have external config fragments.
+ */
+#include
+{
+	type = "file"
+	name = "some.conf"
+}
+
+/*
+#include
+{
+	type = "executable"
+	name = "/usr/bin/wget -q -O - https://some.misconfigured.network.com/anope.conf"
+}
+*/
+
+/*
+ * [REQUIRED] IRCd Config (Uplink)
+ *
+ * This section configures how Anope connects to the upstream IRC server.
+ * This block can be included multiple times for failover.
+ */
+uplink
+{
+	/*
+	 * uplink_host: The IP address, hostname, or UNIX socket path of the IRC server.
+	 * Default: 127.0.0.1
+	 */
+	host = "{{ uplink_host | default('127.0.0.1') }}"
+
+	/*
+	 * uplink_protocol: The protocol Anope uses when connecting (ipv4, ipv6, unix).
+	 * Default: ipv4
+	 */
+	protocol = "{{ uplink_protocol | default('ipv4') }}"
+
+	/*
+	 * uplink_ssl: Enable SSL connection to the uplink (true/false).
+	 * Note: Jinja renders boolean 'true'/'false' as strings here.
+	 * Default: no
+	 */
+	ssl = {{ uplink_ssl | default('no') }}
+
+	/*
+	 * uplink_port: The port to connect to on the IRCd.
+	 * Default: 7000
+	 */
+	port = {{ uplink_port | default('7000') }}
+
+	/*
+	 * uplink_password: The password to send to the IRC server for authentication.
+	 * Default: mypassword
+	 */
+	password = "{{ uplink_password | default('mypassword') }}"
+}
+
+/*
+ * [REQUIRED] Server Information
+ *
+ * This section contains information about the services server itself.
+ */
+serverinfo
+{
+	/*
+	 * services_host: The hostname that Anope will be seen as.
+	 * Must not conflict with other server names on the network.
+	 * Default: services.example.com
+	 */
+	name = "{{ services_host | default('services.example.com') }}"
+
+	/*
+	 * server_description: The text which appears as the server's information in /WHOIS.
+	 * Default: Anope IRC Services
+	 */
+	description = "{{ server_description | default('Anope IRC Services') }}"
+
+	/*
+	 * localhost: The local address that Anope will bind to before connecting.
+	 * Useful for multihomed hosts. Omitted by default.
+	 */
+	#localhost = "nowhere."
+
+	/*
+	 * id: What Server ID to use for this connection?
+	 * Only used for TS6/P10 IRCds.
+	 */
+	#id = "00A"
+
+	/*
+	 * pid_file: The filename containing the Anope process ID.
+	 * Default: /run/anope/anope.pid
+	 */
+	pid = "{{ pid_file | default('/run/anope/anope.pid') }}"
+
+	/*
+	 * motd: The filename containing the Message of the Day.
+	 */
+	motd = "motd"
+}
+
+/*
+ * [REQUIRED] Protocol module
+ *
+ * Tells Anope which IRCd Protocol module to speak.
+ * Supported: bahamut, hybrid, inspircd, ngircd, plexus, ratbox, solanum, unrealircd.
+ */
+module
+{
+	/*
+	 * protocol_module: The IRCd Protocol module to speak when connecting.
+	 * Default: inspircd
+	 */
+	name = "{{ protocol_module | default('inspircd') }}"
+
+	/*
+	 * protocol_use_server_side_mlock: Enforce mode locks server-side.
+	 * Reduces spam caused by services reversing mode changes.
+	 * Default: yes
+	 */
+	use_server_side_mlock = {{ protocol_use_server_side_mlock | default('yes') }}
+
+	/*
+	 * protocol_use_server_side_topiclock: Enforce topic locks server-side.
+	 * Reduces spam caused by services reversing topic changes.
+	 * Default: yes
+	 */
+	use_server_side_topiclock = {{ protocol_use_server_side_topiclock | default('yes') }}
+}
+
+/*
+ * [REQUIRED] Network Information
+ *
+ * Information about the IRC network Anope is running on.
+ */
+networkinfo
+{
+	/*
+	 * network_name: The name of the network Anope is running on.
+	 * Default: LocalNet
+	 */
+	networkname = "{{ network_name | default('LocalNet') }}"
+
+	/*
+	 * nicklen: Maximum allowed nick length on your network.
+	 * Default: 31
+	 */
+	#nicklen = 31
+
+	/*
+	 * userlen: Maximum allowed ident length on your network.
+	 * Default: 10
+	 */
+	#userlen = 10
+
+	/*
+	 * hostlen: Maximum allowed hostname length on your network.
+	 * Default: 64
+	 */
+	#hostlen = 64
+
+	/*
+	 * chanlen: Maximum allowed channel length.
+	 * Default: 32
+	 */
+	#chanlen = 32
+
+	/*
+	 * modelistsize: Maximum number of list modes settable on a channel.
+	 * Default: 100
+	 */
+	#modelistsize = 100
+
+	/*
+	 * nick_chars: Characters allowed in nicknames.
+	 * Recommended: Do not change unless you know your IRCd supports it.
+	 */
+	#nick_chars = ""
+
+	/*
+	 * vhost_chars: Characters allowed in hostnames/vhosts.
+	 */
+	vhost_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+
+	/*
+	 * allow_undotted_vhosts: Allows vHosts to not contain dots (.).
+	 * Default: false
+	 */
+	allow_undotted_vhosts = false
+
+	/*
+	 * disallow_start_or_end: Characters not allowed at the start/end of a vHost.
+	 * Default: ".-"
+	 */
+	disallow_start_or_end = ".-"
+}
+
+/*
+ * [REQUIRED] Anope Options
+ *
+ * General operational options for Anope.
+ */
+options
+{
+	/*
+	 * user/group: The user/group Anope runs as.
+	 * Default: anope/anope (uncomment to enable)
+	 */
+	#user = "anope"
+	#group = "anope"
+
+	/*
+	 * casemap: The case mapping used by services (e.g., ascii, rfc1459).
+	 * Default: ascii
+	 */
+	casemap = "{{ casemap | default('ascii') }}"
+
+	/*
+	 * badpasslimit: Number of invalid password tries before a user is removed.
+	 * Default: 5
+	 */
+	badpasslimit = {{ badpasslimit | default('5') }}
+
+	/*
+	 * badpasstimeout: Time after which invalid passwords are forgotten.
+	 * Format: "1h", "30m", "3600s".
+	 * Default: 1h
+	 */
+	badpasstimeout = "{{ badpasstimeout | default('1h') }}"
+
+	/*
+	 * updatetimeout: Delay between automatic database updates.
+	 * Default: 5m
+	 */
+	updatetimeout = "{{ updatetimeout | default('5m') }}"
+
+	/*
+	 * expiretimeout: Delay between checks for expired nicknames and channels.
+	 * Default: 30m
+	 */
+	expiretimeout = "{{ expiretimeout | default('30m') }}"
+
+	/*
+	 * readtimeout: Timeout period for reading from the uplink.
+	 * Default: 5s
+	 */
+	readtimeout = "{{ readtimeout | default('5s') }}"
+
+	/*
+	 * warningtimeout: Interval between sending warning messages for program errors.
+	 * Default: 4h
+	 */
+	warningtimeout = "{{ warningtimeout | default('4h') }}"
+
+	/*
+	 * timeoutcheck: Frequency at which the timeout list is checked.
+	 * Default: 3s
+	 */
+	timeoutcheck = "{{ timeoutcheck | default('3s') }}"
+
+	/*
+	 * useprivmsg: Allow PRIVMSGs to users instead of NOTICEs.
+	 * Against RFC, not recommended.
+	 */
+	#useprivmsg = yes
+
+	/*
+	 * usestrictprivmsg: Only respond to PRIVMSGs addressed to Nick@ServerName.
+	 */
+	#usestrictprivmsg = yes
+
+	/*
+	 * hidestatso: Only show /stats o to IRC Operators.
+	 */
+	#hidestatso = yes
+
+	/*
+	 * ulineservers: Space-separated list of U-lined servers trusted for mode changes.
+	 */
+	#ulineservers = "stats.your.network"
+
+	/*
+	 * retrywait: Time to wait between connection retries with the uplink(s).
+	 * Default: 60s
+	 */
+	retrywait = "{{ retrywait | default('60s') }}"
+
+	/*
+	 * hideprivilegedcommands: Hide commands users don't have privilege to execute from HELP.
+	 * Default: yes
+	 */
+	hideprivilegedcommands = {{ hideprivilegedcommands | default('yes') }}
+
+	/*
+	 * hideregisteredcommands: Hide commands users can't execute because not logged in from HELP.
+	 * Default: yes
+	 */
+	hideregisteredcommands = {{ hideregisteredcommands | default('yes') }}
+
+	/*
+	 * didyoumeandifference: Maximum difference between invalid and valid command name for suggestions.
+	 * Default: 4
+	 */
+	didyoumeandifference = {{ didyoumeandifference | default('4') }}
+
+	/*
+	 * regexengine: The regex engine to use. Leave commented to disable.
+	 */
+	#regexengine = "regex/stdlib"
+
+	/*
+	 * languages: Space-separated list of languages to load on startup.
+	 * Default: ca_ES.UTF-8 de_DE.UTF-8 el_GR.UTF-8 es_ES.UTF-8 fr_FR.UTF-8 hu_HU.UTF-8 it_IT.UTF-8 nl_NL.UTF-8 pl_PL.UTF-8 pt_PT.UTF-8 ru_RU.UTF-8 tr_TR.UTF-8
+	 */
+	languages = "{{ languages | default('ca_ES.UTF-8 de_DE.UTF-8 el_GR.UTF-8 es_ES.UTF-8 fr_FR.UTF-8 hu_HU.UTF-8 it_IT.UTF-8 nl_NL.UTF-8 pl_PL.UTF-8 pt_PT.UTF-8 ru_RU.UTF-8 tr_TR.UTF-8') }}"
+
+	/*
+	 * defaultlanguage: Default language for non-registered nicks.
+	 */
+	#defaultlanguage = "es_ES.UTF-8"
+}
+
+/*
+ * [OPTIONAL] BotServ
+ */
+include
+{
+	type = "file"
+	name = "botserv.conf"
+}
+
+/*
+ * [RECOMMENDED] ChanServ
+ */
+include
+{
+	type = "file"
+	name = "chanserv.conf"
+}
+
+/*
+ * [RECOMMENDED] Global
+ */
+include
+{
+	type = "file"
+	name = "global.conf"
+}
+
+/*
+ * [OPTIONAL] HostServ
+ */
+include
+{
+	type = "file"
+	name = "hostserv.conf"
+}
+
+/*
+ * [OPTIONAL] MemoServ
+ */
+include
+{
+	type = "file"
+	name = "memoserv.conf"
+}
+
+/*
+ * [OPTIONAL] NickServ
+ */
+include
+{
+	type = "file"
+	name = "nickserv.conf"
+}
+
+/*
+ * [RECOMMENDED] OperServ
+ */
+include
+{
+	type = "file"
+	name = "operserv.conf"
+}
+
+/*
+ * [RECOMMENDED] Logging Configuration
+ */
+log
+{
+	/*
+	 * log_target: Target(s) to log to (channel, filename, or globops).
+	 * Default: services.log
+	 */
+	target = "{{ log_target | default('services.log') }}"
+
+	/*
+	 * source: The source(s) to only accept log messages from.
+	 */
+	#source = ""
+
+	/*
+	 * log_bot: The bot used to log generic messages.
+	 * Default: Global
+	 */
+	bot = "{{ log_bot | default('Global') }}"
+
+	/*
+	 * log_logage: Number of days to keep log files. Set to 0 to never delete.
+	 * Default: 7
+	 */
+	logage = {{ log_logage | default('7') }}
+
+	/*
+	 * Log categories. Use "*" for all, "~" to negate.
+	 */
+	admin = "*"
+	override = "chanserv/* nickserv/* memoserv/set ~botserv/set botserv/*"
+	commands = "~operserv/* *"
+	servers = "*"
+	users = "connect disconnect nick"
+	other = "*"
+
+	/*
+	 * log_rawio: Log raw input and output from services.
+	 * Default: no
+	 */
+	rawio = {{ log_rawio | default('no') }}
+
+	/*
+	 * log_debug: Log debug messages.
+	 * Default: no
+	 */
+	debug = {{ log_debug | default('no') }}
+}
+
+/*
+ * A log block to globops some useful things.
+ */
+log
+{
+	bot = "Global"
+	target = "globops"
+	admin = "global/* operserv/chankill operserv/mode operserv/kick operserv/akill operserv/s*line operserv/noop operserv/jupe operserv/set operserv/svsnick operserv/svsjoin operserv/svspart nickserv/getpass */drop"
+	servers = "squit"
+	users = "oper"
+	other = "expire/* bados akill/*"
+}
+
+/*
+ * [RECOMMENDED] Oper Access Config
+ *
+ * Defines operator types and their permissions.
+ */
+
+opertype
+{
+	name = "Helper"
+	commands = "hostserv/*"
+}
+
+opertype
+{
+	name = "Services Operator"
+	inherits = "Helper, Another Helper"
+	commands = "chanserv/list chanserv/suspend chanserv/topic memoserv/staff nickserv/list nickserv/suspend operserv/mode operserv/chankill operserv/akill operserv/session operserv/modinfo operserv/sqline operserv/oper operserv/kick operserv/ignore operserv/snline"
+	privs = "chanserv/auspex chanserv/no-register-limit memoserv/* nickserv/auspex nickserv/confirm"
+}
+
+opertype
+{
+	name = "Services Administrator"
+	inherits = "Services Operator"
+	commands = "botserv/* chanserv/access/list chanserv/drop chanserv/getkey chanserv/saset/noexpire memoserv/sendall nickserv/saset/* nickserv/getemail operserv/news operserv/jupe operserv/svs operserv/stats operserv/noop operserv/forbid global/*"
+	privs = "*"
+}
+
+opertype
+{
+	name = "Services Root"
+	commands = "*"
+	privs = "*"
+}
+
+/*
+ * Oper blocks define specific users and their opertype.
+ * Commented out by default for security. Uncomment and configure as needed.
+ */
+
+#oper
+{
+	/*
+	 * name: The nickname of this services oper.
+	 */
+	#name = "nick1"
+
+	/*
+	 * type: The opertype this person will have.
+	 */
+	type = "Services Root"
+
+	/*
+	 * oper_require_oper: If set, the user must be an oper on the IRCd to gain their oper privileges.
+	 * Default: yes
+	 */
+	require_oper = {{ oper_require_oper | default('yes') }}
+
+	#password = "secret"
+	#certfp = "ed3383b3f7d74e89433ddaa4a6e5b2d7"
+	#host = "*@*.anope.org ident@*"
+	#vhost = "oper.mynet"
+}
+
+#oper
+{
+	name = "nick2"
+	type = "Services Administrator"
+}
+
+#oper
+{
+	name = "nick3"
+	type = "Helper"
+}
+
+/*
+ * [OPTIONAL] Mail Config
+ *
+ * Settings related to email from services.
+ */
+mail
+{
+	/*
+	 * mail_usemail: Enable mail commands in Anope.
+	 * Default: yes
+	 */
+	usemail = {{ mail_usemail | default('yes') }}
+
+	/*
+	 * sendmailpath: Command-line to call the mailer.
+	 */
+	#sendmailpath = "/usr/sbin/sendmail -it"
+
+	/*
+	 * mail_sendfrom: The email address from which all emails are sent.
+	 * Default: services@example.com
+	 */
+	sendfrom = "{{ mail_sendfrom | default('services@example.com') }}"
+
+	/*
+	 * mail_delay: Minimum time a user must wait before sending another email.
+	 * Default: 5m
+	 */
+	delay = "{{ mail_delay | default('5m') }}"
+
+	/*
+	 * dontquoteaddresses: Do not put quotes around TO: fields.
+	 */
+	#dontquoteaddresses = yes
+
+	/*
+	 * content_type: Content type for emails.
+	 */
+	#content_type = "text/plain; charset=UTF-8"
+
+	registration_subject = "Nickname registration for %n"
+	registration_message = "Hi,
+
+				You have requested to register the nickname %n on %N.
+				Please type \" /msg NickServ CONFIRM %c \" to complete registration.
+
+				If you don't know why this mail was sent to you, please ignore it silently.
+
+				%N administrators."
+
+	reset_subject = "Reset password request for %n"
+	reset_message = "Hi,
+
+			You have requested to have the password for %n reset.
+			To reset your password, type \" /msg NickServ CONFIRM %n %c \"
+
+			If you don't know why this mail was sent to you, please ignore it silently.
+
+			%N administrators."
+
+	emailchange_subject = "Email confirmation"
+	emailchange_message = "Hi,
+
+			You have requested to change your email address from %e to %E.
+			Please type \" /msg NickServ CONFIRM %c \" to confirm this change.
+
+			If you don't know why this mail was sent to you, please ignore it silently.
+
+			%N administrators."
+
+	memo_subject = "New memo"
+	memo_message = "Hi %n,
+
+			You've just received a new memo from %s. This is memo number %d.
+
+			Memo text:
+
+			%t"
+}
+
+/*
+ * [REQUIRED] Database configuration.
+ *
+ * Configure the database backend Anope uses for persistence.
+ */
+
+/*
+ * [DEPRECATED] db_old
+ * Used only for upgrading old binary databases.
+ */
+#module
+{
+	name = "db_old"
+	#hash = "md5"
+}
+
+/*
+ * db_atheme
+ * Import from Atheme databases.
+ */
+#module
+{
+	name = "db_atheme"
+	database = "atheme.db"
+}
+
+/*
+ * [RECOMMENDED] db_flatfile
+ * Default flatfile database format.
+ */
+module
+{
+	/*
+	 * db_module_name: The database module to load.
+	 * Default: db_flatfile
+	 */
+	name = "{{ db_module_name | default('db_flatfile') }}"
+
+	/*
+	 * db_database: The database file name or engine identifier.
+	 * Default: anope.db
+	 */
+	database = "{{ db_database | default('anope.db') }}"
+
+	/*
+	 * db_keepbackups: Number of days backups of databases are kept.
+	 * Default: 3
+	 */
+	keepbackups = {{ db_keepbackups | default('3') }}
+
+	/*
+	 * nobackupokay: Allow continuing if backup fails. Discouraged.
+	 */
+	#nobackupokay = yes
+
+	/*
+	 * db_fork: Fork a child process to save databases.
+	 * Default: no
+	 */
+	fork = {{ db_fork | default('no') }}
+}
+
+/*
+ * db_sql and db_sql_live
+ * SQL database backend.
+ */
+#module
+{
+	name = "db_sql"
+	#name = "db_sql_live"
+
+	/*
+	 * db_engine: The SQL service or database engine to use (e.g., sqlite/main, mysql/main).
+	 * Default: sqlite/main
+	 */
+	engine = "{{ db_engine | default('sqlite/main') }}"
+
+	/*
+	 * prefix: Optional prefix for table names.
+	 */
+	#prefix = "anope_db_"
+
+	/*
+	 * db_import: Import data from another database module on startup.
+	 * Default: false
+	 */
+	import = {{ db_import | default('false') }}
+}
+
+/*
+ * db_redis
+ * Redis backend.
+ */
+#module
+{
+	name = "db_redis"
+	engine = "redis/main"
+}
+
+/*
+ * [RECOMMENDED] Encryption modules.
+ */
+module
+{
+	name = "enc_sha2"
+	#algorithm = "sha256"
+}
+
+/*
+ * [EXTRA] enc_argon2
+ */
+#module
+{
+	name = "enc_argon2"
+	#algorithm = "argon2id"
+	#memory_cost = 121072
+	#time_cost = 3
+	#parallelism = 1
+	#hash_length = 32
+	#salt_length = 32
+}
+
+/*
+ * enc_bcrypt
+ */
+#module
+{
+	name = "enc_bcrypt"
+	#rounds = 10
+}
+
+/*
+ * enc_posix
+ */
+#module { name = "enc_posix" }
+
+/*
+ * [DEPRECATED] Older encryption methods.
+ */
+#module { name = "enc_md5" }
+#module { name = "enc_none" }
+#module { name = "enc_old" }
+#module { name = "enc_sha1" }
+#module { name = "enc_sha256" }
+
+/*
+ * Extra (optional) modules.
+ */
+include
+{
+	type = "file"
+	name = "modules.conf"
+}
+
+/*
+ * Chanstats module. Requires a MySQL Database.
+ */
+#include
+{
+	type = "file"
+	name = "chanstats.conf"
+}
+
+/*
+ * IRC2SQL Gateway. Requires MySQL 5.5+.
+ */
+#include
+{
+	type = "file"
+	name = "irc2sql.conf"
+}

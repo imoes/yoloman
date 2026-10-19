@@ -108,8 +108,9 @@ async def _expand_role_calls(
         # Validate the stored doc directly. This used to serialise it to NestedText and re-parse that,
         # purely to reach the validator — a round-trip through a text format the system no longer has.
         sub = nt_runbook.parse_data(row.doc, source=f"runbook {ref!r}")
-        if not isinstance(sub, nt_runbook.Runbook):
-            raise nt_runbook.NTRunbookError(f"runbook step: {ref!r} is a role, not a runbook")
+        # Both stored runbooks and stored roles are composable.  A role is an
+        # idempotent step bundle with parameters; rejecting it here made the
+        # documented "role call" syntax unable to call an actual role.
         # Callee parameter defaults (weakest), then the call's explicit vars.
         for pname, spec in (sub.parameters or {}).items():
             if isinstance(spec, dict) and spec.get("default") is not None:
@@ -165,6 +166,11 @@ async def execute_runbook(
     from bossman.api.config_templates import load_template_bodies
 
     templates = load_template_bodies(settings)
+    # The host's family selects a family-made template for the same file (nt_engine._apply_config_template).
+    if "_family" not in variables:
+        from bossman.api.package_wizard import _family
+
+        variables = {**variables, "_family": _family(agent.facts or {})}
     result = await nt_engine.run_runbook(doc, client, variables, check_mode=dry_run, templates=templates)
     rr = result.to_dict()
     rr["facts_gathered"] = len(magic) - 1

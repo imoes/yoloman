@@ -166,10 +166,10 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 8px 10px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
       }
       .bm-table td {
-        padding: 8px 10px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
         border-top: 1px solid var(--mat-sys-outline-variant);
       }
       .bm-row-link {

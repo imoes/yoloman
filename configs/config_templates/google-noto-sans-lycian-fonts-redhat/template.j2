@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Configuration for Google Noto Sans Lycian Fonts (RedHat package).
+    This XML snippet configures font matching and aliasing for the 'lycian' script.
+  -->
+
+  <!--
+    Match generic sans-serif fonts and prepend the specific Lycian font to their list.
+    This ensures that when an application requests a 'sans-serif' font,
+    'Noto Sans Lycian' is considered first (if available) before falling back to other sans fonts.
+  -->
+  <match>
+    <!-- Test if the requested font family matches the generic family -->
+    <test name="family">
+      <!--
+        The generic font family to match and prepend the specific font to.
+        Default is 'sans-serif'.
+      -->
+      <string>{{ sans_family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Prepend the specific Lycian font to the list of matched fonts -->
+    <edit name="family" mode="prepend">
+      <!--
+        The specific font family name to add to the list.
+        This is the display name for the Noto Sans Lycian font.
+        Default is 'Noto Sans Lycian'.
+      -->
+      <string>{{ font_family | default('Noto Sans Lycian') }}</string>
+    </edit>
+
+    <!-- Append a boolean indicating font hash hinting settings -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        Whether to append a boolean value indicating font hash hinting settings.
+        Typically 'true' or 'false'.
+        Default is 'false'.
+      -->
+      <bool>{{ font_hash_hint | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Define an alias for the specific font family.
+    Maps the 'Noto Sans Lycian' family to the generic sans-serif family as a fallback/default.
+    This allows applications requesting 'Noto Sans Lycian' to gracefully degrade to 'sans-serif'
+    if the specific font is not installed or preferred in a different context.
+  -->
+  <alias>
+    <!-- The name of the font family being aliased -->
+    <family>{{ font_family | default('Noto Sans Lycian') }}</family>
+    <!-- The default family to use if the specific font is not found/preferred -->
+    <default>
+      <family>{{ sans_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

@@ -24,11 +24,22 @@ html {
     )
   );
 
-  --bm-green: #1e9600;
+  // Status colours are TEXT on a dark surface as often as they are fills, so each must reach WCAG AA (4.5:1) on the
+  // surfaces it is drawn on — the darkest card (#1a1c18), the raised one (#2e302d) and its own 14% badge tint.
+  // Measured by the Playwright consistency suite (axe color-contrast on 55 of 56 screens): the previous
+  // #1e9600 / #d0021b / #8a8a8a reached only 3.8 / 2.9 / 4.1 on their badges.
+  --bm-green: #34b814;
   --bm-gold: #ffc800;
-  --bm-red: #d0021b;
+  --bm-red: #ff5c6a;
   --bm-black: #0d0d0d;
-  --bm-unknown: #8a8a8a;
+  --bm-unknown: #a8a8a8;
+  // "In flight" (bm-status-pill's running tone): a cool blue that no status colour above already means, so a
+  // running job never borrows the gold of a warning or the green of done. ≥4.5:1 on the darkest card.
+  --bm-info: #7ab8ff;
+  // Link text. The browser's dark-scheme default (#9e9eff) fell to 3.7:1 wherever a link sits inside dimmed
+  // text (.bm-dim, opacity .6) — the hint lines that link elsewhere. A light tint of the brand green keeps
+  // ≥4.5:1 even at that opacity; Material buttons rendered as <a> keep their own colour (class selector wins).
+  --bm-link: color-mix(in srgb, var(--bm-green) 45%, #fff);
 
   // Pin Material's own design tokens to the exact same hex the --bm-*
   // status vars use (rather than mat.$green-palette's independently
@@ -75,6 +86,33 @@ body {
 html,
 body {
   height: 100%;
+}
+
+/* ── Table density (one choice for every list table; toggled in the nav footer, persisted per browser).
+   Components consume the tokens in their own table CSS — .bm-table / .bm-t / .bm-ct / .bm-tbl / .bm-mgmt-table
+   cells read var(--bm-cell-py) (vertical padding), var(--bm-cell-px) (the usual 8–10px horizontal padding) and
+   var(--bm-font-table) — so the body class is the single switch. Comfortable is the default (and the value
+   when no class is set, so a page that renders before the shell still looks right). ── */
+body,
+body.bm-density-comfortable {
+  --bm-row-h: 34px;
+  --bm-cell-py: 6px;
+  --bm-cell-px: 10px;
+  --bm-font-table: 13px;
+}
+body.bm-density-compact {
+  --bm-row-h: 26px;
+  --bm-cell-py: 3px;
+  --bm-cell-px: 8px;
+  --bm-font-table: 12.5px;
+  // Material's own density scale for its controls (buttons, form fields, lists) — the same choice, so a
+  // compact table does not sit under comfortable-sized Material controls.
+  @include mat.theme((density: -2));
+}
+/* The row height floor: a cell with one line of text is this tall in either mode; taller content grows it. */
+:is(.bm-table, .bm-t, .bm-ct, .bm-tbl, .bm-mgmt-table) > tbody > tr > td {
+  height: var(--bm-row-h);
+  box-sizing: border-box;
 }
 
 /* In-app snackbar (DialogService.notify) — replaces browser alert(). */
@@ -136,8 +174,6 @@ body {
 /* Provision wizard: it draws its own title/body/footer and manages scrolling inside .pw-main, so the dialog
    surface must be flush (no MDC content padding) and must NOT add a second scrollbar of its own. The dialog
    is sized on open (see openWizard); lift MDC's 560px default cap so that width actually applies. */
-.pw-dialog .mat-mdc-dialog-container { max-width: none; }
-.pw-dialog .mat-mdc-dialog-surface { max-width: none; padding: 0; overflow: hidden; }
 
 /* ── Buttons — one polished, branded system (macOS depth, Rasta green) ──
    Applied via Material's rendered classes so every mat-button benefits. Calm,
@@ -196,3 +232,22 @@ body {
    global. The banner should be as WIDE AS THE TEXT column (the .bm-page is capped
    at 900px), scaling down responsively, with aspect ratio preserved. */
 .bm-md img { max-width: 100%; height: auto; }
+
+a, a:visited { color: var(--bm-link); }
+
+/* ── The reason a control is refused (CLAUDE.md "Formale Logik" rule 4: every refusal names its reason).
+   An action button blocked by a validation/precondition takes [bmBlocked]="xBlocked()" (BlockedReasonDirective):
+   it stays focusable with aria-disabled, swallows the click, and renders the reason next to itself as
+   .bm-blocked-why, linked by aria-describedby. Native [disabled] is for a request in flight only (busy/saving);
+   `npm run lint:disabled` keeps it that way. .bm-why is the older wrapper that carried the reason as a hover
+   title around a natively disabled button; it now only groups a button with its reason. ── */
+.bm-why { display: inline-flex; align-items: center; }
+.mat-mdc-button-base.bm-blocked { opacity: 0.55; cursor: not-allowed; }
+.bm-blocked-why { font-size: 12px; opacity: 0.75; margin: 0 8px; align-self: center; }
+.bm-blocked-why--nudged { opacity: 1; font-weight: 600; color: var(--bm-gold); }
+/* 'tip' mode: the reason is the tooltip and the accessible description; it becomes visible text only once a
+   blocked click asks for it (per-row actions, icon buttons). */
+.bm-blocked-why--tip:not(.bm-blocked-why--nudged) {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}

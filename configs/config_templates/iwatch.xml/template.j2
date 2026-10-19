@@ -1,120 +1,27 @@
-<?xml version="1.0"?>
-<!--
-  ============================================================================
-  iwatch Configuration Template (iwatch.xml)
-  ============================================================================
-  This template generates the configuration file for iwatch, a file
-  monitoring daemon that uses Linux inotify to watch directories for
-  changes and trigger actions (such as sending email alerts).
+<?xml version="1.0" ?>
+<!-- iWatch XML Configuration Template -->
+<!-- Root element defining the document type and character encoding -->
+<!DOCTYPE config SYSTEM "/etc/iwatch/iwatch.dtd" >
 
-  Self-documenting: Every XML element corresponds to a schema field.
-  All variables use defaults to ensure safe rendering even if
-  Ansible variables are undefined.
-  ============================================================================
--->
-<iwatch>
-  <!--
-    PID file path for the iwatch daemon process.
-    Schema: pidfile (implicit, not exposed in schema fields, hardcoded for safety)
-  -->
-  <pidfile>/var/run/iwatch.pid</pidfile>
+<config charset="utf-8">
+  <!-- Guard section: Defines the identity and email address for the iWatch monitoring service -->
+  <guard email="{{ guard_email | default('iwatch@localhost') }}" name="{{ guard_name | default('iWatch') }}"/>
 
-  <!--
-    Email address to receive security alerts.
-    Schema field: email_to
-    Default: root@localhost
-  -->
-  <email>{{ email_to | default('root@localhost') }}</email>
-
-  <!--
-    Logging verbosity level.
-    Valid values: debug, info, notice, warning, error, critical, alert, emergency
-    Schema field: log_level
-    Default: notice
-  -->
-  <loglevel>{{ log_level | default('notice') }}</loglevel>
-
-  <!--
-    Path to the iwatch log file.
-    Schema field: log_file
-    Default: /var/log/iwatch.log
-  -->
-  <logfile>{{ log_file | default('/var/log/iwatch.log') }}</logfile>
-
-  <!--
-    Number of worker processes to spawn.
-    Set to 0 to auto-detect based on the number of CPU cores.
-    Schema field: worker_count
-    Default: 0
-  -->
-  <worker>{{ worker_count | default(0) }}</worker>
-
-  <!--
-    Timeout in seconds for inotify event processing.
-    If processing takes longer than this, a full scan is forced.
-    Schema field: timeout_seconds
-    Default: 30
-  -->
-  <timeout>{{ timeout_seconds | default(30) }}</timeout>
-
-  <!--
-    Enable kernel-based inotify monitoring.
-    Recommended to be true on modern Linux systems.
-    Schema field: use_kernel
-    Default: true (rendered as 'true' in XML context, though schema says Boolean True)
-    Note: XML does not have a native boolean type; 'true'/'false' strings are standard.
-  -->
-  <use_kernel>{{ use_kernel | default(True) | lower }}</use_kernel>
-
-  <!--
-    List of directories to monitor for file changes.
-    Schema field: watch_dirs
-    Default: [] (empty list, so no <watchlist> blocks rendered)
-    
-    Each item in watch_dirs is expected to be a mapping (dictionary) with keys:
-      - path (string, required): The directory path to monitor.
-      - mode (string, optional): The mode (e.g., 'default', 'recursive').
-      - recursive (string/bool, optional): Whether to watch recursively.
-      - include_pattern (string, optional): Glob pattern for files to include.
-      - exclude_pattern (string, optional): Glob pattern for files to exclude.
-      - alert (string, optional): Type of alert to trigger.
-      - alert_to (string, optional): Specific email for this alert (falls back to email_to).
-  -->
-  {% if watch_dirs is defined %}
-  {% for dir in watch_dirs %}
-  <!-- Monitor directory: {{ dir.path | default('') }} -->
+  <!-- Watchlist section: Defines which files/directories to monitor and who to notify -->
   <watchlist>
-    <!--
-      Directory path and monitoring mode.
-      dir.path: The absolute path to the directory.
-      dir.mode: Monitoring mode.
-      dir.recursive: 'true' or 'false'.
-    -->
-    <dir path="{{ dir.path | default('') }}" mode="{{ dir.mode | default('default') }}" recursive="{{ dir.recursive | default(False) | lower }}">
-      <!--
-        Include pattern for file filtering.
-        dir.include_pattern: Glob pattern. Empty if not set.
-      -->
-      {% if dir.include_pattern is defined and dir.include_pattern %}
-      <include pattern="{{ dir.include_pattern }}" />
-      {% endif %}
-      
-      <!--
-        Exclude pattern for file filtering.
-        dir.exclude_pattern: Glob pattern. Empty if not set.
-      -->
-      {% if dir.exclude_pattern is defined and dir.exclude_pattern %}
-      <exclude pattern="{{ dir.exclude_pattern }}" />
-      {% endif %}
-      
-      <!--
-        Alert configuration.
-        dir.alert: Type of event that triggers the alert.
-        dir.alert_to: Recipient email (falls back to global email_to).
-      -->
-      <alert type="{{ dir.alert | default('') }}" to="{{ dir.alert_to | default(email_to | default('root@localhost')) }}" />
-    </dir>
+    <!-- Title for this specific watchlist configuration block -->
+    <title>{{ watchlist_title | default('Operating System') }}</title>
+
+    <!-- Contact points to notify when events occur -->
+    <!-- Iterates over the list of contacts provided in the schema -->
+    {% for contact in contacts | default([{'email': 'root@localhost', 'name': 'Administrator'}]) %}
+    <contactpoint email="{{ contact.email }}" name="{{ contact.name }}"/>
+    {% endfor %}
+
+    <!-- Paths to monitor -->
+    <!-- Iterates over the list of paths provided in the schema -->
+    {% for path in paths | default([{'type': 'single', 'syslog': 'on', 'value': '/bin'}, {'type': 'single', 'syslog': 'on', 'value': '/sbin'}, {'type': 'single', 'value': '/etc'}, {'type': 'recursive', 'value': '/lib'}, {'type': 'exception', 'value': '/lib/modules'}]) %}
+    <path type="{{ path.type }}"{% if path.syslog is defined and path.syslog != '' %} syslog="{{ path.syslog }}"{% endif %}>{{ path.value }}</path>
+    {% endfor %}
   </watchlist>
-  {% endfor %}
-  {% endif %}
-</iwatch>
+</config>

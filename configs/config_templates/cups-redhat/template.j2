@@ -5,31 +5,31 @@
 
 # Log general information in error_log - change "warn" to "debug"
 # for troubleshooting...
-LogLevel {{ log_level }}
+LogLevel {{ log_level | default('warn') }}
 
 
 # Specifies the maximum size of the log files before they are rotated.  The value "0" disables log rotation.
-MaxLogSize {{ max_log_size }}
+MaxLogSize {{ max_log_size | default('1m') }}
 
 # Default error policy for printers
-ErrorPolicy {{ error_policy }}
+ErrorPolicy {{ error_policy | default('stop-printer') }}
 
 # Only listen for connections from the local machine.
-Listen localhost:{{ listen_port }}
+Listen localhost:631
 Listen /run/cups/cups.sock
 
 # Show shared printers on the local network.
-Browsing {{ browsing_enabled | lower }}
-BrowseLocalProtocols dnssd
+Browsing {{ browsing | default('On') }}
+BrowseLocalProtocols {{ browse_local_protocols | default('dnssd') }}
 
 # Default authentication type, when authentication is required...
-DefaultAuthType {{ default_auth_type }}
+DefaultAuthType {{ default_auth_type | default('Basic') }}
 
 # Web interface setting...
-WebInterface {{ web_interface_enabled | lower }}
+WebInterface {{ web_interface | default('Yes') }}
 
 # Timeout after cupsd exits if idle (applied only if cupsd runs on-demand - with -l)
-IdleExitTimeout {{ idle_exit_timeout }}
+IdleExitTimeout {{ idle_exit_timeout | default('0') }}
 
 # Restrict access to the server...
 <Location />

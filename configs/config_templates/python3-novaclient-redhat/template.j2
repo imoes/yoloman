@@ -1,0 +1,74 @@
+# ==============================================================================
+# bash-completion script for the OpenStack `nova` command.
+#
+# This template provides shell tab-completion for `nova` CLI options and
+# subcommands. It dynamically queries the `nova` binary for available flags
+# and caches them for performance.
+#
+# Since `python3-novaclient-redhat` is a client-side tool and this template
+# contains NO service configuration (no ports, no database connections),
+# it has no capability vocabulary entries (provides/requires are empty).
+# ==============================================================================
+
+# --- Configuration Defaults ---
+# These variables allow overriding the default cache location or command
+# if the installation path differs from the standard expectation.
+
+# The command used to generate completion options.
+# Default: "nova"
+# @default nova
+_nova_cmd="{{ nova_cmd | default('nova') }}"
+
+# The shell variable name to store the completion cache file path.
+# Default: ~/.novaclient/*/*-cache
+# @default ~/.novaclient/*/*-cache
+_nova_cache_dir="{{ nova_cache_dir | default('~/.novaclient/*/*-cache') }}"
+
+# --- Completion Function ---
+# This function is registered with `complete` at the end of the script.
+_nova()
+{
+    # Local variables for current word, previous word, and parsed options.
+    local cur prev nbc cflags
+    COMPREPLY=()
+    
+    # Identify current and previous words in the command line.
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Lazy initialization of completion data.
+    # If the options string is empty, populate it by calling the nova binary.
+    if [ "x$_nova_opts" == "x" ] ; then
+        # Fetch raw completion data from the nova client.
+        # We strip short help flags (-h) and identifier flags (-i) to get clean options.
+        nbc="`${_nova_cmd} bash-completion | sed -e "s/  *-h  */ /" -e "s/  *-i  */ /"`
+        
+        # Extract long option names (e.g., --os-username) by removing non-flag text.
+        _nova_opts="`echo "$nbc" | sed -e "s/--[a-z0-9_-]*//g" -e "s/  */ /g"`"
+        
+        # Extract short/long flag keys (e.g., -h, --help) for flag-specific completion.
+        _nova_flags="`echo " $nbc" | sed -e "s/ [^-][^-][a-z0-9_-]*//g" -e "s/  */ /g"`"
+        
+        # Create a pipe-separated string of options for regex matching.
+        _nova_opts_exp="`echo "$_nova_opts" | tr ' ' '|'`"
+    fi
+
+    # Determine which completion list to use based on the previous argument.
+    # If the previous word matches a known option (like --os-password),
+    # we provide flag-specific completions (potentially from cache).
+    # Otherwise, we provide the full list of top-level options.
+    if [[ " ${COMP_WORDS[@]} " =~ " "($_nova_opts_exp)" " && "$prev" != "help" ]] ; then
+        # Attempt to read cached completions for specific flags.
+        # If the cache file doesn't exist, fall back to an empty string gracefully.
+        cflags="$_nova_flags "$(cat ${_nova_cache_dir} 2> /dev/null | tr '\n' ' ')
+        COMPREPLY=($(compgen -W "${cflags}" -- ${cur}))
+    else
+        # Standard completion for the main command options.
+        COMPREPLY=($(compgen -W "${_nova_opts}" -- ${cur}))
+    fi
+    return 0
+}
+
+# Register the completion function with bash for the 'nova' command.
+# The 'default' value for the command name is used here if the variable wasn't overridden.
+complete -F _nova "{{ nova_cmd | default('nova') }}"

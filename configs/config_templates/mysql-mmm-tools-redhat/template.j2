@@ -1,0 +1,132 @@
+{# ============================================================================= #}
+{# mysql-mmm-tools-redhat: MySQL Master-Multi-Master Agent Configuration           #}
+{#                                                                                #}
+{# This template configures the MMM tools agent responsible for cloning and       #}
+{# restoring database directories between replication nodes. It handles LVM       #}
+{# snapshot creation, SSH communication, and backup/restore strategies.           #}
+{# ============================================================================= #}
+
+{# Include the base agent configuration which defines node identity and network   #}
+{# parameters.                                                                    #}
+include mmm_agent.conf
+
+{# -----------------------------------------------------------------------------  #}
+{# Global Cloning Settings                                                       #}
+{# -----------------------------------------------------------------------------  #}
+
+{# default_copy_method: Defines the default method used for cloning data.         #}
+{# Supported values: scp, rdiff, ssh-gz.                                          #}
+default_copy_method         {{ default_copy_method | default('scp') }}
+
+{# clone_dirs: Comma-separated list of directories to clone during the backup/    #}
+{# restore process. These directories are copied from the source snapshot to the  #}
+{# destination.                                                                 #}
+clone_dirs                  {{ clone_dirs | default('data, logs') }}
+
+{# -----------------------------------------------------------------------------  #}
+{# Host-Specific Configuration                                                   #}
+{# -----------------------------------------------------------------------------  #}
+
+<host default>
+    {# ssh_user: The SSH user account used for remote operations during           #}
+    {# cloning and restoration. Typically root or a dedicated admin user.         #}
+    ssh_user                {{ ssh_user | default('root') }}
+
+    {# lvm_snapshot_size: The size allocated for the LVM snapshot used to         #}
+    {# capture a consistent state of the database files during cloning.           #}
+    lvm_snapshot_size       {{ lvm_snapshot_size | default('1G') }}
+
+    {# lvm_logical_volume: The name of the LVM logical volume containing the      #}
+    {# MySQL data.                                                              #}
+    lvm_logical_volume      {{ lvm_logical_volume | default('mysql') }}
+
+    {# lvm_volume_group: The name of the LVM volume group where the logical       #}
+    {# volume resides.                                                          #}
+    lvm_volume_group        {{ lvm_volume_group | default('storage') }}
+
+    {# lvm_mount_dir: The local directory where the LVM snapshot is mounted       #}
+    {# to read/write data during the clone process.                             #}
+    lvm_mount_dir           {{ lvm_mount_dir | default('/mmm_snapshot') }}
+
+    {# lvm_mount_opts: Options passed to the mount command when mounting the      #}
+    {# LVM snapshot.                                                            #}
+    lvm_mount_opts          {{ lvm_mount_opts | default('-orw,nouuid') }}
+
+    {# tools_user: The system user account under which the MMM tools run.         #}
+    {# This is an OS-level service account, not a database credential.            #}
+    tools_user              {{ tools_user | default('mmm_tools') }}
+
+    {# tools_password: The password for the MMM tools user account.               #}
+    {# Note: This is the password for the `tools_user` system account defined     #}
+    {# above, used for authentication in certain MMM tool operations.             #}
+    tools_password          {{ tools_password | default('RepTools') }}
+
+    {# backup_dir: The directory on the local host where backups are stored       #}
+    {# temporarily before or after transfer.                                    #}
+    backup_dir              {{ backup_dir | default('/mmm_backup') }}
+
+    {# restore_dir: The directory where data is restored to. Typically the        #}
+    {# final destination for the MySQL data files.                              #}
+    restore_dir             {{ restore_dir | default('/mysql') }}
+</host>
+
+{# -----------------------------------------------------------------------------  #}
+{# Copy Method: SCP                                                              #}
+{# -----------------------------------------------------------------------------  #}
+
+<copy_method scp>
+    {# backup_command: The command used to copy data from the snapshot to the     #}
+    {# destination using SCP. Uses blowfish cipher for speed. Variables:          #}
+    {# %SSH_USER%, %IP%, %SNAPSHOT%, %CLONE_DIR%, %DEST_DIR%                    #}
+    backup_command scp -c blowfish -r %SSH_USER%@%IP%:%SNAPSHOT%/%CLONE_DIR% %DEST_DIR%/
+    
+    {# restore_command: The command used to copy data from the backup directory   #}
+    {# to the destination using local copy.                                     #}
+    restore_command cp -axv %BACKUP_DIR%/* %DEST_DIR%/
+    
+    {# true_copy: Flag indicating this method performs a full copy.               #}
+    true_copy 1
+</copy_method>
+
+{# -----------------------------------------------------------------------------  #}
+{# Copy Method: RDIFF                                                            #}
+{# -----------------------------------------------------------------------------  #}
+
+<copy_method rdiff>
+    {# backup_command: The command used to backup using rdiff-backup.             #}
+    {# Uses SSH with no compression and verbose logging. Includes/Excludes        #}
+    {# specific snapshot paths.                                                   #}
+    backup_command rdiff-backup --ssh-no-compression -v 5 !--include %SNAPSHOT%/%CLONE_DIR%! --exclude %SNAPSHOT% %SSH_USER%@%IP%::%SNAPSHOT%/ %DEST_DIR%/
+    
+    {# restore_command: The command used to restore from a specific version.      #}
+    {# Restores to a temporary directory, copies to destination, and cleans up.   #}
+    restore_command rdiff-backup --force -v 5 -r %VERSION% %BACKUP_DIR% %DEST_DIR%/.mmm_restore; cp -axvl --remove-destination %DEST_DIR%/.mmm_restore/*  %DEST_DIR%/; rm -r %DEST_DIR%/.mmm_restore/
+    
+    {# incremental_command: Command to list incremental backups in parsable       #}
+    {# output format.                                                             #}
+    incremental_command rdiff-backup --parsable-output -l %BACKUP_DIR%
+    
+    {# single_run: Flag indicating this method runs as a single operation.        #}
+    single_run 1
+    
+    {# incremental: Flag indicating this method supports incremental backups.     #}
+    incremental 1
+</copy_method>
+
+{# -----------------------------------------------------------------------------  #}
+{# Copy Method: SSH-GZ                                                           #}
+{# -----------------------------------------------------------------------------  #}
+
+<copy_method ssh-gz>
+    {# backup_command: The command used to backup using SSH and tar/gzip.         #}
+    {# Creates a tar archive of the clone directory on the remote host,           #}
+    {# compresses it, and saves it locally. Uses blowfish cipher.                 #}
+    backup_command ssh -c blowfish %SSH_USER%@%IP% "cd '%SNAPSHOT%'; tar cv !'%CLONE_DIR%'!" | gzip > %DEST_DIR%/backup.tar.gz
+    
+    {# restore_command: The command used to restore from the gzip backup.         #}
+    {# Extracts the tar.gz file into the destination directory.                   #}
+    restore_command cd %DEST_DIR%; tar xzfv %BACKUP_DIR%/backup.tar.gz
+    
+    {# single_run: Flag indicating this method runs as a single operation.        #}
+    single_run 1
+</copy_method>

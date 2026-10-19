@@ -1,27 +1,152 @@
-# pyWPS WSGI Application Configuration
-# This block configures Apache's mod_wsgi to serve the pyWPS WPS application.
-# It defines the URL alias and the directory access rules for the script files.
+# ==============================================================================
+# PyWPS WSGI Configuration Template
+# ==============================================================================
+# This template configures the PyWPS Web Processing Service. It uses INI-style
+# configuration sections: [wps], [provider], and [server].
+# All variables are sourced from the Ansible role's variable scope, with
+# sensible defaults provided via the `default` filter to ensure idempotent
+# rendering even if variables are unset.
 
-# WSGIScriptAlias: Maps a URL path prefix to the WSGI script file.
-# Requests starting with the alias path will be handled by the specified script.
-# Variable: wsgi_script_alias_path
-# Description: The URL path prefix for the WSGI application alias.
-WSGIScriptAlias {{ wsgi_script_alias_path | default('/pywps') }} {{ wsgi_script_path | default('/usr/share/pywps/wps.py') }}
+# ------------------------------------------------------------------------------
+# [wps] Section: Core WPS Metadata and Endpoint Configuration
+# ------------------------------------------------------------------------------
+[wps]
 
-# <Directory> block: Defines access controls for the directory containing the WSGI script.
-# Variable: wsgi_directory_path
-# Description: The file system path to the directory containing the WSGI script.
-<Directory "{{ wsgi_directory_path | default('/usr/share/pywps') }}">
-    # AllowOverride: Prevents .htaccess files from overriding this configuration.
-    # This is a security best practice to ensure the server's config is authoritative.
-    AllowOverride None
+# The character encoding for the WPS responses.
+# Schema Description: Encoding standard used for output.
+encoding=utf-8
 
-    # Options: Controls which server features are enabled for this directory.
-    # -MultiViews: Prevents content negotiation from hiding the WSGI script extension.
-    # +SymLinksIfOwnerMatch: Allows symbolic links only if the target's owner matches the link's owner.
-    Options -MultiViews +SymLinksIfOwnerMatch
+# A human-readable title for this WPS instance.
+# Schema Description: Title of the PyWPS OSGeo-Live Demo.
+title=PyWPS OSGeo-Live Demo
 
-    # Require: Defines who is allowed to access the directory.
-    # "all granted" allows access to any client. In production, consider restricting this.
-    Require all granted
-</Directory>
+# The WPS protocol version supported by this service.
+# Schema Description: Version string (e.g., 1.0.0, 2.0.0).
+version=1.0.0
+
+# A short description explaining the purpose of this WPS.
+# Schema Description: Abstract describing PyWPS as an OGC implementation.
+abstract=PyWPS is an implementation of the Web Processing Service standard from the Open Geospatial Consortium. PyWPS is written in Python.
+
+# The fee structure for using this service. 'None' implies free service.
+# Schema Description: Fee policy (e.g., None, monetary values).
+fees=None
+
+# Constraints on the operations (e.g., specific verbs allowed). 'None' implies no specific constraints.
+# Schema Description: Operational constraints (e.g., None, specific verbs).
+constraints=None
+
+# The full base URL for the WPS endpoint. This is constructed using the
+# server URL from the schema and the WPS script alias.
+# Schema Description: The base URL for the PyWPS server, used to construct the serveraddress.
+# Note: `wsgi_script_alias_path` is appended to `wsgi_server_url` implicitly by WPS logic usually,
+# but here we construct the explicit endpoint URL as requested.
+serveraddress={{ wsgi_server_url | default('http://localhost/pywps') }}{{ wsgi_script_alias_path | default('/pywps') }}/wps.py
+
+# Keywords associated with this service for discovery purposes.
+# Schema Description: Comma-separated list of keywords.
+keywords=PyWPS,WPS,OGC,processing,ogc,interoperability
+
+# The supported languages for responses.
+# Schema Description: Language code (e.g., en-US).
+lang=en-US
+
+# ------------------------------------------------------------------------------
+# [provider] Section: Metadata about the Service Provider
+# ------------------------------------------------------------------------------
+[provider]
+
+# The name of the organization providing the service.
+# Schema Description: Name of the providing organization.
+providerName=Organization Name
+
+# The name of the individual contact person.
+# Schema Description: Full name of the individual contact.
+individualName=Lastname, Firstname
+
+# The job title or position of the contact person.
+# Schema Description: Position title (e.g., Project Manager).
+positionName=Position Title
+
+# The role of the contact person in the context of the service.
+# Schema Description: Role type (e.g., pointOfContact).
+role=pointOfContact
+
+# The physical mailing address for the provider.
+# Schema Description: Mailing address line.
+deliveryPoint=Mailing Address
+
+# The city for the provider's address.
+# Schema Description: City name.
+city=City
+
+# The postal or ZIP code for the provider's address.
+# Schema Description: Postal or ZIP code.
+postalCode=Zip or Postal Code
+
+# The country for the provider's address.
+# Schema Description: Country name.
+country=Country
+
+# The electronic mail address for the provider.
+# Schema Description: Email address.
+electronicMailAddress=Email Address
+
+# A URL pointing to the provider's website.
+# Schema Description: URL to the provider's site.
+providerSite=http://pywps.org
+
+# Voice phone number for contact.
+# Schema Description: Voice phone number format.
+phoneVoice=+xx-xxx-xxx-xxxx
+
+# Facsimile (fax) phone number for contact.
+# Schema Description: Facsimile phone number format.
+phoneFacsimile=+xx-xxx-xxx-xxxx
+
+# The administrative area (state/province) for the provider's address.
+# Schema Description: Administrative area (e.g., State, Province).
+administrativeArea=Administrative Area
+
+# ------------------------------------------------------------------------------
+# [server] Section: Runtime and Processing Limits
+# ------------------------------------------------------------------------------
+[server]
+
+# The maximum number of concurrent operations allowed.
+# Schema Description: Max concurrent operations limit.
+maxoperations=50
+
+# The maximum length of an input parameter (in characters/bytes).
+# Schema Description: Max input parameter length.
+maxinputparamlength=1024
+
+# The maximum file size allowed for uploads/downloads.
+# Schema Description: Max file size (e.g., 3mb, 100mb).
+maxfilesize=3mb
+
+# The temporary directory path used for storing intermediate processing files.
+# Schema Description: Path to the temporary directory.
+tempPath=/tmp
+
+# Enables or disables debug mode, which provides verbose error output.
+# Schema Description: Debug mode toggle.
+debug=true
+
+# The absolute file system path to the WSGI script entry point.
+# Schema Description: The absolute file system path to the WSGI script entry point.
+# Note: This field is defined in the schema but not present in the original INI template sections.
+# It is included here for completeness and self-documentation purposes.
+script_path={{ wsgi_script_path | default('/usr/share/pywps/wps.py') }}
+
+# The file system path to the directory containing the WSGI script.
+# Schema Description: The file system path to the directory containing the WSGI script.
+# Note: This field is defined in the schema but not present in the original INI template sections.
+# It is included here for completeness and self-documentation purposes.
+directory_path={{ wsgi_directory_path | default('/usr/share/pywps') }}
+
+# The URL path prefix for the WSGI application alias.
+# Schema Description: The URL path prefix for the WSGI application alias.
+# Note: This field is defined in the schema but not present in the original INI template sections.
+# It is included here for completeness and self-documentation purposes.
+script_alias_path={{ wsgi_script_alias_path | default('/pywps') }}

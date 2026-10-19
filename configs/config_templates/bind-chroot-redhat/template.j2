@@ -1,0 +1,85 @@
+# bind-chroot-redhat: Chroot environment configuration
+#
+# This template defines the files and directories that the named-chroot.service
+# will make available inside the chroot jail. If a listed file is missing or
+# empty within the target chroot directory, it is populated from the host system.
+#
+# WARNING: The order of entries is significant.
+# If a directory containing the base chroot directory ($ROOTDIR) is listed,
+# it MUST be listed as the last entry to ensure proper path resolution.
+#
+# Example: Since /var/named contains /var/named/chroot, /var/named must be last.
+
+# Standard time zone data required for correct time reporting in logs
+/etc/localtime
+
+# DNSSEC root trust anchor file (KEA/DNSSEC validation)
+/etc/named.root.key
+
+# DNSSEC root zone file (initial trust anchor for DNSSEC)
+/etc/named.ca
+
+# Primary BIND configuration file (zone definitions, options, etc.)
+/etc/named.conf
+
+# Secondary BIND configuration file (includes common zone definitions)
+/etc/named.rfc1912.zones
+
+# RNDC (Remote Name Daemon Control) configuration for secure management
+/etc/rndc.conf
+
+# RNDC shared key for authentication
+/etc/rndc.key
+
+# ISC DLV (DNSSEC Lookaside Validation) key file
+/etc/named.iscdlv.key
+
+# Crypto-policies backend configuration for BIND (TLS/DNSSEC)
+/etc/crypto-policies/back-ends/bind.config
+
+# Protocol number mappings (e.g., tcp=6, udp=17)
+/etc/protocols
+
+# Service name to port number mappings (e.g., domain=53)
+/etc/services
+
+# External DNSSEC keys file for zone signing
+/etc/named.dnssec.keys
+
+# Directory containing DNSSEC keys for dynamic updates
+/etc/pki/dnssec-keys
+
+# BIND binary directory (compatibility symlink or path)
+/etc/named
+
+# BIND libraries (64-bit)
+/usr/lib64/bind
+
+# BIND libraries (32-bit)
+/usr/lib/bind
+
+# Named-specific libraries (64-bit)
+/usr/lib64/named
+
+# Named-specific libraries (32-bit)
+/usr/lib/named
+
+# GeoIP database directory for geographic resolution
+/usr/share/GeoIP
+
+# BIND-specific shared data
+/usr/share/named
+
+# Runtime directory for named process (PID files, sockets)
+/run/named
+
+# Network configuration: local port range for UDP source ports
+/proc/sys/net/ipv4/ip_local_port_range
+
+# ==========================================
+# BASE CHROOT DIRECTORY (MUST BE LAST)
+# ==========================================
+# The base directory for the BIND chroot environment.
+# It must be listed last if it contains the chroot path itself.
+# Variable: var_chroot_base_dir (default: /var/named)
+{{ var_chroot_base_dir | default('/var/named') }}

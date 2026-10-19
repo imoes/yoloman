@@ -94,7 +94,11 @@ import {
         <!-- apply() history + rollback() -->
         <mat-tab label="Generations"><ng-template matTabContent>
           <div class="bm-ri-tab">
-            @if (generations().length) {
+            @if (genState() === 'loading') {
+              <p class="bm-ri-dim bm-ri-gen-loading">Loading the recorded applies…</p>
+            } @else if (genState() === 'error') {
+              <p class="bm-ri-err bm-ri-gen-error">The recorded applies could not be read: {{ genError() }}</p>
+            } @else if (generations().length) {
               <table class="bm-ri-gen">
                 @for (g of generations(); track g.generation) {
                   <tr>
@@ -146,6 +150,10 @@ export class ResourceInspectorComponent {
   observed = signal<Record<string, unknown> | null>(null);
   diff = signal<ResourceDiff | null>(null);
   generations = signal<ResourceGeneration[]>([]);
+  /** Loading, failed and empty are three states, not one: an empty list used to stand for all three, so a
+   *  request that failed (or had not answered yet) read as "No recorded applies yet". */
+  genState = signal<'loading' | 'error' | 'ok'>('loading');
+  genError = signal('');
   desired = signal<Record<string, unknown>>({});
   busy = signal(false);
   error = signal('');
@@ -167,7 +175,7 @@ export class ResourceInspectorComponent {
         next: (st) => this.observed.set(st),
         error: (e) => this.error.set(this.msg(e)),
       });
-      this.svc.generations(r).subscribe({ next: (g) => this.generations.set(g || []), error: () => this.generations.set([]) });
+      this.loadGenerations(r);
     });
   }
 
@@ -222,6 +230,16 @@ export class ResourceInspectorComponent {
     const r = this.ref();
     this.diff.set(null);
     this.svc.observe(r).subscribe({ next: (st) => this.observed.set(st), error: () => {} });
-    this.svc.generations(r).subscribe({ next: (g) => this.generations.set(g || []), error: () => {} });
+    this.loadGenerations(r, true);
+  }
+
+  /** `keep`: after a write the old list stays visible while the new one loads (it is still true until replaced). */
+  private loadGenerations(r: ResourceRef, keep = false): void {
+    if (!keep) { this.generations.set([]); this.genState.set('loading'); }
+    this.genError.set('');
+    this.svc.generations(r).subscribe({
+      next: (g) => { this.generations.set(g || []); this.genState.set('ok'); },
+      error: (e) => { this.genError.set(this.msg(e)); this.genState.set('error'); },
+    });
   }
 }

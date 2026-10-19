@@ -43,8 +43,9 @@
 # secrets         ~/.davfs2/secrets # user config file only
 # ask_auth        1
 
-# use_locks       {{ dav_use_locks | default(True) | lower }}
-# Enable WebDAV file locking. Disable if the server does not support locking or causes hangs.
+{% if dav_use_locks is defined and dav_use_locks is not none and (dav_use_locks is number or dav_use_locks is boolean or dav_use_locks | length > 0) %}use_locks       {{ dav_use_locks | default(True) | lower }}
+{% else %}# use_locks       1
+{% endif %}# Enable WebDAV file locking. Disable if the server does not support locking or causes hangs.
 
 # lock_owner      <user-name>
 # lock_timeout    1800              # seconds
@@ -56,8 +57,9 @@
 # precheck        1
 # ignore_dav_header 0
 
-# use_compression {{ dav_compression | default(False) | lower }}
-# Enable HTTP compression (gzip) for uploads. May improve performance over slow links but can increase CPU usage.
+{% if dav_compression is defined and dav_compression is not none and (dav_compression is number or dav_compression is boolean or dav_compression | length > 0) %}use_compression {{ dav_compression | default(False) | lower }}
+{% else %}# use_compression 0
+{% endif %}# Enable HTTP compression (gzip) for uploads. May improve performance over slow links but can increase CPU usage.
 
 # min_propset     0
 # follow_redirect 0
@@ -74,23 +76,25 @@
 {% for header in dav_extra_headers %}add_header {{ header | string }}
 {% endfor %}
 {% endif %}
-
 # Cache Related Options
 # ---------------------
 
 # backup_dir      lost+found
 
-# cache_dir       {{ dav_cache_dir | default('/var/cache/davfs2') }} # system wide cache
-#                 ~/.davfs2/cache   # per user cache
+{% if dav_cache_dir is defined and dav_cache_dir is not none and (dav_cache_dir is number or dav_cache_dir is boolean or dav_cache_dir | length > 0) %}cache_dir       {{ dav_cache_dir | default('/var/cache/davfs2') }} # system wide cache
+{% else %}# cache_dir       /var/cache/davfs2 # system wide cache
+{% endif %}#                 ~/.davfs2/cache   # per user cache
 # Local directory for file content caching. Set to '' (empty string) to disable caching entirely (read-only fallback only).
 
-# cache_size      {{ dav_cache_size_kb | default(10240) }} # MiByte
-# Minimum free space (KB) to maintain on the cache directory. When free space drops below this, davfs2 will purge old cached content.
+{% if dav_cache_size_kb is defined and dav_cache_size_kb is not none and (dav_cache_size_kb is number or dav_cache_size_kb is boolean or dav_cache_size_kb | length > 0) %}cache_size      {{ dav_cache_size_kb | default(10240) }} # MiByte
+{% else %}# cache_size      50                # MiByte
+{% endif %}# Minimum free space (KB) to maintain on the cache directory. When free space drops below this, davfs2 will purge old cached content.
 
 # table_size      1024
 
-# dir_refresh     {{ dav_cache_timeout | default(60) }} # seconds
-# Time in seconds before cached metadata is considered stale. Lower values reduce consistency but improve freshness.
+{% if dav_cache_timeout is defined and dav_cache_timeout is not none and (dav_cache_timeout is number or dav_cache_timeout is boolean or dav_cache_timeout | length > 0) %}dir_refresh     {{ dav_cache_timeout | default(60) }} # seconds
+{% else %}# dir_refresh     60                # seconds
+{% endif %}# Time in seconds before cached metadata is considered stale. Lower values reduce consistency but improve freshness.
 
 # file_refresh    1                 # second
 # delay_upload    10
@@ -100,15 +104,17 @@
 # Debugging Options
 # -----------------
 
-# debug           {{ dav_debug | default(False) | lower }}   # possible values: config, kernel, cache, http, xml,
-                  #      httpauth, locks, ssl, httpbody, secrets, most
+{% if dav_debug is defined and dav_debug is not none and (dav_debug is number or dav_debug is boolean or dav_debug | length > 0) %}debug           {{ dav_debug | default(False) | lower }}   # possible values: config, kernel, cache, http, xml,
+{% else %}# debug           # possible values: config, kernel, cache, http, xml,
+{% endif %}                  #      httpauth, locks, ssl, httpbody, secrets, most
 # Enable debug logging (requires restart to take effect).
 
 # Network Options
 # ---------------
 
-# proxy             {{ dav_proxy | default('') }}
-# Proxy server in 'host:port' format (e.g., 'proxy.example.com:3128'). Leave blank to connect directly.
+{% if dav_proxy is defined and dav_proxy is not none and (dav_proxy is number or dav_proxy is boolean or dav_proxy | length > 0) %}proxy             {{ dav_proxy | default('') }}
+{% else %}# proxy                             # system wide config file only
+{% endif %}# Proxy server in 'host:port' format (e.g., 'proxy.example.com:3128'). Leave blank to connect directly.
 
 # Performance & Security
 # ----------------------

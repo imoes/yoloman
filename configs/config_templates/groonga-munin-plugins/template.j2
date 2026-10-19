@@ -1,85 +1,107 @@
-# Groonga Munin Plugins Configuration
-# This file configures the environment variables for Groonga monitoring plugins.
-# It defines paths, hosts, and ports for various Groonga sub-services (HTTP, HTTPD, GQTP).
+# =============================================================================
+# Groonga Munin Plugins Configuration Template
+# =============================================================================
+# This template configures environment variables for Groonga-related Munin
+# plugins. These variables are typically read by the plugins (or the service
+# wrapper) to connect to the running Groonga instance and its sub-services.
+#
+# Sections:
+#   [groonga_*] - General Groonga monitoring settings.
+#   [groonga-http_*] - HTTP interface monitoring.
+#   [groonga-httpd_*] - HTTPD daemon monitoring.
+#   [groonga-gqtp_*] - GQTP (Groonga Query Transfer Protocol) monitoring.
+#
+# IMPORTANT: Variable names in this file must match the schema fields
+# (env_*) and their defaults are provided to ensure safe rendering.
+# =============================================================================
 
+# ------------------------------------------------------------------------------
+# Section: [groonga_*]
+# General settings for connecting to the Groonga database engine.
+# ------------------------------------------------------------------------------
 [groonga_*]
-  # OS user under which the monitoring plugins run.
+  # OS user under which Groonga processes run (usually _groonga or groonga).
+  # Note: This field is static in many distributions but included for completeness.
   user _groonga
-  # OS group under which the monitoring plugins run.
+
+  # OS group for Groonga processes.
   group _groonga
-  # PATH environment variable for the plugins.
+
+  # PATH environment variable passed to the monitoring scripts.
+  # Ensures standard utilities are found during plugin execution.
   env.PATH /usr/bin:/bin:/usr/local/bin
 
-  # Path to the main Groonga database file.
-  # Default: /var/lib/groonga/db/db
+  # Path to the Groonga database file/directory.
+  # Used by plugins to verify database integrity or status.
   env.database_path {{ env_database_path | default('/var/lib/groonga/db/db') }}
 
-  # Host to bind Groonga services for monitoring.
-  # Default: 127.0.0.1
+  # Host address to bind/connect to for Groonga services monitoring.
+  # Typically 127.0.0.1 for local monitoring.
   env.host {{ env_host | default('127.0.0.1') }}
 
-  # --- HTTP Plugin Configuration ---
-
-  # HTTP server host for Groonga HTTP plugin.
-  # Default: 127.0.0.1
+# ------------------------------------------------------------------------------
+# Section: [groonga-http_*]
+# Settings for monitoring the Groonga HTTP server (HTTP plugin).
+# ------------------------------------------------------------------------------
+[groonga-http_*]
+  # HTTP server host for the Groonga HTTP plugin.
   env.http_host {{ env_http_host | default('127.0.0.1') }}
 
-  # HTTP server port for Groonga HTTP plugin.
-  # Default: 10041
-  env.http_port {{ env_http_port | default(10041) }}
+  # HTTP server port for the Groonga HTTP plugin.
+  # Default port for Groonga HTTP interface.
+  env.http_port {{ env_http_port | default('10041') }}
 
-  # Path to the database used by Groonga HTTP server.
-  # Default: /var/lib/groonga/db/db
+  # Path to the database used by the Groonga HTTP server.
+  # Should match the main database path unless using a separate DB.
   env.http_database_path {{ env_http_database_path | default('/var/lib/groonga/db/db') }}
 
-  # Path to the PID file for Groonga HTTP server.
-  # Default: /var/run/groonga/groonga-http.pid
+  # Path to the PID file for the Groonga HTTP server.
+  # Used by Munin plugins to check if the process is running.
   env.http_pid_path {{ env_http_pid_path | default('/var/run/groonga/groonga-http.pid') }}
 
-  # Path to the query log file for Groonga HTTP server.
-  # Default: /var/log/groonga/query-http.log
+  # Path to the query log file for the Groonga HTTP server.
+  # Used for monitoring query volume or errors.
   env.http_query_log_path {{ env_http_query_log_path | default('/var/log/groonga/query-http.log') }}
 
-  # --- HTTPD Plugin Configuration ---
-
+# ------------------------------------------------------------------------------
+# Section: [groonga-httpd_*]
+# Settings for monitoring the Groonga HTTPD daemon (standalone HTTP server).
+# ------------------------------------------------------------------------------
+[groonga-httpd_*]
   # HTTPD (Groonga HTTP Daemon) server host.
-  # Default: 127.0.0.1
   env.httpd_host {{ env_httpd_host | default('127.0.0.1') }}
 
   # HTTPD (Groonga HTTP Daemon) server port.
-  # Default: 10041
-  env.httpd_port {{ env_httpd_port | default(10041) }}
+  # Default port for Groonga HTTPD interface.
+  env.httpd_port {{ env_httpd_port | default('10041') }}
 
-  # Path to the database used by Groonga HTTPD server.
-  # Default: /var/lib/groonga/db/db
+  # Path to the database used by the Groonga HTTPD server.
   env.httpd_database_path {{ env_httpd_database_path | default('/var/lib/groonga/db/db') }}
 
-  # Path to the PID file for Groonga HTTPD server.
-  # Default: /var/run/groonga/groonga-httpd.pid
+  # Path to the PID file for the Groonga HTTPD server.
   env.httpd_pid_path {{ env_httpd_pid_path | default('/var/run/groonga/groonga-httpd.pid') }}
 
-  # Path to the query log file for Groonga HTTPD server.
-  # Default: /var/log/groonga/httpd/groonga-query.log
+  # Path to the query log file for the Groonga HTTPD server.
   env.httpd_query_log_path {{ env_httpd_query_log_path | default('/var/log/groonga/httpd/groonga-query.log') }}
 
-  # --- GQTP Plugin Configuration ---
-
-  # GQTP server host.
-  # Default: 127.0.0.1
+# ------------------------------------------------------------------------------
+# Section: [groonga-gqtp_*]
+# Settings for monitoring the Groonga GQTP server.
+# GQTP is a binary protocol for Groonga.
+# ------------------------------------------------------------------------------
+[groonga-gqtp_*]
+  # GQTP server host address.
   env.gqtp_host {{ env_gqtp_host | default('127.0.0.1') }}
 
   # GQTP server port.
-  # Default: 10043
-  env.gqtp_port {{ env_gqtp_port | default(10043) }}
+  # Default port for GQTP interface.
+  env.gqtp_port {{ env_gqtp_port | default('10043') }}
 
-  # Path to the database used by Groonga GQTP server.
-  # Default: /var/lib/groonga/db/db
+  # Path to the database used by the Groonga GQTP server.
   env.gqtp_database_path {{ env_gqtp_database_path | default('/var/lib/groonga/db/db') }}
 
-  # Path to the PID file for Groonga GQTP server.
-  # Default: /var/run/groonga/groonga-gqtp.pid
+  # Path to the PID file for the Groonga GQTP server.
   env.gqtp_pid_path {{ env_gqtp_pid_path | default('/var/run/groonga/groonga-gqtp.pid') }}
 
-  # Path to the query log file for Groonga GQTP server.
-  # Default: /var/log/groonga/query-gqtp.log
+  # Path to the query log file for the Groonga GQTP server.
   env.gqtp_query_log_path {{ env_gqtp_query_log_path | default('/var/log/groonga/query-gqtp.log') }}

@@ -1,0 +1,114 @@
+# =============================================================================
+# Ganglia Monitoring Agent (gmond) Configuration for Python3 Metrics
+# =============================================================================
+# This template configures the `gmond` (Ganglia Monitoring Daemon) to collect
+# system metrics using the Python3-based CPU stats module and specific
+# process/thread counters.
+#
+# Variables are mapped 1:1 from the Ansible role schema. Defaults are applied
+# inline to ensure idempotency and safety when variables are omitted.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Module Loading Configuration
+# -----------------------------------------------------------------------------
+# Defines external modules that gmond should load at startup.
+# See: gmond_modules_cpu_stats_name, gmond_modules_cpu_stats_language
+modules {
+
+  # CPU Stats Module
+  # - name: The identifier for the module as registered by gmond.
+  # - language: The interpreter used to execute the module (e.g., 'python').
+  module {
+    name     = "{{ gmond_modules_cpu_stats_name | default('cpu_stats') }}"
+    language = "{{ gmond_modules_cpu_stats_language | default('python') }}"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Collection Group Configuration
+# -----------------------------------------------------------------------------
+# Defines how frequently metrics are collected and processed.
+# See: gmond_collection_group_collect_every, gmond_collection_group_time_threshold
+collection_group {
+  # collect_every: Interval in seconds between metric collection cycles.
+  # See: gmond_collection_group_collect_every
+  collect_every  = {{ gmond_collection_group_collect_every | default('10') }}
+
+  # time_threshold: Maximum age (in seconds) of a data point before it is
+  # considered stale and discarded.
+  # See: gmond_collection_group_time_threshold
+  time_threshold = {{ gmond_collection_group_time_threshold | default('45') }}
+
+  # ---------------------------------------------------------------------------
+  # Metric Definitions
+  # ---------------------------------------------------------------------------
+  # Individual metrics or patterns for metrics to be collected.
+
+  # 1. Blocked Processes Metric
+  # Collects the number of processes in an uninterruptible sleep state (D state).
+  # See: gmond_metric_procs_blocked_name, gmond_metric_procs_blocked_title,
+  #      gmond_metric_procs_blocked_value_threshold
+  metric {
+    # name: Unique identifier for this metric in Ganglia.
+    # See: gmond_metric_procs_blocked_name
+    name = "{{ gmond_metric_procs_blocked_name | default('procs_blocked') }}"
+
+    # title: Human-readable label displayed in the Ganglia web UI.
+    # See: gmond_metric_procs_blocked_title
+    title = "{{ gmond_metric_procs_blocked_title | default('Processes blocked') }}"
+
+    # value_threshold: Minimum change required to send a new data point.
+    # Prevents network spam for stable metrics.
+    # See: gmond_metric_procs_blocked_value_threshold
+    value_threshold = {{ gmond_metric_procs_blocked_value_threshold | default('0.0') }}
+  }
+
+  # 2. Created Processes/Threads Metric
+  # Collects the rate of new process or thread creation.
+  # See: gmond_metric_procs_created_name, gmond_metric_procs_created_title,
+  #      gmond_metric_procs_created_value_threshold
+  metric {
+    # name: Unique identifier for this metric in Ganglia.
+    # See: gmond_metric_procs_created_name
+    name = "{{ gmond_metric_procs_created_name | default('procs_created') }}"
+
+    # title: Human-readable label displayed in the Ganglia web UI.
+    # See: gmond_metric_procs_created_title
+    title = "{{ gmond_metric_procs_created_title | default('Processes/Threads created') }}"
+
+    # value_threshold: Minimum change required to send a new data point.
+    # Prevents network spam for stable metrics.
+    # See: gmond_metric_procs_created_value_threshold
+    value_threshold = {{ gmond_metric_procs_created_value_threshold | default('0.0') }}
+  }
+
+  # 3. SoftIRQ Metric (Pattern Match)
+  # Matches all metrics starting with 'softirq_' (e.g., softirq_net, softirq_block).
+  # Uses regex `name_match` instead of static `name` to capture multiple values.
+  # See: gmond_metric_softirq_name_match, gmond_metric_softirq_value_threshold
+  metric {
+      # name_match: Regex pattern to select relevant metrics.
+      # See: gmond_metric_softirq_name_match
+      name_match = "{{ gmond_metric_softirq_name_match | default('softirq_(.+)') }}"
+
+      # value_threshold: Minimum change required to send a new data point.
+      # Prevents network spam for stable metrics.
+      # See: gmond_metric_softirq_value_threshold
+      value_threshold = {{ gmond_metric_softirq_value_threshold | default('1.0') }}
+  }
+
+  # 4. CPU Metric (Pattern Match)
+  # Matches all metrics starting with 'cpu_' (e.g., cpu_user, cpu_sys).
+  # See: gmond_metric_cpu_name_match, gmond_metric_cpu_value_threshold
+  metric {
+      # name_match: Regex pattern to select relevant metrics.
+      # See: gmond_metric_cpu_name_match
+      name_match = "{{ gmond_metric_cpu_name_match | default('cpu_(.+)') }}"
+
+      # value_threshold: Minimum change required to send a new data point.
+      # Prevents network spam for stable metrics.
+      # See: gmond_metric_cpu_value_threshold
+      value_threshold = {{ gmond_metric_cpu_value_threshold | default('1.0') }}
+  }
+}

@@ -65,6 +65,22 @@ services:
       # the token empty. See services/agent_release.py.
       BOSSMAN_AGENT_RELEASE_REPO: ${BOSSMAN_AGENT_RELEASE_REPO:-imoes/yoloman}
       BOSSMAN_GITHUB_TOKEN: ${BOSSMAN_GITHUB_TOKEN:-}
+      # GELF target for the diagnosis export (plan B9). Empty = sending is OFF (the export is still produced on
+      # GET .../export/gelf for inspection); POST .../export/gelf/send then 422s with the reason. Set the host to
+      # turn it on — `graylog` reaches the `graylog` compose profile in-network. Protocol udp|tcp, default udp.
+      BOSSMAN_GELF_HOST: ${BOSSMAN_GELF_HOST:-}
+      BOSSMAN_GELF_PORT: ${BOSSMAN_GELF_PORT:-12201}
+      BOSSMAN_GELF_PROTOCOL: ${BOSSMAN_GELF_PROTOCOL:-udp}
+      # The chat model behind the on-demand AI features (the diagnosis explanation, translate, knowledge, plan
+      # briefing, explain_server) — an OpenAI-compatible endpoint, set in the gitignored .env. Empty = those
+      # features fall back or say that no model is configured. Nothing runs against it in the background.
+      BOSSMAN_CHAT_BASE_URL: ${BOSSMAN_CHAT_BASE_URL:-}
+      BOSSMAN_CHAT_MODEL: ${BOSSMAN_CHAT_MODEL:-/models/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf}
+      # The AI console / MCP-driving model (OpenAI-compatible, tool calling). Set in .env, e.g.
+      # BOSSMAN_HERMES_WEB_BASE_URL=https://llm.example.internal/qwen27b, BOSSMAN_HERMES_WEB_MODEL=qwen3.8-27b.
+      BOSSMAN_HERMES_WEB_BASE_URL: ${BOSSMAN_HERMES_WEB_BASE_URL:-}
+      BOSSMAN_HERMES_WEB_MODEL: ${BOSSMAN_HERMES_WEB_MODEL:-laguna}
+      BOSSMAN_HERMES_WEB_TOKEN: ${BOSSMAN_HERMES_WEB_TOKEN:-}
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
     # Event Console (gap #2): expose the passive syslog/SNMP-trap UDP listeners.
     # Privileged 514/162 on the host map to the unprivileged in-container ports;
@@ -166,6 +182,10 @@ services:
       DISK_DIR: /srv/templates
       VM_BRIDGE: ${PXE_VM_BRIDGE:-br-ens19}
     volumes:
+      # The HTTP root on its own volume: pe.squashfs (built once, minutes) and the network installers' mirror
+      # (Ubuntu's 2.9 GB ISO, Fedora/Alma stage2) survive a recreation of this container instead of being
+      # rebuilt and downloaded again. The mounts below it (images, agent packages) are layered on top.
+      - pxe-http:/srv/http
       - bossman-images:/srv/http/images   # the same bytes Bossman writes to /etc/bossman/images
       - pxe-tftp:/srv/tftp
       - pxe-pe:/pe-root
@@ -182,7 +202,71 @@ services:
       # volumes. Instead the import creates the nbd device nodes it needs (mknod) and activates only the
       # source's VG (vgchange --mknodes), so the host's disks stay invisible. See deploy/pxe/import-image.sh.
 
+  # Graylog log sink for the diagnosis GELF export (plan B9). Graylog needs TWO backing stores and cannot start
+  # without either: MongoDB (its configuration and metadata) and OpenSearch (the log store) — OpenSearch alone is
+  # not enough. Opt-in via the `graylog` profile so a plain `docker compose up` never starts it. Bossman sends to
+  # graylog:12201 (GELF UDP, in-network) when BOSSMAN_GELF_HOST=graylog; the web UI/REST is on 127.0.0.1:9000
+  # (admin / admin — a LOCAL LAB password, change it for anything else). See docs/diagnosis.md (GELF export).
+  graylog-mongo:
+    profiles: ["graylog"]
+    image: mongo:6.0
+    volumes:
+      - graylog-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  graylog-opensearch:
+    profiles: ["graylog"]
+    image: opensearchproject/opensearch:2.15.0
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "discovery.type=single-node"
+      - "plugins.security.disabled=true"   # local lab: no TLS/auth in front of OpenSearch; Graylog talks to it in-network
+      # OpenSearch 2.12+ demands this at first boot even with security disabled (the demo-config installer checks it
+      # before honouring the disable flag); it is never used for auth while the plugin is off. Local-lab value.
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=Gr4ylog-OpenSearch!2026"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - graylog-opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+
+  graylog:
+    profiles: ["graylog"]
+    image: graylog/graylog:6.1
+    environment:
+      # Local-lab credentials: root password is "admin" (the SHA-256 below); the pepper only has to be stable and
+      # at least 16 chars. Replace both for anything that is not a throwaway local test.
+      GRAYLOG_PASSWORD_SECRET: "yoloman-local-lab-graylog-pepper"
+      GRAYLOG_ROOT_PASSWORD_SHA2: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+      GRAYLOG_HTTP_EXTERNAL_URI: "http://127.0.0.1:9000/"
+      GRAYLOG_MONGODB_URI: "mongodb://graylog-mongo:27017/graylog"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://graylog-opensearch:9200"
+      GRAYLOG_SERVER_JAVA_OPTS: "-Xms1g -Xmx1g"
+    depends_on:
+      graylog-mongo: { condition: service_healthy }
+      graylog-opensearch: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:9000:9000"        # web UI + REST API
+      - "127.0.0.1:12201:12201/udp"  # GELF UDP input (also graylog:12201 in-network)
+      - "127.0.0.1:12201:12201/tcp"  # GELF TCP input
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/api/system/lbstatus >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+
 volumes:
+  graylog-mongo-data:
+  graylog-opensearch-data:
   bossman-db-data:
   bossman-tls:
   bossman-cve-cache:
@@ -190,6 +274,7 @@ volumes:
   bossman-poller-data:
   bossman-images:
   pxe-tftp:
+  pxe-http:
   pxe-pe:
   pxe-agent-conf:
   pxe-agent-data:

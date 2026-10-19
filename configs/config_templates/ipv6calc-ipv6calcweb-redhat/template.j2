@@ -1,0 +1,152 @@
+# ipv6calcweb Apache Configuration Template
+#
+# This template configures the Apache web server to serve the ipv6calcweb CGI application.
+# It handles URL rewriting, access control, and environment variable injection for the CGI script.
+
+## Map requests using default URI to dedicated location
+# Ensures that requests to /cgi-bin/ipv6calcweb.cgi are correctly resolved
+# to the actual document root location defined in the schema.
+<IfModule rewrite_module>
+    RewriteEngine On
+    RewriteRule ^/cgi-bin/ipv6calcweb\.cgi$ {{ ipv6calcweb_document_root | default('/var/www/ipv6calcweb') }}/cgi-bin/ipv6calcweb.cgi
+</IfModule>
+
+## Access Control Configuration
+# Defines permissions for the CGI binary directory.
+# Uses legacy Apache 2.2 Order/Allow/Deny directives for compatibility,
+# though modern Apache (2.4+) prefers Require all granted/denied.
+<Directory {{ ipv6calcweb_document_root | default('/var/www/ipv6calcweb') }}/cgi-bin>
+    Order	Deny,Allow
+    Options +ExecCGI
+    AddHandler cgi-script .cgi
+
+    # Allow access from localhost only by default (IPv4 and IPv6)
+    # Security Note: Restricting to localhost prevents unauthorized external access.
+    Allow	from 127.0.0.1
+    Allow	from ::1
+
+    # Allow from all (enable this once you want to serve this as a public service)
+    # To open to the world, uncomment the line below and ensure 'Deny from all' is below it.
+    #Allow	from all
+
+    # Final default: Deny all other access
+    Deny	from all
+</Directory>
+
+## Unset Environment Headers
+# Unsets all possible headers related to supported environment variables to avoid
+# unexpected preset values via extra headers in the request. This ensures that
+# only the values set in the SetEnv directives below are used by the CGI app.
+RequestHeader unset IPV6CALCWEB-MODE
+RequestHeader unset IPV6CALCWEB-INFO-SERVER
+RequestHeader unset IPV6CALCWEB-DEBUG
+RequestHeader unset IPV6CALCWEB-BIN-IPV6CALC
+RequestHeader unset IPV6CALCWEB-LIB-IPV6CALC
+RequestHeader unset IPV6CALCWEB-DEBUG-IPV6CALC
+RequestHeader unset IPV6CALCWEB-DB-MMDB-LIB
+RequestHeader unset IPV6CALCWEB-DB-IP2LOCATION-DIR
+RequestHeader unset IPV6CALCWEB-DB-IP2LOCATION-LIB
+RequestHeader unset IPV6CALCWEB-DB-GEOIP-DIR
+RequestHeader unset IPV6CALCWEB-DB-GEOIP-LIB
+RequestHeader unset IPV6CALCWEB-DB-DBIP-DIR
+RequestHeader unset IPV6CALCWEB-DB-EXTERNAL-DIR
+RequestHeader unset IPV6CALCWEB-OUTPUT-FORMAT
+RequestHeader unset IPV6CALCWEB-OUTPUT-FORMAT-HTML-DB
+RequestHeader unset IPV6CALCWEB-ANTIDOS-LOAD1
+RequestHeader unset IPV6CALCWEB-ANTIDOS-LOAD5
+RequestHeader unset IPV6CALCWEB-ANTIDOS-LOAD15
+RequestHeader unset IPV6CALCWEB-ANTIDOS-PROCMAX
+RequestHeader unset IPV6CALCWEB-DB-GEOIP2
+RequestHeader unset IPV6CALCWEB-DB-DBIP2
+RequestHeader unset IPV6CALCWEB-DB-IP2LOCATION
+RequestHeader unset IPV6CALCWEB-DB-IP2LOCATION2
+RequestHeader unset IPV6CALCWEB-DB-EXTERNAL
+RequestHeader unset IPV6CALCWEB-USERNAME-GEONAMESORG
+
+## CGI Mode Configuration
+# Mode of CGI execution:
+# - info: Display information (default)
+# - form: Display a form for user input
+# - mixed: Display both info and form
+SetEnv HTTP_IPV6CALCWEB_MODE {{ ipv6calcweb_mode | default('info') }}
+
+## Server Information Visibility
+# Controls whether server information is included in the output:
+# - 0: Do not show server information (default)
+# - 1: Show information about server
+SetEnv HTTP_IPV6CALCWEB_INFO_SERVER {{ ipv6calcweb_info_server | default('0') }}
+
+## Debug Logging
+# Enables debug output to the Apache error log:
+# - 0: Disable debug (default)
+# - 1: Enable debug
+SetEnv HTTP_IPV6CALCWEB_DEBUG {{ ipv6calcweb_debug | default('0') }}
+
+# Debug ipv6calc call to error log (for deep troubleshooting of the ipv6calc binary itself)
+# SetEnv HTTP_IPV6CALCWEB_DEBUG_IPV6CALC	-1
+
+## Output Format (Optional)
+# Default output format: html (default if SERVER_PROTOCOL=INCLUDED, aka called by ServerSideIncludes),
+# htmlfull (default), text, textkeyvalue.
+# #SetEnv HTTP_IPV6CALCWEB_OUTPUT_FORMAT textkeyvalue
+
+## HTML Output Layout (Optional)
+# Switch HTML output format from sequential listing to subcolumns.
+# # SetEnv HTTP_IPV6CALCWEB_OUTPUT_FORMAT_HTML_DB subcolumns
+
+## Path to ipv6calc Binary (Optional)
+# Specifies the path to the ipv6calc executable.
+# If empty, the system PATH is used.
+# SetEnv HTTP_IPV6CALCWEB_BIN_IPV6CALC		{{ ipv6calc_bin_ipv6calc | default('/usr/local/bin/ipv6calc-beta') }}
+
+## Path to ipv6calc Library (Optional)
+# Specifies the path to the ipv6calc shared library directory.
+# # SetEnv HTTP_IPV6CALCWEB_LIB_IPV6CALC		{{ ipv6calc_lib_ipv6calc | default('/usr/local/lib64') }}
+
+## IP2Location Database Directory (Optional)
+# Path to the IP2Location database files.
+# # SetEnv HTTP_IPV6CALCWEB_DB_IP2LOCATION_DIR	{{ ipv6calc_db_ip2location_dir | default('/var/local/share/IP2Location') }}
+
+## IP2Location Library File (Optional)
+# Specifies the IP2Location dynamic library filename.
+# # SetEnv HTTP_IPV6CALCWEB_DB_IP2LOCATION_LIB	libIP2Location.so
+
+## GeoIP Database Directory (Optional)
+# Path to the legacy GeoIP database files.
+# # SetEnv HTTP_IPV6CALCWEB_DB_GEOIP_DIR		{{ ipv6calc_db_geoip_dir | default('/var/local/share/GeoIP') }}
+
+## GeoIP Library File (Optional)
+# Specifies the legacy GeoIP dynamic library filename.
+# # SetEnv HTTP_IPV6CALCWEB_DB_GEOIP_LIB		libGeoIP.so.1
+
+## DBIP Database Directory (Optional)
+# Path to the DBIP database files.
+# # SetEnv HTTP_IPV6CALCWEB_DB_DBIP_DIR		{{ ipv6calc_db_dbip_dir | default('/var/local/share/DBIP/') }}
+
+## External Database Directory (Optional)
+# Path to external/custom database files.
+# # SetEnv HTTP_IPV6CALCWEB_DB_EXTERNAL_DIR	{{ ipv6calc_db_external_dir | default('/var/local/share/ipv6calc/db/') }}
+
+## GeoNames.org API Username (Optional)
+# Username for linking to geonames.org API features.
+# See https://www.geonames.org/export/web-services.html for registration.
+# # SetEnv HTTP_IPV6CALCWEB_USERNAME_GEONAMESORG	{{ ipv6calc_username_geonamesorg | default('demo') }}
+
+## General Database Usage Switches
+# These flags enable or disable specific database backends within the CGI app.
+# 1 = Enable, 0 = Disable.
+
+# General DB usage for GeoIP2: 1 (enable), 0 (disable)
+# SetEnv HTTP_IPV6CALCWEB_DB_GEOIP2           {{ ipv6calc_db_geoip2 | default('1') }}
+
+# General DB usage for DBIP2: 1 (enable), 0 (disable)
+# SetEnv HTTP_IPV6CALCWEB_DB_DBIP2            {{ ipv6calc_db_dbip2 | default('1') }}
+
+# General DB usage for IP2Location: 1 (enable), 0 (disable)
+# SetEnv HTTP_IPV6CALCWEB_DB_IP2LOCATION      {{ ipv6calc_db_ip2location | default('1') }}
+
+# General DB usage for IP2Location2: 1 (enable), 0 (disable)
+# SetEnv HTTP_IPV6CALCWEB_DB_IP2LOCATION2     {{ ipv6calc_db_ip2location2 | default('1') }}
+
+# General DB usage for External: 1 (enable), 0 (disable)
+# SetEnv HTTP_IPV6CALCWEB_DB_EXTERNAL         {{ ipv6calc_db_external | default('0') }}

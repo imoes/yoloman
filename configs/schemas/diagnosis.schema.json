@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yoloman.dev/schemas/diagnosis.schema.json",
+  "title": "Diagnosis",
+  "description": "Why a thing on a host does not work — the one contract the Linux agent (Go), the Windows agent (C#) and Bossman share. Deterministic: the agent collects EVIDENCE (single measurements with a stable id) and applies RULES that turn evidence into FINDINGS with a certainty. An AI may explain a diagnosis afterwards; it never creates evidence, findings or certainty. Prose description: docs/diagnosis.md; rule catalogue: configs/diagnosis_rules.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "diagnosis_id", "host", "platform", "target", "collected_at", "status", "summary",
+               "evidence", "findings", "timeline", "gaps"],
+  "properties": {
+    "schema": {"const": "yoloman.diagnosis/v1"},
+    "diagnosis_id": {"type": "string", "minLength": 1,
+                     "description": "Unique per diagnosis run; evidence ids are only unique within it (an event record id repeats after a log is cleared)."},
+    "host": {"type": "string", "minLength": 1},
+    "platform": {"enum": ["windows", "linux"]},
+    "target": {"$ref": "#/$defs/target"},
+    "collected_at": {"type": "string", "format": "date-time"},
+    "status": {
+      "enum": ["running", "stopped", "failed", "starting", "not-found", "unknown", "up-to-date", "behind"],
+      "description": "The target's state when collected. For a service: running/stopped/failed/starting/not-found. For the updates target: up-to-date or behind (and failed when the last update operation failed). `unknown` is a named state (the agent could not read it), never a default."
+    },
+    "summary": {"type": "string", "minLength": 1,
+                "description": "One sentence, built by the agent from the leading finding's claim — not by a model."},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"},
+                 "description": "Most decisive first. A target that is not running has at least one finding — `svc.unexplained` (certainty Unknown) when no rule matched."},
+    "timeline": {"type": "array", "items": {"$ref": "#/$defs/timelineEntry"},
+                 "description": "Every evidence that has an `observed` time, ascending: what happened, and what changed before it."},
+    "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"},
+             "description": "What the agent could not observe at all, and why — so an absence of evidence is never read as evidence of absence."}
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["service", "updates"]},
+        "name": {"type": "string", "minLength": 1, "description": "The key name (Windows service name, systemd unit); for the updates target, the host's own name."},
+        "display_name": {"type": ["string", "null"], "description": "Windows: the localized display name the SCM events use."}
+      }
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*:[^\\s]+$",
+      "description": "Stable `source:locator`, e.g. scm:config:Spooler, evt:System:7000:184223, systemd:show:nginx.service, journal:<cursor>, lsa:rights:<sid>, authz:<sid>:<path>."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "observed", "fact", "raw"],
+      "properties": {
+        "id": {"$ref": "#/$defs/evidenceId"},
+        "source": {"type": "string", "minLength": 1, "description": "The interface it was read through: QueryServiceConfig, EventLog/System, systemctl show, journalctl, LsaEnumerateAccountRights, AuthzAccessCheck …"},
+        "observed": {"type": ["string", "null"], "format": "date-time",
+                     "description": "When the measured thing happened (an event's time, a file's mtime). null for a state with no time of its own."},
+        "fact": {"type": "string", "minLength": 1, "description": "One sentence a person can read, naming exactly what was measured."},
+        "raw": {"description": "The measurement as read: event XML/EventData, registry value, systemctl properties, an ACL in SDDL."}
+      }
+    },
+    "certainty": {
+      "enum": ["Proven", "Likely", "Unknown"],
+      "description": "Proven = directly measured (an exit code, a missing file). Likely = inferred from several measurements or from log text. Unknown = the cause cannot be determined; the finding then names the gap."
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "claim", "certainty", "evidence_ids", "precedent", "remedy", "gap"],
+      "properties": {
+        "rule_id": {"type": "string", "pattern": "^[a-z]+\\.[a-z_]+$", "description": "A rule of configs/diagnosis_rules.json."},
+        "claim": {"type": "string", "minLength": 1},
+        "certainty": {"$ref": "#/$defs/certainty"},
+        "evidence_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceId"},
+                         "description": "Every id must be an evidence of this diagnosis — a claim without evidence is not a finding."},
+        "precedent": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/precedent"}]},
+        "remedy": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/remedy"}]},
+        "gap": {"type": ["string", "null"],
+                "description": "Required (non-empty) when certainty is Unknown: what could not be measured."}
+      },
+      "allOf": [
+        {"if": {"properties": {"certainty": {"const": "Unknown"}}},
+         "then": {"properties": {"gap": {"type": "string", "minLength": 1}}}}
+      ]
+    },
+    "precedent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "change", "observed", "gap_seconds"],
+      "description": "The most recent change before the first failure. A correlation, not a cause: it never makes a finding Proven.",
+      "properties": {
+        "evidence_id": {"$ref": "#/$defs/evidenceId"},
+        "change": {"type": "string", "minLength": 1},
+        "observed": {"type": "string", "format": "date-time"},
+        "gap_seconds": {"type": "integer", "minimum": 0, "description": "Seconds from the change to the first failure."}
+      }
+    },
+    "remedy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "target", "before", "after", "rollback", "verify"],
+      "description": "A repair as data — never a script. Bossman exports it (Ansible, DSC, PowerShell) and files it as a proposal; nothing executes it automatically.",
+      "properties": {
+        "action": {"enum": ["set", "grant", "revoke", "create", "start"]},
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": {"enum": ["service_start_type", "service_dependency", "service_account", "service_image_path",
+                              "user_right", "file_acl", "account_state", "systemd_unit", "systemd_unit_property",
+                              "path_owner", "package", "reboot"]},
+            "id": {"type": "string", "minLength": 1, "description": "What it addresses: a service name, `<right>@<account>`, a path, a unit."},
+            "attribute": {"type": ["string", "null"]}
+          }
+        },
+        "before": {"description": "The measured current value."},
+        "after": {"description": "The value the repair sets."},
+        "rollback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "value"],
+          "properties": {
+            "action": {"enum": ["set", "grant", "revoke", "delete", "stop"]},
+            "value": {}
+          }
+        },
+        "verify": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rule_absent", "expect"],
+          "properties": {
+            "rule_absent": {"type": "string", "pattern": "^[a-z]+\\.[a-z_]+$",
+                            "description": "After the repair, a new diagnosis must not report this rule."},
+            "expect": {"description": "The state a re-read must show (e.g. {\"status\": \"running\"})."}
+          }
+        }
+      }
+    },
+    "timelineEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed", "evidence_id"],
+      "properties": {
+        "observed": {"type": "string", "format": "date-time"},
+        "evidence_id": {"$ref": "#/$defs/evidenceId"}
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what", "why"],
+      "properties": {
+        "what": {"type": "string", "minLength": 1},
+        "why": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

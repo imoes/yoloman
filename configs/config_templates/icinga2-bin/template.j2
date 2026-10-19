@@ -1,10 +1,20 @@
-# Icinga2 Bin: Initscript Configuration Template
-#
-# This template configures the default arguments for the Icinga2 daemon,
-# specifically pointing the error log to the configured file path.
-# It is designed for use within an Ansible role managing Icinga2 binaries or services.
+# ============================================================================
+# Icinga2 Initscript Configuration Template
+# ============================================================================
+# This template configures the default daemon arguments for the Icinga2
+# init script. It allows overriding the default error log file path.
+# ============================================================================
 
-# Path to the Icinga2 error log file.
+# --------------------------------------------------------------------------
+# DAEMON_ARGS: Default arguments passed to the Icinga2 daemon.
+# By default, Icinga2 logs errors to /var/log/icinga2/icinga2.err.
+# You can override the log file path here using the -e flag.
+# --------------------------------------------------------------------------
+{% if icinga2_log_file is defined and icinga2_log_file is not none and icinga2_log_file | length > 0 %}
+# Override default log file path as specified in schema field 'icinga2_log_file'
+DAEMON_ARGS="-e {{ icinga2_log_file }}"
+{% else %}
+# Use default log file path (no custom path provided in schema)
 # Default: /var/log/icinga2/icinga2.err
-# The daemon arguments string includes the -e flag followed by this path.
-DAEMON_ARGS="-e {{ icinga2_log_file | default('/var/log/icinga2/icinga2.err') }}"
+DAEMON_ARGS="-e /var/log/icinga2/icinga2.err"
+{% endif %}

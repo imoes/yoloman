@@ -22,6 +22,11 @@ overrides:
     depends:
       - libpam0g
       - libpam-modules
+    # The bundled scx schedulers link libelf, zstd and zlib (present on every tested system through
+    # iproute2/libbpf); recommended, not required, because the agent itself does not need them.
+    recommends:
+      - libelf1t64 | libelf1
+      - libzstd1
     replaces:
       - agentic-mcp
     conflicts:
@@ -31,6 +36,9 @@ overrides:
   rpm:
     depends:
       - pam
+    recommends:
+      - elfutils-libelf
+      - libzstd
     replaces:
       - agentic-mcp
     provides:
@@ -50,6 +58,13 @@ description: |
 license: MIT
 
 contents:
+  # scx schedulers for yoloman.scx_install (scripts/build-scx.sh): staged by build-agent-deb.sh into
+  # packaging/stage/scx/<version>/ — empty but for a README when no build exists, so the package never lies
+  # about carrying one. Linked in seconds instead of compiled per host.
+  - src: ./stage/scx
+    dst: /usr/lib/yoloman/scx
+    type: tree
+
   - src: ../agentic-mcpd
     dst: /usr/bin/yoloman-agent
     file_info:
@@ -216,6 +231,9 @@ scripts:
 
 rpm:
   compression: gzip
+  scripts:
+    # after the OLD package's %postun on an upgrade — see posttrans
+    posttrans: ./posttrans
 
 deb:
   compression: gzip

@@ -1,0 +1,311 @@
+##
+## conserver.cf - Conserver Console Server Configuration
+##
+## This template generates the main configuration file for the conserver
+## terminal server multiplexer. It includes global defaults, terminal
+## server definitions, console definitions, and user access controls.
+##
+
+#
+# ============================================================================
+# Global Access Defaults
+# ============================================================================
+#
+# Define the default permissions for all consoles. 'full' grants read/write
+# access to all users (*).
+default full {
+    rw *;
+}
+
+#
+# ============================================================================
+# Terminal Server Specifics
+# ============================================================================
+#
+# Configure default parameters for specific types of terminal servers.
+# portbase defines the starting port number, and portinc defines the
+# increment for sequential console definitions on that server.
+
+##
+## Cisco Terminal Server Defaults
+##
+# Sets the base port number for Cisco-style terminal servers.
+# @see cisco_portbase
+default cisco {
+    type host;
+{% if cisco_portbase is defined and cisco_portbase is not none and (cisco_portbase is number or cisco_portbase is boolean or cisco_portbase | length > 0) %}    portbase {{ cisco_portbase | default('2000') }};{% else %}#	portbase -1;{% endif %}
+    portinc 1;
+}
+
+##
+## XYPLEX Terminal Server Defaults
+##
+# Sets the base port number for XYPLEX-style terminal servers.
+# @see xyplex_portbase
+default xyplex {
+    type host;
+{% if xyplex_portbase is defined and xyplex_portbase is not none and (xyplex_portbase is number or xyplex_portbase is boolean or xyplex_portbase | length > 0) %}    portbase {{ xyplex_portbase | default('2000') }};{% else %}#	portbase -1;{% endif %}
+    portinc 100;
+}
+
+##
+## IOLAN Terminal Server Defaults
+##
+# Sets the base port number for IOLAN-style terminal servers.
+# @see iolan_portbase
+default iolan {
+    type host;
+{% if iolan_portbase is defined and iolan_portbase is not none and (iolan_portbase is number or iolan_portbase is boolean or iolan_portbase | length > 0) %}    portbase {{ iolan_portbase | default('10000') }};{% else %}#	portbase -1;{% endif %}
+    portinc 1;
+}
+
+#
+# ============================================================================
+# Break Sequences
+# ============================================================================
+#
+# Define custom break signal sequences used to access boot loaders or
+# console prompts.
+
+##
+## Break Sequence 4
+##
+# Defines the delay in seconds between characters for the break sequence 4.
+# @see break_4_delay
+break 4 {
+    string "+\d+\d+";
+    delay {{ break_4_delay | default('300') }};
+}
+
+# Break sequence 5 example (commented out in default, but structure shown)
+# break 5 {
+#     string "\033c";
+# }
+
+#
+# ============================================================================
+# Global Console Defaults
+# ============================================================================
+#
+# These defaults apply to all consoles unless overridden by specific
+# console or default blocks.
+
+#
+## Default Master Server
+##
+# Specifies the hostname or IP address of the default master conserver server.
+# @see default_master
+default * {
+    #
+    ## Default Log File
+    ##
+    # Specifies the default path for console log files.
+    # The '&' character is automatically substituted with the console name.
+    # @see default_logfile
+    logfile {{ default_logfile | default('/var/consoles/&') }};
+
+    #
+    ## Timestamps
+    ##
+    # Logs timestamps every hour for activity and break events.
+    timestamp 1hab;
+
+    #
+    ## Include Full Permissions
+    ##
+    # Inherits the 'full' default block (read/write access for all).
+    include full;
+
+    #
+    ## Default Master
+    ##
+    # Sets the master server for these consoles.
+    master {{ default_master | default('localhost') }};
+}
+
+#
+# ============================================================================
+# Terminal Server Definitions
+# ============================================================================
+#
+# Define the terminal servers (ts1, ts2, etc.) that this conserver instance
+# manages.
+
+#
+## Terminal Server 1 (ts1.conserver.com)
+##
+# Example definition for an XYPLEX terminal server.
+# Uncomment and adjust host/initcmd as needed.
+#default ts1.conserver.com {
+#	include xyplex;
+#	host ts1.conserver.com;
+#	initcmd /usr/local/sbin/login-xyplex;
+#}
+
+#
+## Terminal Server 2 (ts2.conserver.com)
+##
+# Example definition for a Cisco terminal server.
+# Uncomment and adjust host as needed.
+#default ts2.conserver.com {
+#    include cisco;
+#    host ts2.conserver.com;
+#}
+
+#
+# ============================================================================
+# Console Definitions
+# ============================================================================
+#
+# Define individual console connections. These inherit from the 'default *'
+# block and any specific terminal server block included here.
+
+#
+## Console: web1.conserver.com
+##
+# Connected via ts1. User 'bryan' is explicitly denied read/write access.
+#console web1.conserver.com {
+#    include ts1.conserver.com;
+#    port 2;
+#    rw !bryan;
+#}
+
+#
+## Console: ns1.conserver.com
+##
+# Connected via ts1. Uses the port defined by ns1_port.
+#console ns1.conserver.com {
+#    include ts1.conserver.com;
+#    port {{ ns1_port | default('10') }};
+#}
+
+#
+## Console: ns2.conserver.com
+##
+# Connected via ts1. Uses the port defined by ns2_port.
+#console ns2.conserver.com {
+#    include ts1.conserver.com;
+#    port {{ ns2_port | default('8') }};
+#}
+
+#
+## Console: ldap1.conserver.com
+##
+# Connected via ts2 (Cisco). Uses the port defined by ldap1_port.
+#console ldap1.conserver.com {
+#    include ts2.conserver.com;
+#    port {{ ldap1_port | default('7') }};
+#}
+
+#
+# ============================================================================
+# One-Off Consoles (Local/Device Access)
+# ============================================================================
+#
+# Consoles that do not use a remote terminal server but instead connect
+# to local devices or execute local commands.
+
+#
+## Console: ttya
+##
+# Direct device access to /dev/ttya.
+# @see ttya_baud
+console ttya {
+    type device;
+    device /dev/ttya;
+    parity none;
+{% if ttya_baud is defined and ttya_baud is not none and (ttya_baud is number or ttya_baud is boolean or ttya_baud | length > 0) %}    baud {{ ttya_baud | default(9600) }};{% else %}#	baud 9600;{% endif %}
+}
+
+#
+## Console: ssh
+##
+# Local SSH access example.
+#console ssh {
+#	type exec;
+#	exec ssh localhost;
+#	motd "just a simple ssh to localhost";
+#}
+
+#
+# ============================================================================
+# Cyclades Device Consoles
+# ============================================================================
+#
+# Defines defaults for Cyclades serial port cards.
+
+#
+## Cyclades Defaults
+##
+# Configures defaults for /dev/ttyC0 through /dev/ttyC31.
+# @see cyclades_baud
+default cyclades {
+    type device;
+    device /dev/ttyC.;
+    devicesubst .=Pd;
+    portbase -1;
+    portinc 1;
+    host none;
+{% if cyclades_baud is defined and cyclades_baud is not none and (cyclades_baud is number or cyclades_baud is boolean or cyclades_baud | length > 0) %}    baud {{ cyclades_baud | default(9600) }};{% else %}#	baud 9600;{% endif %}
+    parity none;
+}
+
+#
+## Console: modem1.conserver.com
+##
+# Uses Cyclades defaults.
+#console modem1.conserver.com {
+#    include cyclades;
+#    port 2;
+#    break 4;
+#}
+
+#
+## Console: modem2.conserver.com
+##
+# Uses Cyclades defaults. User 'todd' is explicitly denied access.
+# Uses the port defined by modem2_port.
+#console modem2.conserver.com {
+#    include cyclades;
+#    port {{ modem2_port | default('6') }};
+#    rw !todd;
+#}
+
+#
+# ============================================================================
+# User Groups
+# ============================================================================
+#
+# Define groups of users for easier permission management.
+
+#group sysadmin {
+#    users bryan, todd;
+#    users dave;
+#}
+
+#
+# ============================================================================
+# Re-apply Global Defaults (Optional)
+# ============================================================================
+#
+# If specific overrides were needed for a section, defaults can be
+# reset here.
+
+default * {
+    logfile {{ default_logfile | default('/var/consoles/&') }};
+    master {{ default_master | default('localhost') }};
+}
+
+#
+# ============================================================================
+# Access Control Lists
+# ============================================================================
+#
+# Define which clients (IPs or hostnames) are allowed to connect to the
+# conserver daemon.
+
+#access * {
+#	allowed 10.0.0.0/8 192.168.0.0/16;
+#	allowed cs1.conserver.com cs2.conserver.com cs3.conserver.com;
+#	trusted 127.0.0.1;
+#}

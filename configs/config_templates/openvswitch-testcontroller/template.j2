@@ -1,28 +1,33 @@
-# This is a POSIX shell fragment                -*- sh -*-
+# Open vSwitch Test Controller Configuration
 #
-# Self-documenting configuration for openvswitch-testcontroller.
+# This file configures the ovs-testcontroller service. It defines
+# how the controller accepts incoming OpenFlow connections and
+# handles SSL/TLS termination.
 #
-# Generated from Ansible variables. All variables use `default()`
-# to prevent render failures if a role variable is undefined.
-#
+# Variables are sourced from Ansible playbook variables matching
+# the field names: listen, privkey, cert, cacert, daemon_opts.
 
 # LISTEN: OpenFlow connection methods the controller should listen on.
-# Example: "pssl:6653" for SSL/TLS or "ptcp:6653" for plain TCP.
-# Default is 'pssl:' which typically implies port 6653.
+# Accepts space-delimited methods such as pssl: for SSL/TLS or ptcp: for plain TCP.
+# Example: pssl:6653 or ptcp:6653 or "pssl:6653 ptcp:6650"
 LISTEN="{{ listen | default('pssl:') }}"
 
 # PRIVKEY: Path to the controller's private key file.
-# Required if SSL/TLS is enabled (e.g., using 'pssl' in LISTEN).
-PRIVKEY={{ privkey | default('/etc/openvswitch-testcontroller/privkey.pem') }}
+# Required if SSL/TLS (pssl) is enabled in LISTEN.
+# Defaults to /etc/openvswitch-testcontroller/privkey.pem.
+PRIVKEY="{{ privkey | default('/etc/openvswitch-testcontroller/privkey.pem') }}"
 
-# CERT: Path to the certificate file corresponding to the private key.
-# Required if SSL/TLS is enabled.
-CERT={{ cert | default('/etc/openvswitch-testcontroller/cert.pem') }}
+# CERT: Path to the certificate file for the private key.
+# Required if SSL/TLS (pssl) is enabled in LISTEN.
+# Defaults to /etc/openvswitch-testcontroller/cert.pem.
+CERT="{{ cert | default('/etc/openvswitch-testcontroller/cert.pem') }}"
 
 # CACERT: Path to the switch CA certificate file.
-# Required if SSL/TLS is enabled. Used to verify the client or peer certificates.
-CACERT={{ cacert | default('/etc/openvswitch-testcontroller/cacert.pem') }}
+# Required if SSL/TLS (pssl) is enabled in LISTEN.
+# Defaults to /etc/openvswitch-testcontroller/cacert.pem.
+CACERT="{{ cacert | default('/etc/openvswitch-testcontroller/cacert.pem') }}"
 
 # DAEMON_OPTS: Additional options to pass to the ovs-testcontroller daemon.
-# Common examples include '--hub' for hub mode or log levels.
+# Common options include --hub to act as an OpenFlow hub.
+# Leave empty for default behavior.
 DAEMON_OPTS="{{ daemon_opts | default('') }}"

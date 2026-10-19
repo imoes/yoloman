@@ -1,0 +1,110 @@
+# ==============================================================================
+# MySQL-MMM Agent Configuration
+# ==============================================================================
+# This file configures the MySQL-Multi-Master (MMM) agent. It defines the
+# local host settings, peer database hosts, and virtual IP roles (writer/reader).
+# ==============================================================================
+
+# The default active master role.
+# Schema: active_master_role (string, default: 'writer')
+active_master_role      {{ active_master_role | default('writer') }}
+
+<host default>
+    # Network interface used for cluster communication.
+    # Schema: cluster_interface (string, default: 'eth0')
+    cluster_interface       {{ cluster_interface | default('eth0') }}
+
+    # Path to the agent PID file.
+    # Schema: pid_path (string, default: '/run/mysql-mmm-agent.pid')
+    pid_path                {{ pid_path | default('/run/mysql-mmm-agent.pid') }}
+
+    # Path to the mysql-mmm binaries.
+    # Schema: bin_path (string, default: '/usr/libexec/mysql-mmm/')
+    bin_path                {{ bin_path | default('/usr/libexec/mysql-mmm/') }}
+
+    # MySQL user for replication.
+    # Schema: replication_user (string, default: 'replicant')
+    replication_user        {{ replication_user | default('replicant') }}
+
+    # Password for the replication user.
+    # Schema: replication_password (string, default: 'slave')
+    replication_password    {{ replication_password | default('slave') }}
+
+    # MySQL user for the MMM agent.
+    # Schema: agent_user (string, default: 'mmm_agent')
+    agent_user              {{ agent_user | default('mmm_agent') }}
+
+    # Password for the MMM agent user.
+    # Schema: agent_password (string, default: 'RepAgent')
+    agent_password          {{ agent_password | default('RepAgent') }}
+</host>
+
+<host db1>
+    # IP address of host db1.
+    # Schema: db1_ip (string, default: '192.168.100.49')
+    ip      {{ db1_ip | default('192.168.100.49') }}
+
+    # Mode of host db1.
+    # Schema: db1_mode (string, default: 'master')
+    mode    {{ db1_mode | default('master') }}
+
+    # Peer host for db1.
+    # Schema: db1_peer (string, default: 'db2')
+    peer    {{ db1_peer | default('db2') }}
+</host>
+
+<host db2>
+    # IP address of host db2.
+    # Schema: db2_ip (string, default: '192.168.100.50')
+    ip      {{ db2_ip | default('192.168.100.50') }}
+
+    # Mode of host db2.
+    # Schema: db2_mode (string, default: 'master')
+    mode    {{ db2_mode | default('master') }}
+
+    # Peer host for db2.
+    # Schema: db2_peer (string, default: 'db1')
+    peer    {{ db2_peer | default('db1') }}
+</host>
+
+#<host db3>
+#    # IP address of host db3 (commented out).
+#    # Schema: db3_ip (string, default: '192.168.100.51')
+#    ip      {{ db3_ip | default('192.168.100.51') }}
+#
+#    # Mode of host db3 (commented out).
+#    # Schema: db3_mode (string, default: 'slave')
+#    mode    {{ db3_mode | default('slave') }}
+#
+#    # Peer host for db3 (inferred default, though not in schema list, keeping consistent structure).
+#    # Note: If a specific db3_peer schema field was intended, add it.
+#    peer    db1
+#</host>
+
+<role writer>
+    # List of hosts assigned to the writer role, comma-separated in config.
+    # Schema: writer_hosts (string, default: 'db1, db2')
+    hosts   {{ writer_hosts | default('db1, db2') }}
+
+    # List of IPs for the writer role, comma-separated in config.
+    # Schema: writer_ips (list, default: ['192.168.100.250'])
+    ips     {{ writer_ips | default(['192.168.100.250']) | join(', ') }}
+
+    # Mode for the writer role.
+    # Schema: writer_mode (string, default: 'exclusive')
+    mode    {{ writer_mode | default('exclusive') }}
+</role>
+
+<role reader>
+    # List of hosts assigned to the reader role, comma-separated in config.
+    # Schema: reader_hosts (string, default: 'db1, db2')
+    hosts   {{ reader_hosts | default('db1, db2') }}
+
+    # List of IPs for the reader role, comma-separated in config.
+    # Schema: reader_ips (list, default: ['192.168.100.251', '192.168.100.252'])
+    ips     {{ reader_ips | default(['192.168.100.251', '192.168.100.252']) | join(', ') }}
+
+    # Mode for the reader role.
+    # Schema: reader_mode (string, default: 'balanced')
+    mode    {{ reader_mode | default('balanced') }}
+</role>

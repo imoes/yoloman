@@ -1,13 +1,24 @@
+# Ansible-managed cron job for updating OpenSSH known_hosts
+# This template generates a crontab entry that runs the system utility
+# /usr/sbin/update-openssh-known-hosts to refresh the SSH known_hosts file.
 #
-# Periodic cron job to update the SSH known_hosts file.
-# The job runs on a schedule defined by 'cron_schedule' (default: every hour at minute 0)
-# and executes as 'cron_user' (default: root).
-#
-# The script checks if /usr/sbin/update-openssh-known-hosts exists and is executable.
-# If so, it sleeps for a random duration (0-255 seconds) to jitter execution across nodes,
-# then runs the updater.
-#
+# Configuration variables:
+#   - cron_schedule: The cron expression defining when the update runs.
+#   - cron_user: The system user account executing the cron job.
 
-# Cron schedule expression for when the known_hosts update should run.
-# Default: '0 *' (every hour at minute 0).
-{{ cron_schedule | default('0 *') }}		* * * {{ cron_user | default('root') }}	[ -x /usr/sbin/update-openssh-known-hosts ] && { sleep `od -An -N1 -tu1 /dev/urandom`; /usr/sbin/update-openssh-known-hosts; }
+# {{ cron_schedule | default('0 *') }} is the schedule (e.g., every hour at minute 0)
+# * * * represents the fixed minute, hour, day-of-month, month, day-of-week fields
+#   Note: The original template used literal spaces/tabs here. We preserve the
+#   standard crontab field structure: minute hour dom month dow
+#
+# {{ cron_user | default('root') }} is the user under which the command executes.
+#
+# The command block:
+#   [ -x /usr/sbin/update-openssh-known-hosts ] && {
+#     sleep `od -An -N1 -tu1 /dev/urandom`;
+#     /usr/sbin/update-openssh-known-hosts;
+#   }
+# Checks if the script is executable, adds a random sleep (0-255 seconds) to
+# prevent thundering herd if multiple nodes update simultaneously, then runs the updater.
+
+{{ cron_schedule | default('0 *') }}	* * *	{{ cron_user | default('root') }}	[ -x /usr/sbin/update-openssh-known-hosts ] && { sleep `od -An -N1 -tu1 /dev/urandom`; /usr/sbin/update-openssh-known-hosts; }

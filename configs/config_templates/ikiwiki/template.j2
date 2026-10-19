@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+# Ikiwiki setup automator -- blog version.
+#
+# This setup file causes ikiwiki to create a wiki, containing a blog,
+# check it into revision control, generate a setup file for the new
+# wiki, and set everything up.
+#
+# Just run: ikiwiki --setup /etc/ikiwiki/auto-blog.setup
+#
+# By default, it asks a few questions, and confines itself to the user's home
+# directory. You can edit it to change what it asks questions about, or to
+# modify the values to use site-specific settings.
+#
+# Self-Documenation:
+# This template generates a Perl script for IkiWiki's setup automator.
+# Variables are sourced from Ansible role defaults, ensuring consistent
+# wiki initialization across deployments.
+
+require IkiWiki::Setup::Automator;
+
+# The default name for the wiki/blog.
+# Source variable: wikiname_default_value
+our $wikiname=IkiWiki::Setup::Automator::ask(
+	gettext("What will the blog be named?"), "{{ wikiname_default_value | default('blog') }}");
+our $wikiname_short=IkiWiki::Setup::Automator::sanitize_wikiname($wikiname);
+
+# The default revision control system to use.
+# Source variable: rcs_default_value
+our $rcs=IkiWiki::Setup::Automator::ask(
+	gettext("What revision control system to use?"), "{{ rcs_default_value | default('git') }}");
+
+# The default admin user or openid.
+# Source variable: admin_default_value
+our $admin=IkiWiki::Setup::Automator::ask(
+	gettext("What wiki user (or openid) will be admin?"), "{{ admin_default_value | default('${ENV{USER}}') }}");
+
+use Net::Domain q{hostfqdn};
+# The default domain name of the web server.
+# Source variable: domain_default_value
+our $domain=hostfqdn() || IkiWiki::Setup::Automator::ask(
+	gettext("What is the domain name of the web server?"), "{{ domain_default_value | default('') }}");
+
+IkiWiki::Setup::Automator->import(
+	wikiname => $wikiname,
+	adminuser => [$admin],
+	rcs => $rcs,
+	srcdir => "$ENV{HOME}/$wikiname_short",
+	destdir => "$ENV{HOME}/public_html/$wikiname_short",
+	repository => "$ENV{HOME}/$wikiname_short.".($rcs eq "monotone" ? "mtn" : $rcs),
+	dumpsetup => "$ENV{HOME}/$wikiname_short.setup",
+	url => "http://$domain/~$ENV{USER}/$wikiname_short",
+	cgiurl => "http://$domain/~$ENV{USER}/$wikiname_short/ikiwiki.cgi",
+	cgi_wrapper => "$ENV{HOME}/public_html/$wikiname_short/ikiwiki.cgi",
+	adminemail => "$ENV{USER}\@$domain",
+	add_plugins => [qw{goodstuff websetup comments blogspam calendar sidebar trail}],
+	disable_plugins => [qw{}],
+	libdir => "$ENV{HOME}/.ikiwiki",
+	rss => 1,
+	atom => 1,
+	syslog => 1,
+
+	# The example configuration type.
+	# Source variable: example_default_value
+	example => "{{ example_default_value | default('blog') }}",
+	# Pagespec for comments.
+	# Source variable: comments_pagespec_default_value
+	comments_pagespec => "{{ comments_pagespec_default_value | default('posts/* and !*/Discussion') }}",
+	# Pagespec for blogspam protection.
+	# Source variable: blogspam_pagespec_default_value
+	blogspam_pagespec => "{{ blogspam_pagespec_default_value | default('postcomment(*)') }}",
+	# Pagespec for archive pages.
+	# Source variable: archive_pagespec_default_value
+	archive_pagespec => "{{ archive_pagespec_default_value | default('page(posts/*) and !*/Discussion') }}",
+	global_sidebars => 0,
+	discussion => 0,
+	# Pagespec for locked pages.
+	# Source variable: locked_pages_default_value
+	locked_pages => "{{ locked_pages_default_value | default('* and !postcomment(*)') }}",
+	# The base directory for tags.
+	# Source variable: tagbase_default_value
+	tagbase => "{{ tagbase_default_value | default('tags') }}",
+)

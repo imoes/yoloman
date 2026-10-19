@@ -1,0 +1,307 @@
+# ==============================================================================
+# Fernflower Decompiler Plugin Configuration Template
+# ==============================================================================
+# This template configures the Java-based Fernflower decompiler wrapper.
+# Since the current template content is a Java source file (not a text configuration),
+# no Jinja2 variable injection is possible without changing the file format entirely.
+# This section is kept for structural integrity and documentation purposes.
+# ==============================================================================
+
+# Source: import org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler;
+# Description: Imports the main Fernflower decompiler console class.
+import org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler;
+
+# Source: import java.io.ByteArrayOutputStream;
+# Description: Standard Java IO utility for byte array streams.
+import java.io.ByteArrayOutputStream;
+
+# Source: import java.io.File;
+# Description: Standard Java IO utility for file operations.
+import java.io.File;
+
+# Source: import java.io.FileOutputStream;
+# Description: Standard Java IO utility for writing file streams.
+import java.io.FileOutputStream;
+
+# Source: import java.io.IOException;
+# Description: Standard Java Exception for I/O errors.
+import java.io.IOException;
+
+# Source: import java.io.PrintStream;
+# Description: Standard Java IO utility for printing streams.
+import java.io.PrintStream;
+
+# Source: import java.net.URL;
+# Description: Standard Java Networking utility for URL handling.
+import java.net.URL;
+
+# Source: import java.nio.file.Files;
+# Description: Standard Java NIO utility for file reading.
+import java.nio.file.Files;
+
+# Source: import java.nio.file.Paths;
+# Description: Standard Java NIO utility for path handling.
+import java.nio.file.Paths;
+
+# Source: import java.util.Map;
+# Description: Standard Java Collection utility for map structures.
+import java.util.Map;
+
+# ==============================================================================
+# Class: FernflowerDecompilerWrapper
+# Description: Wrapper class to facilitate decompilation using Fernflower.
+# ==============================================================================
+public class FernflowerDecompilerWrapper {
+
+    /**
+     * Converts a Java package name to a file path stub.
+     * @param s The class name with dots (e.g., com.example.MyClass)
+     * @return The file path stub (e.g., com/example/MyClass.class)
+     */
+    public String classToStub(String s) {
+        return s.replace(".", "/") + ".class";
+    }
+
+    /**
+     * Constructs a full file path for a class file within a base directory.
+     * @param f The base directory file.
+     * @param clazz The class name.
+     * @return The resulting File object for the class file.
+     */
+    public File classToFile(File f, String clazz) {
+        return new File(f.getAbsolutePath() + "/" + classToStub(clazz));
+    }
+
+    /*
+     * NOTE: Historical comment from original author.
+     * It was found that fernflower ignores naming conventions, so saving in a
+     * file tree was abandoned in favor of temp files. The final file is always
+     * given_dir/ClassName.java.
+     */
+    /**
+     * Decompile a class along with its inner classes.
+     * @param name The name of the main class.
+     * @param bytecode The bytecode of the main class.
+     * @param innerClasses A map of inner class names to their bytecodes.
+     * @param options Array of decompiler options.
+     * @return The decompiled source code string, or an error message.
+     * @throws IOException If an I/O error occurs during decompilation.
+     */
+    public String decompile(
+            String name, byte[] bytecode, Map<String, byte[]> innerClasses, String[] options
+    ) throws IOException {
+        // Create a temporary base directory for decompilation artifacts
+        File base = File.createTempFile("fernflower-" + name, ".class");
+        base.delete();
+        base.mkdir();
+        base.deleteOnExit();
+
+        // Write the main class bytecode to a file
+        File mainFile = bytesToFile(classToFile(base, name), bytecode);
+
+        // Build arguments for the fernflower command
+        // Arguments: [mainClass, inner1, inner2, ..., outputDir]
+        String[] args = new String[innerClasses.entrySet().size() + 2];
+        int i = 0;
+        args[i] = mainFile.getAbsolutePath();
+
+        // Add inner classes to arguments
+        for (Map.Entry<String, byte[]> item: innerClasses.entrySet()) {
+            File ff = bytesToFile(classToFile(base, item.getKey()), item.getValue());
+            i++;
+            args[i] = ff.getAbsolutePath();
+        }
+
+        // Add output directory
+        i++;
+        args[i] = base.getAbsolutePath();
+
+        File decompiledFile = null;
+        String decompiledString;
+
+        try {
+            // Execute fernflower and capture results
+            Object[] o = fernflower(base.getAbsolutePath() + "/" + mainFile.getName().replace(".class", ".java"), args);
+            decompiledFile = (File) o[0];
+            decompiledString = (String) o[1];
+        } catch (IOException e) {
+            e.printStackTrace();
+            return e.toString();
+        } finally {
+            // Cleanup temporary main file
+            if (mainFile != null && mainFile.exists()) {
+                mainFile.delete();
+            }
+            // Cleanup decompiled output file if needed
+            if (decompiledFile != null && decompiledFile.exists()) {
+                decompiledFile.delete();
+            }
+        }
+
+        return decompiledString;
+    }
+
+    /**
+     * Decompile a single class bytecode.
+     * @param bytecode The bytecode of the class.
+     * @param options Array of decompiler options.
+     * @return The decompiled source code string, or an error message.
+     */
+    public String decompile(byte[] bytecode, String[] options) {
+        File tempByteFile = null;
+        File decompiledFile = null;
+        String decompiledString;
+        try {
+            // Write bytecode to a temporary file
+            tempByteFile = bytesToFile(bytecode);
+
+            // Define arguments: [tempClassFile, outputDir(tmpdir)]
+            String[] args = new String[]{tempByteFile.getAbsolutePath(), System.getProperty("java.io.tmpdir")};
+
+            // Execute fernflower
+            // Output filename is derived from the temp file name minus ".class"
+            Object[] o = fernflower(
+                    tempByteFile.getPath().substring(0, tempByteFile.getPath().length() - 6) + ".java", args
+            );
+            decompiledFile = (File) o[0];
+            decompiledString = (String) o[1];
+        } catch (IOException e) {
+            e.printStackTrace();
+            return e.toString();
+        } finally {
+            // Cleanup temporary bytecode file
+            if (tempByteFile != null && tempByteFile.exists()) {
+                tempByteFile.delete();
+            }
+            // Cleanup decompiled output file
+            if (decompiledFile != null && decompiledFile.exists()) {
+                decompiledFile.delete();
+            }
+        }
+
+        return decompiledString;
+    }
+
+    /**
+     * Internal method to execute the Fernflower ConsoleDecompiler.
+     * @param decompiledFilePath The path where the .java file should be written.
+     * @param args The arguments to pass to the decompiler.
+     * @return An Object array containing [File decompiledFile, String decompiledString].
+     * @throws IOException If decompilation fails.
+     */
+    private Object[] fernflower(String decompiledFilePath, String... args) throws IOException {
+        // Redirect System.out to System.err to capture console output if needed
+        PrintStream old = System.out;
+        System.setOut(System.err);
+        try {
+            ConsoleDecompiler.main(args);
+            File decompiledFile = new File(decompiledFilePath);
+            String decompiledString = readStringFromFile(decompiledFilePath);
+            return new Object[]{decompiledFile, decompiledString};
+        } finally {
+            // Restore original stdout
+            System.setOut(old);
+        }
+    }
+
+    /**
+     * Reads the content of a file into a string.
+     * @param filePath The path to the file.
+     * @return The content of the file.
+     * @throws IOException If the file cannot be read.
+     */
+    private String readStringFromFile(String filePath) throws IOException {
+        String fileContent = new String(Files.readAllBytes(Paths.get(filePath)));
+        return fileContent;
+    }
+
+    /**
+     * Helper to create a temporary file and write bytes to it.
+     * @param bytes The bytecode data.
+     * @return A File object containing the written data.
+     * @throws IOException If the file cannot be created or written.
+     */
+    private File bytesToFile(byte[] bytes) throws IOException {
+        File tempFile = File.createTempFile("temporary-byte-file", ".class");
+        tempFile.deleteOnExit();
+        return bytesToFile(tempFile, bytes);
+    }
+
+    /**
+     * Helper to write bytes to an existing file object.
+     * @param tempFile The File object to write to.
+     * @param bytes The data to write.
+     * @return The same File object for chaining.
+     * @throws IOException If the file cannot be written.
+     */
+    private File bytesToFile(File tempFile, byte[] bytes) throws IOException {
+        tempFile.getParentFile().mkdirs();
+        FileOutputStream fos = new FileOutputStream(tempFile.getCanonicalPath());
+        fos.write(bytes);
+        fos.flush();
+        fos.close();
+        return tempFile;
+    }
+
+    /**
+     * Returns help text for the Fernflower decompiler options.
+     * @return A string containing help documentation and a list of supported options.
+     * @throws IOException If fetching remote content fails.
+     */
+    public String decompilerHelp() throws IOException {
+        PrintStream oldo = System.out;
+        PrintStream olde = System.err;
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(bos));
+        System.setErr(new PrintStream(bos));
+        try {
+            // Fetch help from Fernflower's help command
+            ConsoleDecompiler.main((new String[]{"--help"}));
+            System.out.println("");
+            System.out.println("See detailed options from remote content: ");
+            try {
+                // Attempt to fetch detailed README from GitHub
+                URL u = new URL("https://raw.githubusercontent.com/JetBrains/intellij-community/master/plugins/java-decompiler/engine/README.md");
+                bos.writeBytes(u.openStream().readAllBytes());
+            }catch(Exception ex){
+                System.out.println("fetching remote content failed:");
+                System.out.println(ex.toString());
+            }
+            System.out.println("");
+            System.out.println("Hardcoded copy:");
+            System.out.println("-rbr (1): hide bridge methods\n" +
+                    "-rsy (0): hide synthetic class members\n" +
+                    "-din (1): decompile inner classes\n" +
+                    "-dc4 (1): collapse 1.4 class references\n" +
+                    "-das (1): decompile assertions\n" +
+                    "-hes (1): hide empty super invocation\n" +
+                    "-hdc (1): hide empty default constructor\n" +
+                    "-dgs (0): decompile generic signatures\n" +
+                    "-ner (1): assume return not throwing exceptions\n" +
+                    "-den (1): decompile enumerations\n" +
+                    "-rgn (1): remove getClass() invocation, when it is part of a qualified new statement\n" +
+                    "-lit (0): output numeric literals \"as-is\"\n" +
+                    "-asc (0): encode non-ASCII characters in string and character literals as Unicode escapes\n" +
+                    "-bto (1): interpret int 1 as boolean true (workaround to a compiler bug)\n" +
+                    "-nns (0): allow for not set synthetic attribute (workaround to a compiler bug)\n" +
+                    "-uto (1): consider nameless types as java.lang.Object (workaround to a compiler architecture flaw)\n" +
+                    "-udv (1): reconstruct variable names from debug information, if present\n" +
+                    "-ump (1): reconstruct parameter names from corresponding attributes, if present\n" +
+                    "-rer (1): remove empty exception ranges\n" +
+                    "-fdi (1): de-inline finally structures\n" +
+                    "-mpm (0): maximum allowed processing time per decompiled method, in seconds. 0 means no upper limit\n" +
+                    "-ren (0): rename ambiguous (resp. obfuscated) classes and class elements\n" +
+                    "-urc (-): full name of a user-supplied class implementing IIdentifierRenamer interface. It is used to determine which class identifiers\n" +
+                    "          should be renamed and provides new identifier names (see \"Renaming identifiers\")\n" +
+                    "-inn (1): check for IntelliJ IDEA-specific @NotNull annotation and remove inserted code if found\n" +
+                    "-lac (0): decompile lambda expressions to anonymous classes\n" +
+                    "-nls (0): define new line character to be used for output. 0 - '\\r\\n' (Windows), 1 - '\\n' (Unix), default is OS-dependent\n" +
+                    "-ind: indentation string (default is 3 spaces)\n" +
+                    "-log (INFO): a logging level, possible values are TRACE, INFO, WARN, ERROR");
+            return bos.toString("utf-8");
+        } finally {
+            System.setOut(oldo);
+            System.setOut(olde);
+        }
+    }
+}

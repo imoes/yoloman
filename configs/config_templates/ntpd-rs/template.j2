@@ -1,79 +1,75 @@
-# ==============================================================================
-# ntpd-rs Configuration Template
-# ==============================================================================
-# This template generates the configuration file for ntpd-rs.
-# It is structured into sections: observability, sources, and synchronization.
-# All variables are sourced from the Ansible playbook's variable scope, with
-# safe defaults provided inline to ensure idempotent and crash-proof rendering.
-# ==============================================================================
+# NTPd-RS Configuration Template
+# This template configures the ntpd-rs daemon using a TOML-like structure.
+# It provides time synchronization capabilities.
 
 [observability]
-
-# log-level: Controls the verbosity of the daemon's log output.
-# Valid values: trace, debug, info, warn, error.
-# Default: 'info'
+# Log level: trace, debug, info, warn, error
+# Controls the verbosity of the daemon's logging output.
 log-level = "{{ log_level | default('info') }}"
 
-# observation-path: The filesystem path to the Unix domain socket used for
-# runtime observation and statistics collection. Tools like `ntp-ctl` or
-# `ntp-metrics-exporter` connect to this socket.
-# Default: '/var/run/ntpd-rs/observe'
+# Path to the observation socket for retrieving statistical information
+# about the daemon while it is running. Use `ntp-ctl` or
+# prometheus based `ntp-metrics-exporter` binaries to read from this socket.
+# This socket allows external tools to monitor the state of the NTP service.
 observation-path = "{{ observation_path | default('/var/run/ntpd-rs/observe') }}"
 
-# ==============================================================================
-# Sources Configuration
-# ==============================================================================
-# The `[[source]]` block defines where ntpd-rs gets its time.
-# Multiple `[[source]]` blocks can exist, but the default setup uses one
-# configured here.
-# ==============================================================================
+## The sources section allows configuring sources. You may configure multiple
+## of these blocks to add more sources to your configuration.
+## Our default configuration spawns a pool of sources (by default this attempts
+## to discover 4 distinct sources).
 [[source]]
-
-# mode: Defines how the source is queried.
-# - 'pool': Discovers multiple servers from the address (requires count).
-# - 'server': Connects to a single specific server address.
-# - 'nts': Uses Network Time Security (not enabled by default).
-# Default: 'pool'
+# Source mode: pool or server.
+# - pool: Discovers multiple sources (requires `count` and `address` being a pool name).
+# - server: Connects to a single specific source (requires `address` being an IP/hostname).
+# Determines how the daemon interacts with the time sources defined below.
 mode = "{{ source_mode | default('pool') }}"
 
-# address: The hostname or IP address of the NTP source/pool.
-# In 'pool' mode, this is usually a domain like 'pool.ntp.org'.
-# In 'server' mode, this is the specific server IP/hostname.
-# Default: 'ntpd-rs.pool.ntp.org'
+# Address or hostname of the NTP source/pool.
+# If source_mode is 'pool', this is typically a pool domain (e.g., pool.ntp.org).
+# If source_mode is 'server', this is the specific IP or hostname of the NTP server.
+# This is the primary NTP server or pool domain to synchronize against.
 address = "{{ source_address | default('ntpd-rs.pool.ntp.org') }}"
 
-# count: The number of distinct sources to discover and use when in 'pool' mode.
-# This value is ignored if mode is 'server'.
-# Default: 4
+# Number of sources to discover when in pool mode.
+# Only relevant if mode is 'pool'.
+# Specifies how many distinct servers to attempt to find within the configured pool.
 count = {{ source_count | default(4) }}
 
-# ==============================================================================
-# Synchronization & Thresholds
-# ==============================================================================
-# These settings control how aggressively ntpd-rs adjusts the system clock.
-# Adjust these to match your security requirements and hardware stability.
-# ==============================================================================
-[synchronization]
+## If you have an NTS server, you can configure a source that connects using NTS
+## by adding a configuration such as the one below
+#[[source]]
+#mode = "nts"
+# NTS service from NETNOD: https://www.netnod.se/nts/network-time-security
+#address = "nts.netnod.se"
 
-# single-step-panic-threshold: The maximum number of seconds the clock can be
-# stepped forward or backward during normal operation. If the offset exceeds
-# this value, the daemon will not adjust the clock immediately but may wait
-# or log an error, depending on other settings.
-# Default: 1800 (seconds)
+## A source in server mode will only create a single source in contrast to the
+## multiple sources of a pool. This is the recommended source mode if you only
+## have an IP address for the source.
+#[[source]]
+#mode = "server"
+#address = "ntpd-rs.pool.ntp.org"
+
+## If you want to provide time to other machines, the configuration below
+## enables serving time on port 123 of all network interfaces.
+#[[server]]
+#listen = "[::]:123"
+
+## Below are configured various thresholds beyond which ntpd-rs will not
+## change the system clock. CHANGE THESE TO MATCH YOUR SECURITY NEEDS!
+[synchronization]
+# Maximum step size (in seconds) of a single step during normal operation.
+# If the time difference exceeds this, ntpd-rs will step the clock.
+# Prevents large clock jumps during normal operation if the deviation is within this threshold.
 single-step-panic-threshold = {{ single_step_panic_threshold | default(1800) }}
 
-# startup-step-panic-threshold: Limits the allowable time jump during the
-# initial startup phase. This is a map with 'forward' and 'backward' keys.
-# 'forward' is set to 'inf' (infinity) to allow catching up to real time.
-# 'backward' is limited by the variable below to prevent setting the clock
-# back arbitrarily on boot.
+# On startup a larger jump may occur, this sets limits for that initial jump.
+# forward="inf" allows unlimited forward jumps.
+# backward limits how far back the clock can be set to correct drift.
+# Configures the maximum backward step allowed during the initial startup phase.
 startup-step-panic-threshold = { forward="inf", backward = {{ startup_step_backward_threshold | default(86400) }} }
 
-# accumulated-threshold: (Optional/Commented) If enabled, the daemon stops
-# if the total accumulated time jumps exceed this value. This is disabled by
-# default in the base configuration.
+# If, during the lifetime of the ntp-daemon the combined time of time jumps
+# exceeds this value, then the NTP daemon will stop, this is disabled by default
 #accumulated-threshold = 1800
-
-# minimum-agreeing-sources: (Optional/Commented) The minimum number of sources
-# that must agree on the time before the daemon considers the time valid.
+# If the number of sources agreeing on the time is below this, the daemon may stop.
 #minimum-agreeing-sources = 3

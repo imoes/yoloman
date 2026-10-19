@@ -1,0 +1,81 @@
+# ============================================================================
+# Nginx Configuration Template for Noggin (RedHat)
+# ============================================================================
+# This template generates an Nginx server block configuration.
+# It handles HTTP-to-HTTPS redirection and HTTPS listener setup.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# HTTP Server Block: Redirects all HTTP traffic to HTTPS
+# ---------------------------------------------------------------------------
+server {
+    # Port for HTTP listener
+    listen {{ nginx_listen_port | default(80) }};
+
+    # Server hostname for virtual host
+    server_name {{ nginx_server_name | default('localhost.localdomain') }};
+
+    # Redirect all HTTP requests to HTTPS using a 301 Moved Permanently status.
+    # This ensures secure connections are used by default.
+    # $request_uri preserves the original path and query string.
+{% if nginx_server_name is defined and nginx_server_name is not none and (nginx_server_name is number or nginx_server_name is boolean or nginx_server_name | length > 0) %}    return 301 https://{{ nginx_server_name | default('localhost.localdomain') }}$request_uri;{% else %}    #return 301 https://localhost.localdomain$request_uri;{% endif %}
+}
+
+# ---------------------------------------------------------------------------
+# HTTPS Server Block: Handles SSL/TLS traffic
+# ---------------------------------------------------------------------------
+server {
+    # Port for HTTPS listener
+    listen {{ nginx_ssl_port | default('443') }} ssl;
+
+    # Server hostname for virtual host
+    server_name {{ nginx_server_name | default('localhost.localdomain') }};
+
+    # Access log file path for HTTPS requests
+    # access_log /var/log/nginx/noggin.access.log;
+
+    # Error log file path for HTTPS requests
+    # error_log /var/log/nginx/noggin.error.log;
+
+    # SSL Certificate Configuration
+    # Path to the SSL certificate file (PEM format)
+    # If empty, the line is commented out; otherwise, it is active.
+{% if nginx_ssl_certificate_path | default('') %}
+{% if nginx_ssl_certificate_path is defined and nginx_ssl_certificate_path is not none and (nginx_ssl_certificate_path is number or nginx_ssl_certificate_path is boolean or nginx_ssl_certificate_path | length > 0) %}    ssl_certificate {{ nginx_ssl_certificate_path | default('') }};{% else %}    #ssl_certificate /etc/pki/tls/....crt{% endif %}
+{% else %}
+    # ssl_certificate /etc/pki/tls/certs/localhost.crt;
+{% endif %}
+
+    # Path to the SSL private key file
+    # If empty, the line is commented out; otherwise, it is active.
+{% if nginx_ssl_certificate_key_path | default('') %}
+{% if nginx_ssl_certificate_key_path is defined and nginx_ssl_certificate_key_path is not none and (nginx_ssl_certificate_key_path is number or nginx_ssl_certificate_key_path is boolean or nginx_ssl_certificate_key_path | length > 0) %}    ssl_certificate_key {{ nginx_ssl_certificate_key_path | default('') }};{% else %}    #ssl_certificate_key /etc/pki/tls/....key{% endif %}
+{% else %}
+    # ssl_certificate_key /etc/pki/tls/private/localhost.key;
+{% endif %}
+
+    # -----------------------------------------------------------------------
+    # Location Blocks (Optional/Commented Out by Default)
+    # -----------------------------------------------------------------------
+    # These blocks are currently commented out as they depend on specific
+    # application backend configuration. Uncomment and adjust as needed.
+
+    # location @noggin {
+    #     # Pass the Host header to the upstream
+    #     proxy_set_header Host $http_host;
+    #     # Pass the real client IP address
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     # Append client IP to the X-Forwarded-For chain
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     # Pass the original protocol (http/https)
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     # Proxy pass to the local application backend
+    #     proxy_pass http://127.0.0.1:8000;
+    # }
+
+    # location / {
+    #     # Try to serve the requested URI as a static file.
+    #     # If not found, pass the request to the @noggin named location.
+    #     try_files $uri @noggin;
+    # }
+}

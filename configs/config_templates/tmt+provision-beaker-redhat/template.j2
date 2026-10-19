@@ -1,0 +1,193 @@
+# TMT Provisioning Configuration: Beaker (Red Hat)
+# This YAML file configures the 'mrack' provisioner for Test Management Toolkit (TMT).
+# It handles connectivity to Beaker, retry policies, and OS distribution mappings.
+
+# ---------------------------------------------------------------------------
+# Static Provisioning Section
+# ---------------------------------------------------------------------------
+# Static provisioning allows using pre-defined hosts instead of Beaker hardware.
+# mrack >= v0.5.2 is required to enable this feature.
+# To use static hosts, populate this dictionary with host definitions.
+# Currently left empty as we are using Beaker dynamic provisioning.
+static: {}
+
+# ---------------------------------------------------------------------------
+# Beaker Provisioner Configuration
+# ---------------------------------------------------------------------------
+beaker:
+  # Strategy for handling provisioning failures.
+  # Possible values: 'retry' (attempt to recover), 'abort' (stop on failure).
+  # Default: 'abort'
+  strategy: {{ strategy | default('abort') }}  # possible values: (retry|abort)
+
+  # List of supported Linux distributions for provisioning.
+  # Keys are internal identifiers; values are Beaker-specific distro tags.
+  # These map TMT's OS requirements to specific Beaker hardware inventory tags.
+  distros:
+    c8s: CentOS-Stream-8%
+    c9s: CentOS-Stream-9%
+    c10s: CentOS-Stream-10%
+    rhel-6.10: RHEL-6.10%
+    rhel-7.6: RHEL-7.6%
+    rhel-7.7: RHEL-7.7%
+    rhel-7.8: RHEL-7.8%
+    rhel-7.9: RHEL-7.9%
+    rhel-7.9-nightly: RHEL-7.9%
+    rhel-8.0: RHEL-8.0%
+    rhel-8.1: RHEL-8.1%
+    rhel-8.2: RHEL-8.2%
+    rhel-8.3: RHEL-8.3%
+    rhel-8.3-nightly: RHEL-8.3%
+    rhel-8.4: RHEL-8.4%
+    rhel-8.4-nightly: RHEL-8.4%
+    rhel-8.5: RHEL-8.5%
+    rhel-8.5-nightly: RHEL-8.5%
+    rhel-8.6: RHEL-8.6%
+    rhel-8.6-nightly: RHEL-8.6%
+    rhel-8.7: RHEL-8.7%
+    rhel-8.7-nightly: RHEL-8.7%
+    rhel-8.8: RHEL-8.8%
+    rhel-8.8-nightly: RHEL-8.8%
+    rhel-8.9: RHEL-8.9%
+    rhel-8.9-nightly: RHEL-8.9%
+    rhel-8.10: RHEL-8.10%
+    rhel-8.10-nightly: RHEL-8.10%
+    rhel-9.0: RHEL-9.0%
+    rhel-9.0-nightly: RHEL-9.0%
+    rhel-9.1: RHEL-9.1%
+    rhel-9.1-nightly: RHEL-9.1%
+    rhel-9.2: RHEL-9.2%
+    rhel-9.2-nightly: RHEL-9.2%
+    rhel-9-beta: RHEL-9.0%
+    rhel-9-beta-nightly: RHEL-9.0%
+    rhel-9.3: RHEL-9.3%
+    rhel-9.3-nightly: RHEL-9.3%
+    rhel-9.4: RHEL-9.4%
+    rhel-9.4-nightly: RHEL-9.4%
+    rhel-9.5: RHEL-9.5%
+    rhel-9.5-nightly: RHEL-9.5%
+    rhel-9.6: RHEL-9.6%
+    rhel-9.6-nightly: RHEL-9.6%
+    rhel-9.7: RHEL-9.7%
+    rhel-9.7-nightly: RHEL-9.7%
+    rhel-9.8: RHEL-9.8%
+    rhel-9.8-nightly: RHEL-9.8%
+    rhel-10: RHEL-10.0%
+    rhel-10.0: RHEL-10.0%
+    rhel-10-nightly: RHEL-10.0%
+    rhel-10.1: RHEL-10.1%
+    rhel-10.1-nightly: RHEL-10.1%
+    fedora-30: Fedora-30%
+    fedora-31: Fedora-31%
+    fedora-32: Fedora-32%
+    fedora-33: Fedora-33%
+    fedora-34: Fedora-34%
+    fedora-35: Fedora-35%
+    fedora-36: Fedora-36%
+    fedora-37: Fedora-37%
+    fedora-38: Fedora-38%
+    fedora-39: Fedora-39%
+    fedora-40: Fedora-40%
+    fedora-41: Fedora-41%
+    fedora-42: Fedora-42%
+    fedora-43: Fedora-43%
+    fedora-44: Fedora-44%
+    fedora-latest: Fedora-42%
+    fedora: Fedora-42%
+    fedora-rawhide: Fedora-Rawhide-%
+
+  # Distro Variants
+  # Specifies which software variant (e.g., Server, Desktop, Core) to request
+  # for specific distributions from Beaker.
+  distro_variants:
+    default: BaseOS
+    RHEL-6.10%: Server
+    RHEL-7.6%: Server
+    RHEL-7.7%: Server
+    RHEL-7.8%: Server
+    RHEL-7.9%: Server
+    Fedora-30%: Server
+    Fedora-31%: Server
+    Fedora-32%: Server
+    Fedora-33%: Server
+    Fedora-34%: Server
+    Fedora-35%: Server
+    Fedora-36%: Server
+    Fedora-37%: Server
+    Fedora-38%: Server
+    Fedora-39%: Server
+    Fedora-40%: Server
+    Fedora-41%: Server
+    Fedora-42%: Server
+    Fedora-43%: Server
+    Fedora-44%: Server
+    Fedora-Rawhide-%: Server
+
+  # Distro Tags
+  # Additional tags to apply to specific distro requests for filtering in Beaker.
+  distro_tags:
+    RHEL-9.0%:
+      - CTS_NIGHTLY
+    CentOS-Stream-9%:
+      - RC-0.1
+    RHEL-9.1%:
+      - CTS_NIGHTLY
+    RHEL-9.2%:
+      - CTS_NIGHTLY
+    RHEL-9.3%:
+      - CTS_NIGHTLY
+    RHEL-9.4%:
+      - CTS_NIGHTLY
+
+  # Machine Reservation Duration
+  # Duration in seconds to reserve a physical machine from Beaker.
+  # Default: 86400 (24 hours). Adjust based on expected test duration + buffer.
+  reserve_duration: {{ reserve_duration | default('86400') }}
+
+  # Task Timeout
+  # Maximum time in minutes for the entire provisioning task.
+  # Note: The phase timeout is typically 14400s (240 mins). This global timeout
+  # should account for setup/teardown overhead (approx. 10 mins buffer recommended).
+  # Default: 230 minutes.
+  timeout: {{ timeout | default('230') }} # in minutes
+
+  # Default Tasks
+  # Tasks to run on every provisioned machine by default.
+  tasks:
+    default:
+      - name: /distribution/dummy
+        role: STANDALONE
+
+
+# ---------------------------------------------------------------------------
+# MRack Inventory Layout (Optional / Advanced)
+# ---------------------------------------------------------------------------
+# This section is commented out by default.
+# Uncomment and modify to define complex hierarchical inventory structures
+# for Active Directory (AD), Identity Management (IPA), Linux, and Windows
+# environments managed by mrack.
+#
+# mrack inventory layout setup
+# =========================================
+# inventory_layout:
+#     all:
+#         children:
+#             ad:
+#                 children:
+#                     ad_root: {}
+#                     ad_rootbackup: {}
+#                     ad_subdomain: {}
+#                     ad_subsubdomain: {}
+#                     ad_treedomain: {}
+#                     ad_member: {}
+#             ipa:
+#                 children:
+#                     ipaclient: {}
+#                     ipaserver: {}
+#             linux:
+#                 children:
+#                     ipa: {}
+#                     runner: {}
+#             windows:
+#                 children:
+#                     ad: {}

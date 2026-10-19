@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Agent } from '../../../core/models/agent.model';
 import { HostGroup } from '../../../core/models/host-group.model';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface HostGroupMembersDialogData {
   group: HostGroup;
@@ -18,7 +19,7 @@ export interface HostGroupMembersDialogData {
 @Component({
   selector: 'app-host-group-members-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>Members of {{ data.group.name }}</h2>
     <mat-dialog-content>
@@ -36,8 +37,8 @@ export interface HostGroupMembersDialogData {
             </div>
           </div>
           <div class="bm-mid">
-            <button mat-stroked-button (click)="addAll()" [disabled]="!available().length" title="Add all shown">»</button>
-            <button mat-stroked-button (click)="removeAll()" [disabled]="!members().length" title="Remove all">«</button>
+            <button mat-stroked-button (click)="addAll()" [bmBlocked]="!available().length ? 'No hosts left to add' : ''" bmBlockedMode="tip" title="Add all shown">»</button>
+            <button mat-stroked-button (click)="removeAll()" [bmBlocked]="!members().length ? 'The group has no members' : ''" bmBlockedMode="tip" title="Remove all">«</button>
           </div>
           <div class="bm-col">
             <div class="bm-col-hd">In group <span class="bm-cnt">{{ members().length }}</span></div>

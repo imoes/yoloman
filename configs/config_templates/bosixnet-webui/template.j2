@@ -1,16 +1,47 @@
+# ==============================================================================
+# bosixnet-webui Configuration Template
+# ==============================================================================
+# This file configures the bosixnet-webui service. It supports FastCGI prefixing,
+# auxiliary storage directories, privilege separation, and the FastCGI listen port.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# All variables use explicit defaults via the `default()` filter to prevent
+# undefined variable errors during Ansible rendering.
+# ==============================================================================
+
 # Prefix string for the FastCGI SCRIPT_NAME variable; typically corresponds to
 # the URL path under which the web UI is served.
-# Example: if the full URL is http://example.com/bosixnet/, set this to /bosixnet/
+# Examples: "/our-ipv6-network/", "/bosixnet/", or "/" for root.
 PREFIX_STR={{ PREFIX_STR | default('/') }}
 
-# Directory where auxiliary files will be stored
+# Directory where auxiliary files will be stored.
+# If not specified, the system default or a commented placeholder is used.
+{% if LOG_DIR is defined and LOG_DIR is not none %}
 LOG_DIR={{ LOG_DIR | default('/var/tmp/bosixnet') }}
+{% else %}
+# LOG_DIR=/var/tmp/bosixnet
+{% endif %}
 
-# User under which the bosixnet-webui process will run
+# User under which the bosixnet-webui process will run.
+# This ensures privilege separation for the service.
+{% if USERID is defined and USERID is not none %}
 USERID={{ USERID | default('bosixnet') }}
+{% else %}
+# USERID=bosixnet
+{% endif %}
 
-# Group under which the bosixnet-webui process will run
+# Group under which the bosixnet-webui process will run.
+# This ensures privilege separation for the service.
+{% if GROUPID is defined and GROUPID is not none %}
 GROUPID={{ GROUPID | default('bosixnet') }}
+{% else %}
+# GROUPID=bosixnet
+{% endif %}
 
-# TCP port on localhost to which to bind for FastCGI
-FCGIPORT={{ FCGIPORT | default(33169) }}
+# TCP port on localhost to which to bind for FastCGI.
+# This port is typically proxied to by a web server (nginx/apache).
+{% if FCGIPORT is defined and FCGIPORT is not none %}
+FCGIPORT={{ FCGIPORT | default('33169') }}
+{% else %}
+# FCGIPORT=33169
+{% endif %}

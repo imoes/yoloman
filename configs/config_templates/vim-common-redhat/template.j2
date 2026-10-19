@@ -1,0 +1,224 @@
+{# =============================================================================
+   # vim-common-redhat Configuration Template
+   # =============================================================================
+   # This Jinja2 template generates a global vimrc configuration file tailored
+   # for Red Hat-based Linux distributions. It is self-documenting: every
+   # configuration directive is preceded by a comment explaining its purpose
+   # and the default value used if the variable is not provided.
+   #
+   # Variables are sourced from the Ansible playbook role's defaults or vars.
+   # All variables use the |default() filter to ensure the template renders
+   # safely even if a variable is undefined.
+   # =============================================================================
+#}
+
+{# --- Startup Checks --- #}
+
+" When started as "evim", evim.vim will already have done these settings.
+if v:progname =~? "evim"
+  finish
+endif
+
+{#
+  Set 'nocompatible' to use Vim's extended features instead of Vi compatibility.
+  This must be the first set command to take effect.
+#}
+if &compatible
+  set nocompatible
+endif
+
+{#
+  Ensure 'nocompatible' is set even if the +eval feature is missing (rare).
+  This is a safety trick used in Red Hat's vim-common package.
+#}
+silent! while 0
+  set nocompatible
+silent! endwhile
+
+{#
+  Allows backspacing over everything in insert mode.
+  Default: {{ backspace | default('indent,eol,start') }}
+#}
+set backspace={{ backspace | default('indent,eol,start') }}
+
+"set ai			" always set autoindenting on
+"set backup		" keep a backup file
+
+{#
+  Configure the .viminfo file settings.
+  - Keeps {{ viminfo_size | default(20) }} lines of command history and marks.
+  - Stores up to {{ viminfo_registers | default('50') }} registers.
+#}
+set viminfo='{{ viminfo_size | default(20) }},"{{ viminfo_registers | default('50') }}"	" read/write a .viminfo file, don't store more
+			" than {{ viminfo_registers | default('50') }} lines of registers
+
+{#
+  Number of command line history lines to keep.
+  Default: {{ history | default(50) }}
+#}
+set history={{ history | default(50) }}		" keep {{ history | default(50) }} lines of command line history
+set ruler		" show the cursor position all the time
+set showcmd		" display incomplete commands
+set wildmenu		" display completion matches in a status line
+
+{#
+  Enable timeout for key codes (like function keys or escape sequences).
+  Default: {{ ttimeout | default('true') }}
+#}
+set ttimeout		" time out for key codes
+
+{#
+  Timeout length in milliseconds for key codes.
+  Default: {{ ttimeoutlen | default(100) }} ms
+#}
+set ttimeoutlen={{ ttimeoutlen | default(100) }}	" wait up to {{ ttimeoutlen | default(100) }}ms after Esc for special key
+
+{#
+  Show '@@@' in the last line if it is truncated.
+#}
+set display=truncate
+
+{#
+  Number of lines of context to keep around the cursor.
+  Default: {{ scrolloff | default(5) }}
+#}
+set scrolloff={{ scrolloff | default(5) }}
+
+{#
+  Do incremental searching when it's possible to timeout.
+  Requires Vim compiled with +reltime.
+#}
+if has('reltime')
+  set incsearch
+endif
+
+{#
+  Do not recognize octal numbers for Ctrl-A and Ctrl-X.
+  Most users find octal interpretation confusing.
+#}
+set nrformats-=octal
+
+{#
+  Red Hat specific autocommands group.
+#}
+if has("autocmd")
+  augroup redhat
+  autocmd!
+
+  {#
+    In text files, always limit the width of text to 78 characters.
+    (Commented out in original template, kept commented here for safety)
+    autocmd BufRead *.txt set tw=78
+  #}
+
+  {#
+    When editing a file, always jump to the last cursor position.
+  #}
+  autocmd BufReadPost *
+  \ if line("'\"") > 0 && line ("'\"") <= line("$") |
+  \   exe "normal! g'\"" |
+  \ endif
+
+  {#
+    Do not write swapfile on most commonly used directories for NFS mounts or USB sticks.
+    Uses a comma-separated list of directories to avoid.
+    Default: {{ swap_directories | default('~/tmp,/var/tmp,/tmp') }}
+  #}
+  autocmd BufNewFile,BufReadPre /media/*,/run/media/*,/mnt/* set directory={{ swap_directories | default('~/tmp,/var/tmp,/tmp') }}
+
+  {#
+    Start with spec file template.
+    (Disabled in original template to avoid conflicts with other .spec files)
+    autocmd BufNewFile *.spec 0r /usr/share/vim/vimfiles/template.spec
+  #}
+  augroup END
+endif
+
+{#
+  Cscope integration.
+  Only enabled if Vim has +cscope support and the binary exists.
+  Binary path: {{ cscope_binary | default('/usr/bin/cscope') }}
+#}
+if has("cscope") && filereadable("{{ cscope_binary | default('/usr/bin/cscope') }}")
+   set csprg={{ cscope_binary | default('/usr/bin/cscope') }}
+   set csto=0
+   set cst
+   set nocsverb
+
+   {#
+     Add cscope database from current directory if present.
+   #}
+   if filereadable("cscope.out")
+      cs add $PWD/cscope.out
+   {#
+     Else, use the CSCOPE_DB environment variable if set.
+   #}
+   elseif $CSCOPE_DB != ""
+      cs add $CSCOPE_DB
+   endif
+   set csverb
+endif
+
+{#
+  Switch syntax highlighting on if the terminal supports >2 colors or GUI is running.
+#}
+if &t_Co > 2 || has("gui_running")
+  " Revert with ":syntax off".
+  syntax on
+
+  {#
+    Highlight strings inside C comments.
+    Value: {{ c_comment_strings | default(1) }} (1=on, 0=off)
+  #}
+  let c_comment_strings={{ c_comment_strings | default(1) }}
+  set hlsearch
+endif
+
+{#
+  Enable file-type detection, plugin loading, and indentation.
+#}
+filetype plugin on
+
+{#
+  Terminal-specific color settings.
+  Applies if the terminal type matches {{ terminal_type | default('xterm') }}.
+  Colors supported: {{ terminal_colors | default(8) }}
+#}
+if &term=="{{ terminal_type | default('xterm') }}"
+     set t_Co={{ terminal_colors | default(8) }}
+     set t_Sb=\x1b[4%dm
+     set t_Sf=\x1b[3%dm
+endif
+
+{#
+  Convenient command to see the difference between the current buffer and the
+  file it was loaded from, thus the changes you made.
+  Only define it when not defined already.
+  Revert with: ":delcommand DiffOrig".
+#}
+if !exists(":DiffOrig")
+  command DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis
+		  \ | wincmd p | diffthis
+endif
+
+{#
+  Prevent that the langmap option applies to characters that result from a
+  mapping. This may break plugins but is backward compatible.
+#}
+if has('langmap') && exists('+langremap')
+  set nolangremap
+endif
+
+{#
+  Don't wake up system with blinking cursor:
+  Appends ",a:blinkon0" to guicursor option.
+#}
+let &guicursor = &guicursor . ",a:blinkon0"
+
+{#
+  Source a global configuration file if available.
+  Path: {{ local_config_file | default('/etc/vimrc.local') }}
+#}
+if filereadable("{{ local_config_file | default('/etc/vimrc.local') }}")
+  source {{ local_config_file | default('/etc/vimrc.local') }}
+endif

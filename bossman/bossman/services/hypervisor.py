@@ -52,7 +52,7 @@ def _proxmox_net0(mac: str, bridge: str, vlan: int | None) -> str:
 
 def _proxmox_vm_config(
     *, name: str, cores: int, memory_mb: int, disk_gib: int, storage: str, bridge: str,
-    mac: str, vlan: int | None, uefi: bool,
+    mac: str, vlan: int | None, uefi: bool, cpu: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the POST /nodes/{node}/qemu body for a PXE-install target. Pure (no I/O) so it is unit-
     tested directly — the subtle parts (UEFI needs efidisk0, entropy needs rng0, PXE needs net-first boot)
@@ -81,6 +81,10 @@ def _proxmox_vm_config(
         "rng0": "source=/dev/urandom",
         "agent": "1",
     }
+    # The CPU model the guest needs: without one Proxmox gives kvm64 (x86-64-v1), and AlmaLinux 10's userland
+    # (x86-64-v3) does not come up on it — its kernel boots and fetches install.img, then the VM spins (measured).
+    if cpu:
+        cfg["cpu"] = cpu
     if uefi:
         cfg["bios"] = "ovmf"
         cfg["efidisk0"] = f"{storage}:1,efitype=4m,pre-enrolled-keys=0"
@@ -190,6 +194,98 @@ class ProxmoxClient:
                 })
             return {"kind": "proxmox", "nodes": nodes}
 
+    async def _locate(self, client: httpx.AsyncClient, vmid: str, node: str | None) -> str:
+        if node:
+            return node
+        for r in await self._get(client, "/cluster/resources?type=vm") or []:
+            if str(r.get("vmid")) == str(vmid):
+                return r.get("node")
+        raise HypervisorError(f"VM {vmid} not found in the cluster")
+
+    async def vm_status(self, vmid: str = "", node: str | None = None, name: str = "") -> dict[str, Any]:
+        """Power state and the parts of the config that decide how it boots and where its NIC is. By vmid, or by
+        the VM's name (the first match in the cluster)."""
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            if not vmid and name:
+                for r in await self._get(client, "/cluster/resources?type=vm") or []:
+                    if r.get("name") == name:
+                        vmid, node = str(r.get("vmid")), r.get("node")
+                        break
+                else:
+                    raise HypervisorError(f"no VM named {name!r} in the cluster")
+            node = await self._locate(client, vmid, node)
+            cur = await self._get(client, f"/nodes/{node}/qemu/{vmid}/status/current") or {}
+            cfg = await self._get(client, f"/nodes/{node}/qemu/{vmid}/config") or {}
+        keep = ("name", "net0", "boot", "bios", "cpu", "memory", "cores", "scsi0", "efidisk0")
+        # The counters are what tells a working installer from a stuck one without a console: compare two calls.
+        counters = {"cpu": cur.get("cpu"), "netin_bytes": cur.get("netin"), "netout_bytes": cur.get("netout"),
+                    "diskread_bytes": cur.get("diskread"), "diskwrite_bytes": cur.get("diskwrite"),
+                    "mem_bytes": cur.get("mem")}
+        return {"vmid": str(vmid), "node": node, "status": cur.get("status"), "qmpstatus": cur.get("qmpstatus"),
+                "uptime_s": cur.get("uptime"), "counters": counters, "config": {k: cfg[k] for k in keep if k in cfg}}
+
+    async def vm_power(self, vmid: str, action: str, node: str | None = None) -> dict[str, Any]:
+        """start | stop | reset | shutdown — waits for the Proxmox task, so a refusal is not swallowed."""
+        if action not in ("start", "stop", "reset", "shutdown"):
+            raise HypervisorError(f"unknown power action {action!r}")
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            node = await self._locate(client, vmid, node)
+            upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/{action}", {})
+            await self._wait_task(client, node, upid, what=f"{action} VM {vmid}")
+        return {"vmid": str(vmid), "node": node, "action": action, "ok": True}
+
+    async def vm_delete(self, vmid: str, node: str | None = None) -> dict[str, Any]:
+        """Stop (hard) and destroy a VM with its disks. Callers decide WHETHER (vm_provision.delete_vm only
+        deletes VMs Bossman itself created)."""
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            node = await self._locate(client, vmid, node)
+            cur = await self._get(client, f"/nodes/{node}/qemu/{vmid}/status/current") or {}
+            if cur.get("status") == "running":
+                upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/stop", {})
+                await self._wait_task(client, node, upid, what=f"stop VM {vmid}")
+            await self._login(client)
+            headers = {"Cookie": self._cookie}
+            if self._csrf:
+                headers["CSRFPreventionToken"] = self._csrf
+            r = await client.delete(f"{self.base}/nodes/{node}/qemu/{vmid}",
+                                    params={"purge": 1, "destroy-unreferenced-disks": 1}, headers=headers)
+            r.raise_for_status()
+            await self._wait_task(client, node, r.json().get("data"), what=f"destroy VM {vmid}")
+        return {"vmid": str(vmid), "node": node, "deleted": True}
+
+    # Snapshots: the rehearsal safety net (services/experiment.py, block 6). Disk-only (vmstate=0): a rollback
+    # leaves the VM stopped, and the caller starts it again.
+    async def vm_snapshot(self, vmid: str, name: str, node: str | None = None) -> dict[str, Any]:
+        return await self._snap_task(vmid, node, "post", f"/snapshot", {"snapname": name, "vmstate": 0,
+                                     "description": "yoloman rehearsal"}, f"snapshot {name} of VM {vmid}")
+
+    async def vm_snapshot_rollback(self, vmid: str, name: str, node: str | None = None) -> dict[str, Any]:
+        return await self._snap_task(vmid, node, "post", f"/snapshot/{name}/rollback", {}, f"roll VM {vmid} back to {name}")
+
+    async def vm_snapshot_delete(self, vmid: str, name: str, node: str | None = None) -> dict[str, Any]:
+        return await self._snap_task(vmid, node, "delete", f"/snapshot/{name}", None, f"delete snapshot {name} of VM {vmid}")
+
+    async def _snap_task(self, vmid: str, node: str | None, method: str, path: str, body: dict | None,
+                         what: str) -> dict[str, Any]:
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            try:
+                node = await self._locate(client, vmid, node)
+                url = f"/nodes/{node}/qemu/{vmid}{path}"
+                if method == "post":
+                    upid = await self._post(client, url, body or {})
+                else:
+                    await self._login(client)
+                    headers = {"Cookie": self._cookie}
+                    if self._csrf:
+                        headers["CSRFPreventionToken"] = self._csrf
+                    r = await client.delete(f"{self.base}{url}", headers=headers)
+                    r.raise_for_status()
+                    upid = r.json().get("data")
+                await self._wait_task(client, node, upid, what=what)
+            except httpx.HTTPError as exc:
+                raise HypervisorError(f"{what} failed: {exc}") from exc
+        return {"vmid": str(vmid), "node": node, "ok": True}
+
     async def _wait_task(self, client: httpx.AsyncClient, node: str, upid: Any, *, what: str) -> None:
         """Proxmox create/start return a UPID and do the real work ASYNCHRONOUSLY — a plain HTTP 200 only
         means the task was *accepted*, not that it succeeded. So poll the task to completion and raise if it
@@ -208,7 +304,8 @@ class ProxmoxClient:
 
     async def create_vm(
         self, node: str, name: str, *, cores: int, memory_mb: int, disk_gib: int, storage: str,
-        bridge: str, uefi: bool, vlan: int | None = None, mac: str | None = None,
+        bridge: str, uefi: bool, vlan: int | None = None, mac: str | None = None, start: bool = True,
+        cpu: str | None = None,
     ) -> dict[str, Any]:
         """Create a PXE-install VM on `node` and start it. Returns {vmid, mac}. The MAC is ours (assigned,
         not read back) so the restore job can be armed against it immediately; starting the VM makes it
@@ -231,12 +328,16 @@ class ProxmoxClient:
 
                 vmid = int(await self._get(client, "/cluster/nextid"))
                 cfg = _proxmox_vm_config(name=name, cores=cores, memory_mb=memory_mb, disk_gib=disk_gib,
-                                         storage=storage, bridge=bridge, mac=mac, vlan=vlan, uefi=uefi)
+                                         storage=storage, bridge=bridge, mac=mac, vlan=vlan, uefi=uefi, cpu=cpu)
                 cfg["vmid"] = vmid
                 create_upid = await self._post(client, f"/nodes/{node}/qemu", cfg)
                 await self._wait_task(client, node, create_upid, what=f"create VM {vmid} ({name})")
-                start_upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/start", {})
-                await self._wait_task(client, node, start_upid, what=f"start VM {vmid} ({name})")
+                # A network install starts the VM only once its installer files are mirrored (start=False; the
+                # pxe container reports readiness) — started at once, it PXE-booted before its boot entry
+                # existed and gave up (measured).
+                if start:
+                    start_upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/start", {})
+                    await self._wait_task(client, node, start_upid, what=f"start VM {vmid} ({name})")
             except HypervisorError:
                 log.warning("Proxmox create_vm %r on %s failed", name, node, exc_info=True)
                 raise
@@ -313,6 +414,12 @@ def _vcenter_vm_spec(
 class VCenterClient:
     """A thin async vCenter REST client (session auth). Login is Basic-auth POST /api/session returning a
     session id; every other call carries it as `vmware-api-session-id`."""
+
+    async def vm_snapshot(self, vmid: str, name: str, node: str | None = None) -> dict[str, Any]:
+        raise HypervisorError("rehearsal snapshots are implemented for Proxmox only; vCenter is not supported yet")
+
+    vm_snapshot_rollback = vm_snapshot
+    vm_snapshot_delete = vm_snapshot
 
     def __init__(self, host: str, username: str, password: str, *, verify_tls: bool = False,
                  timeout: float = 30.0) -> None:
@@ -406,7 +513,8 @@ class VCenterClient:
 
     async def create_vm(
         self, node: str, name: str, *, cores: int, memory_mb: int, disk_gib: int, storage: str,
-        bridge: str, uefi: bool, vlan: int | None = None, mac: str | None = None,
+        bridge: str, uefi: bool, vlan: int | None = None, mac: str | None = None, start: bool = True,
+        cpu: str | None = None,
     ) -> dict[str, Any]:
         """Create a PXE-install VM. `node`/`storage`/`bridge` are the NAMES the wizard offered; they are
         resolved to vCenter ids here, and a VM folder + resource pool are picked (first available). Returns
@@ -434,7 +542,8 @@ class VCenterClient:
                     folder_id=folders[0].get("folder"), resource_pool_id=pools[0].get("resource_pool"),
                     network_id=net.get("network"), network_type=net_type, mac=mac, uefi=uefi)
                 vmid = await self._post(client, "/vcenter/vm", {"spec": spec})
-                await self._post(client, f"/vcenter/vm/{vmid}/power?action=start", {})
+                if start:
+                    await self._post(client, f"/vcenter/vm/{vmid}/power?action=start", {})
             except (httpx.HTTPError, KeyError, ValueError) as exc:
                 raise HypervisorError(f"vCenter VM create failed: {exc}") from exc
         return {"vmid": vmid, "mac": mac}

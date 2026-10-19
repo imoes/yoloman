@@ -1,0 +1,40 @@
+{#
+  ant-jmf-redhat (Java Media Framework for Ant) Configuration
+  ==========================================================
+
+  This package (ant-jmf) is a Java library providing build-time support for Java Media Framework.
+  It does NOT produce a global configuration file (such as a .conf or .properties file) that persists
+  system state or network bindings. Its "configuration" is entirely handled via:
+  
+  1. Environment Variables: ANT_HOME, JAVA_HOME, CLASSPATH, JMF_HOME
+  2. Maven/Ivy dependencies: Resolved at build time, not runtime config.
+  3. Java System Properties: Passed via command-line flags (-D...) to the java ant binary.
+
+  Since there is no static configuration file to manage, this template serves as a
+  SELF-DOCUMENTING placeholder. It documents the expected environment variables and
+  system properties that control the runtime behavior of Ant when JMF libraries are present.
+
+  If your role requires configuring the environment for Ant+JMF, use an `environment` block
+  or a systemd drop-in, not this template.
+#}
+
+{# No static configuration file exists. This block is a documentation artifact. #}
+{# The following variables are expected to be set in the shell environment or systemd service unit. #}
+
+{# ANT_HOME: The root directory of the Ant installation. #}
+# ANT_HOME={{ ant_home | default('/opt/ant') }}
+
+{# JAVA_HOME: The root directory of the Java Development Kit/JRE. #}
+# JAVA_HOME={{ java_home | default('/usr/lib/jvm/default') }}
+
+{# JMF_HOME: (Optional) If JMF is installed outside standard Java extensions, point here. #}
+# JMF_HOME={{ jmf_home | default('') }}
+
+{# CLASSPATH: Explicit classpath including jmf.jar if not in ext dir. #}
+# CLASSPATH={{ classpath | default('$JAVA_HOME/lib/ext/jmf.jar') }}
+
+{# ANT_OPTS: JVM arguments for the Ant process. #}
+# ANT_OPTS={{ ant_opts | default('-Xms128m -Xmx512m') }}
+
+{# DEBUG: Enable Ant debugging output. #}
+# ANT_DEBUG={{ ant_debug | default('false') }}

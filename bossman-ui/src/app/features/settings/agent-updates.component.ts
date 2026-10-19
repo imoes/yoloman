@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { environment } from '../../../environments/environment';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface Asset { name: string; sha256: string; url: string; }
 interface ReleaseLatest { version: string; tag: string; html_url: string; published_at: string | null; deb: Asset | null; rpm: Asset | null; }
@@ -22,7 +23,7 @@ interface RolloutResult { version: string; pushed: number; results: { agent_id: 
 @Component({
   selector: 'app-agent-updates',
   standalone: true,
-  imports: [DatePipe, MatCardModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, DatePipe, MatCardModule, MatButtonModule, MatIconModule],
   template: `
     <mat-card class="bm-au-card">
       <mat-card-header>
@@ -56,7 +57,7 @@ interface RolloutResult { version: string; pushed: number; results: { agent_id: 
               <mat-icon>refresh</mat-icon> {{ busy() ? 'Checking…' : 'Check now' }}
             </button>
             @if (outdated().length) {
-              <button mat-flat-button color="primary" (click)="rolloutAll()" [disabled]="busy() || !anyUpdatable()">
+              <button mat-flat-button color="primary" (click)="rolloutAll()" [disabled]="busy()" [bmBlocked]="!anyUpdatable() ? 'None of the outdated hosts can be updated automatically' : ''">
                 <mat-icon>system_update_alt</mat-icon> Roll out {{ l1() }} to {{ updatableCount() }} host(s)
               </button>
             }

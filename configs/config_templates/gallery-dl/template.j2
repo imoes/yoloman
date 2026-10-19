@@ -275,7 +275,7 @@
         "password": "{{ ex.password | default('') }}",
         {% endif %}
         {% if (ex.options | default({})) is mapping %}
-        {% for k, v in ex.options | default({}) | dict2items %}
+        {% for k, v in ex.options | default({}) | dictsort %}
         "{{ k.key }}": {{ v.value | tojson }}{% if not loop.last %},{% endif %}
         {% endfor %}
         {% endif %}
@@ -286,7 +286,7 @@
 
     {# extra_options: Arbitrary key-value settings for advanced or extractor-specific options (default: None) #}
     {% if (values | default({})).extra_options | default(None) is mapping %}
-    {% for k, v in (values | default({})).extra_options | default({}) | dict2items %}
+    {% for k, v in (values | default({})).extra_options | default({}) | dictsort %}
     {% if v.value is not none %}
     "{{ k.key }}": {{ v.value | tojson }}{% if not loop.last %},{% endif %}
     {% endif %}

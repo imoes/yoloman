@@ -157,6 +157,8 @@ export class ImagesService {
   }
 
   // ── PXE nested-virt lab (api/vm.py) ──────────────────────────────────────
+  /** Whether the lab can be used, and why not — always 200 (the pxe container being down is a state). */
+  labStatus() { return this.http.get<{ available: boolean; reason: string | null }>(`${this.base}/vm/status`); }
   listVms() { return this.http.get<Vm[]>(`${this.base}/vm`); }
   /** Boot an installer ISO with a fresh disk (build a template); watch it over noVNC. */
   install(body: { name: string; iso: string; disk: string; disk_gib?: number }) {

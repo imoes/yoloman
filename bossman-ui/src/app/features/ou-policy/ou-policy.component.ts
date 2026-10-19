@@ -56,6 +56,7 @@ import {
   NotificationOuDialogComponent,
   NotificationOuDialogData,
 } from '../../shared/components/notification-ou-dialog/notification-ou-dialog.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface TreeRow {
   kind: 'ou' | 'object';
@@ -91,7 +92,7 @@ interface PaletteItem {
 @Component({
   selector: 'app-ou-policy',
   standalone: true,
-  imports: [CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, MatSlideToggleModule, OuConfigEditorComponent, PolicyReportComponent],
+  imports: [BlockedReasonDirective, CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, MatSlideToggleModule, OuConfigEditorComponent, PolicyReportComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header">
@@ -365,10 +366,10 @@ interface PaletteItem {
       } @else {
         <span class="bm-staged-count bm-staged-none">No pending changes</span>
       }
-      <button mat-stroked-button (click)="revertStaged()" [disabled]="applying() || !staged().length">Revert</button>
-      <button mat-flat-button color="primary" (click)="applyStaged()" [disabled]="applying() || !staged().length">
+      <span class="bm-why"><button mat-stroked-button (click)="revertStaged()" [bmBlocked]="stagedBlocked()" bmBlockedMode="tip">Revert</button></span>
+      <span class="bm-why"><button mat-flat-button color="primary" (click)="applyStaged()" [bmBlocked]="stagedBlocked()">
         <mat-icon>publish</mat-icon> {{ applying() ? 'Applying…' : 'Apply' }}
-      </button>
+      </button></span>
     </div>
 
     <!-- Sites root-branch menu: create a subnet-scoped Site. -->
@@ -472,9 +473,11 @@ interface PaletteItem {
         padding: 6px 0 8px;
       }
       .bm-palette-head {
-        font-size: 12px; opacity: 0.7; padding: 4px 12px 6px; text-transform: uppercase; letter-spacing: 0.04em;
+        font-size: 12px; padding: 4px 12px 6px; text-transform: uppercase; letter-spacing: 0.04em;
         display: flex; align-items: center; justify-content: space-between; gap: 8px;
       }
+      /* Only the caption is muted: an opacity on the whole head also dimmed its buttons' green label to 4.0:1. */
+      .bm-palette-head > span { opacity: 0.7; }
       .bm-palette-new { transform: scale(0.85); transform-origin: right center; }
       /* Sites root branch: a second top-level container in the SAME tree, a peer
          of the OU root(s) (AD Sites-and-Services). A hairline above it sets it
@@ -491,8 +494,9 @@ interface PaletteItem {
         box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
       }
       /* Idle state: muted, so a persistent empty bar doesn't shout for attention. */
-      .bm-staged-idle { border-color: var(--mat-sys-outline-variant); opacity: 0.72; }
-      .bm-staged-idle:hover { opacity: 1; }
+      /* Muted by the border alone — a bar-wide opacity compounded with .bm-staged-none's and left the
+         "No pending changes" text at 3.7:1. */
+      .bm-staged-idle { border-color: var(--mat-sys-outline-variant); }
       .bm-staged-none { font-weight: 500; opacity: 0.7; }
       .bm-staged-ic { color: var(--mat-sys-tertiary); }
       .bm-staged-count { font-weight: 600; font-size: 13px; }
@@ -705,6 +709,12 @@ export class OuPolicyComponent implements OnInit {
 
   private stage(label: string, run: () => Observable<unknown>): void {
     this.staged.update((s) => [...s, { id: ++this.stageSeq, label, run }]);
+  }
+
+  /** Why Revert / Apply are refused ('' = allowed) — both buttons and their tooltip read this one answer. */
+  stagedBlocked(): string {
+    if (this.applying()) return 'Applying the staged changes…';
+    return this.staged().length ? '' : 'No pending changes — stage one first (link a policy, add a threshold, delete, …)';
   }
 
   stagedTitle(): string {

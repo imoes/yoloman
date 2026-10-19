@@ -1,0 +1,30 @@
+# Logrotate configuration for Apertium Apy
+# Generated from schema fields for apertium-apy
+
+/var/log/{{ log_directory | default('apertium') }}/apertium-apy.log {
+    # Rotate log files daily
+    daily
+
+    # Copy the log file and then truncate the original, ensuring the application
+    # continues writing to the same file descriptor without needing a restart.
+    copytruncate
+
+    # Do not produce an error if the log file is missing
+    missingok
+
+    # Compress rotated log files using gzip
+    compress
+
+    # Do not rotate if the log file is empty
+    notifempty
+
+    # Number of rotated log files to keep.
+    # Schema field: log_rotate_count
+    # Default: 15
+    rotate {{ log_rotate_count | default('15') }}
+
+    # Maximum size of the log file before rotation occurs.
+    # Schema field: log_size
+    # Default: 256M
+    size {{ log_size | default('256M') }}
+}

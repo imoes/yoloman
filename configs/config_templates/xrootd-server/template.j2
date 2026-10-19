@@ -1,14 +1,16 @@
 ###########################################################################
 # This is a very simple sample configuration file sufficient to start an  #
-# xrootd data server using the default port {{ xrootd_port | default(1094) }} and its companion cmsd.  #
-# Trying to use the xrootd will cause the client to simply wait because   #
+{% if xrootd_port is defined and xrootd_port is not none and (xrootd_port is number or xrootd_port is boolean or xrootd_port | length > 0) %}xrootd data server using the default port {{ xrootd_port | default(1094) }} and its companion cmsd.  #
+{% else %}# xrootd data server using the default port 1094 and its companion cmsd.  #
+{% endif %}# Trying to use the xrootd will cause the client to simply wait because   #
 # there is no redirector and this configuration file is insufficient to   #
 # start one. Consult the reference manuals on how to create a usable      #
 # configuration file to completely describe a functional xrootd cluster.  #
 #                                                                         #
 # On start-up the xrootd will complain about not connecting to the pipe   #
-# named '{{ xrootd_admin_path | default("/var/spool/xrootd") }}/.olb/olbd.admin'. This will continue until the #
-# cmsd starts. When the cmsd start is will say ' Waiting for primary      #
+{% if xrootd_admin_path is defined and xrootd_admin_path is not none and (xrootd_admin_path is number or xrootd_admin_path is boolean or xrootd_admin_path | length > 0) %}named '{{ xrootd_admin_path | default("/var/spool/xrootd") }}/.olb/olbd.admin'. This will continue until the #
+{% else %}# named '/var/spool/xrootd/.olb/olbd.admin'. This will continue until the #
+{% endif %}# cmsd starts. When the cmsd start is will say ' Waiting for primary      #
 # server to login.' Once xrootd is started and connects to the cmsd, the  #
 # cmsd will complain 'Unable to connect socket to {{ xrootd_manager_host | default("localhost") }}' because      #
 # there is no redirector. However, this shows that xrootd and cmsd have   #
@@ -19,9 +21,11 @@
 ###########################################################################
 
 # The export directive indicates which paths are to be exported. While the
-# default is '{{ xrootd_export_path | default("/tmp") }}', we indicate it anyway and add the 'stages attribute
-# to allow you to start the frm_xfrd to bring in missing files into '{{ xrootd_export_path | default("/tmp") }}'.
-# Remove this attribute if you don't want to enable this feature.
+{% if xrootd_export_path is defined and xrootd_export_path is not none and (xrootd_export_path is number or xrootd_export_path is boolean or xrootd_export_path | length > 0) %}default is '{{ xrootd_export_path | default("/tmp") }}', we indicate it anyway and add the 'stages attribute
+{% else %}# default is '/tmp', we indicate it anyway and add the 'stages attribute
+{% endif %}{% if xrootd_export_path is defined and xrootd_export_path is not none and (xrootd_export_path is number or xrootd_export_path is boolean or xrootd_export_path | length > 0) %}to allow you to start the frm_xfrd to bring in missing files into '{{ xrootd_export_path | default("/tmp") }}'.
+{% else %}# to allow you to start the frm_xfrd to bring in missing files into '/tmp'.
+{% endif %}# Remove this attribute if you don't want to enable this feature.
 #
 all.export {{ xrootd_export_path | default("/tmp") }} stage
 
@@ -41,9 +45,11 @@ all.manager {{ xrootd_manager_host | default("localhost") }} {{ xrootd_manager_p
 
 # The copycmd directive tells the frm_xfrd what to use to copy files into
 # an exported path with the 'stage' attribute. Here we just say this will
-# be '{{ xrootd_copycmd_copy | default("/bin/cp") }}' to allow the frm_xfrd to actual start to show that it works.
-# Here missing files are created in {{ xrootd_export_path | default("/tmp") }} as zero-length files.
-#
+{% if xrootd_copycmd_copy is defined and xrootd_copycmd_copy is not none and (xrootd_copycmd_copy is number or xrootd_copycmd_copy is boolean or xrootd_copycmd_copy | length > 0) %}be '{{ xrootd_copycmd_copy | default("/bin/cp") }}' to allow the frm_xfrd to actual start to show that it works.
+{% else %}# be '/bin/cp' to allow the frm_xfrd to actual start to show that it works.
+{% endif %}{% if xrootd_export_path is defined and xrootd_export_path is not none and (xrootd_export_path is number or xrootd_export_path is boolean or xrootd_export_path | length > 0) %}Here missing files are created in {{ xrootd_export_path | default("/tmp") }} as zero-length files.
+{% else %}# Here missing files are created in /tmp as zero-length files.
+{% endif %}#
 frm.xfr.copycmd {{ xrootd_copycmd_copy | default("/bin/cp") }} /dev/null $PFN
 
 # The adminpath and pidpath variables indicate where the pid and various

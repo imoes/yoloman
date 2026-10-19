@@ -1,0 +1,180 @@
+# ==============================================================================
+# dnsdist Configuration Template
+# ==============================================================================
+# This template is self-documenting. Every configuration directive is preceded
+# by a comment explaining its purpose and mapping it to the Ansible schema field.
+# Variables use explicit defaults to ensure safe rendering even if a variable
+# is undefined in the playbook context.
+# ==============================================================================
+
+# == ACL Configuration ==
+#
+# Define the Access Control List (ACL) for accepted source IPs.
+# Schema field: acl_subnets
+# Description: Lua table string containing the allowed source IP subnets for ACL.
+# https://dnsdist.org/advanced/acl.html
+setACL({{ acl_subnets | default("{'192.0.2.0/28', '2001:DB8:1::/56'}") }})
+
+# == Console Control Socket ==
+#
+# Define the control socket address for the dnsdist console.
+# Schema field: control_bind_address
+# Description: IP address for the dnsdist console control socket.
+# https://dnsdist.org/guides/console.html
+controlSocket("{{ control_bind_address | default('127.0.0.1') }}:{{ control_port | default(5900) }}")
+
+# Set the secret key for console authentication.
+# Schema field: control_key
+# Description: Secret key string for console authentication.
+setKey("{{ control_key | default('please generate a fresh private key with makeKey()') }}")
+
+# == Web Server Interface ==
+#
+# Start the web server interface for monitoring and management.
+# Schema fields: webserver_bind_address, webserver_port, webserver_password
+# Description: Web server bind address, port, and password.
+# https://dnsdist.org/guides/webserver.html
+webserver("{{ webserver_bind_address | default('127.0.0.1') }}:{{ webserver_port | default(8083) }}", "{{ webserver_password | default('set a random password here') }}")
+
+# == Carbon / Metronome Statistics ==
+#
+# Send statistics to a Carbon/Metronome server.
+# Schema fields: carbon_server_ip, carbon_server_unique_name
+# Description: IP address for the Carbon/Metronome statistics server and unique name identifier.
+# https://dnsdist.org/guides/carbon.html
+carbonServer("{{ carbon_server_ip | default('37.252.122.50') }}", '{{ carbon_server_unique_name | default("unique-name") }}')
+
+# == DNS Service Bindings ==
+#
+# Accept plain DNS (Do53) queries on UDP and TCP.
+# Schema fields: do53_bind_address, do53_port
+# Description: IP address and port for plain DNS queries.
+addLocal("{{ do53_bind_address | default('127.0.0.1') }}:{{ do53_port | default(5200) }}")
+
+# Accept DNSCrypt queries.
+# Schema fields: dnscrypt_bind_address, dnscrypt_port, dnscrypt_provider_name, dnscrypt_cert_file, dnscrypt_key_file
+# Description: DNSCrypt binding configuration.
+# https://dnsdist.org/guides/dnscrypt.html
+addDNSCryptBind("{{ dnscrypt_bind_address | default('127.0.0.1') }}:{{ dnscrypt_port | default(8443) }}", "{{ dnscrypt_provider_name | default('2.provider.name') }}", "{{ dnscrypt_cert_file | default('DNSCryptResolver.cert') }}", "{{ dnscrypt_key_file | default('DNSCryptResolver.key') }}")
+
+# Accept DNS over TLS (DoT) queries.
+# Schema fields: dot_bind_address, dot_port, dot_cert_files, dot_key_files, dot_provider_options
+# Description: DoT binding with TLS certificate and key files.
+# https://dnsdist.org/guides/dns-over-tls.html
+addTLSLocal("{{ dot_bind_address | default('127.0.0.1') }}:{{ dot_port | default('9443') }}", {{ dot_cert_files | default("{'server.crt'}") }}, {{ dot_key_files | default("{'server.key'}") }}, {{ dot_provider_options | default('{ provider="openssl" }') }})
+
+# Accept DNS over HTTPS (DoH) queries.
+# Schema fields: doh_bind_address, doh_port, doh_cert_files, doh_key_files
+# Description: DoH binding with TLS certificate and key files.
+# https://dnsdist.org/guides/dns-over-https.html
+addDOHLocal("{{ doh_bind_address | default('127.0.0.1') }}:{{ doh_port | default('443') }}", {{ doh_cert_files | default("{'server.crt'}") }}, {{ doh_key_files | default("{'server.key'}") }})
+
+# == Backend Servers (Downstreams) ==
+#
+# Define the first downstream DNS server.
+# Schema field: backend_1_address
+# Description: IP address of the first backend DNS server.
+# https://dnsdist.org/guides/downstreams.html
+newServer("{{ backend_1_address | default('192.0.2.1') }}")
+
+# Define the second downstream DNS server with specific pool and port.
+# Schema fields: backend_2_address, backend_2_port, backend_2_pool
+# Description: Configuration for the second backend server.
+newServer({address="{{ backend_2_address | default('192.0.2.1') }}:{{ backend_2_port | default(5300) }}", pool="{{ backend_2_pool | default('abuse') }}"})
+
+# == Tuning ==
+#
+# Configure ring buffer sizes for live-traffic inspection features like grepq.
+# Schema fields: ring_buffers_size, ring_buffer_shards
+# Description: Size of the in-memory ring buffers and number of shards.
+setRingBuffersSize({{ ring_buffers_size | default(1000000) }}, {{ ring_buffer_shards | default('100') }})
+
+# Configure the number of TCP worker threads.
+# Schema field: max_tcp_client_threads
+# Description: Maximum number of TCP client threads.
+setMaxTCPClientThreads({{ max_tcp_client_threads | default('20') }})
+
+# == Sample Actions ==
+#
+# Route queries for specific domain suffixes to the 'abuse' pool.
+# Schema fields: abuse_domains, abuse_pool_name
+# Description: Lua table of domain suffixes and the target pool name.
+# https://dnsdist.org/rules-actions.html
+addAction(SuffixMatchNodeRule({{ abuse_domains | default("{'abuse.example.org.', 'xxx.'}") }}), PoolAction("{{ abuse_pool_name | default('abuse') }}"))
+
+# Drop queries for a specific exact QNAME.
+# Schema field: drop_qname
+# Description: Exact QNAME to drop.
+addAction(QNameRule("{{ drop_qname | default('drop-me.example.org.') }}"), DropAction())
+
+# Route queries from a specific subnet to the 'abuse' pool.
+# Schema field: abuse_subnet
+# Description: Netmask/Prefix for clients to be routed to the abuse pool.
+addAction(NetmaskGroupRule("{{ abuse_subnet | default('192.0.2.0/24') }}"), PoolAction("{{ abuse_pool_name | default('abuse') }}"))
+
+# Refuse incoming AXFR, IXFR, NOTIFY and UPDATE requests.
+# Add trusted sources (slaves, masters) explicitly before this rule.
+addAction(OrRule({OpcodeRule(DNSOpcode.Notify), OpcodeRule(DNSOpcode.Update), QTypeRule(DNSQType.AXFR), QTypeRule(DNSQType.IXFR)}), RCodeAction(DNSRCode.REFUSED))
+
+# == Dynamic Blocks ==
+#
+# Define dynamic block rules to mitigate abuse.
+# https://dnsdist.org/guides/dynblocks.html
+
+# Set query rate limits.
+# Schema fields: dynblock_query_rate_max, dynblock_query_rate_window, dynblock_query_rate_reason, dynblock_query_rate_ttl
+# Description: Query rate limiting configuration.
+# local dbr = dynBlockRulesGroup()
+dbr:setQueryRate({{ dynblock_query_rate_max | default(30) }}, {{ dynblock_query_rate_window | default(10) }}, "{{ dynblock_query_rate_reason | default('Exceeded query rate') }}", {{ dynblock_query_rate_ttl | default(60) }})
+
+# Set NXDOMAIN rate limits.
+# Schema fields: dynblock_nxdomain_rate_max, dynblock_nxdomain_rate_window, dynblock_nxdomain_rate_reason, dynblock_nxdomain_rate_ttl
+# Description: NXDOMAIN response rate limiting configuration.
+dbr:setRCodeRate(dnsdist.NXDOMAIN, {{ dynblock_nxdomain_rate_max | default(20) }}, {{ dynblock_nxdomain_rate_window | default(10) }}, "{{ dynblock_nxdomain_rate_reason | default('Exceeded NXD rate') }}", {{ dynblock_nxdomain_rate_ttl | default(60) }})
+
+# Set SERVFAIL rate limits.
+# Schema fields: dynblock_servfail_rate_max, dynblock_servfail_rate_window, dynblock_servfail_rate_reason, dynblock_servfail_rate_ttl
+# Description: SERVFAIL response rate limiting configuration.
+dbr:setRCodeRate(dnsdist.SERVFAIL, {{ dynblock_servfail_rate_max | default(20) }}, {{ dynblock_servfail_rate_window | default(10) }}, "{{ dynblock_servfail_rate_reason | default('Exceeded ServFail rate') }}", {{ dynblock_servfail_rate_ttl | default(60) }})
+
+# Set ANY query type rate limits.
+# Schema fields: dynblock_any_rate_max, dynblock_any_rate_window, dynblock_any_rate_reason, dynblock_any_rate_ttl
+# Description: ANY query type rate limiting configuration.
+dbr:setQTypeRate(dnsdist.ANY, {{ dynblock_any_rate_max | default(5) }}, {{ dynblock_any_rate_window | default(10) }}, "{{ dynblock_any_rate_reason | default('Exceeded ANY rate') }}", {{ dynblock_any_rate_ttl | default(60) }})
+
+# Set response byte rate limits.
+# Schema fields: dynblock_response_byte_rate_max, dynblock_response_byte_rate_window, dynblock_response_byte_rate_reason, dynblock_response_byte_rate_ttl
+# Description: Response bandwidth rate limiting configuration.
+dbr:setResponseByteRate({{ dynblock_response_byte_rate_max | default(10000) }}, {{ dynblock_response_byte_rate_window | default(10) }}, "{{ dynblock_response_byte_rate_reason | default('Exceeded resp BW rate') }}", {{ dynblock_response_byte_rate_ttl | default(60) }})
+
+# Apply the dynamic block rules in a maintenance function.
+function maintenance()
+    dbr:apply()
+end
+
+# == Logging ==
+#
+# Connect to a remote protobuf logger to export queries and responses.
+# Schema field: remote_logger_address
+# Description: Address (IP:Port) for the remote protobuf logger.
+# https://dnsdist.org/reference/protobuf.html
+# rl = newRemoteLogger('{{ remote_logger_address | default("127.0.0.1:4242") }}')
+# addAction(AllRule(), RemoteLogAction(rl))
+# addResponseAction(AllRule(), RemoteLogResponseAction(rl))
+
+# Connect to a remote DNSTAP TCP logger.
+# Schema field: dnstap_tcp_logger_address
+# Description: Address (IP:Port) for the remote DNSTAP TCP logger.
+# https://dnsdist.org/reference/dnstap.html
+# fstr = newFrameStreamTcpLogger('{{ dnstap_tcp_logger_address | default("192.0.2.1:4242") }}')
+# addAction(AllRule(), DnstapLogAction(fstr))
+# addResponseAction(AllRule(), DnstapLogResponseAction(fstr))
+
+# == Caching ==
+#
+# Configure the packet cache for DNS responses.
+# Schema field: cache_max_entries
+# Description: Maximum number of entries in the packet cache.
+# https://dnsdist.org/guides/cache.html
+# pc = newPacketCache({{ cache_max_entries | default('100000') }})
+# getPool(""):setCache(pc)

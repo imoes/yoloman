@@ -13,7 +13,7 @@ interface {{ default_interface | default('lo') }}
 # Global options you might want to set. There are many more, see the man page.
 #debug 1
 # UDP port for Babel protocol communication
-local-port {{ local_port | default(33123) }}
+{% if local_port is defined and local_port is not none and (local_port is number or local_port is boolean or local_port | length > 0) %}local-port {{ local_port | default(33123) }}{% else %}#local-port 33123{% endif %}
 #diversity true
 #random-id true
 

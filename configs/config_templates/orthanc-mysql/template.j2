@@ -1,0 +1,63 @@
+{
+  /**
+   * Configuration to use MySQL or MariaDB instead of the default
+   * SQLite back-end of Orthanc. You will have to install the
+   * "orthanc-mysql" package to take advantage of this feature.
+   **/
+  "MySQL" : {
+    {# Enable the use of MySQL to store the Orthanc index #}
+    // Enable the use of MySQL to store the Orthanc index?
+    "EnableIndex" : {{ enable_index | default(false) | lower }},
+    
+    {# Enable the use of MySQL to store the DICOM files #}
+    // Enable the use of MySQL to store the DICOM files?
+    "EnableStorage" : {{ enable_storage | default(false) | lower }},
+    
+    {# Parameters of the MySLQ database #}
+    // Hostname or IP address of the MySQL server
+    "Host" : "{{ (mysql | default({})).host | default(host | default('localhost')) }}",
+    
+    {# Port number of the MySQL server #}
+    // Port number of the MySQL server
+    "Port" : {{ (mysql | default({})).port | default(port | default(3306)) }},
+    
+    {# Name of the MySQL database #}
+    // The name of the MySQL database
+    "Database" : "{{ (mysql | default({})).name | default(database | default('orthanc_db')) }}",
+    
+    {# Username to connect to the MySQL database #}
+    // The username to connect to the MySQL database
+    "Username" : "{{ (mysql | default({})).user | default(username | default('orthanc_user')) }}",
+    
+    {# Path to the MySQL unix socket #}
+    // The path to the MySQL unix socket
+    "UnixSocket" : "{{ unix_socket | default('/var/run/mysqld/mysqld.sock') }}",
+    
+    {# Password to connect to the MySQL database #}
+    // The password to connect to the MySQL database
+    "Password" : "{{ (mysql | default({})).password | default(password | default('my_password')) }}",
+    
+    {# Whether to enable the locking of the MySQL database #}
+    // Whether to enable the locking of the MySQL database
+    "Lock" : {{ lock | default(true) | lower }},
+
+    {# Whether to connect to MySQL using SSL (new in 3.0) #}
+    // Whether to connect to MySQL using SSL (new in 3.0)
+    "EnableSsl" : {{ enable_ssl | default(false) | lower }},
+
+    {# Number of retries when connecting to MySQL (new in 3.0) #}
+    // Number of retries when connecting to MySQL, or when concurrent
+    // transactions cannot be serialized (new in 3.0)
+    "MaximumConnectionRetries" : {{ maximum_connection_retries | default(10) }},
+
+    {# Number of seconds between two attempts when opening a connection to MySQL (new in 3.0) #}
+    // Number of seconds between two attempts when opening a
+    // connection to MySQL (new in 3.0)
+    "ConnectionRetryInterval" : {{ connection_retry_interval | default(5) }},
+
+    {# Number of connections to MySQL in the connection pool of the index back-end (new in 4.0) #}
+    // Number of connections to MySQL in the connection pool
+    // of the index back-end (new in 4.0)
+    "IndexConnectionsCount" : {{ index_connections_count | default(1) }}
+  }
+}

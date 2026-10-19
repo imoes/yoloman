@@ -1,116 +1,100 @@
 # ==============================================================================
 # todotxt-cli Configuration Template
 # ==============================================================================
-# This template generates a shell script environment for the todotxt CLI tool.
-# It exports variables that control file locations, color coding, and sorting behavior.
-#
-# To use this template in Ansible, ensure all variables are defined in your
-# inventory or group_vars. Defaults are provided inline for each variable.
+# This file configures the behavior and appearance of the todotxt CLI tool.
+# It exports environment variables that the tool reads at runtime.
 # ==============================================================================
 
-# --- File Locations ---
+# --- FILE LOCATIONS ---
 
-# The commented-out default example path for TODO_DIR.
-# This is provided for reference but is not active.
-# export TODO_DIR="{{ TODO_DIR_DEFAULT | default('/Users/gina/Documents/todo') }}"
+# TODO_DIR_DEFAULT: The commented-out default example path for TODO_DIR.
+# This variable is used as a fallback or reference if TODO_DIR is not explicitly set elsewhere.
+# export TODO_DIR="{{ (TODO_DIR_DEFAULT | default('/Users/gina/Documents/todo')) }}"
 
-# The absolute or home-relative path to the todo.txt directory.
-# This is the primary directory where task files are stored.
-export TODO_DIR="{{ TODO_DIR | default('~/.todo-txt') }}"
+# TODO_DIR: The absolute or home-relative path to the todo.txt directory.
+# This is the root directory where all todo.txt files are stored.
+# We quote the value to handle spaces in paths safely.
+export TODO_DIR="{{ (TODO_DIR | default('~/.todo-txt')) }}"
 
-# --- Task File Definitions ---
+# --- FILE NAMES ---
 
-# Your todo/done/report.txt locations
-# The filename for the active tasks.
-export TODO_FILE="$TODO_DIR/{{ TODO_FILENAME | default('todo.txt') }}"
+# TODO_FILENAME: The filename for the active tasks.
+# Combined with TODO_DIR to form the full path to the main task list.
+export TODO_FILE="$TODO_DIR/{{ (TODO_FILENAME | default('todo.txt')) }}"
 
-# The filename for completed tasks.
-export DONE_FILE="$TODO_DIR/{{ DONE_FILENAME | default('done.txt') }}"
+# DONE_FILENAME: The filename for completed tasks.
+# Combined with TODO_DIR to form the full path to the completed tasks list.
+export DONE_FILE="$TODO_DIR/{{ (DONE_FILENAME | default('done.txt')) }}"
 
-# The filename for reports.
-export REPORT_FILE="$TODO_DIR/{{ REPORT_FILENAME | default('report.txt') }}"
+# REPORT_FILENAME: The filename for reports.
+# Combined with TODO_DIR to form the full path to the reports file.
+export REPORT_FILE="$TODO_DIR/{{ (REPORT_FILENAME | default('report.txt')) }}"
 
-# --- Custom Actions ---
+# --- ACTIONS DIRECTORY ---
 
-# You can customize your actions directory location
-# The directory location for custom action scripts.
-# export TODO_ACTIONS_DIR="{{ TODO_ACTIONS_DIR | default('$HOME/.todo.actions.d') }}"
+# TODO_ACTIONS_DIR: The directory location for custom action scripts.
+# These are shell scripts executed by todo.txt actions.
+# Quote to handle spaces in paths.
+export TODO_ACTIONS_DIR="{{ (TODO_ACTIONS_DIR | default('$HOME/.todo.actions.d')) }}"
 
-# --- Color Map (Reference) ---
+# --- COLOR CONFIGURATION ---
+
+# ==============================================================================
 # Text coloring and formatting is done by inserting ANSI escape codes.
 # If you have re-mapped your color codes, or use the todo.txt
 # output in another output system (like Conky), you may need to
-# over-ride by uncommenting and editing these defaults.
+# override by uncommenting and editing these defaults.
 # If you change any of these here, you also need to uncomment
 # the defaults in the COLORS section below. Otherwise, todo.txt
 # will still use the defaults!
-#
-# export BLACK='\033[0;30m'
-# export RED='\033[0;31m'
-# export GREEN='\033[0;32m'
-# export BROWN='\033[0;33m'
-# export BLUE='\033[0;34m'
-# export PURPLE='\033[0;35m'
-# export CYAN='\033[0;36m'
-# export LIGHT_GREY='\033[0;37m'
-# export DARK_GREY='\033[1;30m'
-# export LIGHT_RED='\033[1;31m'
-# export LIGHT_GREEN='\033[1;32m'
-# export YELLOW='\033[1;33m'
-# export LIGHT_BLUE='\033[1;34m'
-# export LIGHT_PURPLE='\033[1;35m'
-# export LIGHT_CYAN='\033[1;36m'
-# export WHITE='\033[1;37m'
-# export DEFAULT='\033[0m'
+# ==============================================================================
 
-# --- Priority and Object Colors ---
+# PRI_A: ANSI color variable or code for A priority.
+# A priorities are typically critical/high-importance tasks.
+export PRI_A="{{ (PRI_A | default('$YELLOW')) }}"
 
-## Uncomment and edit to override these defaults.
-## Reference the constants from the color map above,
-## or use $NONE to disable highlighting.
+# PRI_B: ANSI color variable or code for B priority.
+# B priorities are typically important but not critical.
+export PRI_B="{{ (PRI_B | default('$GREEN')) }}"
 
-# Priorities can be any upper-case letter.
-# A,B,C are highlighted; you can add coloring for more.
+# PRI_C: ANSI color variable or code for C priority.
+# C priorities are standard tasks.
+export PRI_C="{{ (PRI_C | default('$LIGHT_BLUE')) }}"
 
-# ANSI color variable or code for A priority.
-# export PRI_A={{ PRI_A | default('$YELLOW') }}
+# PRI_D: ANSI color variable or code for D priority.
+# D priorities are usually low priority or "someday" tasks.
+export PRI_D="{{ (PRI_D | default('...')) }}"
 
-# ANSI color variable or code for B priority.
-# export PRI_B={{ PRI_B | default('$GREEN') }}
+# PRI_X: ANSI color variable or code for default/uncategorized priority.
+# Used for tasks without an explicit priority tag.
+export PRI_X="{{ (PRI_X | default('$WHITE')) }}"
 
-# ANSI color variable or code for C priority.
-# export PRI_C={{ PRI_C | default('$LIGHT_BLUE') }}
+# COLOR_DONE: ANSI color variable or code for done tasks not yet archived.
+# Visual distinction for completed items before they are moved to done.txt.
+export COLOR_DONE="{{ (COLOR_DONE | default('$LIGHT_GREY')) }}"
 
-# ANSI color variable or code for D priority.
-# export PRI_D={{ PRI_D | default('...') }}
+# COLOR_PROJECT: ANSI color variable or code for project identifiers.
+# Highlights tasks belonging to a specific project context.
+export COLOR_PROJECT="{{ (COLOR_PROJECT | default('$RED')) }}"
 
-# ANSI color variable or code for default/uncategorized priority.
-# export PRI_X={{ PRI_X | default('$WHITE') }}
+# COLOR_CONTEXT: ANSI color variable or code for context identifiers.
+# Highlights tasks associated with a specific context (e.g., @home, @work).
+export COLOR_CONTEXT="{{ (COLOR_CONTEXT | default('$RED')) }}"
 
-# There is highlighting for tasks that have been done,
-# but haven't been archived yet.
-# ANSI color variable or code for done tasks not yet archived.
-# export COLOR_DONE={{ COLOR_DONE | default('$LIGHT_GREY') }}
+# --- BEHAVIOR ---
 
-# There is highlighting for projects and contexts.
-# ANSI color variable or code for project identifiers.
-# export COLOR_PROJECT={{ COLOR_PROJECT | default('$RED') }}
-
-# ANSI color variable or code for context identifiers.
-# export COLOR_CONTEXT={{ COLOR_CONTEXT | default('$RED') }}
-
-# --- Behavior / Sorting ---
-
-## customize list output
+# ==============================================================================
+# customize list output
+# ==============================================================================
 
 # TODOTXT_SORT_COMMAND will filter after line numbers are
 # inserted, but before colorization, and before hiding of
 # priority, context, and project.
-# The shell command used to sort the task list.
-# export TODOTXT_SORT_COMMAND={{ TODOTXT_SORT_COMMAND | default("'env LC_COLLATE=C sort -f -k2'" ) }}
+# This allows custom sorting logic via standard Unix tools.
+export TODOTXT_SORT_COMMAND="{{ (TODOTXT_SORT_COMMAND | default("'env LC_COLLATE=C sort -f -k2'")) }}"
 
 # TODOTXT_FINAL_FILTER will filter list output after colorization,
 # priority hiding, context hiding, and project hiding. That is,
 # just before the list output is displayed.
-# The final shell filter applied to the list output before display.
-# export TODOTXT_FINAL_FILTER={{ TODOTXT_FINAL_FILTER | default("'cat'" ) }}
+# Useful for post-processing the visual output stream.
+export TODOTXT_FINAL_FILTER="{{ (TODOTXT_FINAL_FILTER | default("'cat'")) }}"

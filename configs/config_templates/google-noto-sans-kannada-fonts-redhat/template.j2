@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Font configuration for Google Noto Sans Kannada fonts on Red Hat systems.
+  This template generates an XML configuration for Fontconfig to prioritize
+  Noto Sans Kannada for Kannada language text and alias it as a generic
+  sans-serif font.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Priority rule: When rendering text in the Kannada language (lang code 'kn')
+    that matches the generic 'sans-serif' family, prepend 'Noto Sans Kannada'.
+  -->
+  <match>
+    <!-- Test if the language of the text contains the specified language code -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('kn') }}</string>
+    </test>
+    <!-- Test if the requested font family matches the default generic family -->
+    <test name="family">
+      <string>{{ default_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the specific font family to the font list for this match -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Kannada') }}</string>
+    </edit>
+    <!-- Enable font hinting to improve readability on screen -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ hinting_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias rule: Map the specific font family 'Noto Sans Kannada' to the
+    generic 'sans-serif' family, ensuring applications requesting sans-serif
+    get this font when appropriate.
+  -->
+  <alias>
+    <!-- The specific font family name to be aliased -->
+    <family>{{ font_family | default('Noto Sans Kannada') }}</family>
+    <!-- The generic family that this specific font will serve as a default for -->
+    <default>
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

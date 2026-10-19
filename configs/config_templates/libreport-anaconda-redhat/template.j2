@@ -1,0 +1,114 @@
+# ============================================================================
+# libreport-anaconda-redhat: Bug Report Submission Configuration
+# ============================================================================
+# This template configures how the 'libreport' tool (used by ABRT/Anaconnda)
+# formats and submits bug reports to bug tracking systems (e.g., Bugzilla).
+#
+# Configuration Format:
+# - Lines starting with # are comments and are ignored by the parser.
+# - Sections are defined by a header followed by "::" and a list of elements.
+# - Wildcards like %summary, %attach, and custom text sections are supported.
+# - Elements prefixed with "-" are excluded.
+# - Elements prefixed with "%bare_" are output as raw text without headers.
+# ============================================================================
+
+# ------------------------------------------------------------------------------
+# %summary: Bug Summary Format String
+# ------------------------------------------------------------------------------
+# Defines the format for the bug report summary line.
+# Placeholders like %reason% are replaced with actual data from the crash event.
+# Default: '%reason%'
+# ------------------------------------------------------------------------------
+%summary:: {{ summary_format | default('%reason%') }}
+
+# ------------------------------------------------------------------------------
+# Description of Problem Section
+# ------------------------------------------------------------------------------
+# Text header for the "Description of problem" section in the bug report.
+# Uses %bare_comment to output the comment content directly without a field name prefix.
+# Default: '%bare_comment'
+# ------------------------------------------------------------------------------
+Description of problem:: {{ description_header | default('%bare_comment') }}
+
+# ------------------------------------------------------------------------------
+# Version-Release Number Section
+# ------------------------------------------------------------------------------
+# Text header for the "Version-Release number of selected component" section.
+# Uses %bare_package to output the package name directly.
+# Default: '%bare_package'
+# ------------------------------------------------------------------------------
+Version-Release number of selected component:: {{ version_header | default('%bare_package') }}
+
+# ------------------------------------------------------------------------------
+# Additional Info Section Header
+# ------------------------------------------------------------------------------
+# Text header for the "Additional info" section.
+# Uses %bare_description to prepend the description text directly.
+# Default: ':: %bare_description'
+# ------------------------------------------------------------------------------
+{{ additional_info_text | default(':: %bare_description') }}
+
+# ------------------------------------------------------------------------------
+# %attach: Elements to Attach to the Bug Report
+# ------------------------------------------------------------------------------
+# Comma-separated list of elements to attach to the bug report (e.g., logs, core dumps).
+# Elements prefixed with "-" are excluded.
+# Standard exclusions:
+#   -reported_to : Do not attach the "reported_to" element.
+#   -comment     : Do not attach the "comment" element.
+#   -reason      : Do not attach the "reason" element.
+#   -event_log   : Do not attach the "event_log" element.
+#   -extra-cc    : Do not attach the "extra-cc" element.
+# Included elements (via wildcards or names):
+#   %multiline   : Include multiline text elements.
+#   (Note: The default list in schema contains a trailing backslash and quote which
+#    appears to be a copy-paste artifact; the effective default is usually just the
+#    comma-separated list. We use the schema default strictly.)
+# Default: '-reported_to,-comment,-reason,-event_log,-extra-cc,%multiline'
+# ------------------------------------------------------------------------------
+%attach:: {{ attach_elements | default('-reported_to,-comment,-reason,-event_log,-extra-cc,%multiline') }}
+
+# ------------------------------------------------------------------------------
+# Reporter Elements Section
+# ------------------------------------------------------------------------------
+# Comma-separated list of elements to include in the "Reporter" section of the
+# additional info. This provides context about the environment and software
+# configuration at the time of the crash.
+#
+# Standard Inclusions:
+#   reporter     : The name of the reporter tool.
+#   %oneline     : One-line summary of relevant elements.
+#   -pkg_arch    : Exclude package architecture (if not needed).
+#   -pkg_epoch   : Exclude package epoch.
+#   -pkg_name    : Exclude package name (usually redundant if version is present).
+#   -pkg_release : Exclude package release.
+#   -pkg_version : Exclude package version.
+#   -pkg_vendor  : Exclude package vendor.
+#   -pkg_fingerprint : Exclude package GPG fingerprint.
+#   -component   : Exclude component name.
+#   -architecture : Exclude system architecture.
+#   -extra-cc    : Exclude extra CC list.
+#   -analyzer    : Exclude analyzer tool name.
+#   -count       : Exclude crash count.
+#   -duphash     : Exclude duplicate hash.
+#   -uuid        : Exclude crash UUID.
+#   -abrt_version: Exclude ABRT tool version.
+#   -username    : Exclude username.
+#   -hostname    : Exclude hostname.
+#   -os_release  : Exclude OS release info.
+#   -last_occurrence : Exclude last occurrence timestamp.
+#   -ureports_counter : Exclude ureports counter.
+#   -time        : Exclude timestamp.
+#   -pid         : Exclude process ID.
+#   -pwd         : Exclude working directory.
+#   -backtrace   : Exclude backtrace.
+#   -core_backtrace : Exclude core backtrace.
+#   -ifcfg.log   : Exclude network configuration log.
+#   -packaging.log : Exclude packaging log.
+#   -tid         : Exclude thread ID.
+#
+# Default: 'reporter,%oneline' (with many exclusions listed in schema)
+# ------------------------------------------------------------------------------
+# Note: The schema default is extremely verbose with many exclusions.
+# We preserve the exact string from the schema default.
+Reporter:: {{ reporter_elements | default('reporter,-pkg_arch,-pkg_epoch,-pkg_name,-pkg_release,-pkg_version,-pkg_vendor,-pkg_fingerprint,-component,-architecture,-extra-cc,-analyzer,-count,-duphash,-uuid,-abrt_version,-username,-hostname,-os_release,-last_occurrence,-ureports_counter,-time,-pid,-pwd,-backtrace,-core_backtrace,-ifcfg.log,-packaging.log,-tid,%oneline') }}

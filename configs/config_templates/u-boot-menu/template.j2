@@ -1,62 +1,157 @@
-# /etc/default/u-boot - configuration file for u-boot-update(8)
-# This file configures the u-boot-update utility which manages boot entries.
+## /etc/default/u-boot - configuration file for u-boot-update(8)
+# This file is managed by Ansible. Do not edit manually.
+# It configures the u-boot-update tool which generates bootloader entries.
 
-# {{ u_boot_update | default('true') | title | lower }} u-boot-update processing.
-# Enables or disables the processing of u-boot configuration updates.
-U_BOOT_UPDATE="{{ u_boot_update | default('true') }}"
-
-# Manage the following list of u-boot alternatives.
-# Specifies which alternatives (e.g., default, recovery) should be managed.
-{% set alts = u_boot_alternatives | default(['default', 'recovery']) %}
-{% if alts is iterable and (alts is mapping or alts is string or alts is number) %}
-{% set alts = [alts] %}
+{% set u_boot_update_val = u_boot_update | default(true) %}
+{% if u_boot_update_val %}
+# Enable or disable u-boot-update processing.
+# Default: true
+U_BOOT_UPDATE="{{ u_boot_update_val }}"
+{% else %}
+# Enable or disable u-boot-update processing.
+# Default: true
+U_BOOT_UPDATE="false"
 {% endif %}
-U_BOOT_ALTERNATIVES="{{ alts | join(' ') }}"
 
-# The default u-boot alternative to boot.
-# Sets the primary boot entry selected by default.
-U_BOOT_DEFAULT="{{ u_boot_default | default('l0') }}"
+{% set u_boot_alternatives_val = u_boot_alternatives | default('') %}
+{% if u_boot_alternatives_val %}
+# List of u-boot alternatives to manage.
+# Default: ''
+U_BOOT_ALTERNATIVES="{{ u_boot_alternatives_val }}"
+{% else %}
+# List of u-boot alternatives to manage.
+# Default: ''
+U_BOOT_ALTERNATIVES=""
+{% endif %}
 
-# {{ u_boot_prompt | default('1') | title }} showing the boot menu prompt.
-# Controls whether the user is presented with a menu at boot time.
-U_BOOT_PROMPT="{{ u_boot_prompt | default('1') }}"
+{% set u_boot_default_val = u_boot_default | default('') %}
+{% if u_boot_default_val %}
+# The default u-boot alternative to use.
+# Default: ''
+U_BOOT_DEFAULT="{{ u_boot_default_val }}"
+{% else %}
+# The default u-boot alternative to use.
+# Default: ''
+U_BOOT_DEFAULT=""
+{% endif %}
 
+{% set u_boot_prompt_val = u_boot_prompt | default('1') %}
+{% if u_boot_prompt_val %}
+# Whether to show the boot menu prompt.
+# Default: '1'
+U_BOOT_PROMPT="{{ u_boot_prompt_val }}"
+{% else %}
+# Whether to show the boot menu prompt.
+# Default: '1'
+U_BOOT_PROMPT="1"
+{% endif %}
+
+{% set u_boot_entries_val = u_boot_entries | default('') %}
+{% if u_boot_entries_val %}
 # Which entries to include in the menu.
-# 'all' includes all detected entries; can be restricted to specific types.
-U_BOOT_ENTRIES="{{ u_boot_entries | default('all') }}"
+# Default: ''
+U_BOOT_ENTRIES="{{ u_boot_entries_val }}"
+{% else %}
+# Which entries to include in the menu.
+# Default: ''
+U_BOOT_ENTRIES=""
+{% endif %}
 
+{% set u_boot_menu_label_val = u_boot_menu_label | default('') %}
+{% if u_boot_menu_label_val %}
 # Label for the main menu entry.
-# The display name shown in the boot menu for the default entry.
-U_BOOT_MENU_LABEL="{{ u_boot_menu_label | default('Debian GNU/Linux') }}"
+# Default: ''
+U_BOOT_MENU_LABEL="{{ u_boot_menu_label_val }}"
+{% else %}
+# Label for the main menu entry.
+# Default: ''
+U_BOOT_MENU_LABEL=""
+{% endif %}
 
+{% set u_boot_parameters_val = u_boot_parameters | default('') %}
+{% if u_boot_parameters_val %}
 # Kernel parameters passed to the boot entries.
-# Common parameters like 'ro quiet' or specific console settings.
-U_BOOT_PARAMETERS="{{ u_boot_parameters | default('ro quiet') }}"
+# Default: ''
+U_BOOT_PARAMETERS="{{ u_boot_parameters_val }}"
+{% else %}
+# Kernel parameters passed to the boot entries.
+# Default: ''
+U_BOOT_PARAMETERS=""
+{% endif %}
 
+{% set u_boot_root_val = u_boot_root | default('') %}
+{% if u_boot_root_val %}
 # Root device specification for the kernel.
-# Specifies the root filesystem device (e.g., UUID=..., /dev/mmcblk0p2).
-U_BOOT_ROOT="{{ u_boot_root | default('') }}"
+# Default: ''
+U_BOOT_ROOT="{{ u_boot_root_val }}"
+{% else %}
+# Root device specification for the kernel.
+# Default: ''
+U_BOOT_ROOT=""
+{% endif %}
 
+{% set u_boot_timeout_val = u_boot_timeout | default('') %}
+{% if u_boot_timeout_val %}
 # Timeout in seconds before booting the default entry.
-# How long the menu waits before auto-booting.
-U_BOOT_TIMEOUT="{{ u_boot_timeout | default('50') }}"
+# Default: ''
+U_BOOT_TIMEOUT="{{ u_boot_timeout_val }}"
+{% else %}
+# Timeout in seconds before booting the default entry.
+# Default: ''
+U_BOOT_TIMEOUT=""
+{% endif %}
 
+{% set u_boot_fdt_val = u_boot_fdt | default('') %}
+{% if u_boot_fdt_val %}
 # Specific Device Tree Blob to use.
-# Overrides the auto-detected DTB for the current kernel.
-U_BOOT_FDT="{{ u_boot_fdt | default('') }}"
+# Default: ''
+U_BOOT_FDT="{{ u_boot_fdt_val }}"
+{% else %}
+# Specific Device Tree Blob to use.
+# Default: ''
+U_BOOT_FDT=""
+{% endif %}
 
+{% set u_boot_fdt_dir_val = u_boot_fdt_dir | default('') %}
+{% if u_boot_fdt_dir_val %}
 # Directory containing kernel images and DTBs.
-# Path where the kernel and associated device tree files are stored.
-U_BOOT_FDT_DIR="{{ u_boot_fdt_dir | default('/usr/lib/linux-image-') }}"
+# Default: ''
+U_BOOT_FDT_DIR="{{ u_boot_fdt_dir_val }}"
+{% else %}
+# Directory containing kernel images and DTBs.
+# Default: ''
+U_BOOT_FDT_DIR=""
+{% endif %}
 
+{% set u_boot_fdt_overlays_val = u_boot_fdt_overlays | default('') %}
+{% if u_boot_fdt_overlays_val %}
 # Specific FDT overlays to apply.
-# Comma-separated list of overlay filenames to apply on top of the base DTB.
-U_BOOT_FDT_OVERLAYS="{{ u_boot_fdt_overlays | default('') }}"
+# Default: ''
+U_BOOT_FDT_OVERLAYS="{{ u_boot_fdt_overlays_val }}"
+{% else %}
+# Specific FDT overlays to apply.
+# Default: ''
+U_BOOT_FDT_OVERLAYS=""
+{% endif %}
 
+{% set u_boot_fdt_overlays_dir_val = u_boot_fdt_overlays_dir | default('') %}
+{% if u_boot_fdt_overlays_dir_val %}
 # Directory containing device tree overlays.
-# Path where overlay files (.dtbo) are located.
-U_BOOT_FDT_OVERLAYS_DIR="{{ u_boot_fdt_overlays_dir | default('/boot/dtbo/') }}"
+# Default: ''
+U_BOOT_FDT_OVERLAYS_DIR="{{ u_boot_fdt_overlays_dir_val }}"
+{% else %}
+# Directory containing device tree overlays.
+# Default: ''
+U_BOOT_FDT_OVERLAYS_DIR=""
+{% endif %}
 
-# {{ u_boot_sync_dtbs | default('false') | title | lower }} synchronizing DTBs automatically.
-# If enabled, ensures device tree blobs are copied/synchronized appropriately.
-U_BOOT_SYNC_DTBS="{{ u_boot_sync_dtbs | default('false') }}"
+{% set u_boot_sync_dtbs_val = u_boot_sync_dtbs | default(false) %}
+{% if u_boot_sync_dtbs_val %}
+# Whether to synchronize DTBs automatically.
+# Default: false
+U_BOOT_SYNC_DTBS="{{ u_boot_sync_dtbs_val }}"
+{% else %}
+# Whether to synchronize DTBs automatically.
+# Default: false
+U_BOOT_SYNC_DTBS="false"
+{% endif %}

@@ -1,0 +1,31 @@
+# Netdata log rotation configuration for Red Hat systems.
+# Managed by Ansible; do not edit manually.
+
+# Rotate logs daily.
+daily
+
+# Do not fail if the log file is missing.
+missingok
+
+# Keep {{ logrotate_rotate_count | default(14) }} rotated log files.
+# Schema: logrotate_rotate_count (int, default: 14)
+rotate {{ logrotate_rotate_count | default(14) }}
+
+# Compress rotated log files to save disk space.
+compress
+
+# Delay compression of the most recent rotated file to allow running services to finish writing.
+delaycompress
+
+# Do not rotate the log if it is empty.
+notifempty
+
+# Execute scripts only once for all matched files, rather than per file.
+sharedscripts
+
+# Script to run after rotation completes.
+# Sends a SIGHUP to the Netdata daemon so it closes and reopens its log file handles.
+# Uses the PID file defined in the Netdata configuration.
+postrotate
+    /bin/kill -HUP `cat {{ netdata_pid_file | default('/run/netdata/netdata.pid') }} 2>/dev/null` 2>/dev/null || true
+endscript

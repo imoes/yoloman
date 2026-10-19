@@ -54,7 +54,7 @@ profiles:
     # Profile-specific configuration overrides
 {% if profile is mapping and (profile | default({})).get('config', {}) is mapping %}
     config:
-{% for key, val in (profile | default({})).get('config', {}) | dict2items %}
+{% for key, val in (profile | default({})).get('config', {}) | dictsort %}
       # Config key: {{ key }}
       {{ key }}: {{ val | default('') | string }}
 {% endfor %}
@@ -126,7 +126,7 @@ transformations:
 {% for trans in cfg_transformations | default([]) %}
 {% set _trans = trans | default({}) %}
   # Transformation Key: {{ _trans.get('cmd', 'unnamed_cmd') | default('unnamed_cmd') | truncate(30, True, '') }}
-{% for trans_key, trans_val in _trans | dict2items %}
+{% for trans_key, trans_val in _trans | dictsort %}
 {% if trans_key == 'cmd' or trans_key == 'cond' %}
   # Transformation: {{ trans_key }}
 {% endif %}
@@ -150,7 +150,7 @@ transformations:
 flags:
 {% for flag_group in cfg_flags | default([]) %}
 {% set _fg = flag_group | default({}) %}
-{% for flag_key, flag_val in _fg | dict2items %}
+{% for flag_key, flag_val in _fg | dictsort %}
   # Flag: {{ flag_key }}
   {{ flag_key }}: {{ flag_val | default('') | string }}
 {% endfor %}

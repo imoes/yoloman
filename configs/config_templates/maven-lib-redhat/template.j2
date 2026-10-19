@@ -1,0 +1,34 @@
+# ==============================================================================
+# Maven Configuration Template (Self-Documenting)
+# ==============================================================================
+# This template configures the core classpath and entry point for Maven.
+# It relies on variables defined in the Ansible role's schema.
+# ==============================================================================
+
+# The main class entry point for Maven.
+# Schema: main_class | default='org.apache.maven.cli.MavenCli'
+main is {{ main_class | default('org.apache.maven.cli.MavenCli') }} from plexus.core
+
+# The environment variable name used to reference the maven configuration path.
+# Schema: maven_conf_var | default='maven.conf'
+# Sets the environment variable so other tools/scripts can find the config dir.
+set {{ maven_conf_var | default('maven.conf') }} default {{ maven_conf_default | default('${maven.home}/conf') }}
+
+# [plexus.core] section configuration
+# Controls classpath loading and logging initialization.
+[plexus.core]
+
+# The variable or path used to reference the maven configuration directory in the classpath loading section.
+# Schema: maven_conf_path | default='${maven.conf}'
+# Loads the logging configuration from the specified path relative to the config directory.
+load       {{ maven_conf_path | default('${maven.conf}') }}/logging
+
+# Glob pattern for optional extension jars in maven.home/lib/ext.
+# Schema: maven_home_lib_ext | default='${maven.home}/lib/ext/*.jar'
+# Optionally loads extension jars if they exist in the ext subdirectory.
+optionally {{ maven_home_lib_ext | default('${maven.home}/lib/ext/*.jar') }}
+
+# Glob pattern for core library jars in maven.home/lib.
+# Schema: maven_home_lib | default='${maven.home}/lib/*.jar'
+# Loads the core Maven libraries from the lib subdirectory.
+load       {{ maven_home_lib | default('${maven.home}/lib/*.jar') }}

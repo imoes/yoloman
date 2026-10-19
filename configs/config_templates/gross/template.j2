@@ -1,107 +1,173 @@
-# gross service configuration defaults (POSIX shell fragment for /etc/default/gross)
-# This file is sourced by the init script /etc/init.d/gross.
-# It passes command-line arguments to the gross daemon binary.
-
 #
-# Network Binding
+# Grossd Configuration Template
 #
-
-# IP address the server will bind to. Use `0.0.0.0` for all interfaces.
-# Default: 127.0.0.1
-DAEMON_OPTS="${DAEMON_OPTS} -addr {{ listen_addr | default('127.0.0.1') }}"
-
-# SMTP listener port (typically 2525 for greylisting; avoid 25 to prevent conflict with MTA).
-# Default: 2525
-DAEMON_OPTS="${DAEMON_OPTS} -port {{ listen_port | default(2525) }}"
-
+# Grossd is a DNSBL/BL check server for mail servers, providing greylister-like functionality.
+# This file uses the syntax: directive = value [; option]
 #
-# Concurrency
+# For detailed descriptions of each parameter, refer to the comments below each line.
 #
 
-# Number of worker threads/processes handling incoming connections.
-# Default: 4
-DAEMON_OPTS="${DAEMON_OPTS} -workers {{ worker_count | default(4) }}"
+# 'host' is the address the server should listen for queries
+# DEFAULT: host = {{ listen_addr | default('localhost') }}
+host = {{ listen_addr | default('localhost') }}
 
-# Maximum simultaneous client connections allowed.
-# Default: 1024
-DAEMON_OPTS="${DAEMON_OPTS} -max-connections {{ max_concurrent_connections | default(1024) }}"
+# 'port' is the port the server should listen for queries
+# DEFAULT: port = {{ listen_port | default('5525') }}
+port = {{ listen_port | default('5525') }}
 
-#
-# Logging
-#
+# 'protocol' activates the server protocols grossd will support
+# Valid protocols are 'sjsms', 'postfix' and 'milter'
+# Grossd can listen on multiple protocols by repeating this line.
+# DEFAULT: protocol = sjsms
+# DEFAULT: protocol = postfix
+protocol = sjsms
+protocol = postfix
 
-# Minimum log level: one of `debug`, `info`, `warn`, `error`, `fatal`.
-# Default: info
-DAEMON_OPTS="${DAEMON_OPTS} -log-level {{ log_level | default('info') }}"
+# 'stat_type' is the name of the requested statistic. There can be multiple
+# 'stat_type' options in the configuration file.
+# Valid options:
+#   full: grossd sends all possible statistics
+#   none: no statistics at all
+#   status: basic statistics set
+#   since_startup: basic set since the startup
+#   delay: processing delay statistics
+# DEFAULT: stat_type = none
 
-# Path to the log file. Use `-` for stdout.
-# Default: /var/log/gross/gross.log
-DAEMON_OPTS="${DAEMON_OPTS} -log-file {{ log_file | default('/var/log/gross/gross.log') }}"
+# 'stat_interval' is the number of seconds between status log entries
+# DEFAULT: stat_interval = 3600
 
-#
-# Database Configuration
-#
+# 'filter_bits' is the size of the bloom filter. Size will be 2^filter_bits
+# Lowering this value will increase the probability of false matches
+# in each individual bloom filter.
+# DEFAULT: filter_bits = 24
 
-# Database backend: currently only `sqlite` is supported.
-# Default: sqlite
-DAEMON_OPTS="${DAEMON_OPTS} -db-type {{ db_type | default('sqlite') }}"
+# 'number_buffers' is the number of filters used in the ring queue.
+# Raising this value will cause an entry to stay in the server's memory longer.
+# Maps to worker_count schema field.
+# DEFAULT: number_buffers = {{ worker_count | default('100') }}
+number_buffers = {{ worker_count | default('100') }}
 
-# Path to the SQLite database file storing greylisting state.
-# Default: /var/lib/gross/greylist.db
-DAEMON_OPTS="${DAEMON_OPTS} -db-path {{ db_path | default('/var/lib/gross/greylist.db') }}"
+# 'rotate_interval' is the number of seconds between filter rotation.
+# Let N := 'number_buffers' and I := 'rotate_interval'. An entry will
+# stay in the server's memory for (N - 0.5) * I seconds on average.
+# DEFAULT: rotate_interval = 3600
 
-# Maximum number of idle connections in the DB pool.
-# Default: 10
-DAEMON_OPTS="${DAEMON_OPTS} -db-max-idle-conns {{ db_max_idle_conns | default(10) }}"
+# 'sync_listen' is the address to listen for communication with the peer.
+# Defaults to the 'host' option if not specified.
+# sync_listen =
 
-# Maximum number of open connections to the database.
-# Default: 20
-DAEMON_OPTS="${DAEMON_OPTS} -db-max-open-conns {{ db_max_open_conns | default(20) }}"
+# 'sync_peer' is the address of the peer used in clustered mode.
+# sync_peer =
 
-# Maximum lifetime of a DB connection before reuse. Accepts duration suffixes like `h`, `m`, `s`.
-# Default: 2h
-DAEMON_OPTS="${DAEMON_OPTS} -db-conn-max-lifetime {{ db_conn_max_lifetime | default('2h') }}"
+# 'sync_port' is the port number to listen to and connect to in
+# communication with the peer.
+# DEFAULT: sync_port = 5524
 
-#
-# DNSBL (DNS-based Real-Time Blackhole List) Configuration
-#
+# 'status_host' is the address grossd listens for status queries.
+# DEFAULT: status_host = localhost
 
-# Enable DNS-based real-time blackhole list lookups to pre-filter obvious spammers.
-# Default: True
-DAEMON_OPTS="${DAEMON_OPTS} -dnsbl-enabled {{ dnsbl_enabled | default(true) | lower }}"
+# 'status_port' is the port number grossd listens for status queries.
+# DEFAULT: status_port = 5522
 
-# Timeout for DNSBL queries. Accepts duration suffixes.
-# Default: 2s
-DAEMON_OPTS="${DAEMON_OPTS} -dnsbl-timeout {{ dnsbl_timeout | default('2s') }}"
-
-# List of DNSBL providers to query. Each item configures a provider's servers and behavior.
-# Default: [] (empty)
-# Note: In a POSIX shell fragment, complex structures must be serialized or handled carefully.
-# We iterate here to append individual flags.
-{% set providers = dnsbl_providers | default([]) %}
-{% if providers | length > 0 %}
-{% for provider in providers %}
-# DNSBL provider entry
-DAEMON_OPTS="${DAEMON_OPTS} -dnsbl-provider {{ provider }}"
-{% endfor %}
+# 'statefile' is the full path of the file that the server will use to
+# store the state information.
+# If db_path is defined and not empty, it is used here. Otherwise, the default path is commented out.
+{% if db_path is defined and db_path is not none and (db_path is string and db_path | length > 0) %}
+statefile = {{ db_path }}
+{% else %}
+# statefile = /var/db/grossd.state
 {% endif %}
 
-#
-# Greylisting Policy
-#
+# 'pidfile' is the full path of the file grossd writes its pid into.
+# You can set parameter 'check', if you want to keep grossd
+# from starting if pidfile already exists.
+# pidfile = /var/run/grossd.pid;check
 
-# Minimum delay (seconds) before accepting a retry from a new sender.
-# Default: 30
-DAEMON_OPTS="${DAEMON_OPTS} -policy-min-delay {{ policy_min_delay_sec | default(30) }}"
+# 'log_method' is used to list all the possible logging facilities.
+# Currently only syslog is implemented.
+# DEFAULT: log_method = syslog
 
-# Maximum acceptable delay (seconds); greylisting expires after this if no retry.
-# Default: 3600
-DAEMON_OPTS="${DAEMON_OPTS} -policy-max-delay {{ policy_max_delay_sec | default(3600) }}"
+# 'log_level' sets the minimum log level.
+# Possible levels are 'debug', 'info', 'notice', 'warning' and 'error'.
+# DEFAULT: log_level = {{ log_level | default('info') }}
+log_level = {{ log_level | default('info') }}
 
-# Number of successful retries (passes) before permanently accepting the sender.
-# Default: 1
-DAEMON_OPTS="${DAEMON_OPTS} -policy-accept-after-pass {{ policy_accept_after_pass_count | default(1) }}"
+# 'syslog_facility' is the facility syslog sends log messages with.
+# DEFAULT: syslog_facility = mail
 
-# Number of failed retries (bounces) after which the sender is rejected permanently.
-# Default: 3
-DAEMON_OPTS="${DAEMON_OPTS} -policy-reject-after-fail {{ policy_reject_after_fail_count | default(3) }}"
+# 'update' is the way server updates the database. Valid options are
+# 'grey' and 'always'. If 'update = grey' grossd will update the database
+# only if response is STATUS_GREY.
+# DEFAULT: update = grey
+
+# 'grey_mask' is the mask for grossd to use when matching client_ip
+# against the database. Default is 24, so grossd treats addresses
+# like a.b.c.d as a.b.c.0. Setting this to 32 makes grossd require
+# that consecutive attempts are made from the same IP address.
+# DEFAULT: grey_mask = 24
+
+# 'grey_delay' is the time in seconds new triplets are kept on the greylist.
+# DEFAULT: grey_delay = 10
+
+# 'query_timelimit' is the query timeout in milliseconds.
+# DEFAULT: query_timelimit = 5000
+
+# 'pool_maxthreads' is the maximum threadcount per pool. You may have
+# to raise the limit from the default if you get more than 100
+# queries per second and/or have slow DNS servers. Rule of thumb would be
+# to decide how many queries you want grossd to be able to handle per second,
+# and multiply that with query_timelimit (in seconds, of course).
+# Maps to worker_count schema field.
+# DEFAULT: pool_maxthreads = {{ worker_count | default('100') }}
+pool_maxthreads = {{ worker_count | default('100') }}
+
+# 'block_threshold' is the threshold after which grossd sends
+# a permanent error to the client. Every check that considers client_ip
+# as suspicious returns a value (check weight). When sum of these
+# values gets equivalent or greater than 'block_threshold', grossd
+# sends a STATUS_BLOCK response. Default is 0, which disables
+# this functionality.
+# DEFAULT: block_threshold = 0
+
+# 'block_reason' is the reason given when client is too suspicious.
+# See block_threshold description.
+# DEFAULT: block_reason = Bad reputation
+
+# 'grey_threshold' is analogous to 'block_threshold', except at the
+# threshold grossd sends a STATUS_GREY response.
+# DEFAULT: grey_threshold = 1
+
+# 'check' lists all the checks grossd will do to judge if client_ip is
+# suspicious or not.
+check = dnsbl
+#check = rhsbl
+#check = dnswl
+
+# 'dnsbl' is a DNS domain name of the DNSBL that 'dnsbl' check will query.
+# There are no defaults, but below is a list of DNSBLs you could be using.
+# You may assign different weights for the DNSBLs, default weight is 1.
+# Format: dnsbl = domain;weight (if weight differs from 1)
+{% for provider in dnsbl_providers | default(['bl.spamcop.net;2', 'combined.njabl.org', 'cbl.abuseat.org', 'dnsbl.sorbs.net']) %}
+dnsbl = {{ provider }}
+{% endfor %}
+
+# 'rhsbl' is analogous to 'dnsbl'.
+#rhsbl = rhsbl.sorbs.net
+
+# 'dnswl' is analogous to 'dnsbl'. Remember that dnswl is a *definitive*
+# check, that is grossd waits for the check to complete before deciding
+# how to respond. This may cause unwanted latency. Highly recommended if
+# you use grossd as a traditional greylister.
+#dnswl = query.bondedsender.org
+
+# 'blocker_host' is the host name of the Sophos blocker server.
+# blocker_host =
+
+# 'blocker_port' is the TCP port of the Sophos blocker service.
+# DEFAULT: blocker_port = 4466
+
+# 'blocker_weight' is the weight of the blocker check. (See description of 'dnsbl')
+# DEFAULT: blocker_weight = 1
+
+# 'milter_listen' is the socket for milter service.
+# EXAMPLE: milter_listen = inet:5523@localhost

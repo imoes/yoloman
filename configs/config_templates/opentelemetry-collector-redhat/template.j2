@@ -1,0 +1,72 @@
+---
+# OpenTelemetry Collector Configuration for Red Hat
+# This template configures receivers, processors, and basic exporters.
+# It is self-documenting: every field includes its source description.
+
+receivers:
+  # --- journald Receiver ---
+  # Configures the journald receiver to collect logs from systemd journal.
+  journald:
+    # units: List of systemd units to monitor. Empty means all units.
+    # Default: []
+    # Description: List of systemd units to monitor.
+    units: {{ receiver_journald_units | default([]) }}
+    
+    # priority: Minimum log priority to collect.
+    # Default: 'info'
+    # Description: Log priority for journald receiver.
+    priority: {{ receiver_journald_priority | default('info') }}
+
+  # --- hostmetrics Receiver ---
+  # Collects host-level metrics (CPU, Memory, Disk, etc.).
+  hostmetrics:
+    # root_path: Path to the host's root filesystem for reading /proc and /sys.
+    # Default: '/'
+    # Description: Root path for hostmetrics receiver.
+    root_path: {{ receiver_hostmetrics_root_path | default('/') }}
+
+    # collection_interval: How often to scrape metrics.
+    # Default: '10s'
+    # Description: Collection interval for hostmetrics receiver.
+    collection_interval: {{ receiver_hostmetrics_collection_interval | default('10s') }}
+
+    scrapers:
+      cpu:
+      memory:
+
+  # --- hostmetrics/disk Sub-receiver ---
+  # Specific configuration for disk metrics within hostmetrics.
+  hostmetrics/disk:
+    # root_path: Path to the host's root filesystem.
+    # Default: '/'
+    # Description: Root path for hostmetrics/disk receiver.
+    root_path: {{ receiver_hostmetrics_disk_root_path | default('/') }}
+
+    # collection_interval: How often to scrape disk metrics.
+    # Default: '30s'
+    # Description: Collection interval for hostmetrics/disk receiver.
+    collection_interval: {{ receiver_hostmetrics_disk_collection_interval | default('30s') }}
+
+    scrapers:
+      disk:
+      filesystem:
+
+processors:
+  # --- batch Processor ---
+  # Batches metrics/logs for efficient export.
+  batch:
+
+  # --- resourcedetection/system Processor ---
+  # Detects system attributes (OS, platform, container info) to enrich spans/metrics.
+  resourcedetection/system:
+    # detectors: List of detection strategies to use.
+    # Default: '["system"]'
+    # Description: List of detectors for resourcedetection/system processor.
+    # Note: The default is a JSON string containing a list. We output it as YAML list.
+    # Using tojson ensures the string is valid JSON, which YAML parsers accept as a list.
+    detectors: {{ processors_resourcedetection_system_detectors | default('["system"]') | tojson }}
+
+exporters:
+  # --- debug Exporter ---
+  # Prints received data to stdout for troubleshooting.
+  debug:

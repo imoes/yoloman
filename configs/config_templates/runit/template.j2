@@ -1,73 +1,66 @@
 #!/bin/sh
-# Runit initialization script for stage1 boot process.
-# This script sets up the environment and runs early boot tasks.
-# It is designed to be minimal to avoid blocking the boot process.
+# =============================================================================
+# runit: System one-time initialization tasks
+#
+# This script initializes the runit service supervisor environment during boot.
+# It sets up the PATH, executes boot-time tasks, migrates SysV-style init scripts
+# if necessary, and prepares control files in the /run directory.
+# =============================================================================
 
-# Default PATH for the initialization script.
-# Controls the search path for commands executed during boot.
-# Ensures standard system binaries are available.
+# --- Environment Setup --------------------------------------------------------
+# Sets the default PATH for the initialization script.
+# Schema field: default_path (string, default: '/usr/sbin:/sbin:/usr/bin:/bin')
 PATH={{ default_path | default('/usr/sbin:/sbin:/usr/bin:/bin') }}
 export PATH
 
-# Conditional block for native boot run scripts.
-# Executes scripts in /etc/runit/boot-run/ if a native boot run file exists or the bootrun variable is set.
-# This allows for custom, one-time initialization tasks specific to the environment.
-# Note: 'bootrun' is expected to be a boolean or string flag indicating whether to use native boot scripts.
+# --- Boot Tasks Execution -----------------------------------------------------
+# Executes native runit boot scripts or falls back to SysV-style init scripts.
+# Condition: Runs if the native boot runscript exists OR the $bootrun variable is set,
+# AND the /etc/runit/boot-run directory exists.
 if [ -f /etc/runit/native.boot.run -o -n "$bootrun" ] && [ -d /etc/runit/boot-run ]; then
-	for f in /etc/runit/boot-run/*.sh; do
-		# Source executable shell scripts found in the boot-run directory.
-		# These scripts are expected to perform one-time setup tasks.
-		[ -r "$f" ] && . "$f"
-	done
+    # Iterate over all .sh scripts in the native boot directory
+    for f in /etc/runit/boot-run/*.sh; do
+        # Source the script if it is readable
+        [ -r "$f" ] && . "$f"
+    done
 else
-	# Fallback to SysV init compatibility scripts if native boot run scripts are not used.
-	# Iterates over scripts in /etc/rcS.d/ starting with 'S' (start).
-	for script in /etc/rcS.d/S* ; do
-		# Skip non-executable scripts.
-		[ ! -x "$script" ] && continue
-		
-		# Resolve the real path to handle symlinks.
-		path=$(realpath "$script")
-		
-		# Extract the script name for override checking.
-		name=${path##*/}
-		
-		# Check for override files that block specific scripts.
-		# .block prevents the script from running.
-		[ -e /etc/runit/override-sysv.d/"$name".block ] && continue
-		# .pkgblock prevents the script from running (package-managed override).
-		[ -e /etc/runit/override-sysv.d/"$name".pkgblock ] && continue
-		
-		# Start the service using the SysV init script.
-		"$script" start
-	done
-	
-	# Attempt to write a boot entry to wtmpdb.
-	# wtmpdb is typically used to record boot events.
-	# If it fails, a warning is logged, but boot continues.
-	if ! /usr/bin/wtmpdb boot ; then
-		echo "warning: failed to write a wtmpdb boot entry"
-	fi
+    # Fallback: Start SysV-style init scripts from /etc/rcS.d/
+    for script in /etc/rcS.d/S* ; do
+        # Skip non-executable scripts
+        [ ! -x "$script" ] && continue
+        
+        # Get the real path to avoid issues with symlinks
+        path=$(realpath "$script")
+        
+        # Extract the filename for override checking
+        name=${path##*/}
+        
+        # Check for override blocks that prevent this service from starting
+        [ -e /etc/runit/override-sysv.d/"$name".block ] && continue
+        [ -e /etc/runit/override-sysv.d/"$name".pkgblock ] && continue
+        
+        # Start the service
+        "$script" start
+    done
+
+    # Log the boot event to wtmpdb if available
+    if ! /usr/bin/wtmpdb boot ; then
+        echo "warning: failed to write a wtmpdb boot entry"
+    fi
 fi
 
-# Ensure /run is mounted and create control files for runit.
-# These files are used by runit to manage the lifecycle of the init system.
-# /run is the standard runtime directory for system services.
-# run_path specifies where runit creates its control files.
-# The 'install' command creates empty files with specific permissions (000) to signal state.
-
-# Create the stopit file to indicate runit should stop.
-# run_path defines the directory where these control files are created.
+# --- Runit Control File Preparation -------------------------------------------
+# Creates control files in the runit run directory.
+# Schema field: run_path (string, default: '/run')
+#
+# These files are used by runit to manage the daemon's lifecycle (stop/reboot signals).
+# install -m000 creates an empty file with no permissions, acting as a sentinel.
 install -m000 /dev/null {{ run_path | default('/run') }}/runit.stopit
-
-# Create the reboot file to indicate runit should reboot.
-# run_path defines the directory where these control files are created.
 install -m000 /dev/null {{ run_path | default('/run') }}/runit.reboot
 
-# Summary of Runit's stage1 process:
-# - /run is mounted.
-# - Control files are created.
-# - Minimal work is done to avoid blocking the boot process.
-# - Services without runscripts or those invoked via init.d scripts are started at stage2.
-# - This design ensures that daemons hanging or misbehaving do not block the entire boot process.
-# - Thanks to Lorenz for the suggestion to separate stage1 and stage2 initialization.
+# =============================================================================
+# Notes:
+# - Services without specific runscripts are handled via the SysV fallback above.
+# - This approach ensures that daemons hanging during stage1 do not block the boot.
+# - /run is assumed to be mounted before this script runs.
+# =============================================================================

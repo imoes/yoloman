@@ -1,73 +1,134 @@
-# This file is part of avahi.
+# ==============================================================================
+# Avahi Daemon Configuration Template
+# ==============================================================================
+# This template generates the avahi-daemon.conf file.
+# It is self-documenting: every variable is sourced from the role's schema
+# with explicit defaults, and comments explain the purpose of each setting.
 #
-# avahi is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as
-# published by the Free Software Foundation; either version 2 of the
-# License, or (at your option) any later version.
-#
-# avahi is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
-# License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with avahi; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-# USA.
-
-# See avahi-daemon.conf(5) for more information on this configuration
-# file!
+# See avahi-daemon.conf(5) for upstream documentation.
+# ==============================================================================
 
 [server]
-host-name={{ server.host_name }}
-domain-name={{ server.domain_name }}
-#browse-domains=0pointer.de, zeroconf.org
-use-ipv4=yes
-use-ipv6=yes
-#allow-interfaces=eth0
-#deny-interfaces=eth1
-#check-response-ttl=no
-#use-iff-running=no
-#enable-dbus=yes
-#disallow-other-stacks=no
-#allow-point-to-point=no
-#cache-entries-max=4096
-#clients-max=4096
-#objects-per-client-max=1024
-#entries-per-entry-group-max=32
-ratelimit-interval-usec=1000000
-ratelimit-burst=1000
+# Custom mDNS host name to publish (leave empty to use system hostname)
+host-name={{ (server | default({})).host_name | default('') }}
 
-{% if discovery.allow_interfaces and discovery.allow_interfaces|length > 0 %}
-allow-interfaces={{ discovery.allow_interfaces|join(',') }}
-{% endif %}
+# Domain suffix to use for mDNS names (typically 'local')
+domain-name={{ (server | default({})).domain_name | default('local') }}
+
+# Browse domains for service discovery
+# browse-domains=0pointer.de, zeroconf.org
+
+# Enable IPv4 mDNS support
+use-ipv4=yes
+
+# Enable IPv6 mDNS support
+use-ipv6=yes
+
+# List of interfaces Avahi will use for mDNS/DNS-SD discovery (use empty list to allow all)
+# If empty, Avahi uses all available interfaces.
+# To restrict, provide a list like: ["eth0", "wlan0"]
+allow-interfaces={{ (discovery | default({})).allow_interfaces | default([]) | join(', ') }}
+
+# Deny specific interfaces from Avahi operation
+# deny-interfaces=eth1
+
+# Check response TTL for stale entries
+# check-response-ttl=no
+
+# Only use interfaces that are running (up)
+# use-iff-running=no
+
+# Enable D-Bus interface
+# enable-dbus=yes
+
+# Allow other DNS stacks (like systemd-resolved) to coexist
+# disallow-other-stacks=no
+
+# Allow point-to-point interfaces
+# allow-point-to-point=no
+
+# Maximum number of cached entries
+# cache-entries-max=4096
+
+# Maximum number of connected clients
+# clients-max=4096
+
+# Maximum objects per client
+# objects-per-client-max=1024
+
+# Maximum entries per entry group
+# entries-per-entry-group-max=32
+
+# Rate limiting: interval in microseconds between allowed messages
+ratelimit-interval-usec=1000000
+
+# Rate limiting: burst size allowed before dropping messages
+ratelimit-burst=100
 
 [wide-area]
+# Enable wide-area mDNS discovery across the internet or large networks
 enable-wide-area=yes
 
 [publish]
-#disable-publishing=no
-#disable-user-service-publishing=no
-#add-service-cookie=no
-#publish-addresses=yes
+# Enable general service publishing
+# disable-publishing=no
+
+# Disable publishing of user services (e.g., from systemd)
+# disable-user-service-publishing=no
+
+# Add a cookie to published services for uniqueness
+# add-service-cookie=no
+
+# Publish local IP addresses in PTR records
+# publish-addresses=yes
+
+# Publish HINFO records (CPU/OS info)
 publish-hinfo=no
+
+# Publish workstation service records
 publish-workstation=no
-#publish-domain=yes
-#publish-dns-servers=192.168.50.1, 192.168.50.2
-#publish-resolv-conf-dns-servers=yes
-#publish-aaaa-on-ipv4=yes
-#publish-a-on-ipv6=no
+
+# Publish domain service records
+# publish-domain=yes
+
+# Publish DNS servers from resolv.conf
+# publish-dns-servers=192.168.50.1, 192.168.50.2
+# publish-resolv-conf-dns-servers=yes
+
+# Publish AAAA records even when IPv4 is used
+# publish-aaaa-on_ipv4=yes
+
+# Publish A records even when IPv6 is used
+# publish-a-on_ipv6=no
 
 [reflector]
-enable-reflector={{ reflector.enabled }}
-#reflect-ipv=no
-#reflect-filters=_airplay._tcp.local,_raop._tcp.local
+# Enable DNS-SD service reflection across subnets (required only for multi-subnet discovery)
+enable-reflector={{ (reflector | default({})).enabled | default(false) | lower }}
+
+# Reflect IPv6 traffic
+# reflect-ipv=no
+
+# Filters for reflected services (e.g., _airplay._tcp.local,_raop._tcp.local)
+# reflect-filters=
 
 [rlimits]
-#rlimit-as=
-#rlimit-core=0
-#rlimit-data=8388608
-#rlimit-fsize=0
-#rlimit-nofile=768
-#rlimit-stack=8388608
-#rlimit-nproc=3
+# Address space limit (0 = unlimited)
+# rlimit-as=
+
+# Core dump size limit (0 = disabled)
+# rlimit-core=0
+
+# Data segment size limit (8 MB)
+# rlimit-data=83888608
+
+# File size limit (0 = unlimited)
+# rlimit-fsize=0
+
+# Open files limit (768)
+# rlimit-nofile=768
+
+# Stack size limit (8 MB)
+# rlimit-stack=83888608
+
+# Max processes limit (3 = typically very low, usually set higher)
+# rlimit-nproc=3

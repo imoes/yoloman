@@ -1,0 +1,60 @@
+# Sympa Nginx Configuration Template
+# Generated for the sympa-nginx-redhat package.
+# This block configures an Nginx virtual host to proxy requests to the Sympa mailing list manager
+# via FastCGI and serve static assets directly.
+
+server {
+    # listen_port: Port number for the Nginx server block.
+    # Default: 80
+    listen {{ listen_port | default('80') }};
+
+    # server_name: The server name or hostname for the virtual host.
+    # Default: localhost.localdomain
+    server_name {{ server_name | default('localhost.localdomain') }};
+
+    # --- Sympa FastCGI Interface ---
+    # Configures the main Sympa web interface (wwsympa) via FastCGI.
+    location /sympa {
+        # Include standard FastCGI parameters
+        include /etc/nginx/fastcgi_params;
+
+        # fastcgi_socket_path: Path to the Unix socket for FastCGI Sympa process.
+        # Default: /var/run/sympa/wwsympa.socket
+        fastcgi_pass unix:{{ fastcgi_socket_path | default('/var/run/sympa/wwsympa.socket') }};
+
+        # Split the URL path to separate the Sympa script path from the info path.
+        # Ensure this regex matches the wwsympa_url setting in sympa.conf.
+        fastcgi_split_path_info ^(/sympa)(.*)$;
+
+        # fcgi_script_path: Absolute path to the Sympa FastCGI script.
+        # Default: /usr/libexec/sympa/wwsympa.fcgi
+        fastcgi_param SCRIPT_FILENAME {{ fcgi_script_path | default('/usr/libexec/sympa/wwsympa.fcgi') }};
+
+        # Pass the PATH_INFO variable to the FastCGI backend.
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    # --- Static Content: CSS ---
+    # Serves Sympa CSS files directly from the filesystem.
+    location /static-sympa/css {
+        # css_alias_path: Filesystem path for CSS static content.
+        # Default: /var/lib/sympa/css
+        alias {{ css_alias_path | default('/var/lib/sympa/css') }};
+    }
+
+    # --- Static Content: Pictures ---
+    # Serves Sympa image assets directly from the filesystem.
+    location /static-sympa/pictures {
+        # pictures_alias_path: Filesystem path for picture static content.
+        # Default: /var/lib/sympa/pictures
+        alias {{ pictures_alias_path | default('/var/lib/sympa/pictures') }};
+    }
+
+    # --- Static Content: General ---
+    # Serves other general static content (JS, fonts, etc.) directly from the filesystem.
+    location /static-sympa {
+        # static_content_path: Filesystem path for general static content.
+        # Default: /usr/share/sympa/static_content
+        alias {{ static_content_path | default('/usr/share/sympa/static_content') }};
+    }
+}

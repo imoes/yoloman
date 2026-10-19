@@ -2,42 +2,41 @@
   "plugins": {
     "type": "list",
     "default": [
+      "battery",
       "cpu",
+      "df",
+      "disk",
+      "entropy",
+      "interface",
+      "irq",
       "load",
       "memory",
-      "interface",
-      "disk"
+      "processes",
+      "rrdtool",
+      "swap",
+      "users"
     ],
     "description": "List of core collectd plugins to load. Each plugin must be present in the plugin directory."
   },
   "plugin_configs": {
     "type": "list",
-    "default": [],
-    "description": "List of plugin-specific configuration blocks. Each element defines a plugin with its options.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Name of the plugin (e.g., 'disk', 'interface', 'csv')"
-      },
-      "options": {
-        "type": "object",
-        "description": "Key-value config options for this plugin. Lists are rendered with one item per line."
-      },
-      "comments": {
-        "type": "object",
-        "description": "Optional per-option comments to prepend above each line (for clarity in generated config)",
-        "default": {}
-      },
-      "types": {
-        "type": "object",
-        "description": "Optional hints to distinguish list-typed options for rendering (e.g., {'values': 'list'})",
-        "default": {}
+    "default": [
+      {
+        "name": "syslog",
+        "options": {
+          "LogLevel": "info"
+        },
+        "comments": {},
+        "types": {}
       }
-    }
+    ],
+    "description": "List of plugin-specific configuration blocks. Each element defines a plugin with its options."
   },
   "include_fragments": {
     "type": "list",
-    "default": [],
+    "default": [
+      "/etc/collectd/collectd.conf.d"
+    ],
     "description": "List of file paths to include as additional configuration fragments (e.g., /etc/collectd/collectd.conf.d/*.conf)."
   },
   "logfile": {
@@ -58,8 +57,8 @@
     ]
   },
   "fqdn_lookup": {
-    "type": "bool",
-    "default": true,
+    "type": "string",
+    "default": "true",
     "description": "Enable or disable FQDN hostname resolution. Disable if DNS is unreliable or containers lack DNS."
   }
 }

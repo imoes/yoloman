@@ -14,6 +14,7 @@ import { isObservable, lastValueFrom } from 'rxjs';
 import { ConfigDialogDef, ConfigField, FieldValues } from './config-dialog.types';
 import { SizeSliderComponent } from './size-slider.component';
 import { fmtBytes } from './usage-bar.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** Generic renderer for a ConfigDialogDef — mirrors Cockpit's dialog.jsx
  * make_rows/Field. Keeps a live values map, applies per-field visibility +
@@ -22,7 +23,7 @@ import { fmtBytes } from './usage-bar.component';
 @Component({
   selector: 'app-config-dialog',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatCheckboxModule, MatRadioModule,
     MatProgressSpinnerModule, MatTooltipModule, SizeSliderComponent,
@@ -142,13 +143,13 @@ import { fmtBytes } from './usage-bar.component';
       @if (def.variants?.length) {
         @for (v of def.variants; track v.variant) {
           @if (v.primary) {
-            <button mat-raised-button [color]="def.dangerButton ? 'warn' : 'primary'" [disabled]="busy() || hasErrors()" (click)="submit(v.variant)">{{ v.title }}</button>
+            <button mat-raised-button [color]="def.dangerButton ? 'warn' : 'primary'" [disabled]="busy()" [bmBlocked]="hasErrors() ? 'Fix the highlighted fields first' : ''" (click)="submit(v.variant)">{{ v.title }}</button>
           } @else {
-            <button mat-stroked-button [disabled]="busy() || hasErrors()" (click)="submit(v.variant)">{{ v.title }}</button>
+            <button mat-stroked-button [disabled]="busy()" [bmBlocked]="hasErrors() ? 'Fix the highlighted fields first' : ''" bmBlockedMode="tip" (click)="submit(v.variant)">{{ v.title }}</button>
           }
         }
       } @else {
-        <button mat-raised-button [color]="def.dangerButton ? 'warn' : 'primary'" [disabled]="busy() || hasErrors()" (click)="submit()">{{ def.submitLabel || 'Apply' }}</button>
+        <button mat-raised-button [color]="def.dangerButton ? 'warn' : 'primary'" [disabled]="busy()" [bmBlocked]="hasErrors() ? 'Fix the highlighted fields first' : ''" (click)="submit()">{{ def.submitLabel || 'Apply' }}</button>
       }
     </mat-dialog-actions>
   `,

@@ -7,52 +7,53 @@
 // See /usr/share/doc/bind*/sample/ for example named configuration files.
 //
 
-options {
-	listen-on port 53 { {{ bind_listen_on_ipv4 }}; };
-	listen-on-v6 port 53 { {{ bind_listen_on_ipv6 }}; };
-	directory 	"{{ bind_directory }}";
-	dump-file 	"{{ bind_dump_file }}";
-	statistics-file "{{ bind_statistics_file }}";
-	memstatistics-file "{{ bind_memstatistics_file }}";
-	secroots-file	"{{ bind_secroots_file }}";
-	recursing-file	"{{ bind_recursing_file }}";
-	allow-query     { {{ bind_allow_query }}; };
+options {{ options | default('{') }}
+	listen-on {{ listen_on | default('port 53 { 127.0.0.1; };') }}
+	listen-on-v6 {{ listen_on_v6 | default('port 53 { ::1; };') }}
+	directory 	{{ working_directory | default('"/var/named";') }}
+	dump-file 	{{ dump_file | default('"/var/named/data/cache_dump.db";') }}
+	statistics-file {{ stats_file | default('"/var/named/data/named_stats.txt";') }}
+	memstatistics-file {{ memstatistics_file | default('"/var/named/data/named_mem_stats.txt";') }}
+	secroots-file	{{ secroots_file | default('"/var/named/data/named.secroots";') }}
+	recursing-file	{{ recursing_file | default('"/var/named/data/named.recursing";') }}
+	allow-query     {{ allow_query | default('{ localhost; };') }}
 
 	/* 
 	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
 	 - If you are building a RECURSIVE (caching) DNS server, you need to enable 
 	   recursion. 
 	 - If your recursive DNS server has a public IP address, you MUST enable access 
-	   control to limit queries to your legitimate users. Failing to do so will
-	   cause your server to become part of large scale DNS amplification 
-	   attacks. Implementing BCP38 within your network would greatly
-	   reduce such attack surface 
+	   control {{ control | default('to limit queries to your legitimate users. Failing to do so will') }}
+	   cause {{ cause | default('your server to become part of large scale DNS amplification') }}
+	   attacks. {{ attacks_ | default('Implementing BCP38 within your network would greatly') }}
+	   reduce {{ reduce | default('such attack surface') }}
 	*/
-	recursion {{ bind_recursion | lower }};
+	recursion {{ recursion | default('yes;') }}
 
-	dnssec-validation {{ bind_dnssec_validation | lower }};
+	dnssec-validation {{ dnssec_validation | default('yes;') }}
 
-	managed-keys-directory "{{ bind_managed_keys_directory }}";
-	geoip-directory "{{ bind_geoip_directory }}";
+	managed-keys-directory {{ managed_keys_directory | default('"/var/named/dynamic";') }}
+	geoip-directory {{ geoip_directory | default('"/usr/share/GeoIP";') }}
 
-	pid-file "{{ bind_pid_file }}";
-	session-keyfile "{{ bind_session_keyfile }}";
+	pid-file {{ pid_file | default('"/run/named/named.pid";') }}
+	session-keyfile {{ session_keyfile | default('"/run/named/session.key";') }}
 
 	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
 	include "/etc/crypto-policies/back-ends/bind.config";
 };
 
-logging {
-        channel default_debug {
+logging {{ logging | default('{') }}
+        channel {{ channel | default('default_debug {') }}
                 file "data/named.run";
-                severity dynamic;
+                severity {{ severity | default('dynamic;') }}
         };
 };
 
-zone "." IN {
-	type hint;
+zone {{ zone | default('"." IN {') }}
+	type {{ type | default('hint;') }}
 	file "named.ca";
 };
 
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
+

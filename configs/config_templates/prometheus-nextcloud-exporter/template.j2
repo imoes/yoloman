@@ -1,57 +1,67 @@
-# ============================================================================
-# prometheus-nextcloud-exporter Configuration Template
-# ============================================================================
-# This template generates the YAML configuration file for the
-# prometheus-nextcloud-exporter. It connects to a Nextcloud server instance
-# to scrape application metrics and expose them for Prometheus.
-#
-# Self-documenting: every variable reference includes its schema default.
-# Every directive is preceded by its intended purpose.
-# ============================================================================
+# ==============================================================================
+# prometheus-nextcloud-exporter configuration template
+# ==============================================================================
+# This file configures the Prometheus exporter for Nextcloud.
+# It uses YAML format.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Nextcloud Server Connection Settings
+# -----------------------------------------------------------------------------
 
 # URL to the Nextcloud server instance.
-# Example: "https://cloud.example.org"
-# If using token authentication, this URL is still required.
-server: {{ (nextcloud_server_url | default('https://cloud.example.org')) | tojson }}
+# Schema: nextcloud_server_url (default: 'https://cloud.example.org')
+server: "{{ nextcloud_server_url | default('https://cloud.example.org') }}"
 
-# --- Authentication ---
-# The exporter supports two modes: Token-based or Username/Password-based.
-# The following block configures Username/Password authentication.
-# To use token auth instead, comment out 'username' and 'password' below
-# and provide 'auth_token' or 'auth_token_file' if supported by the binary version.
+# Authentication Token (Optional)
+# -----------------------------------------------------------------------------
+# If using token authentication instead of username/password, uncomment and set below.
+# The token can also be read from a file by prefixing with '@'.
+# Example: authToken: "my-secret-token"
+# Example: authToken: @/path/to/tokenfile
+# authToken: ""
 
 # Username for Nextcloud API authentication.
-# Default: example
-username: {{ (nextcloud_username | default('example')) | tojson }}
+# Schema: nextcloud_username (default: 'example')
+# Note: Required if not using authToken.
+username: "{{ nextcloud_username | default('example') }}"
 
 # Password for Nextcloud API authentication.
-# Default: example
-password: {{ (nextcloud_password | default('example')) | tojson }}
+# Schema: nextcloud_password (default: 'example')
+# Note: Required if not using authToken.
+# The password can also be read from a file by prefixing with '@'.
+# Example: password: "my-secret-password"
+# Example: password: @/path/to/passwordfile
+password: "{{ nextcloud_password | default('example') }}"
 
-# --- Listener Settings ---
-# Configuration for the HTTP endpoint where Prometheus scrapes metrics.
+# -----------------------------------------------------------------------------
+# Exporter Network & Timeout Settings
+# -----------------------------------------------------------------------------
 
 # Address and port for the Prometheus exporter to listen on.
-# Format: "[host]:port" or just ":port". Default ":9205".
-listenAddress: {{ (exporter_listen_address | default(':9205')) | tojson }}
+# Schema: exporter_listen_address (default: ':9205')
+listenAddress: "{{ exporter_listen_address | default(':9205') }}"
 
 # Timeout for HTTP requests to the Nextcloud server.
-# Duration string (e.g., "5s", "1m"). Default "5s".
-timeout: {{ (exporter_timeout | default('5s')) | tojson }}
+# Schema: exporter_timeout (default: '5s')
+timeout: "{{ exporter_timeout | default('5s') }}"
 
 # Skip TLS certificate verification when connecting to Nextcloud.
-# Set to True if using self-signed certificates for the Nextcloud instance.
-# Default is False (verify certificates).
-tlsSkipVerify: {{ exporter_tls_skip_verify | default(false) | ternary(true, false) | lower }}
+# Schema: exporter_tls_skip_verify (default: False)
+# Set to true if using self-signed certificates or for testing environments.
+tlsSkipVerify: {{ exporter_tls_skip_verify | default(false) | lower }}
 
-# --- Info Metrics ---
-# Controls whether specific informational metrics are collected.
+# -----------------------------------------------------------------------------
+# Metrics Collection Options
+# -----------------------------------------------------------------------------
 
-info:
+# info:
   # Enable gathering of apps-related metrics.
-  # Default is False. Set to True to monitor installed apps usage.
-  apps: {{ exporter_info_apps_enabled | default(false) | ternary(true, false) | lower }}
+  # Schema: exporter_info_apps_enabled (default: False)
+  # When enabled, metrics about installed Nextcloud apps are collected.
+  apps: {{ exporter_info_apps_enabled | default(false) | lower }}
 
   # Enable gathering of system update-related metrics.
-  # Default is False. Set to True to monitor Nextcloud update status.
-  update: {{ exporter_info_update_enabled | default(false) | ternary(true, false) | lower }}
+  # Schema: exporter_info_update_enabled (default: False)
+  # When enabled, metrics regarding system updates are collected.
+  update: {{ exporter_info_update_enabled | default(false) | lower }}

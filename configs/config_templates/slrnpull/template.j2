@@ -1,30 +1,27 @@
-#!/bin/sh
+# slrnpull configuration file
+# This file must reside in the slrnpull spool directory.
+# Syntax: NEWSGROUP_NAME [MAX_ARTICLES] [DAYS_BEFORE_EXPIRE] [FETCH_HEADERS_ONLY]
+# Lines starting with '#' or blank lines are ignored.
+# A line with newsgroup name 'default' sets defaults for subsequent entries.
+
+# =============================================================
+# Global Defaults
+# =============================================================
+# This 'default' line establishes the baseline configuration for all
+# newsgroups listed below unless they override these values.
 #
-# Cron.daily script for slrnpull.
-# Written By Joey Hess <joeyh@debian.org>
+# Field 1: newsgroup name = 'default' (indicates these are global defaults)
+# Field 2: max articles to retrieve
+#   Schema field: max_articles_to_retrieve
+#   Description: Default number of articles to retrieve for the newsgroup.
+#   Value: {{ max_articles_to_retrieve | default(20) }}
 #
-# Self-documenting enrichment:
-# - spool_path: The spool directory where slrnpull stores its data.
-
-# Check if slrnpull binary exists and is executable
-[ -x /usr/bin/slrnpull ] || exit 0
-
-# Source default configuration if it exists
-if [ -f /etc/default/slrnpull ]; then
-	. /etc/default/slrnpull
-fi
-
-# Change to the spool directory
-# spool_path: The spool directory where slrnpull stores its data.
-cd /{{ spool_path | default('/var/spool/slrnpull') }}
-
-# Perform expiration, even if we aren't fetching articles right now.
-# Runs the expiration process as the 'news' user to ensure proper permissions
-su news -s /bin/sh -c 'slrnpull --expire >/dev/null'
-
-# Only fetch new articles if explicitly configured to run from cron
-if  [ "$RUNFROM" = "cron job" ] ; then
-	# Get new articles.
-	# Fetches articles from the server specified in /etc/news/server
-	su news -s /bin/sh -c 'slrnpull -h `head -n 1 /etc/news/server`' >/dev/null
-fi
+# Field 3: number of days before expire
+#   Schema field: number_of_days_before_expire
+#   Description: Default number of days after an article is retrieved before it will be eligible for deletion.
+#   Value: {{ number_of_days_before_expire | default(14) }}
+#
+# Field 4: fetch headers only (0 = fetch bodies, 1 = headers only)
+#   Default is 0 (standard behavior).
+#   Value: 0
+default			{{ max_articles_to_retrieve | default(20) }}	{{ number_of_days_before_expire | default(14) }}	0

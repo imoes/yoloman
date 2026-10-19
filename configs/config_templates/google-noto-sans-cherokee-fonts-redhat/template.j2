@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {# Match fonts when the requested language matches the specified language code #}
+  <match>
+    {# Check if the font requested has a language attribute matching lang_code #}
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('chr') }}</string>
+    </test>
+    {# Check if the candidate font family matches the default fallback family #}
+    <test name="family">
+      <string>{{ fallback_font_family | default('sans-serif') }}</string>
+    </test>
+    {# Prepend the specific Noto Sans Cherokee font to the family list, making it preferred #}
+    <edit name="family" mode="prepend">
+      <string>{{ font_family_name | default('Noto Sans Cherokee') }}</string>
+    </edit>
+    {# Append a boolean hint to the font hash, typically used for font matching consistency #}
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hash_hint | default('false') }}</bool>
+    </edit>
+  </match>
+
+  {# Define an alias for the font family, setting its default fallback #}
+  <alias>
+    {# The font family name being aliased #}
+    <family>{{ font_family_name | default('Noto Sans Cherokee') }}</family>
+    {# The default family to use if the aliased family is not found #}
+    <default>
+      <family>{{ fallback_font_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

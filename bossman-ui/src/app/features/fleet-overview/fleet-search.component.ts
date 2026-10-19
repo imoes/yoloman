@@ -120,7 +120,7 @@ export class FleetSearchComponent {
 
   /** Seeds the box from the route (?q=) so it survives reload / deep-links. */
   seed = input<string>('');
-  /** Focus the input on first render (used by the global Ctrl+K overlay). */
+  /** Focus the input on first render (for an overlay host; the global Ctrl+K is now the command palette). */
   autofocus = input(false);
 
   query = signal('');

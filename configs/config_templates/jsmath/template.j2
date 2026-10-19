@@ -1,31 +1,27 @@
-# =============================================================================
-# Apache configuration for jsMath (JavaScript-based mathematics rendering)
-# =============================================================================
-# This block configures Apache to serve the jsMath library files and sets
-# appropriate access controls for the source directory.
-# =============================================================================
+# ==============================================================================
+# jsMath Configuration Template
+# ==============================================================================
+# This template configures Apache to serve jsMath source files.
+# It sets up an alias for the URL path and defines directory access controls
+# for the filesystem location of the jsMath files.
 
-# --- jsMath URL Alias Configuration ------------------------------------------
-# Alias directive maps a URL path to a filesystem directory.
-# Field: jsmath_alias_path
-# Description: The URL path where jsMath files are served.
-# Default: '/usr/share/jsmath'
-# Example: If set to '/jsmath', the files are accessible at http://host/jsmath/
-# =============================================================================
+# --------------------------------------------------------------------------
+# Alias Directive
+# --------------------------------------------------------------------------
+# Sets the URL path where jsMath files are served.
+# Maps the URL prefix /jsMath to the filesystem path defined by jsmath_alias_path.
 Alias /jsMath {{ jsmath_alias_path | default('/usr/share/jsmath') }}
 
-# --- Directory Access Control ------------------------------------------------
-# Sets access options for the jsMath source directory on the filesystem.
-# Field: jsmath_document_root
-# Description: The filesystem path to the jsMath source files.
-# Default: '/usr/share/jsmath'
-# =============================================================================
+# --------------------------------------------------------------------------
+# Directory Directive
+# --------------------------------------------------------------------------
+# Configures access control and options for the jsMath source files directory.
+# Ensures symbolic links are followed and directory indexing is disabled.
 <Directory {{ jsmath_document_root | default('/usr/share/jsmath') }}>
-    # +FollowSymLinks: Allows Apache to follow symbolic links within this directory.
-    # -Indexes: Disables directory listing, preventing users from browsing files.
+    # Follow symbolic links within the directory, but do not list directory contents (-Indexes).
     Options +FollowSymLinks -Indexes
 
-    # AllowOverride: Specifies which directives listed in the Apache manual
-    # can be placed in .htaccess files. Here, we allow Limit, Options, and FileInfo.
+    # Allow .htaccess files to override specific security and file info settings,
+    # but restrict which directives can be overridden for security.
     AllowOverride Limit Options FileInfo
 </Directory>

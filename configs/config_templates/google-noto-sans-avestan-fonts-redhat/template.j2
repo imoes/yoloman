@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Noto Sans Avestan.
+  This file injects the font family into the fontconfig resolution order and sets up
+  an alias fallback chain.
+-->
+<fontconfig>
+  <!--
+    Match generic sans-serif families.
+    When a user agent requests a font from the 'sans-serif' family, prepend our Noto font
+    to the list of available candidates.
+  -->
+  <match>
+    <test name="family">
+      <!-- The target family to match. Defaults to sans-serif. -->
+      <string>{{ fallback_family | default('sans-serif') }}</string>
+    </test>
+    <!--
+      Edit the matched family list by prepending the new font.
+      mode="prepend" ensures our font takes precedence over system defaults.
+    -->
+    <edit name="family" mode="prepend">
+      <!-- The name of the font family to inject. -->
+      <string>{{ font_family | default('Noto Sans Avestan') }}</string>
+    </edit>
+    <!--
+      Disable font hinting for this specific match.
+      Note: fontconfig 'hinting' vs 'autohint' logic can be complex.
+      Setting to boolean true disables hinting adjustments here.
+    -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to disable font hinting for this font. -->
+      <bool>{{ font_hint_disabled | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Define an alias for the font family.
+    This creates a named reference to the font that applications can request.
+  -->
+  <alias>
+    <!-- The font family name being aliased. -->
+    <family>{{ font_family | default('Noto Sans Avestan') }}</family>
+    <!-- The fallback fonts to use if the primary font is unavailable. -->
+    <default>
+      <!-- The fallback font family to use. -->
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

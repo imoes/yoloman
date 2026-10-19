@@ -1,0 +1,340 @@
+# ==============================================================================
+# conntrackd Configuration Template
+# ==============================================================================
+# This configuration file defines the settings for the conntrackd daemon, which
+# is used to synchronize the connection tracking table (conntrack) across multiple
+# firewalls in a high-availability cluster.
+#
+# Reference: http://conntrack-tools.netfilter.org/support.html
+# Modes: alarm, notrack, ftfw (Failover With Firewall, default)
+# ==============================================================================
+
+#
+# Synchronizer settings
+# These settings control how state changes are synchronized between primary and
+# backup nodes using the FTFW (Failover With Firewall) mode.
+#
+Sync {
+    Mode FTFW {
+        #
+        # Size of the resend queue (in objects).
+        # This is the maximum number of objects that can be stored waiting to be
+        # confirmed via acknowledgment.
+        # - Low value: Less chance to recover state-changes under message omission.
+        # - High value: Higher memory consumption to store dead objects.
+        #
+{% if resend_queue_size is defined and resend_queue_size is not none and (resend_queue_size is number or resend_queue_size is boolean or resend_queue_size | length > 0) %}        ResendQueueSize {{ resend_queue_size | default('131072') }}{% else %}		# ResendQueueSize 131072{% endif %}
+
+        #
+        # Initial fixed timeout for committed entries when going from backup to primary.
+        # This mechanism provides a way to purge entries that were not recovered
+        # appropriately after the specified fixed timeout.
+        # - Low value: TCP entries in Established states with no traffic may hang
+        #   (e.g., SSH connection without KeepAlive).
+        # - Default: Not set (daemon uses approximate calculation).
+        #
+{% if commit_timeout is defined and commit_timeout is not none and (commit_timeout is number or commit_timeout is boolean or commit_timeout | length > 0) %}        CommitTimeout {{ commit_timeout | default('180') }}{% else %}		# CommitTimeout 180{% endif %}
+
+        #
+        # Seconds to schedule a flush of the table when going from primary to backup.
+        # This is useful to purge the connection tracking table of zombie entries
+        # and avoid clashes with old entries if you trigger several consecutive
+        # hand-overs.
+        #
+{% if purge_timeout is defined and purge_timeout is not none and (purge_timeout is number or purge_timeout is boolean or purge_timeout | length > 0) %}        PurgeTimeout {{ purge_timeout | default('60') }}{% else %}		# PurgeTimeout 60{% endif %}
+
+        #
+        # Acknowledgement window size.
+        # - Decrease: More acknowledgments, more overhead (control messages).
+        # - Increase: Resend queue gets more populated, more overhead in queue releasing.
+        # - Default: 300
+        #
+{% if ack_window_size is defined and ack_window_size is not none and (ack_window_size is number or ack_window_size is boolean or ack_window_size | length > 0) %}        ACKWindowSize {{ ack_window_size | default('300') }}{% else %}		# ACKWindowSize 300{% endif %}
+
+        #
+        # Disable external cache (On/Off).
+        # - If disabled (On): State entries are directly injected into the kernel
+        #   conntrack table. Saves user-space memory, consumes kernel slots,
+        #   increases CPU consumption. Requires Linux kernel >= 2.6.29.
+        # - If enabled (Off): Uses external cache.
+        # - Default: Off
+        # - Warning: Read user manual before enabling. Consider using fail-over
+        #   scripts instead of enabling this option for first-time installations.
+        #
+{% if disable_external_cache is defined and disable_external_cache is not none and (disable_external_cache is number or disable_external_cache is boolean or disable_external_cache | length > 0) %}        DisableExternalCache {{ disable_external_cache | default('Off') }}{% else %}		# DisableExternalCache Off{% endif %}
+    }
+
+    #
+    # Multicast synchronization settings.
+    # IMPORTANT: Ensure iptables accepts traffic for the multicast destination
+    # IP (default 225.0.0.50).
+    # Example rules:
+	#	iptables -I INPUT -d 225.0.0.50 -j ACCEPT
+	#	iptables -I OUTPUT -d 225.0.0.50 -j ACCEPT
+    #
+    Multicast {
+        #
+        # Multicast IP address for synchronization messages.
+        # You do not have to add this IP to any of your existing interfaces.
+        #
+        IPv4_address {{ multicast_ipv4_address | default('225.0.0.50') }}
+
+        #
+        # Multicast group ID.
+        # Identifies the cluster.
+        #
+        Group {{ multicast_group | default('3780') }}
+
+        #
+        # IPv4 address of the interface for synchronization messages.
+        # Use a dedicated link for synchronization messages.
+        #
+        IPv4_interface {{ multicast_ipv4_interface | default('192.168.100.100') }}
+
+        #
+        # Interface name for synchronization messages.
+        #
+        Interface {{ multicast_interface | default('eth2') }}
+
+        #
+        # Sender socket buffer size in bytes.
+        # Determines the chances to have an overrun in the sender queue.
+        # Overrun results in packet loss (losing state information).
+        # Default is usually around ~100 KBytes.
+        #
+        SndSocketBuffer {{ multicast_snd_socket_buffer | default('1249280') }}
+
+        #
+        # Receiver socket buffer size in bytes.
+        # Determines the chances to have an overrun in the receiver queue.
+        # Overrun results in packet loss (losing state information).
+        # Default is usually around ~100 KBytes.
+        #
+        RcvSocketBuffer {{ multicast_rcv_socket_buffer | default('1249280') }}
+
+        #
+        # Enable/Disable message checksumming.
+        # Good property to achieve fault-tolerance.
+        # - on: Enable checksumming.
+        # - off: Disable checksumming.
+        # Default: on
+        #
+        Checksum {{ multicast_checksum | default('on') }}
+    }
+
+    #
+    # Note on Redundant Dedicated Links:
+    # You can specify more than one dedicated link. If one fails, conntrackd
+    # can fail-over to another. Only one active dedicated link is used at a
+    # given moment. The `Default` keyword indicates the initial link.
+    # Up to 4 redundant links are supported. Use different multicast groups
+    # for every redundant link.
+    #
+    # Multicast Default {
+	#	IPv4_address 225.0.0.51
+	#	Group 3781
+	#	IPv4_interface 192.168.100.101
+	#	Interface eth3
+		# SndSocketBuffer 1249280
+		# RcvSocketBuffer 1249280
+	#	Checksum on
+    # }
+
+    #
+    # Note on Unicast UDP:
+    # You can use Unicast UDP instead of Multicast to propagate events.
+    # You cannot use unicast UDP and Multicast at the same time.
+    #
+    # UDP {
+		# IPv4_address 192.168.2.100
+		# IPv4_Destination_Address 192.168.2.101
+		# Port 3780
+		# Interface eth2
+		# SndSocketBuffer 1249280
+		# RcvSocketBuffer 1249280
+	#	Checksum on
+    # }
+
+    #
+    # Other unsorted options related to synchronization.
+    #
+    # Options {
+    #     # TCPWindowTracking Off
+    # }
+}
+
+#
+# General settings
+# These settings control the daemon's resource usage, logging, and filtering.
+#
+General {
+    #
+    # Nice value of the daemon.
+    # Range: -20 (most favorable) to 19 (least favorable).
+    # Using a very low value reduces the chances to lose state-change events.
+    # Default: 0 (example sets to -20 for high priority).
+    #
+    Nice {{ general_nice | default('-20') }}
+
+    #
+    # Scheduler configuration (Optional).
+    # Select between RR and FIFO and set process priority (0-99).
+    # Using a RT scheduler reduces the chances to overrun the Netlink buffer.
+    #
+    # Scheduler {
+	#	Type FIFO
+	#	Priority 99
+    # }
+
+    #
+    # Number of buckets in the cache hashtable.
+    # Bigger value: Closer to O(1) performance, but consumes more memory.
+    #
+    HashSize {{ general_hash_size | default('32768') }}
+
+    #
+    # Maximum number of conntracks.
+    # Recommendation: Double the value of /proc/sys/net/netfilter/nf_conntrack_max
+    # to account for dead entries cached for retransmission during sync.
+    #
+    HashLimit {{ general_hash_limit | default('131072') }}
+
+    #
+    # Logfile setting.
+    # - on: Log to default file /var/log/conntrackd.log.
+    # - off: Disable file logging.
+    # - filename: Log to specified file.
+    # Default: off
+    #
+    LogFile {{ general_log_file | default('on') }}
+
+    #
+    # Syslog setting (Optional).
+    # - on: Enable syslog logging.
+    # - off: Disable syslog logging.
+    # - facility: Specify syslog facility (e.g., daemon, local0..7).
+    # Default: off
+    #
+    #Syslog on
+
+    #
+    # Path to the lock file.
+    #
+    LockFile {{ general_lock_file | default('/var/lock/conntrack.lock') }}
+
+    #
+    # Unix socket configuration for control interface.
+    #
+    UNIX {
+        #
+        # Unix socket path.
+        #
+        Path {{ general_unix_path | default('/var/run/conntrackd.ctl') }}
+
+        #
+        # Unix socket backlog size.
+        #
+        Backlog {{ general_unix_backlog | default('20') }}
+    }
+
+    #
+    # Netlink event socket buffer size in bytes.
+    # If not specified, uses /proc/net/core/rmem_default (usually ~100 KBytes).
+    # Small buffers lead to event message dropping and high CPU consumption.
+    #
+    NetlinkBufferSize {{ general_netlink_buffer_size | default('2097152') }}
+
+    #
+    # Maximum netlink buffer size growth in bytes.
+    # The daemon doubles the buffer size if it detects dropping.
+    # This clause sets the cap on that growth.
+    #
+    NetlinkBufferSizeMaxGrowth {{ general_netlink_buffer_size_max_growth | default('8388608') }}
+
+    #
+    # Netlink overrun resync setting (Optional).
+    # If netlink drops events, the daemon resynchronizes against the Kernel.
+    # - On: Enabled (uses default 30 seconds).
+    # - Off: Disabled.
+    # - Value: Specific amount of time in seconds.
+    # Default: On
+    #
+    # NetlinkOverrunResync On
+
+    #
+    # Netlink events reliable setting (Optional).
+    # For reliable event reporting over Netlink.
+    # If enabled, it is recommended to disable NetlinkOverrunResync.
+    # Requires Linux kernel >= 2.6.31.
+    # Default: Off
+    #
+    # NetlinkEventsReliable Off
+
+    #
+    # Polling mode setting (Optional).
+    # By default, the daemon uses an event-driven model.
+    # PollSecs tells conntrackd to dump states in the kernel every N seconds.
+    # Guarantees long-lifetime states recovery but reduces replication.
+    #
+    # PollSecs 15
+
+    #
+    # Event iteration limit (Optional).
+    # Maximum number of state-change events (from kernel-space) handled before
+    # processing other events (network/userspace).
+    # Low value: Better interactivity (real-time), more CPU consumption.
+    # Default: 100
+    #
+    # EventIterationLimit 100
+
+    #
+    # Event filtering.
+    # Filters certain traffic based on Protocol, Address, or State.
+    # Actions: Accept or Ignore.
+    # Source: Userspace or Kernelspace.
+    # Kernelspace is preferred for CPU savings (requires Linux >= 2.6.29).
+    #
+    Filter From Userspace {
+        #
+        # Protocol filtering.
+        # Accept only certain protocols to replicate.
+        #
+        Protocol Accept {
+            TCP
+            SCTP
+            DCCP
+            # UDP
+            # ICMP (Requires Linux >= 2.6.31)
+            # IPv6-ICMP (Requires Linux >= 2.6.31)
+        }
+
+        #
+        # Address filtering.
+        # Ignore traffic for specific IPs (e.g., local firewall IPs).
+        # Only forwarded connections are worth replicating.
+        #
+        Address Ignore {
+            IPv4_address 127.0.0.1 # loopback
+            IPv4_address {{ general_filter_ignore_virtual_ip_1 | default('192.168.0.100') }} # virtual IP 1
+            IPv4_address {{ general_filter_ignore_virtual_ip_2 | default('192.168.1.100') }} # virtual IP 2
+            IPv4_address {{ general_filter_ignore_ip_3 | default('192.168.0.1') }}
+            IPv4_address {{ general_filter_ignore_ip_4 | default('192.168.1.1') }}
+            IPv4_address {{ general_filter_ignore_dedicated_link_ip | default('192.168.100.100') }} # dedicated link ip
+            #
+            # Networks in IP/cidr format are also supported.
+            # IPv4_address 192.168.0.0/24
+            #
+            # IPv6 addresses are also supported.
+            # IPv6_address ::1
+        }
+
+        #
+        # State filtering (Optional).
+        # Filter by flow state (e.g., ESTABLISHED, CLOSE_WAIT).
+        # Reduces CPU consumption but may result in lazy backup firewalls.
+        #
+        # State Accept {
+		#	ESTABLISHED CLOSED TIME_WAIT CLOSE_WAIT for TCP
+        # }
+    }
+}

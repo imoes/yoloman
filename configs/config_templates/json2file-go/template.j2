@@ -1,0 +1,79 @@
+# ============================================================================
+# json2file-go Environment Configuration
+# ============================================================================
+# This directory is used by the /usr/lib/json2file-go/json2file-go script; the
+# script is used to launch the /usr/sbin/json2file-go program setting environment
+# variables defined in this directory.
+#
+# The script reads the following files, mapping them to environment variables:
+# - basedir     -> J2F_BASEDIR
+# - bind        -> J2F_BIND
+# - certfile    -> J2F_CERTFILE
+# - debug       -> J2F_DEBUG
+# - dirlist     -> J2F_DIRLIST (semicolon-separated list of dir:token mappings)
+# - host        -> J2F_HOST
+# - keyfile     -> J2F_KEYFILE
+# - port        -> J2F_PORT
+# - socket      -> J2F_SOCKET
+# - signature_headers -> J2F_SIGNATURE_HEADERS (comma-separated list of HTTP headers containing signature hashes)
+# - token_fields   -> J2F_TOKEN_FIELDS (comma-separated list of JSON field names containing authorization tokens)
+# - token_headers  -> J2F_TOKEN_HEADERS (comma-separated list of HTTP header names containing authorization tokens)
+# - url_prefix   -> J2F_URL_PREFIX
+
+# Base directory for json2file-go data
+{{ J2F_BASEDIR | default('/var/lib/json2file-go') }}
+
+# Bind address for the service
+{% if J2F_BIND | default('') %}
+{{ J2F_BIND }}
+{% endif %}
+
+# Path to SSL certificate file
+{% if J2F_CERTFILE | default('') %}
+{{ J2F_CERTFILE }}
+{% endif %}
+
+# Enable debug mode
+{{ J2F_DEBUG | default(False) }}
+
+# Semicolon-separated list of dir:token mappings
+# Content is provided via environment variable J2F_DIRLIST if the file is empty or overwritten by the wrapper logic.
+# Here we just write the value directly if provided, or empty.
+{% if J2F_DIRLIST | default('') %}
+{{ J2F_DIRLIST }}
+{% endif %}
+
+# Hostname for the service
+{{ J2F_HOST | default('localhost') }}
+
+# Path to SSL key file
+{% if J2F_KEYFILE | default('') %}
+{{ J2F_KEYFILE }}
+{% endif %}
+
+# Port for the service
+{{ J2F_PORT | default(8080) }}
+
+# Unix socket path for the service
+{% if J2F_SOCKET | default('') %}
+{{ J2F_SOCKET }}
+{% endif %}
+
+# Comma-separated list of HTTP headers containing signature hashes
+# By default: X-Hub-Signature
+{{ J2F_SIGNATURE_HEADERS | default('X-Hub-Signature') }}
+
+# Comma-separated list of JSON field names containing authorization tokens
+{% if J2F_TOKEN_FIELDS | default('') %}
+{{ J2F_TOKEN_FIELDS }}
+{% endif %}
+
+# Comma-separated list of HTTP header names containing authorization tokens
+{% if J2F_TOKEN_HEADERS | default('') %}
+{{ J2F_TOKEN_HEADERS }}
+{% endif %}
+
+# URL prefix for the service
+{% if J2F_URL_PREFIX | default('') %}
+{{ J2F_URL_PREFIX }}
+{% endif %}

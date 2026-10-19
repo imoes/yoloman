@@ -9,6 +9,7 @@ import { AgentService } from '../../core/services/agent.service';
 import { Agent } from '../../core/models/agent.model';
 import { PlanRunDetail } from '../../core/models/run.model';
 import { ChatTask, ChatTaskField } from '../../core/models/chat.model';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 type Stage = 'config' | 'running' | 'previewed' | 'applied';
 interface HostRun { host: string; status: string; lines: string[]; error?: string; }
@@ -25,7 +26,7 @@ interface HostRun { host: string; status: string; lines: string[]; error?: strin
 @Component({
   selector: 'app-chat-task',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-task">
       <div class="bm-task-head">
@@ -127,8 +128,8 @@ interface HostRun { host: string; status: string; lines: string[]; error?: strin
         <span class="bm-task-targets">{{ targetHosts().length }} host(s)</span>
         <span class="bm-spacer"></span>
         <button mat-button (click)="reset()">Cancel</button>
-        <button mat-stroked-button [disabled]="!canRun()" (click)="generate()"><mat-icon>science</mat-icon> Generate Script</button>
-        <button mat-raised-button color="primary" [disabled]="!canRun()" (click)="start()"><mat-icon>rocket_launch</mat-icon> Start Installation</button>
+        <button mat-stroked-button [bmBlocked]="!(task().plan || task().generated_plan) ? 'No plan yet — generate one first' : !targetHosts().length ? 'Pick at least one target host' : ''" bmBlockedMode="tip" (click)="generate()"><mat-icon>science</mat-icon> Generate Script</button>
+        <button mat-raised-button color="primary" [bmBlocked]="!(task().plan || task().generated_plan) ? 'No plan yet — generate one first' : !targetHosts().length ? 'Pick at least one target host' : ''" (click)="start()"><mat-icon>rocket_launch</mat-icon> Start Installation</button>
       </div>
     </div>
   `,

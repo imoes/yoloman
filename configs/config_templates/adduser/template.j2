@@ -27,8 +27,9 @@
 # The login shell to be used for all new users.
 # Default: DSHELL=/bin/bash
 # ============================================================================
-#DSHELL={{ dshell | default('/bin/bash') }}
-
+{% if dshell is defined and dshell is not none and (dshell is number or dshell is boolean or dshell | length > 0) %}DSHELL={{ dshell | default('/bin/bash') }}
+{% else %}#DSHELL=/bin/bash
+{% endif %}
 # ============================================================================
 # The directory in which new home directories should be created.
 # Default: DHOME=/home
@@ -41,29 +42,38 @@
 # will be copied.
 # Default: SKEL=/etc/skel
 # ============================================================================
-#SKEL={{ skel | default('/etc/skel') }}
-
+{% if skel is defined and skel is not none and (skel is number or skel is boolean or skel | length > 0) %}SKEL={{ skel | default('/etc/skel') }}
+{% else %}#SKEL=/etc/skel
+{% endif %}
 # ============================================================================
 # Specify inclusive ranges of UIDs and GIDs from which UIDs and GIDs
 # for system users, system groups, non-system users and non-system groups
 # can be dynamically allocated.
 # Default: FIRST_SYSTEM_UID=100, LAST_SYSTEM_UID=999
 # ============================================================================
-#FIRST_SYSTEM_UID={{ first_system_uid | default(100) }}
-#LAST_SYSTEM_UID={{ last_system_uid | default(999) }}
-
+{% if first_system_uid is defined and first_system_uid is not none and (first_system_uid is number or first_system_uid is boolean or first_system_uid | length > 0) %}FIRST_SYSTEM_UID={{ first_system_uid | default(100) }}
+{% else %}#FIRST_SYSTEM_UID=100
+{% endif %}{% if last_system_uid is defined and last_system_uid is not none and (last_system_uid is number or last_system_uid is boolean or last_system_uid | length > 0) %}LAST_SYSTEM_UID={{ last_system_uid | default(999) }}
+{% else %}#LAST_SYSTEM_UID=999
+{% endif %}
 # Default: FIRST_SYSTEM_GID=100, LAST_SYSTEM_GID=999
-#FIRST_SYSTEM_GID={{ first_system_gid | default(100) }}
-#LAST_SYSTEM_GID={{ last_system_gid | default(999) }}
-
+{% if first_system_gid is defined and first_system_gid is not none and (first_system_gid is number or first_system_gid is boolean or first_system_gid | length > 0) %}FIRST_SYSTEM_GID={{ first_system_gid | default(100) }}
+{% else %}#FIRST_SYSTEM_GID=100
+{% endif %}{% if last_system_gid is defined and last_system_gid is not none and (last_system_gid is number or last_system_gid is boolean or last_system_gid | length > 0) %}LAST_SYSTEM_GID={{ last_system_gid | default(999) }}
+{% else %}#LAST_SYSTEM_GID=999
+{% endif %}
 # Default: FIRST_UID=1000, LAST_UID=59999
-#FIRST_UID={{ first_uid | default(1000) }}
-#LAST_UID={{ last_uid | default(59999) }}
-
+{% if first_uid is defined and first_uid is not none and (first_uid is number or first_uid is boolean or first_uid | length > 0) %}FIRST_UID={{ first_uid | default(1000) }}
+{% else %}#FIRST_UID=1000
+{% endif %}{% if last_uid is defined and last_uid is not none and (last_uid is number or last_uid is boolean or last_uid | length > 0) %}LAST_UID={{ last_uid | default(59999) }}
+{% else %}#LAST_UID=59999
+{% endif %}
 # Default: FIRST_GID=1000, LAST_GID=59999
-#FIRST_GID={{ first_gid | default(1000) }}
-#LAST_GID={{ last_gid | default(59999) }}
-
+{% if first_gid is defined and first_gid is not none and (first_gid is number or first_gid is boolean or first_gid | length > 0) %}FIRST_GID={{ first_gid | default(1000) }}
+{% else %}#FIRST_GID=1000
+{% endif %}{% if last_gid is defined and last_gid is not none and (last_gid is number or last_gid is boolean or last_gid | length > 0) %}LAST_GID={{ last_gid | default(59999) }}
+{% else %}#LAST_GID=59999
+{% endif %}
 # Specify a file or a directory containing UID and GID pool.
 #UID_POOL=/etc/adduser-pool.conf
 #UID_POOL=/etc/adduser-pool.d/
@@ -77,8 +87,9 @@
 # given their own group to use.
 # Default: USERGROUPS=yes
 # ============================================================================
-#USERGROUPS={{ usergroups | default('yes') }}
-
+{% if usergroups is defined and usergroups is not none and (usergroups is number or usergroups is boolean or usergroups | length > 0) %}USERGROUPS={{ usergroups | default('yes') }}
+{% else %}#USERGROUPS=yes
+{% endif %}
 # ============================================================================
 # Defines the groupname or GID of the group all newly-created
 # non-system users are placed into.
@@ -93,14 +104,16 @@
 # The permissions mode for home directories of non-system users.
 # Default: DIR_MODE=0700
 # ============================================================================
-#DIR_MODE={{ dir_mode | default('0700') }}
-
+{% if dir_mode is defined and dir_mode is not none and (dir_mode is number or dir_mode is boolean or dir_mode | length > 0) %}DIR_MODE={{ dir_mode | default('0700') }}
+{% else %}#DIR_MODE=0700
+{% endif %}
 # ============================================================================
 # The permissions mode for home directories of system users.
 # Default: SYS_DIR_MODE=0755
 # ============================================================================
-#SYS_DIR_MODE={{ sys_dir_mode | default('0755') }}
-
+{% if sys_dir_mode is defined and sys_dir_mode is not none and (sys_dir_mode is number or sys_dir_mode is boolean or sys_dir_mode | length > 0) %}SYS_DIR_MODE={{ sys_dir_mode | default('0755') }}
+{% else %}#SYS_DIR_MODE=0755
+{% endif %}
 # If set to a nonempty value, new users will have quotas copied
 # from that user with `edquota -p QUOTAUSER newuser'
 # Default: QUOTAUSER=""
@@ -117,30 +130,34 @@
 # will allow.
 # Default: NAME_REGEX="^[a-zA-Z][a-zA-Z0-9_-]*\$?$"
 # ============================================================================
-#NAME_REGEX="{{ name_regex | default('^[a-zA-Z][a-zA-Z0-9_-]*\\$?$') }}"
-
+{% if name_regex is defined and name_regex is not none and (name_regex is number or name_regex is boolean or name_regex | length > 0) %}NAME_REGEX="{{ name_regex | default('^[a-zA-Z][a-zA-Z0-9_-]*\\$?$') }}"
+{% else %}#NAME_REGEX="^[a-zA-Z][a-zA-Z0-9_-]*\$?$"
+{% endif %}
 # ============================================================================
 # System user- and groupnames are checked against this regular
 # expression. Comments from above apply as well, but changes here may
 # affect package installation.
 # Default: SYS_NAME_REGEX="^[a-zA-Z_][a-zA-Z0-9_-]*\$?$"
 # ============================================================================
-#SYS_NAME_REGEX="{{ sys_name_regex | default('^[a-zA-Z_][a-zA-Z0-9_-]*\\$?$') }}"
-
+{% if sys_name_regex is defined and sys_name_regex is not none and (sys_name_regex is number or sys_name_regex is boolean or sys_name_regex | length > 0) %}SYS_NAME_REGEX="{{ sys_name_regex | default('^[a-zA-Z_][a-zA-Z0-9_-]*\\$?$') }}"
+{% else %}#SYS_NAME_REGEX="^[a-zA-Z_][a-zA-Z0-9_-]*\$?$"
+{% endif %}
 # ============================================================================
 # When populating the newly created home directory of a non-system user,
 # files in SKEL matching this regex are not copied.
 # Default: SKEL_IGNORE_REGEX="\.(dpkg|ucf)-(old|new|dist|save)$"
 # ============================================================================
-#SKEL_IGNORE_REGEX="{{ skel_ignore_regex | default('\\\\\\.(dpkg\\\\|ucf\\\\)-(old\\\\|new\\\\|dist\\\\|save)\\$') }}"
-
+{% if skel_ignore_regex is defined and skel_ignore_regex is not none and (skel_ignore_regex is number or skel_ignore_regex is boolean or skel_ignore_regex | length > 0) %}SKEL_IGNORE_REGEX="{{ skel_ignore_regex | default('\\\\\\.(dpkg\\\\|ucf\\\\)-(old\\\\|new\\\\|dist\\\\|save)\\$') }}"
+{% else %}#SKEL_IGNORE_REGEX="\.(dpkg|ucf)-(old|new|dist|save)$"
+{% endif %}
 # ============================================================================
 # list of groups that new non-system users will be added to
 # if ADD_EXTRA_GROUPS is non-zero or set on the command line.
 # Default: EXTRA_GROUPS="users"
 # ============================================================================
-#EXTRA_GROUPS="{{ extra_groups | default('users') }}"
-
+{% if extra_groups is defined and extra_groups is not none and (extra_groups is number or extra_groups is boolean or extra_groups | length > 0) %}EXTRA_GROUPS="{{ extra_groups | default('users') }}"
+{% else %}#EXTRA_GROUPS="users"
+{% endif %}
 # Setting this to something other than 0 will cause adduser to add
 # newly created non-system users to the list of groups defined by
 # EXTRA_GROUPS.

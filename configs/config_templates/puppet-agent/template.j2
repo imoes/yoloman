@@ -1,7 +1,59 @@
-# Defaults for puppet - sourced by /etc/init.d/puppet
-# This file provides default startup options for the Puppet agent daemon.
-# It is sourced by the SysV init script at /etc/init.d/puppet.
+---
+# Hiera 5 Global configuration file
+# This file defines the global settings for the Hiera hierarchical data lookup engine.
+# Version 5 is the current standard, supporting multiple backends and complex hierarchies.
 
-# Additional options passed to the Puppet daemon at startup.
-# These are concatenated to the default command line arguments.
-DAEMON_OPTS="{{ (daemon_opts | default('')) | string | trim }}"
+# The Hiera version to use. Version 5 is required for the hierarchy structure defined below.
+# @default 5
+version: 5
+
+# Default settings applied to all hierarchy layers unless overridden.
+# data_hash: Specifies the data hash function to use for merging data (e.g., yaml_data, json_data).
+# precedence: Optional list of precedence strings to determine lookup order if not specified per-layer.
+defaults:
+{# If defaults are not provided in the schema, comment out or leave empty to use Hiera defaults #}
+{#   data_hash: yaml_data #}
+
+# The hierarchy configuration for Hiera 5.
+# A list of dictionaries defining lookup keys, order of precedence, and backend data sources.
+# Each item in the list represents a layer in the hierarchy.
+# Example structure:
+#   - name: Common
+#     data_hash: yaml_data
+#   - name: Role
+#     data_hash: json_data
+#     lookup_key: ...
+hierarchy:
+{# The `hierarchy` variable is expected to be a list of dictionaries.
+   We iterate over it to generate the YAML list structure.
+   Default to an empty list if not provided. #}
+{%- for layer in hierarchy | default([]) %}
+{# Output each layer as a YAML mapping block.
+   We assume the 'layer' dict contains keys like 'name', 'data_hash', 'lookup_key', 'variables', etc.
+   To ensure self-documentation, we iterate through the known keys of a Hiera 5 layer definition. #}
+  - name: {{ (layer | default({})).name | default('Unknown Layer') }}
+{# If a specific data hash is defined for this layer, use it; otherwise, fall back to the default yaml_data #}
+{# Note: Hiera 5 supports yaml_data, json_data, and custom data_hash functions. #}
+    data_hash: {{ (layer | default({})).data_hash | default('yaml_data') }}
+{# Include other optional fields if they exist in the layer dictionary.
+   We check if the key exists in the layer dict before emitting it to keep the config clean. #}
+{# Lookup key allows customizing how data is read from the backend for this specific layer. #}
+{%- if (layer | default({})).lookup_key is defined %}
+    lookup_key: {{ (layer | default({})).lookup_key }}
+{%- endif %}
+{# Variables can be injected into the hierarchy for this layer (e.g., facts). #}
+{%- if (layer | default({})).variables is defined %}
+    variables:
+{# If variables is a dict, we iterate and emit key-value pairs.
+   IMPORTANT: Use dict2items to iterate safely in Jinja2.
+   The loop variables must be 'item.key' and 'item.value' when using dict2items. #}
+{%-   if (layer | default({})).variables is mapping %}
+{%-     for item in (layer | default({})).variables | dict2items %}
+      {{ item.key }}: {{ item.value }}
+{%-     endfor %}
+{%-   else %}
+{# Fallback if variables is not a mapping (though schema implies dict-like structure) #}
+      {{ (layer | default({})).variables }}
+{%-   endif %}
+{%- endif %}
+{%- endfor %}

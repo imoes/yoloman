@@ -1,0 +1,43 @@
+# Copyright © 2019 Red Hat, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Red Hat Author(s): Carlos Santos
+
+# -----------------------------------------------------------------------------
+# VTE Profile Configuration for Red Hat Systems
+#
+# This script configures the terminal title bar for VT100/VT220 compatible
+# terminal emulators (VTE) running under tcsh/csh. It enables the display of
+# the current working directory and an optional hostname suffix in the title bar.
+# -----------------------------------------------------------------------------
+
+# Exit if the environment is not suitable:
+# - Not an interactive shell (no $prompt)
+# - Not tcsh (no $tcsh)
+# - No terminal set (no $TERM)
+# - No VTE version detected (no $VTE_VERSION)
+if ( ! $?prompt | ! $?tcsh | ! $?TERM | ! $?VTE_VERSION ) exit
+
+# Configure the title bar behavior based on the terminal type.
+switch($TERM)
+  # Match all xterm-compatible terminals (xterm, screen, tmux, etc.)
+  case xterm*:
+    # The 'precmd' alias runs before each command prompt is displayed.
+    # It sets the terminal title using OSC 7 (Current Directory) and updates
+    # the standard title bar.
+    # Optional hostname suffix to append to the file:// URL in the terminal title bar.
+    # Leave empty to use the default $HOST expansion.
+    alias precmd 'echo -n "\e]7;file://$HOST{{ VTE_URL_HOSTNAME | default('') }}"; /usr/libexec/vte-urlencode-cwd; echo -n "\e\\"'
+  endsw

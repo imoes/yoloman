@@ -18,6 +18,16 @@ held because an endpoint had no cap) which the skip would have hidden. Note this
 tests create and delete their own `owned_name()` rows, but a run of the whole suite against it has not been
 tried and should not be assumed safe.
 
+## Package roles that need more than one file or a per-daemon split (from the package e2e, 2026-10-11)
+
+- **kea**: a role per daemon (kea-dhcp4-server first) rendering kea-dhcp4.conf with required `subnet4` entries, as
+  isc-dhcp-server does; today "installed, not configured" (the catalog's /etc/kea/kea.conf does not exist in Kea 2).
+- **Site values shaped as files**: swift rings, ctdb nodes, chasquid's domain directory, mysqld-exporter's .my.cnf,
+  myproxy's host certificate, thinkfan's sensor list — a role would need to write a second file or upload one.
+- **krb5-kdc**: realm + `kdb5_util create` (needs a master password — a secret by reference, not a field).
+- **AlmaLinux roles without a curated file** (rsyslog, squid, opendkim, opendmarc, mysql-server): they install and
+  start nothing configured; each needs its EL file and unit verified like the Debian side.
+
 ## SNMP / off-host monitoring (active feature — "dummy poller agent on Bossman")
 
 Decision: a normal agentic-mcpd co-located with Bossman polls agent-less
@@ -149,6 +159,20 @@ for monitoring policy, set_host_config for config) across signals — the vision
 core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
 (the REST `/config-policies` exists; only host-scope is wired via MCP so far).
 
+## Kernel tuning (plan in docs/kernel-tuning.md, branch feat/kernel-tuning)
+
+The LLM is the control plane in user space. The kernel only runs values and verified BPF schedulers chosen from a
+catalogue. Blocks 1 (kernel capability facts), 2 (runqlat, OOM kills and signals as metrics), 3 (five tunable
+modules) and 4 (resource kind `tunable`, MCP reaches all eight kinds) are done; blockdev, systemd_resource and kernel_cmdline (including two reboots) are verified on the
+Debian 13 VM test-deployment through Bossman's MCP. Open from block 3: `sched_ext` against a real scheduler (needs a
+Fedora, Arch or Ubuntu 25.x host — Debian 13 and Ubuntu 24.04 kernels lack sched_ext or scx), `cpu_governor`
+against a real cpufreq driver; `kernel_cmdline` for systemd-boot/UKI; `systemd_resource` on OpenRC
+(`rc_cgroup_*`). `docs/modules-linux.md` lists the modules after the next deploy (it is generated from a live
+agent). Next:
+- Block 5: benchmark module plus `tuning_experiments` (the migration
+  goes on b8d1a6c3e4f2). Block 6: Proxmox VM rehearsal. Block 7: tuning loop on remediation. Block 8: a
+  seven-distribution test matrix.
+
 ## Open UI-parity findings (docs/ui-parity.md)
 
 - ~~**F-3** Topology "0 edges" — external destinations (LDAP/Kerberos) never
@@ -184,7 +208,7 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   collectors live, NO restart. Bossman proxies at /agents/{id}/piggyback/sources;
   the Virtualization tab gets an add-source form (type/host/user/password/
   insecure) + per-source Remove. Credentials live in the agent's root-owned
-  config.yaml (existing model, no new vault). Verified live: added vpp0221's own
+  config.yaml (existing model, no new vault). Verified live: added pve1's own
   Proxmox API → reachable, 6 guests, persisted; removed cleanly.
 - ~~**F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
   Runbooks page (currently text-only).~~ ✅ DONE — the fleet runbook

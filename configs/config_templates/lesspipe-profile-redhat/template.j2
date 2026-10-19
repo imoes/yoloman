@@ -1,0 +1,16 @@
+# lesspipe profile configuration for Red Hat systems
+# This block ensures the LESSOPEN environment variable is set to use
+# the lesspipe.sh script for file type detection in the 'less' pager.
+
+if ( $?LESSOPEN && { eval 'test ! -z "$LESSOPEN"' } ) then
+  # LESSOPEN is already defined and not empty; leave it unchanged.
+  :
+else
+  # Check if the lesspipe script exists and is executable.
+  if ( -x {{ lesspipe_script_path | default('/usr/libexec/lesspipe/lesspipe.sh') }} ) then
+    # Set LESSOPEN to invoke the lesspipe.sh script for input redirection.
+    # The '||' syntax indicates that lesspipe should be used as a preprocessor.
+    # %s is replaced by the filename being viewed.
+    setenv LESSOPEN "||{{ lesspipe_script_path | default('/usr/libexec/lesspipe/lesspipe.sh') }} %s"
+  endif
+endif

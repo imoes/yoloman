@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fontconfig configuration for Noto Sans Lydian -->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- Match the default font family and prepend the specific Lydian font -->
+  <match>
+    <!-- Test if the requested font family matches the default family setting -->
+    <test name="family">
+      <!-- The default font family to replace or append to. -->
+      <string>{{ default_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the specific font family to the list of fonts for this match -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family to add to the default list. -->
+      <string>{{ font_family | default('Noto Sans Lydian') }}</string>
+    </edit>
+    <!-- Enable font hinting for better screen rendering if requested -->
+    <edit name="fonthint" mode="append">
+      <!-- Whether to enable font hinting (true/false). -->
+      <bool>{{ font_hinting | default(false) | lower }}</bool>
+    </edit>
+  </match>
+  <!-- Define an alias for the font family -->
+  <alias>
+    <!-- The specific font family name to be aliased. -->
+    <family>{{ font_family | default('Noto Sans Lydian') }}</family>
+    <!-- The default fallback family if the alias font is not available. -->
+    <default>
+      <!-- The default font family to replace or append to. -->
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

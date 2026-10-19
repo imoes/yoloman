@@ -742,7 +742,7 @@ ist eine Portierung von Checkmks `cluster_mode.py`.
 ### Live verifiziert am echten Cluster
 
 Es existierte schon ein produktiver Cluster: **MUE-C5 Trio Cluster**, `worst`, drei
-Proxmox-Knoten (vpp0221/22/23), geclusterte Services `Memory` + `Host alive`, beide OK.
+Proxmox-Knoten (pve1/22/23), geclusterte Services `Memory` + `Host alive`, beide OK.
 
 1. Der Screen lädt ihn, hakt genau die drei Knoten an und schließt den Cluster selbst aus.
 2. Je Muster erscheint der Treffer gegen die echten Knoten-Services (28/25/29 Services).
@@ -813,8 +813,8 @@ bedeutet aber: **der Graph ist die Maschine, das Dashboard der Ort** — nicht �
 
 ### Live verifiziert
 
-Graph „probe cpu vs disk" über **zwei** Hosts mit **zwei Achsen** angelegt (vpp0221
-`cpu_core_pct` links, vpp0222 `disk_reads_total` rechts, gestrichelt, function=max):
+Graph „probe cpu vs disk" über **zwei** Hosts mit **zwei Achsen** angelegt (pve1
+`cpu_core_pct` links, pve2 `disk_reads_total` rechts, gestrichelt, function=max):
 `/graphs/{id}/data` liefert beide Reihen; ein `timeseries`-Widget mit
 `config.graph_id` liefert **dieselben** zwei Reihen samt Achse und Tier — also derselbe
 Chart an zwei Orten aus einem Rechenweg. Danach alles wieder gelöscht (Graph + drei
@@ -877,9 +877,9 @@ einen **Graphen** und referenziert ihn — es gibt keinen widget-eigenen Reihen-
 
 1. Add-Widget → „Time series": „Reuse a saved chart" ist korrekt **gesperrt**, solange kein
    Graph existiert.
-2. Host `vpp0221` gewählt → Metrikfeld entsperrt, `check_*`-Einträge **0 von 42** (vorher 8
+2. Host `pve1` gewählt → Metrikfeld entsperrt, `check_*`-Einträge **0 von 42** (vorher 8
    von 50).
-3. Zweite Linie: `vpp0222` / `disk_reads_total`, Achse **rechts**, Funktion **max** → der
+3. Zweite Linie: `pve2` / `disk_reads_total`, Achse **rechts**, Funktion **max** → der
    Hinweis wechselt auf „Two axes: the right-hand lines are scaled separately."
 4. „Add" → per API belegt: Graph „probe cpu vs disk (dialog)" mit zwei Items (links avg /
    rechts max, eigene Farben) UND ein Widget mit `config = {graph_id: …}`.

@@ -1,143 +1,286 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          ulogd2 ulogd
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:    $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Starts ulogd2
-# Description:       Starts the netfilter userspace log daemon
-### END INIT INFO
-
-# Author: Chris Boot <bootc@debian.org>
-
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="netfilter userspace log daemon"
-NAME=ulog
-DAEMON=/usr/sbin/$NAME
-
-# User under which the ulogd daemon runs
-DAEMON_USER={{ daemon_user | default('ulog') }}
-
-# Directory where the PID file is stored
-PIDDIR={{ pid_dir | default('/run/ulog') }}
-
-# Path to the PID file for the daemon
-PIDFILE=$PIDDIR/$NAME.pid
-
-# Command-line arguments passed to the ulogd daemon:
-# --daemon      : Run in background (daemonize)
-# --uid <user>  : Drop privileges to this user after binding sockets
-# --pidfile <f> : Write the process ID to this file for management
-DAEMON_ARGS="--daemon --uid $DAEMON_USER --pidfile $PIDFILE"
-
-# Path to this init script itself
-SCRIPTNAME=/etc/default/$NAME
-
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
-
-# Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
-# and status_of_proc is working.
-. /lib/lsb/init-functions
-
+# ==============================================================================
+# ulogd2 Configuration Template
+# ==============================================================================
+# This file configures the ulogd2 daemon, which logs netfilter packet data.
+# It supports various input plugins (NFLOG, ULOG, NFCT) and output plugins
+# (MySQL, PostgreSQL, SQLite3, JSON, XML, Graphite, etc.).
 #
-# Function that starts the daemon/service
-#
-do_start()
-{
-	# Make sure our /run directory exists
-	if [ ! -d $PIDDIR ]; then
-		mkdir $PIDDIR
-		chown $DAEMON_USER: $PIDDIR
-	fi
+# Structure:
+# - [global]: Daemon-wide settings
+# - [ct1], [ct2]: Connection tracking plugins
+# - [log1], [log2], [log3], [ulog1]: Packet logging input plugins
+# - [nuauth1]: NuFW socket input
+# - [emu1], [op1], [gp1], [xml1], [json1], [pcap1], [sys2]: Output plugins
+# - [mysql1], [mysql2], [pgsql1-4], [dbi1]: Database output plugins
+# - [sqlite3_ct], [sqlite3_pkt]: SQLite output plugins
+# - [nacct1], [mark1], [acct1]: Accounting/Marking plugins
+# - [graphite1]: Metrics output plugin
+# ==============================================================================
 
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON \
-		--test > /dev/null || return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
-		$DAEMON_ARGS || return 2
-}
+[global]
+# logfile for status messages
+logfile="{{ logfile | default('syslog') }}"
 
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
-		--pidfile $PIDFILE --name $NAME
-}
+# loglevel: debug(1), info(3), notice(5), error(7) or fatal(8)
+loglevel={{ loglevel | default('3') }}
 
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-do_reload() {
-	start-stop-daemon --stop --signal HUP --quiet --pidfile $PIDFILE \
-		--name $NAME
-	return 0
-}
+######################################################################
+# PLUGIN OPTIONS
+######################################################################
+# Load specific plugins if needed. By default, ulogd loads all found plugins.
+# Uncomment and set paths if specific loading is required.
+# plugin="/usr/lib/x86_64-linux-gnu/ulogd/ulogd_inppkt_NFLOG.so"
+# ...
 
-case "$1" in
-  start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start; RET=$?
-	case $RET in
-		0|1) log_end_msg 0; exit 0 ;;
-		*) log_end_msg 1; exit 1 ;;
-	esac
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop; RET=$?
-	case $RET in
-		0|1) log_end_msg 0; exit 0 ;;
-		*) log_end_msg 1; exit 1 ;;
-	esac
-	;;
-  status)
-	status_of_proc "$DAEMON" "$NAME"
-	;;
-  reload|force-reload)
-	log_daemon_msg "Reloading $DESC" "$NAME"
-	do_reload; RET=$?
-	log_end_msg $RET
-	exit $RET
-	;;
-  restart)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop; RET=$?
-	case $RET in
-	  0|1)
-		do_start; RET=$?
-		case $RET in
-			0) log_end_msg 0; exit 0 ;;
-			1) log_end_msg 1; exit 1 ;; # Old process is still running
-			*) log_end_msg 1; exit 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-		# Failed to stop
-		log_end_msg 1; exit 1
-		;;
-	esac
-	;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload|force-reload}" >&2
-	exit 3
-	;;
-esac
+# Stack definitions define the processing pipeline.
+# Example: stack=name:PluginName,filter1:Filter,filter2:Filter
+# Uncomment desired stacks.
+# stack=log1:NFLOG,base1:BASE,ifi1:IFINDEX,ip2str1:IP2STR,print1:PRINTPKT,emu1:LOGEMU
+# stack=ct1:NFCT,ip2str1:IP2STR,print1:PRINTFLOW,emu1:LOGEMU
+
+[ct1]
+# Connection tracking input plugin (NFCT)
+# netlink_socket_buffer_size=217088
+# netlink_socket_buffer_maxsize=1085440
+# pollinterval=10
+# accept_src_filter=192.168.1.0/24
+# accept_dst_filter=192.168.1.0/24
+
+[ct2]
+# Connection tracking input plugin (CT2) with hash support
+hash_enable={{ ct2_hash_enable | default('0') }}
+
+# Logging of system packet through NFLOG
+[log1]
+# netlink multicast group (the same as the iptables --nflog-group param)
+group={{ log1_group | default(0) }}
+# netlink_socket_buffer_size=217088
+# netlink_socket_buffer_maxsize=1085440
+
+# packet logging through NFLOG for group 1
+[log2]
+# netlink multicast group
+group={{ log2_group | default('1') }}
+# netlink_socket_buffer_size=217088
+# netlink_socket_buffer_maxsize=1085440
+# bind=1
+
+# packet logging through NFLOG for group 2
+[log3]
+# netlink multicast group
+group={{ log3_group | default('2') }}
+# Numeric label for log3
+numeric_label={{ log3_numeric_label | default('1 # you can label the log info based on the packet verdict') }}
+# netlink_socket_buffer_size=217088
+# netlink_socket_buffer_maxsize=1085440
+# bind=1
+
+[ulog1]
+# netlink multicast group (the same as the iptables --ulog-nlgroup param)
+nlgroup={{ ulog1_nlgroup | default('1') }}
+# numeric_label=0
+
+[nuauth1]
+# Socket path for nuauth1
+socket_path="{{ nuauth1_socket_path | default('/tmp/nuauth_ulogd2.sock') }}"
+
+[emu1]
+# File for emu1
+file="{{ emu1_file | default('/var/log/ulog/syslogemu.log') }}"
+# Sync mode for emu1
+sync={{ emu1_sync | default('1') }}
+
+[op1]
+# File for op1
+file="{{ op1_file | default('/var/log/ulog/oprint.log') }}"
+# Sync mode for op1
+sync={{ op1_sync | default('1') }}
+
+[gp1]
+# File for gp1
+file="{{ gp1_file | default('/var/log/ulog/gprint.log') }}"
+# Sync mode for gp1
+sync={{ gp1_sync | default('1') }}
+# Timestamp mode for gp1
+timestamp={{ gp1_timestamp | default('1') }}
+
+[xml1]
+# Directory for xml1
+directory="{{ xml1_directory | default('/var/log/ulog') }}/
+# Sync mode for xml1
+sync={{ xml1_sync | default('1') }}
+
+[json1]
+# Sync mode for json1
+sync={{ json1_sync | default('1') }}
+# file="/var/log/ulog/ulogd.json"
+# mode="udp" / "tcp" / "unix"
+# host="192.0.2.10"
+# port="10210"
+
+[pcap1]
+# Default file is /var/log/ulogd.pcap
+# file="/var/log/ulog/ulogd.pcap"
+# Sync mode for pcap1
+sync={{ pcap1_sync | default('1') }}
+
+# MySQL Output Plugin 1
+[mysql1]
+# Database for mysql1
+db="{{ mysql1_db | default('nulog') }}"
+# Host for mysql1
+host="{{ mysql1_host | default('localhost') }}"
+# User for mysql1
+user="{{ mysql1_user | default('nupik') }}"
+# Table for mysql1
+table="{{ mysql1_table | default('ulog') }}"
+# Password for mysql1
+pass="{{ mysql1_pass | default('changeme') }}"
+# Procedure for mysql1
+procedure="{{ mysql1_procedure | default('INSERT_PACKET_FULL') }}"
+# backlog_memcap=1000000
+# backlog_oneshot_requests=10
+
+# MySQL Output Plugin 2
+[mysql2]
+# Database for mysql2
+db="{{ mysql2_db | default('nulog') }}"
+# Host for mysql2
+host="{{ mysql2_host | default('localhost') }}"
+# User for mysql2
+user="{{ mysql2_user | default('nupik') }}"
+# Table for mysql2
+table="{{ mysql2_table | default('conntrack') }}"
+# Password for mysql2
+pass="{{ mysql2_pass | default('changeme') }}"
+# Procedure for mysql2
+procedure="{{ mysql2_procedure | default('INSERT_CT') }}"
+
+# PostgreSQL Output Plugin 1
+[pgsql1]
+# Database for pgsql1
+db="{{ pgsql1_db | default('nulog') }}"
+# Host for pgsql1
+host="{{ pgsql1_host | default('localhost') }}"
+# User for pgsql1
+user="{{ pgsql1_user | default('nupik') }}"
+# Table for pgsql1
+table="{{ pgsql1_table | default('ulog') }}"
+# schema="public"
+# Password for pgsql1
+pass="{{ pgsql1_pass | default('changeme') }}"
+# Procedure for pgsql1
+procedure="{{ pgsql1_procedure | default('INSERT_PACKET_FULL') }}"
+# connstring="host=localhost port=5432 dbname=nulog user=nupik password=changeme"
+# backlog_memcap=1000000
+# ring_buffer_size=1000
+
+# PostgreSQL Output Plugin 2
+[pgsql2]
+# Database for pgsql2
+db="{{ pgsql2_db | default('nulog') }}"
+# Host for pgsql2
+host="{{ pgsql2_host | default('localhost') }}"
+# User for pgsql2
+user="{{ pgsql2_user | default('nupik') }}"
+# Table for pgsql2
+table="{{ pgsql2_table | default('ulog2_ct') }}"
+# schema="public"
+# Password for pgsql2
+pass="{{ pgsql2_pass | default('changeme') }}"
+# Procedure for pgsql2
+procedure="{{ pgsql2_procedure | default('INSERT_CT') }}"
+
+# PostgreSQL Output Plugin 3
+[pgsql3]
+# Database for pgsql3
+db="{{ pgsql3_db | default('nulog') }}"
+# Host for pgsql3
+host="{{ pgsql3_host | default('localhost') }}"
+# User for pgsql3
+user="{{ pgsql3_user | default('nupik') }}"
+# Table for pgsql3
+table="{{ pgsql3_table | default('ulog2_ct') }}"
+# schema="public"
+# Password for pgsql3
+pass="{{ pgsql3_pass | default('changeme') }}"
+# Procedure for pgsql3
+procedure="{{ pgsql3_procedure | default('INSERT_OR_REPLACE_CT') }}"
+
+# PostgreSQL Output Plugin 4
+[pgsql4]
+# Database for pgsql4
+db="{{ pgsql4_db | default('nulog') }}"
+# Host for pgsql4
+host="{{ pgsql4_host | default('localhost') }}"
+# User for pgsql4
+user="{{ pgsql4_user | default('nupik') }}"
+# Table for pgsql4
+table="{{ pgsql4_table | default('nfacct') }}"
+# schema="public"
+# Password for pgsql4
+pass="{{ pgsql4_pass | default('changeme') }}"
+# Procedure for pgsql4
+procedure="{{ pgsql4_procedure | default('INSERT_NFACCT') }}"
+
+# DBI Output Plugin 1
+[dbi1]
+# Database for dbi1
+db="{{ dbi1_db | default('ulog2') }}"
+# Database type for dbi1
+dbtype="{{ dbi1_dbtype | default('pgsql') }}"
+# Host for dbi1
+host="{{ dbi1_host | default('localhost') }}"
+# User for dbi1
+user="{{ dbi1_user | default('ulog2') }}"
+# Table for dbi1
+table="{{ dbi1_table | default('ulog') }}"
+# Password for dbi1
+pass="{{ dbi1_pass | default('ulog2') }}"
+# Procedure for dbi1
+procedure="{{ dbi1_procedure | default('INSERT_PACKET_FULL') }}"
+
+# SQLite3 Connection Tracking Output
+[sqlite3_ct]
+# Table for sqlite3_ct
+table="{{ sqlite3_ct_table | default('ulog_ct') }}"
+# Database file for sqlite3_ct
+db="{{ sqlite3_ct_db | default('/var/log/ulog/ulogd.sqlite3db') }}"
+
+# SQLite3 Packet Output
+[sqlite3_pkt]
+# Table for sqlite3_pkt
+table="{{ sqlite3_pkt_table | default('ulog_pkt') }}"
+# Database file for sqlite3_pkt
+db="{{ sqlite3_pkt_db | default('/var/log/ulog/ulogd.sqlite3db') }}"
+
+[sys2]
+# Facility for sys2
+facility={{ sys2_facility | default('LOG_LOCAL2') }}
+
+[nacct1]
+# Sync mode for nacct1
+sync={{ nacct1_sync | default('1') }}
+# file = /var/log/ulog/nacct.log
+
+[mark1]
+# Mark value for mark1
+mark={{ mark1_mark | default('1') }}
+
+[acct1]
+# Poll interval for acct1
+pollinterval={{ acct1_pollinterval | default('2') }}
+# zerocounter = 0
+# timestamp = 1
+
+[graphite1]
+# Host for graphite1
+host="{{ graphite1_host | default('127.0.0.1') }}"
+# Port for graphite1
+port="{{ graphite1_port | default('2003') }}"
+# Prefix of data name sent to graphite server
+prefix="{{ graphite1_prefix | default('netfilter.nfacct') }}"
+
+# Daemon settings (usually handled by systemd/sysconfig, but documented here)
+# daemon_user="{{ daemon_user | default('ulog') }}"
+# pid_dir="{{ pid_dir | default('/run/ulog') }}"

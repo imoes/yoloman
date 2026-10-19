@@ -127,8 +127,9 @@ user_careful=50
 user_warning=70
 user_critical=90
 user_log=False
-#user_critical_action=echo {{user}} {{value}} {{max}} > /tmp/cpu.alert
-#
+{% if user is defined and user is not none and (user is number or user is boolean or user | length > 0) %}user_critical_action=echo {{user}} {{value}} {{max}} > /tmp/cpu.alert
+{% else %}#user_critical_action=echo {{user}} {{value}} {{max}} > /tmp/cpu.alert
+{% endif %}#
 system_careful=50
 system_warning=70
 system_critical=90
@@ -184,8 +185,9 @@ disable=False
 # Define RAM thresholds in %
 # Default values if not defined: 50/70/90
 careful=50
-#careful_action_repeat=echo {{percent}} >> /tmp/memory.alert
-warning=70
+{% if percent is defined and percent is not none and (percent is number or percent is boolean or percent | length > 0) %}careful_action_repeat=echo {{percent}} >> /tmp/memory.alert
+{% else %}#careful_action_repeat=echo {{percent}} >> /tmp/memory.alert
+{% endif %}warning=70
 critical=90
 
 [memswap]

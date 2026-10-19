@@ -35,9 +35,11 @@ from typing import Any
 from bossman.services.resources.config_file import ConfigResource
 from bossman.services.resources.docker_container import DockerContainerResource
 from bossman.services.resources.helm_release import HelmReleaseResource
+from bossman.services.resources.kubernetes_object import KubernetesObjectResource
 from bossman.services.resources.package_resource import PackageResource
 from bossman.services.resources.role import RoleResource
 from bossman.services.resources.service_resource import ServiceResource
+from bossman.services.resources.tunable import TunableResource
 
 class NoSuchResource(LookupError):
     """The host or the instance does not exist → the API answers 404.
@@ -117,6 +119,15 @@ REGISTRY: dict[str, ResourceSpec] = {
         query_params=("namespace",),
         notes="A release is identified by name AND namespace, so namespace is a query param.",
     ),
+    "k8s": ResourceSpec(
+        kind="k8s", cls=KubernetesObjectResource, label="Kubernetes object",
+        query_params=("cluster", "namespace", "api_version", "object_kind"),
+        extra_verbs=("object",), needs_identity=True,
+        notes="ONE object in a Kubernetes cluster, identified by cluster + namespace + apiVersion + "
+              "kind + name. The URL's agent is the cluster's ACCESS HOST (the agent holding kubectl and "
+              "the kubeconfig) and is checked against the cluster. DELETE .../object removes it, with a "
+              "preview of what goes with it. Writes are server-side applies, gated by approval.",
+    ),
     "config": ResourceSpec(
         kind="config", cls=ConfigResource, label="Config file",
         addressed_by="path", has_schema=False, observe_includes_schema=True,
@@ -141,6 +152,14 @@ REGISTRY: dict[str, ResourceSpec] = {
         kind="service", cls=ServiceResource, label="systemd unit",
         schema_is_async=False,
         notes="enabled/state of one unit.",
+    ),
+    "tunable": ResourceSpec(
+        kind="tunable", cls=TunableResource, label="Kernel tunable",
+        schema_is_async=False,
+        notes="One kernel tunable on one host (docs/kernel-tuning.md), named <tunable>[:<target>] — "
+              "sched_ext, cpu_governor, kernel_cmdline, systemd_resource:<unit>, blockdev_tuning:<device>. "
+              "Each generation keeps the module's undo, so rollback(0) restores the state before yoloman "
+              "managed it.",
     ),
 }
 
@@ -171,6 +190,27 @@ async def build(kind: str, *, agent_id, name: str, session, settings, client_fac
     if spec.kind == "helm":
         return spec.cls(session, agent, client_factory, settings, name,
                         namespace=query.get("namespace") or "default")
+    if spec.kind == "k8s":
+        from uuid import UUID as _UUID
+
+        from bossman.db.models import KubernetesCluster
+
+        raw = query.get("cluster")
+        try:
+            cluster = await session.get(KubernetesCluster, _UUID(str(raw))) if raw else None
+        except ValueError:
+            cluster = None
+        if cluster is None:
+            raise NoSuchResource(
+                f"no such Kubernetes cluster {raw!r} — pass ?cluster=<id> from GET /api/v1/kubernetes/clusters")
+        if cluster.agent_id != agent.id:
+            raise NoSuchResource(
+                f"Kubernetes cluster {cluster.name!r} is reached through access host {cluster.agent_id}, "
+                f"not through {agent.name!r}")
+        return spec.cls(session, agent, client_factory, settings, name, cluster=cluster,
+                        namespace=query.get("namespace") or None, api_version=query.get("api_version") or "v1",
+                        kind=query.get("object_kind") or "ConfigMap",
+                        requested_by=getattr(identity, "name", "resource-api"))
     if spec.kind == "role":
         r = spec.cls(session, agent, client_factory, settings, name,
                      requested_by=getattr(identity, "name", "resource-api"))

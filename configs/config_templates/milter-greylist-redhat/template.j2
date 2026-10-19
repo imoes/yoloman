@@ -1,0 +1,80 @@
+#
+# Simple greylisting config file using the new features
+# See greylist2.conf for a more detailed list of available options
+#
+# $Id: greylist.conf,v 1.50 2013/08/13 12:45:08 manu Exp $
+#
+
+{% if pidfile %}pidfile "{{ pidfile }}"{% else %}#pidfile "/var/run/milter-greylist.pid"{% endif %}socket "{{ socket_path }}"
+dumpfile "{{ dumpfile_path }}" {{ dumpfile_permissions }}
+geoip2db "{{ geoip2db_path }}"
+dumpfreq {{ dumpfreq }}
+user "{{ user }}"
+
+
+# Log milter-greylist activity to a file
+#stat ">>" {{ log_file_path }} \\
+#      "%T{{ '{%' }}Y/%m/%d %T} %d [%i] %f -> %r %S (ACL %A) %Xc %Xe %Xm %Xh\n"
+# Same, sent to syslog
+#stat "|logger -p local7.info" \
+#      "%T{{ '{%' }}Y/%m/%d %T} %d [%i] %f -> %r %S (ACL %A) %Xc %Xe %Xm %Xh"
+
+# Be verbose (or use -v flag)
+#verbose
+
+# Do not tell spammer how long they have to wait
+quiet
+
+# MX peering
+#peer {{ mx_peer_address }}
+#peer {{ mx_peer_address_2 }}
+
+# Your own network, which should not suffer greylisting
+list "my network" addr { {{ network_cidr_list }} }
+
+# This is a list of broken MTAs that break with greylisting. Derived from
+# http://cvs.puremagic.com/viewcvs/greylisting/schema/whitelist_ip.txt?rev=1.16
+list "broken mta" addr {   \
+	{{ broken_mta_ip_list }}
+}
+
+# List of users that want greylisting
+list "grey users" rcpt {  \
+	{{ greylist_users_list }}
+}
+
+# Give this a try if you enabled DNSRBL
+#dnsrbl "SORBS DUN" dnsbl.sorbs.net 127.0.0.10
+#dnsrbl "SBL" sbl-xbl.spamhaus.org 127.0.0.2
+#dnsrbl "CBL" sbl-xbl.spamhaus.org 127.0.0.4
+#dnsrbl "NJABL" sbl-xbl.spamhaus.org 127.0.0.5
+#dnsrbl "PBL" zen.spamhaus.org 127.0.0.10/31
+#dnsrbl "MTAWL" list.dnswl.org 127.0.0.0/16
+
+# Here is an example of user preference pulled from a LDAP directory
+# (requires building --with-libcurl). If the milterGreylistStatus 
+# attribute is set to TRUE, then $usrRBL will be usable later in the
+# ACL and will carry the values of the usrRBL attribute.
+# urlcheck "userpref" \
+# "ldap://localhost/dc=example,dc=net?milterGreylistStatus,usrRBL?one?mail=%r" \
+# 30 getprop clear fork
+
+racl continue from /.*/ addheader "X-Greylist: inspected by %V for IP:'%i' DOMAIN:'%d' HELO:'%h' FROM:'%f' RCPT:'%r'"
+
+# And here is the access list
+racl whitelist list "my network"
+racl whitelist list "broken mta"
+#racl whitelist dnsrbl "MTAWL"
+#racl blacklist urlcheck "userpref" $usrRBL "CBL" dnsrbl "CBL" \
+#               msg "Sender IP caught in CBL blacklist"
+#racl blacklist $usrRBL "SBL" dnsrbl "BBL" \
+#               msg "Sender IP caught in SBL blacklist"
+#racl blacklist $usrRBL "NJABL" dnsrbl "NJABL" \
+#               msg "Sender IP caught in NJABL blacklist"
+#racl greylist list "grey users" dnsrbl "SORBS DUN" delay 24h autowhite 3d
+racl greylist list "grey users" delay {{ greylist_delay }} autowhite {{ greylist_autowhite }}
+racl whitelist default
+
+# Example of content filtering for fighting image SPAM
+#dacl blacklist body /src[:blank:]*=(3D)?[:blank:]*["']?[:blank:]*cid:/ \
+#     msg "Sorry, We do not accept images embedded in HTML"

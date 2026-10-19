@@ -138,7 +138,7 @@ interface CategoryGroup {
       .bm-row-link { cursor: pointer; }
       .bm-row-link:hover td { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
       .bm-row-selected td { background: color-mix(in srgb, var(--bm-green) 12%, transparent); }
-      .bm-table td { padding: 4px 12px 4px 0; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
+      .bm-table td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
       .bm-mono { font-family: monospace; }
       .bm-num { white-space: nowrap; opacity: 0.7; font-size: 12.5px; }
       .bm-dim { opacity: 0.6; }

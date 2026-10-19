@@ -74,8 +74,8 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
     .bm-main.bm-main-flush { padding: 0; display: flex; }
     .bm-main.bm-main-flush > app-standalone-overview { flex: 1; min-width: 0; }
     .bm-proc-head { display: flex; align-items: center; gap: 12px; }
-    .bm-t { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
-    .bm-t th { text-align: left; opacity: 0.7; padding: 4px 8px; } .bm-t td { padding: 3px 8px; border-top: 1px solid #8883; }
+    .bm-t { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); margin-top: 10px; }
+    .bm-t th { text-align: left; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); } .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid #8883; }
     .bm-cmd { font-family: ui-monospace, monospace; font-size: 12px; }
   `],
 })

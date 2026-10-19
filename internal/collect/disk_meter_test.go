@@ -131,7 +131,7 @@ func TestIsStackedDevice(t *testing.T) {
 }
 
 // The server total must skip stacked layers while the per-device breakdown keeps
-// them — the exact shape measured on vpp0221 (drbd on top of a physical disk).
+// them — the exact shape measured on pve1 (drbd on top of a physical disk).
 func TestDiskIOMeter_TotalExcludesStackedLayers(t *testing.T) {
 	dir := t.TempDir()
 	write := func(sdaOps, drbdOps uint64) {

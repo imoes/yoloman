@@ -74,8 +74,9 @@ dir = {{ backup_dir | default('/home/') }}
 # default: lost\+found/, /proc/, /dev/, /sys/
 # Note: This template outputs a comma-separated string.
 # The consuming software likely splits this. If a list is preferred,
-# use `{{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}`
-exclude = {{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}
+{% if backup_exclude is defined and backup_exclude is not none and (backup_exclude is number or backup_exclude is boolean or backup_exclude | length > 0) %}use `{{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}`
+{% else %}# use the normal date
+{% endif %}exclude = {{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}
 
 # if we want to split it (to fit a CD)
 # default: 640m (commented out in original, uncommented here if desired, 
@@ -85,8 +86,9 @@ exclude = {{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}
 
 # enable for nagging
 # default: /etc/hdup/postrun-warn-user %s
-# postrun = {{ postrun_script | default('/etc/hdup/postrun-warn-user %s') }}
-
+{% if postrun_script is defined and postrun_script is not none and (postrun_script is number or postrun_script is boolean or postrun_script | length > 0) %}postrun = {{ postrun_script | default('/etc/hdup/postrun-warn-user %s') }}
+{% else %}#postrun = /etc/hdup/postrun-warn-user %s
+{% endif %}
 # my laptop will put some archive heres, put them in
 # them in the correct place 
 [{{ remote_backup_host_name | default('www-host') }}]
@@ -113,12 +115,14 @@ compression = {{ remote_compression | default('gzip') }}
 
 # encryption key
 # default: key2
-# key = {{ encryption_key | default('key2') }}
-
+{% if encryption_key is defined and encryption_key is not none and (encryption_key is number or encryption_key is boolean or encryption_key | length > 0) %}key = {{ encryption_key | default('key2') }}
+{% else %}#key = key2
+{% endif %}
 # encryption algorithm
 # default: tripeledes
-# algorithm = {{ encryption_algorithm | default('tripledes') }}
-
+{% if encryption_algorithm is defined and encryption_algorithm is not none and (encryption_algorithm is number or encryption_algorithm is boolean or encryption_algorithm | length > 0) %}algorithm = {{ encryption_algorithm | default('tripledes') }}
+{% else %}#algorithm = tripledes
+{% endif %}
 # whether to allow remote backup
 # default: no
 allow_remote = {{ allow_remote | default('no') }}

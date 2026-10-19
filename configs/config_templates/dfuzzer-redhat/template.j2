@@ -1,0 +1,252 @@
+# ==============================================================================
+# dfuzzer-redhat: D-Bus Policy Configuration for dfuzzer testing
+#
+# This configuration file defines the default actions for various D-Bus methods
+# invoked by the dfuzzer tool on Red Hat-based systems. It is primarily used
+# to test system stability, timeout handling, and error responses under
+# fuzzed D-Bus conditions.
+#
+# WARNING: This configuration sets default actions to 'destructive' or
+# 'hang' states. Do NOT use this configuration on production systems.
+# ==============================================================================
+
+# [org.freedesktop.login1]
+# Controls power management and session operations via logind.
+# Default action: destructive
+[org.freedesktop.login1]
+# Halt the system
+Halt {{ default_action | default('destructive') }}
+# Halt the system with specific flags
+HaltWithFlags {{ default_action | default('destructive') }}
+# Hibernate the system
+Hibernate {{ default_action | default('destructive') }}
+# Hibernate the system with specific flags
+HibernateWithFlags {{ default_action | default('destructive') }}
+# Perform hybrid sleep (suspend to RAM + disk)
+HybridSleep {{ default_action | default('destructive') }}
+# Perform hybrid sleep with specific flags
+HybridSleepWithFlags {{ default_action | default('destructive') }}
+# Kill a specific user session
+KillSession {{ default_action | default('destructive') }}
+# Kill all sessions belonging to a user
+KillUser {{ default_action | default('destructive') }}
+# Lock a specific session
+LockSession {{ default_action | default('destructive') }}
+# Lock all sessions for the user
+LockSessions {{ default_action | default('destructive') }}
+# Power off the system
+PowerOff {{ default_action | default('destructive') }}
+# Power off the system with specific flags
+PowerOffWithFlags {{ default_action | default('destructive') }}
+# Release a session (allow it to end)
+ReleaseSession {{ default_action | default('destructive') }}
+# Schedule a system shutdown
+ScheduleShutdown {{ default_action | default('destructive') }}
+# Put the system to sleep (suspend)
+Sleep {{ default_action | default('destructive') }}
+# Suspend the system
+Suspend {{ default_action | default('destructive') }}
+# Suspend then hibernate
+SuspendThenHibernate {{ default_action | default('destructive') }}
+# Suspend then hibernate with specific flags
+SuspendThenHibernateWithFlags {{ default_action | default('destructive') }}
+# Suspend with specific flags
+SuspendWithFlags {{ default_action | default('destructive') }}
+# Terminate a seat (all users on a physical terminal)
+Terminate {{ default_action | default('destructive') }}
+# Terminate a specific seat
+TerminateSeat {{ default_action | default('destructive') }}
+# Terminate a specific session
+TerminateSession {{ default_action | default('destructive') }}
+# Terminate all sessions of a user
+TerminateUser {{ default_action | default('destructive') }}
+
+# [org.freedesktop.systemd1]
+# Controls system and service manager operations.
+# Default action: destructive
+[org.freedesktop.systemd1]
+# Exit the manager session
+org.freedesktop.systemd1.Manager:Exit {{ default_action | default('destructive') }}
+# Freeze a unit (service/target)
+org.freedesktop.systemd1.Manager:FreezeUnit {{ default_action | default('destructive') }}
+# Halt the system via systemd
+org.freedesktop.systemd1.Manager:Halt {{ default_action | default('destructive') }}
+# Execute KExec (kernel exec)
+org.freedesktop.systemd1.Manager:KExec {{ default_action | default('destructive') }}
+# Power off the system via systemd
+org.freedesktop.systemd1.Manager:PowerOff {{ default_action | default('destructive') }}
+# Reboot the system via systemd
+org.freedesktop.systemd1.Manager:Reboot {{ default_action | default('destructive') }}
+# Soft reboot (reload configuration without full reboot if possible)
+org.freedesktop.systemd1.Manager:SoftReboot {{ default_action | default('destructive') }}
+# Freeze the entire system state
+Freeze {{ default_action | default('destructive') }}
+
+# [org.freedesktop.timedate1]
+# Controls time and date settings.
+[org.freedesktop.timedate1]
+# Set LocalRTC to true/false (synchronize RTC with local time)
+# Action: destructive method breaking the RTC and system time
+SetLocalRTC {{ set_local_rtc_action | default('destructive method breaking the RTC and system time') }}
+# Set NTP synchronization status
+# Action: destructive method turning off systemd-timesyncd
+SetNTP {{ set_ntp_action | default('destructive method turning off systemd-timesyncd') }}
+
+# [org.freedesktop.NetworkManager]
+# Controls network connectivity.
+# Default action: destructive
+[org.freedesktop.NetworkManager]
+# Delete a network profile/connection
+Delete {{ default_action | default('destructive') }}
+# Enable a network connection
+Enable {{ default_action | default('destructive') }}
+# Put the network device to sleep/disconnect
+Sleep {{ default_action | default('destructive') }}
+# Disconnect the active connection
+Disconnect {{ default_action | default('destructive') }}
+
+# [com.redhat.ifcfgrh1]
+# Red Hat specific interface configuration interface.
+# Default action: destructive
+[com.redhat.ifcfgrh1]
+# Enable interface configuration
+Enable {{ default_action | default('destructive') }}
+# Sleep interface
+Sleep {{ default_action | default('destructive') }}
+# Disconnect interface
+Disconnect {{ default_action | default('destructive') }}
+
+# [org.freedesktop.UPower]
+# Controls power management via UPower.
+# Default action: destructive
+[org.freedesktop.UPower]
+# Hibernate via UPower
+Hibernate {{ default_action | default('destructive') }}
+# Suspend via UPower
+Suspend {{ default_action | default('destructive') }}
+
+# [org.gnome.SessionManager]
+# GNOME Session Manager controls.
+# Default action: destructive
+[org.gnome.SessionManager]
+# Logout current user session
+Logout {{ default_action | default('destructive') }}
+# Reboot system
+Reboot {{ default_action | default('destructive') }}
+# Shutdown system
+Shutdown {{ default_action | default('destructive') }}
+
+# [org.freedesktop.Accounts]
+# User account management interface.
+[org.freedesktop.Accounts]
+# Delete a user
+# Action: destructive method breaking passwd by removing root (BZ#1002973)
+DeleteUser {{ delete_user_action | default('destructive method breaking passwd by removing root (BZ#1002973)') }}
+
+# [com.redhat.SubscriptionManager]
+# Red Hat Subscription Manager status checks.
+[com.redhat.SubscriptionManager]
+# Check/Update subscription status
+# Action: process exits normally after executing this method (BZ#1015480)
+update_status {{ subscription_status_action | default('process exits normally after executing this method (BZ#1015480)') }}
+check_status {{ subscription_status_action | default('process exits normally after executing this method (BZ#1015480)') }}
+
+# [org.freedesktop.Notifications]
+# Notification daemon interactions.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.freedesktop.Notifications]
+# Load script in interactive console (high memory test)
+loadScriptInInteractiveConsole {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Load KWin script in interactive console (high memory test)
+loadKWinScriptInInteractiveConsole {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Set per virtual desktop views (high memory test)
+setPerVirtualDesktopViews {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Set fixed dashboard (high memory test)
+setFixedDashboard {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.kde.kactivitymanagerd]
+# KDE Activity Manager.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.kde.kactivitymanagerd]
+# Add new activity (high memory test)
+AddActivity {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.kde.kuiserver]
+# KDE UI Server for user interaction.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.kde.kuiserver]
+# Request view update (high memory test)
+requestView {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.freedesktop.PowerManagement.Inhibit]
+# Power management inhibition interface.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.freedesktop.PowerManagement.Inhibit]
+# Set icon for URL (high memory test)
+setIconForUrl {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Register network inhibition (high memory test)
+registerNetwork {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Inhibit power management (high memory test)
+Inhibit {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Add inhibition entry (high memory test)
+AddInhibition {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.kde.Solid.PowerManagement]
+# KDE Solid Power Management interface.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.kde.Solid.PowerManagement]
+# Set icon for URL (high memory test)
+setIconForUrl {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Register network inhibition (high memory test)
+registerNetwork {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Inhibit power management (high memory test)
+Inhibit {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Add inhibition entry (high memory test)
+AddInhibition {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.kde.keyboard]
+# KDE Keyboard configuration interface.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.kde.keyboard]
+# Set icon for URL (high memory test)
+setIconForUrl {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Register network inhibition (high memory test)
+registerNetwork {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Inhibit power management (high memory test)
+Inhibit {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Add inhibition entry (high memory test)
+AddInhibition {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.kde.StatusNotifierWatcher]
+# KDE Status Notifier interface (system tray).
+# Default action: expected high memory consumption (BZ#1022530)
+[org.kde.StatusNotifierWatcher]
+# Set icon for URL (high memory test)
+setIconForUrl {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Register network inhibition (high memory test)
+registerNetwork {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Inhibit power management (high memory test)
+Inhibit {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+# Add inhibition entry (high memory test)
+AddInhibition {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.gnome.evolution.dataserver.Sources1]
+# Evolution Data Server sources.
+# Default action: expected high memory consumption (BZ#1022530)
+[org.gnome.evolution.dataserver.Sources1]
+# Authenticate to sources (high memory test)
+Authenticate {{ high_mem_action | default('expected high memory consumption (BZ#1022530)') }}
+
+# [org.freedesktop.dfuzzerServer]
+# Specific dfuzzer server methods for testing timeouts.
+[org.freedesktop.dfuzzerServer]
+# Hang the server to test timeout handling
+# Action: Intentionally hangs the server to test timeout handling
+df_hang {{ df_hang_action | default('Intentionally hangs the server to test timeout handling') }}
+
+# [org.freedesktop.DBus]
+# Core D-Bus bus management.
+[org.freedesktop.DBus]
+# Become a monitor (prevents dfuzzer from sending messages)
+# Action: prevents dfuzzer from sending messages
+org.freedesktop.DBus.Monitoring:BecomeMonitor {{ become_monitor_action | default('prevents dfuzzer from sending messages') }}

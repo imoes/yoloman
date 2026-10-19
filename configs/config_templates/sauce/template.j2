@@ -1,76 +1,42 @@
-# =============================================================================
-# sauce Log Rotation Configuration (logrotate-style)
-# This file defines how the 'sauce' application rotates its log files.
-# It manages two distinct logging contexts:
-# 1. General operational logs (dbreasons, notice, error, reject, fatal)
-# 2. Debug logs (debug)
-# =============================================================================
+{#
+  sauce (Spam Awareness and User Communication Engine)
+  
+  This package handles the automated generation and delivery of
+  "blacklist notification" messages to users whose addresses were
+  forged by spammers. It is primarily a text-generation and mail-sending
+  subsystem.
+  
+  Configuration focuses on the administrative contact address that
+  bypasses the blacklist for legitimate communication, and the sender
+  identity used in the notifications.
+#}
 
-# ------------------------------------------------------------------------------
-# General Sauce Logs
-# Applies to: dbreasons.log, notice.log, error.log, reject.log, fatal.log
-# ------------------------------------------------------------------------------
+# Administrative local-part. Default: 'sauce-admin'
+# This variable holds the user part of the admin email address.
+admin_local_part = {{ admin_address | default('sauce-admin') }}
 
-/var/log/sauce/dbreasons.log
-/var/log/sauce/notice.log
-/var/log/sauce/error.log
-/var/log/sauce/reject.log
-/var/log/sauce/fatal.log {
-    # Number of rotated log files to keep for general sauce logs.
-    rotate {{ log_rotate_count | default(7) }}
+# Mail domain for local-parts. Default: 'localhost'
+# This variable holds the domain part of the email addresses.
+mail_domain = {{ mail_domain | default('localhost') }}
 
-    # Permissions, owner, and group for newly created log files.
-    # Mode 0644 is standard for general logs to allow reading by specific groups if needed,
-    # though the default template specifies 'mail mail'.
-    create 0644 {{ log_owner | default('mail') }} {{ log_group | default('mail') }}
+# Full admin address constructed from parts.
+# Combines admin_local_part and mail_domain.
+admin_address = {{ admin_address | default('sauce-admin') }}@{{ mail_domain | default('localhost') }}
 
-    # Frequency of log rotation for general sauce logs (dbreasons, notice, error, reject, fatal).
-    {{ log_rotation_period | default('weekly') }}
+# The sender local-part used for the blacklist notification emails.
+# This is the address that gets blacklisted if it is a "spambait" address.
+# Schema default: 'sauce-daemon'
+sender_local_part = {{ sender_address | default('sauce-daemon') }}
 
-    # If the log file is missing, don't throw an error.
-    missingok
+# Full sender address constructed from parts.
+# Combines sender_local_part and mail_domain.
+sender_address = {{ sender_address | default('sauce-daemon') }}@{{ mail_domain | default('localhost') }}
 
-    # Compress rotated log files.
-    compress
+# Path to the FAQ template or text block embedded in notifications.
+# If empty or omitted, a default built-in FAQ is used.
+# Schema default: '' (empty string)
+faq_file = {{ faq_file | default('') }}
 
-    # Action to perform after rotation.
-    lastaction
-        # Reopen log files via sauceadmin if the command exists.
-        if test -x /usr/sbin/sauceadmin; then
-            sauceadmin reopenlogs
-        fi
-    endscript
-}
-
-# ------------------------------------------------------------------------------
-# Debug Sauce Logs
-# Applies to: debug.log
-# ------------------------------------------------------------------------------
-
-/var/log/sauce/debug.log {
-    # Number of rotated log files to keep for debug logs.
-    # Inherits the general count setting.
-    rotate {{ log_rotate_count | default(7) }}
-
-    # Permissions, owner, and group for the debug.log file.
-    # More restrictive permissions (0640) are applied here via debug_log_perms.
-    create {{ debug_log_perms | default('0640') }} {{ log_owner | default('mail') }} {{ log_group | default('mail') }}
-
-    # Frequency of log rotation for debug.log.
-    # Typically more frequent than general logs (daily).
-    {{ debug_log_rotation_period | default('daily') }}
-
-    # If the log file is missing, don't throw an error.
-    missingok
-
-    # Compress rotated log files.
-    compress
-
-    # Action to perform after rotation.
-    lastaction
-        # Reopen log files via sauceadmin if the command exists.
-        if test -x /usr/sbin/sauceadmin; then
-            sauceadmin reopenlogs
-        fi
-    endscript
-}
+# Maximum age of a blacklist entry in seconds before automatic expiry.
+# Schema default: 86400 (24 hours)
+blacklist_ttl = {{ blacklist_ttl | default(86400) }}

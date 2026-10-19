@@ -64,6 +64,19 @@ class Settings(BaseSettings):
     # The matching RPM for RHEL/Fedora/SUSE hosts — the bundled self-update
     # picks .deb vs .rpm by the target's OS family.
     agent_rpm_path: str = ""
+    # NetBox as one of the three sources an IP-is-free check asks (services/ip_check.py) — read-only. A token
+    # (v2 `nbt_…` → Bearer, v1 → Token) is preferred; a username/password opens a read-only session instead.
+    # Empty = not configured, which the check reports as such (it never reads as "free").
+    # How long a restore job armed WITHOUT a MAC opens the PXE DHCP for every machine on the segment
+    # (services/netboot_dhcp.py). A job with a MAC never opens it: DHCP then answers that MAC only.
+    netboot_open_dhcp_minutes: int = 15
+    # The pxe container's HTTP root as a network installer sees it (e.g. http://192.0.2.130:8080): the
+    # kickstart and agent.rpm are fetched from there (services/netinstall.py). Empty = netinstall refused.
+    netinstall_http_base: str = ""
+    netbox_url: str = ""
+    netbox_token: str = ""
+    netbox_username: str = ""
+    netbox_password: str = ""
 
     # ── Agent release channel (GitHub) ──────────────────────────────────────
     # Where the yoloman-agent package is published. Bossman polls this repo's
@@ -199,11 +212,22 @@ class Settings(BaseSettings):
     syslog_listen_port: int = 1514
     snmptrap_listen_port: int = 1162
     event_console_host: str = "0.0.0.0"
+    # GELF target for the diagnosis export (plan B9): where to SEND the gelf messages (one per finding and
+    # evidence). Empty host = sending is off; the export is still produced for inspection. protocol udp|tcp.
+    # In the dev stack the `graylog` compose profile runs Graylog at graylog:12201 (set BOSSMAN_GELF_HOST=graylog).
+    gelf_host: str = ""
+    gelf_port: int = 12201
+    gelf_protocol: str = "udp"
     # Software-compliance evaluation (gap #9): required/forbidden packages per
     # scope, alert on drift. Reads Agent.facts["installed_packages"]; off in
     # tests. See services/compliance.py.
     compliance_enabled: bool = True
     compliance_interval_seconds: int = 3600
+    # Desired-state roles/features: apply newly approved deployments and
+    # periodically evaluate their declarative steps in check mode. Drift is
+    # reported only; remediation requires an explicit API/UI confirmation.
+    role_deployment_enabled: bool = True
+    role_deployment_interval_seconds: int = 60
     # Lego capability inventory: derive what each host provides/requires from its installed roles x the
     # per-template capabilities.json, into host_capabilities. Pure DB read (facts + catalog), no agent
     # call; recompute alongside compliance. Off in tests. See services/capabilities.py.
@@ -278,6 +302,10 @@ class Settings(BaseSettings):
     cve_debian_url: str = "https://security-tracker.debian.org/tracker/data/json"
     cve_ubuntu_url: str = "https://ubuntu.com/security/notices.json"
     cve_redhat_url: str = "https://access.redhat.com/hydra/rest/securitydata/cve.json"
+    # Windows (plan B13): Microsoft's security update guide as CVRF — KB → CVE + severity. The Windows Update Agent
+    # on the host supplies no CVE ids (measured on bossman-wintest), so this is where a Windows host's CVEs come from.
+    cve_msrc_url: str = "https://api.msrc.microsoft.com/cvrf/v3.0"
+    cve_msrc_months: int = 6
 
     # NOTE: the helm chart-pull proxy is NOT an env-var setting — it is DB-backed
     # and edited in Admin Settings (SystemSettings.helm_http_proxy / helm_no_proxy,

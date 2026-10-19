@@ -6,8 +6,11 @@
 # Log level of messages which should go to console.
 # Values are numeric log levels (e.g., 1 for alert, 3 for err).
 # See syslog(3) for details on valid log levels.
-#CONSOLE_LOG_LEVEL={{ console_log_level | default('1') }}
-
+{% if console_log_level is defined and console_log_level is not none and (console_log_level is number or console_log_level is boolean or console_log_level | length > 0) %}CONSOLE_LOG_LEVEL={{ console_log_level | default('1') }}
+{% else %}#CONSOLE_LOG_LEVEL=1
+{% endif %}
 # Command line options passed to the syslog-ng daemon.
 # Default options ensure the service runs without requiring capabilities.
-#SYSLOGNG_OPTS={{ syslogng_opts | default('--no-caps') | tojson }}
+{% if syslogng_opts is defined and syslogng_opts is not none and (syslogng_opts is number or syslogng_opts is boolean or syslogng_opts | length > 0) %}SYSLOGNG_OPTS={{ syslogng_opts | default('--no-caps') | tojson }}
+{% else %}#SYSLOGNG_OPTS="--no-caps"
+{% endif %}

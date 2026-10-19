@@ -1,69 +1,109 @@
-#!/bin/sh
-
+# =============================================================================
+# ircu IRC Daemon Configuration Template
+# =============================================================================
+# This file is managed by Ansible. Do not edit manually.
+# =============================================================================
 #
-# Starts/stops the irc daemon
+# Self-Documenting Configuration for ircd-ircu.
+# Every variable reference uses `| default(...)` to ensure safe rendering
+# even if the variable is undefined in the Ansible play.
 #
+# =============================================================================
 
-### BEGIN INIT INFO
-# Provides:          ircd-ircu
-# Required-Start:    $local_fs $remote_fs
-# Required-Stop:     $local_fs $remote_fs
-# Should-Start:    $local_fs
-# Should-Stop:       $local_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start the ircd-ircu irc daemon
-# Description:       This script will start the undernet irc daemon
-#                    called ircd-ircu.
-### END INIT INFO
+# General Server Identification Block
+# Defines the core identity of this IRC server instance.
+General {
+    # The hostname/name of the IRC server as seen by clients and other servers.
+    name = "{{ ircd_name | default('localhost.localdomain') }}";
 
-# $PATH to go
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-          
-# where the irc-daemon is
-IRCD=/usr/sbin/ircd-ircu
-RUNDIR={{ run_dir }}
-PIDFILE=${{ run_dir }}/ircd.pid                   
+    # A brief description of this server, often shown in server info commands.
+    description = "{{ ircd_description | default("Debian's ircd default configuration at localhost") }}";
 
-# Systemd compatibility
-. /lib/lsb/init-functions
+    # The numeric ID for the server. Must be unique within a network.
+    numeric = {{ ircd_numeric | default('1') }};
+};
 
-if [ ! -d ${RUNDIR} ] ; then
-	mkdir -p ${RUNDIR} || true
-	if [ -d ${RUNDIR} ] ; then
-		chown -R irc:irc ${RUNDIR}
-	fi
-fi
+# Administrative Information Block
+# Provides contact and location details for the server administrator.
+Admin {
+    # Physical location of the server administrator.
+    Location = "{{ ircd_admin_location | default("Debian's ircd default configuration at localhost") }}";
 
-if [ -x "$IRCD" ]; then
-  case "$1" in
-          start)
-                  echo -n "Starting irc server daemon:"
-                  echo -n " ircd-ircu"
-                  start-stop-daemon --start --quiet --pidfile ${PIDFILE} --chuid irc --exec ${IRCD}
-                  echo "."
-                  ;;
-        
-          stop)
-                  echo -n "Stopping irc server daemon:"
-                  echo -n " ircd-ircu"
-                  start-stop-daemon --stop --quiet --oknodo --pidfile ${PIDFILE} --exec ${IRCD}
-                  echo "."  
-                  ;;
-        
-          restart|force-reload)
-                  echo -n "Restarting irc server daemon:"
-                  echo -n " ircd-ircu"
-                  start-stop-daemon --stop --quiet --oknodo --pidfile ${PIDFILE} --exec ${IRCD}
-                  sleep 2
-		  start-stop-daemon --start --quiet --pidfile ${PIDFILE} --chuid irc --exec ${IRCD}
-                  echo "."
-                  ;;
-          *)
-                  echo "Usage: $0 {start|stop|restart|force-reload}"
-                  exit 1
-                  ;;
-  esac
-fi
+    # Message displayed in the Admin block (e.g., instructions for admins).
+    Message = "{{ ircd_admin_message | default('Please edit your ircd.conf file') }}";
 
-exit 0
+    # Contact email address for the server administrator.
+    Contact = "{{ ircd_admin_contact | default('root@localhost') }}";
+};
+
+# Connection Class: Local
+# Defines parameters for local/trusted connections (e.g., server-to-server links).
+Class {
+    name = "Local";
+    # How often to send ping messages to check liveness.
+    pingfreq = 1 minutes 30 seconds;
+    # Maximum send queue size (bytes) before dropping connections.
+    sendq = 160000;
+    # Maximum number of simultaneous links/connections allowed.
+    maxlinks = 100;
+    # Default user modes for connections in this class.
+    usermode = "+iw";
+};
+
+# Connection Class: Other
+# Defines parameters for general client connections.
+Class {
+    name = "Other";
+    pingfreq = 1 minutes 30 seconds;
+    sendq = 160000;
+    # Lower limit for general users to prevent resource exhaustion.
+    maxlinks = 400;
+};
+
+# Default Client Definition
+# Defines the default host, IP, and class for clients that don't match specific rules.
+Client {
+    # Default hostmask for clients.
+    host = "*@*";
+    # Default IP mask for clients.
+    ip = "*@*";
+    # Which Class these clients are assigned to by default.
+    class = "Other";
+};
+
+# Message of the Day (MOTD) Configuration
+# Specifies where the MOTD file is located for connecting clients.
+motd {
+    # Host pattern for which clients receive this MOTD config (usually all).
+    host = "*";
+    # Filename of the MOTD file relative to the IRC daemon's working directory.
+    file = "{{ ircd_motd_file | default('ircd.motd') }}";
+};
+
+# Jupe (Junction/Junk) Nicknames
+# Reserved nicknames to prevent abuse or confusion (Jupiter/Jupe nicks).
+Jupe {
+    # List of reserved characters/nicknames to block.
+    nick = "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,{,|,},~,-,_,`";
+    nick = "EuWorld,UWorld,UWorld2";
+    nick = "login,undernet,protocol,pass,newpass,org";
+    nick = "StatServ,NoteServ";
+    nick = "ChanSvr,ChanSaver,ChanServ";
+    nick = "NickSvr,NickSaver,NickServ";
+    nick = "LPT1,LPT2,COM1,COM2,COM3,COM4,AUX";
+};
+
+# Listening Port Configuration
+# Defines the TCP port on which the IRC server accepts client connections.
+Port {
+    port = {{ ircd_port | default('6667') }};
+};
+
+# Feature Flags and Logging Configuration
+# Enables specific server features and configures logging behavior.
+features {
+    # Log configuration: SYSTEM output, FILE destination, log file name.
+    "LOG" = "SYSTEM" "FILE" "ircd.log";
+    # Log configuration: Minimum severity level (CRIT, NOTICE, etc.).
+    "LOG" = "SYSTEM" "LEVEL" "CRIT";
+};

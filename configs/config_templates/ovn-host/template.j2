@@ -1,14 +1,23 @@
-# ===========================================================================
-# ovn-host configuration template
+# =============================================================================
+# OVN Host Configuration Fragment
+# =============================================================================
+# This file is a POSIX shell fragment used to configure the OVN (Open Virtual
+# Network) host components. It primarily controls the behavior of the
+# `ovs-ctl` helper script via the `OVN_CTL_OPTS` variable.
 #
-# This template generates a POSIX shell fragment that sets up the environment
-# for Open Virtual Network (OVN) host components.
-#
-# It primarily configures OVN_CTL_OPTS, which allows passing extra arguments
-# to the `ovs-ctl` helper script (e.g., for debugging wrappers like valgrind).
-# ===========================================================================
+# See the schema description for `ovn_ctl_opts` for allowed values.
+# =============================================================================
 
-# OVN_CTL_OPTS: Extra options to pass to ovs-ctl.
-# Example use: --ovn-controller-wrapper=valgrind
-# Leave empty for default behavior.
-OVN_CTL_OPTS={{ ovn_ctl_opts | default('') | quote }}
+# -----------------------------------------------------------------------------
+# Variable: OVN_CTL_OPTS
+# Description: Extra options to pass to ovs-ctl (e.g., --ovn-controller-wrapper=valgrind).
+#              Leave empty for defaults.
+# -----------------------------------------------------------------------------
+{% set opts = ovn_ctl_opts | default('') %}
+{% if opts is not none and opts | length > 0 %}
+# Set OVN control options as defined in the role/schema.
+OVN_CTL_OPTS={{ opts }}
+{% else %}
+# No extra options specified; ovs-ctl will use its default behavior.
+# OVN_CTL_OPTS=
+{% endif %}

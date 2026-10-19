@@ -34,7 +34,7 @@ spake_preauth_kdc_challenge = {{ (kdc | default({})).spake_preauth_kdc_challenge
 # Schema: kdc.realms (mapping of realm_name -> dict of realm_config)
 [realms]
 {% set realms = (kdc | default({})).realms | default({}) %}
-{% for realm_name, realm_config in realms | dict2items %}
+{% for realm_name, realm_config in realms | dictsort %}
 {% set rc = realm_config.value %}
 
 [{{ realm_name }}]
@@ -206,7 +206,7 @@ spake_preauth_indicator = {{ rc.spake_preauth_indicator }}
 # Schema: realm_config.pkinit (mapping/list)
 {% if rc.pkinit is defined and rc.pkinit is iterable %}
 # PKINIT configuration
-{% for pk_key, pk_val in rc.pkinit | dict2items %}
+{% for pk_key, pk_val in rc.pkinit | dictsort %}
 {{ pk_key.value }} = {{ pk_val.value }}
 {% endfor %}
 {% endif %}

@@ -1,3 +1,7 @@
+# Load the modules Debian enables (mod_xfer provides AllowOverwrite, among others). Debian's own template begins
+# with this line; without it `proftpd --configtest` fails: unknown configuration directive 'AllowOverwrite'.
+Include /etc/proftpd/modules.conf
+
 # ProFTPD global configuration.
 # Managed by Ansible; do not edit manually.
 #
@@ -6,7 +10,7 @@
 
 # Public FTP server name shown to clients during banner and identification.
 # Schema: server_name | default='ProFTPD Server'
-ServerName "{{ server_name | default('ProFTPD Server') }}"
+ServerName "{{ server_name | default('Debian') }}"
 
 # Run mode: 'standalone' for a persistent daemon, 'inetd' for per-connection launch.
 # Schema: server_type | default='standalone'
@@ -22,7 +26,7 @@ Port {{ port | default(21) }}
 
 # Default umask for newly created files and directories.
 # Schema: umask | default='022'
-Umask {{ umask | default('022') }}
+Umask {{ umask | default('022 022') }}
 
 # Maximum number of child server processes allowed.
 # Schema: max_instances | default=30
@@ -31,7 +35,7 @@ MaxInstances {{ max_instances | default(30) }}
 # Maximum simultaneous logged-in clients (0 = unlimited).
 # Schema: max_clients | default=50
 # Note: Using an explicit integer default (50) to avoid 'omit' undefined errors.
-MaxClients {{ max_clients | default(50) }}
+{% if max_clients is defined and max_clients is not none and (max_clients is number or max_clients is boolean or max_clients | length > 0) %}MaxClients {{ max_clients | default(50) }}{% else %}#   MaxClients 10{% endif %}
 
 # Maximum simultaneous clients allowed from a single host (0 = unlimited).
 # Schema: max_clients_per_host | default=5
@@ -50,7 +54,7 @@ Group {{ run_group | default('nogroup') }}
 # '~' chroots to the user's home directory; empty string disables chroot.
 # Note: ProFTPD interprets '~' as the home directory.
 # Schema: default_root | default='~'
-DefaultRoot {{ default_root | default('~') }}
+{% if default_root is defined and default_root is not none and (default_root is number or default_root is boolean or default_root | length > 0) %}DefaultRoot {{ default_root | default('~') }}{% else %}# DefaultRoot ~{% endif %}
 
 # Require the login user to have a valid shell listed in /etc/shells.
 # Set to 'off' for virtual FTP-only users or system accounts without login shells.
@@ -63,19 +67,24 @@ AllowOverwrite {{ allow_overwrite | default('on') }}
 
 # Idle session timeout in seconds. 0 means no limit.
 # Schema: timeout_idle | default=600
-TimeoutIdle {{ timeout_idle | default(600) }}
+TimeoutIdle {{ timeout_idle | default(1200) }}
 
 # Passive-mode data connection port range (min max).
 # Ensure these ports are open in the firewall.
 # Schema: passive_ports | default='49152 65534'
-PassivePorts {{ passive_ports | default('49152 65534') }}
+{% if passive_ports is defined and passive_ports is not none and (passive_ports is number or passive_ports is boolean or passive_ports | length > 0) %}PassivePorts {{ passive_ports | default('49152 65534') }}{% else %}# PassivePorts 49152 65534{% endif %}
 
 # Perform RFC1413 ident lookups on connecting clients.
 # Usually 'off' to avoid delays and potential failures.
 # Schema: ident_lookups | default='off'
-IdentLookups {{ ident_lookups | default('off') }}
+<IfModule mod_ident.c>
+  IdentLookups {{ ident_lookups | default('off') }}
+</IfModule>
 
 # Reverse-resolve client IPs in log messages.
 # Usually 'off' to improve performance and avoid DNS dependency.
 # Schema: use_reverse_dns | default='off'
 UseReverseDNS {{ use_reverse_dns | default('off') }}
+
+# Site additions, as Debian's template includes them.
+Include /etc/proftpd/conf.d/

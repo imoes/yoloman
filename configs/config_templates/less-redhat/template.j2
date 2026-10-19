@@ -1,0 +1,39 @@
+# Less initialization script (csh)
+#
+# This script configures the LESSOPEN environment variable for the 'less' pager.
+# LESSOPEN is a preprocessor hook that allows 'less' to display file types
+# (like compressed files, archives, etc.) in a human-readable format.
+#
+# The variable `less_pipe_path` specifies the path to the 'lesspipe.sh'
+# preprocessor script. If this script exists and is executable, LESSOPEN
+# is set to call it.
+
+# Check if LESSOPEN is already defined in the environment.
+# In C shell (csh/tcsh), `$LESSOPEN` expands to the value, and `?$LESSOPEN`
+# tests if the variable is set.
+if ( $?LESSOPEN ) then
+    # If it is set, ensure it is not empty before proceeding.
+    # The `eval` construct handles the string expansion safely in csh.
+    if ( ! { eval 'test ! -z "$LESSOPEN"' } ) then
+        # If LESSOPEN is set but empty, we treat it as unset for this logic
+        # and potentially override it if the default path is available.
+        # However, strict adherence to "not overriding user settings" usually
+        # means we leave it alone if it exists. The original logic checks
+        # non-emptiness. If the user set it, we preserve it.
+        :
+    else
+        # LESSOPEN is set and non-empty. Do not override user's custom setting.
+        :
+    endif
+else
+    # LESSOPEN is not set. Proceed to set the default preprocessor.
+    # Check if the lesspipe.sh script exists and is executable.
+    if ( -x {{ less_pipe_path | default('/usr/bin/lesspipe.sh') }} ) then
+        # Set the LESSOPEN environment variable.
+        # The '||' prefix tells less to run the command only if the file
+        # type is not recognized natively by less. This is a standard
+        # lesspipe.sh invocation pattern.
+        # See rhbz#1254837 for historical context on the '||' behavior.
+        setenv LESSOPEN "||{{ less_pipe_path | default('/usr/bin/lesspipe.sh') }} %s"
+    endif
+endif

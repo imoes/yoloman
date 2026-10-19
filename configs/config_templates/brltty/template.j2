@@ -8,7 +8,7 @@
 # The path to the BRLTTY configuration file.
 # Absolute path to the BRLTTY configuration file.
 # (can be overridden with the --configuration-file= [-f] option)
-# BRLTTY expects to find its configuration file in {{ brltty_config_path | default('/etc/brltty.conf') }}
+# BRLTTY expects to find its configuration file in {{ brltty_config_path | default('"/etc/brltty.conf"') }}
 # If it doesn't exist, then BRLTTY silently continues but may require
 # that certain command line options be explicitly supplied.
 # Blank lines are ignored. The character '#', anywhere on a line,
@@ -173,7 +173,7 @@ braille-parameters {{ braille_driver_params | default('') }}
 # specified, the file system object isn't created.
 # Path to FIFO/named pipe/socket for external TTS requests.
 # (can be overridden with the --speech-input= [-i] option)
-speech-input {{ speech_input_path | default('/path/to/file-system-object') }}
+{% if speech_input_path is defined and speech_input_path is not none and (speech_input_path is number or speech_input_path is boolean or speech_input_path | length > 0) %}speech-input {{ speech_input_path | default('/path/to/file-system-object') }}{% else %}#speech-input	/path/to/file-system-object{% endif %}
 
 # The quiet-if-no-braille directive specifies that the autospeak feature
 # isn't to be implicitly enabled when the braille driver is not running.
@@ -317,14 +317,14 @@ midi-device {{ midi_device | default('/path/to/device') }}
 # specified, diagnostics are written to the system log.
 # Path to log file (if not specified, system log is used).
 # (can be overridden with the --log-file= [-L] option)
-log-file {{ log_file | default('/tmp/brltty.log') }}
+{% if log_file is defined and log_file is not none and (log_file is number or log_file is boolean or log_file | length > 0) %}log-file {{ log_file | default('/tmp/brltty.log') }}{% else %}#log-file	/tmp/brltty.log{% endif %}
 
 # The log-level directive specifies which event categories are to be
 # logged as well as the severity threshold for uncategorized events.
 # The category names and severity threshold are separated by commas.
 # Minimum severity level for uncategorized events; e.g., 'warning', 'notice', 'debug'.
 # (can be overridden with the --log-level= [-l] option)
-log-level {{ log_level | default('notice') }}
+{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}log-level {{ log_level | default('notice') }}{% else %}#log-level	notice{% endif %}
 
 # Only one severity threshold may be specified. Less severe uncategorized
 # events will not be logged. If not specified, "notice" will be assumed.

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- Generic names alias configuration -->
+  <alias>
+    <!-- Primary font family name to be used for the Khmer script -->
+    <family>{{ family | default('Khmer OS Siemreap') }}</family>
+    <!-- Fallback font family for generic aliases -->
+    <default>
+      <family>{{ default_family | default('monospace') }}</family>
+    </default>
+  </alias>
+  <!-- Locale-specific overrides -->
+  <!-- Match block to apply font substitution when the locale matches -->
+  <match>
+    <!-- Test if the current locale language matches the specified ISO 639-1 code -->
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+    <!-- Test if the current font family is the default family -->
+    <test name="family">
+      <string>{{ default_family | default('monospace') }}</string>
+    </test>
+    <!-- Prepend the primary Khmer font family to the candidate list -->
+    <edit name="family" mode="prepend">
+      <string>{{ family | default('Khmer OS Siemreap') }}</string>
+    </edit>
+  </match>
+</fontconfig>

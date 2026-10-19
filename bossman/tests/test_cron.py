@@ -40,3 +40,14 @@ def test_validation():
 def test_comma_and_step_lists():
     assert cron_matches("0,30 * * * *", datetime(2026, 7, 19, 5, 30))
     assert not cron_matches("0,30 * * * *", datetime(2026, 7, 19, 5, 15))
+
+
+def test_out_of_range_values_are_refused_with_the_field():
+    """`61 25 * * *` parsed to empty sets: a job that looked scheduled and could never fire."""
+    from bossman.services.cron import cron_error, is_valid_cron
+
+    assert not is_valid_cron("61 25 * * *")
+    assert cron_error("61 25 * * *").startswith("minute:")
+    assert cron_error("0 25 * * *").startswith("hour:")
+    assert "step" in cron_error("*/0 * * * *")
+    assert cron_error("0 3 * * 0") is None

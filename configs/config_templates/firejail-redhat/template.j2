@@ -1,0 +1,122 @@
+# Firejail profile for {{ app_name | default('0ad') }}
+# Description: {{ app_description | default('Real-time strategy game of ancient warfare') }}
+# This file is overwritten after every install/update
+# Persistent local customizations
+# Include site-specific overrides
+include {{ app_name | default('0ad') }}.local
+# Persistent global definitions
+include globals.local
+
+# Allow access to the application's cache directory (do not black-list it)
+noblacklist ${HOME}/.cache/{{ app_name | default('0ad') }}
+# Allow access to the application's configuration directory (do not black-list it)
+noblacklist ${HOME}/.config/{{ app_name | default('0ad') }}
+# Allow access to the application's local share data (do not black-list it)
+noblacklist ${HOME}/.local/share/{{ app_name | default('0ad') }}
+
+# Allow gjs (blacklisted by disable-interpreters.inc)
+include allow-gjs.inc
+
+# uses libgdk-pixbuf and/or glycin - see #6906
+# blacklist /usr/libexec
+
+# Disable common system features for security sandboxing
+include disable-common.inc
+# Disable development tools
+include disable-devel.inc
+# Disable execution of external programs
+include disable-exec.inc
+# Disable scripting interpreters (python, perl, etc.)
+include disable-interpreters.inc
+# Disable specific applications
+include disable-programs.inc
+# Disable XDG-based directory access
+include disable-xdg.inc
+
+# Create private directories for the application within the user's home
+mkdir ${HOME}/.cache/{{ app_name | default('0ad') }}
+mkdir ${HOME}/.config/{{ app_name | default('0ad') }}
+mkdir ${HOME}/.local/share/{{ app_name | default('0ad') }}
+
+# Whitelist the private directories so they are accessible inside the jail
+whitelist ${HOME}/.cache/{{ app_name | default('0ad') }}
+whitelist ${HOME}/.config/{{ app_name | default('0ad') }}
+whitelist ${HOME}/.local/share/{{ app_name | default('0ad') }}
+
+# Whitelist shared application data
+whitelist /usr/share/{{ app_name | default('0ad') }}
+whitelist /usr/share/games
+
+# Include global whitelist definitions
+include whitelist-common.inc
+include whitelist-usr-share-common.inc
+include whitelist-var-common.inc
+
+# Drop all Linux capabilities
+caps.drop all
+
+# Enable network filtering (netfilter)
+netfilter
+
+# Disable DVD device access
+nodvd
+
+# Do not preserve group memberships (run as user only)
+nogroups
+
+# Disable input device access (keyboard/mouse)
+noinput
+
+# Do not allow setting new privileges (no su/sudo)
+nonewprivs
+
+# Do not run as root
+noroot
+
+# Disable TV access
+notv
+
+# Disable U2F device access
+nou2f
+
+# Disable video device access
+novideo
+
+# Restrict network protocols to Unix, IPv4, and IPv6
+protocol unix,inet,inet6
+
+# Enable seccomp-bpf syscall filtering
+seccomp
+
+# Block secondary syscalls not in the whitelist
+seccomp.block-secondary
+
+# Enable tracing logs for debugging
+tracelog
+
+# Disable mounting new filesystems
+disable-mnt
+
+# Restrict binary execution to the private bin directory (and essential tools)
+private-bin {{ binaries | default('0ad') }},pyrogenesis,sh,which
+
+# Use a private /tmp and /var/tmp directory
+private-tmp
+
+# Use a private /dev directory with minimal devices
+private-dev
+
+# Use a private /etc directory with specific groups (and ldap if needed)
+private-etc {{ private_etc_groups | default('@games,@sound,@x11') }},ldap
+
+# Use a private cache directory
+private-cache
+
+# Disable user dbus session
+dbus-user none
+
+# Disable system dbus
+dbus-system none
+
+# Restrict namespace creation
+restrict-namespaces

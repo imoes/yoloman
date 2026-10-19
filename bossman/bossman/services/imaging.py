@@ -121,6 +121,18 @@ class Volume:
     mountpoint: str | None = None
 
 
+def policy_key(grow_policy: dict[str, Any], v: "Volume") -> str | None:
+    """The grow-policy key that sizes volume v: its mountpoint ("/opt"), else its role ("data").
+
+    Keys used to be roles only, so the three volumes an image holds with role "data" (/opt, /tmp, /usr) shared
+    ONE value and could not be sized apart; the page summed the share three times and showed 80 % for a valid
+    policy. A mountpoint key sizes exactly one volume; a role key still sizes every volume of that role, so a
+    saved role-keyed policy keeps working."""
+    if v.mountpoint and v.mountpoint in grow_policy:
+        return v.mountpoint
+    return v.role if v.role in grow_policy else None
+
+
 @dataclass(frozen=True)
 class Partition:
     """A partition of the source disk, as it must be recreated on the target.
@@ -433,7 +445,7 @@ def plan_restore(
     # Which volumes absorb the leftover space: by policy (root/var/home…) or, by default, just the
     # last one. A policy that names a role the layout doesn't have is simply ignored.
     if grow_policy:
-        growable = [v for v in layout.volumes if v.role in grow_policy]
+        growable = [v for v in layout.volumes if policy_key(grow_policy, v)]
         if not growable:
             raise ImagingError(
                 "grow_policy names none of this image's volume roles "
@@ -478,7 +490,7 @@ def plan_restore(
         *body, last = growable
         allotted = 0
         for v in body:
-            want = _align_down(remaining * int(grow_policy[v.role]) // 100)
+            want = _align_down(remaining * int(grow_policy[policy_key(grow_policy, v)]) // 100)
             share = max(want, _align_down(v.size_bytes))   # never below the restored fs's own container
             sizes[idx[id(v)]] = share
             allotted += share
@@ -533,7 +545,7 @@ def _absolute_sizes(
     its own used data, and the total must fit `remaining`. Returns (sizes, fill_idx) where fill_idx is the
     remainder volume that should be grown with +100%FREE.
     """
-    remainders = [v for v in growable if int(grow_policy.get(v.role, 0)) <= 0]
+    remainders = [v for v in growable if int(grow_policy.get(policy_key(grow_policy, v) or "", 0)) <= 0]
     if len(remainders) > 1:
         raise ImagingError(
             "absolute grow_policy has more than one remainder (0 = fills the rest): "
@@ -548,11 +560,11 @@ def _absolute_sizes(
     for v in growable:
         if v is remainder:
             continue
-        want = _align_down(int(grow_policy[v.role]) * _GIB)
+        want = _align_down(int(grow_policy[policy_key(grow_policy, v)]) * _GIB)
         floor = _align_down(int(v.used_bytes or 0)) or ALIGN
         if want < floor:
             raise ImagingError(
-                f"absolute grow_policy gives {v.role} {grow_policy[v.role]} GiB, less than the "
+                f"absolute grow_policy gives {v.mountpoint or v.role} {grow_policy[policy_key(grow_policy, v)]} GiB, less than the "
                 f"{v.used_bytes} bytes of data it holds"
             )
         sizes[idx[id(v)]] = want

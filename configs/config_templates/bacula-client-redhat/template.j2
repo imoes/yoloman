@@ -1,0 +1,47 @@
+#
+# Default  Bacula File Daemon Configuration file
+#
+#  For Bacula release 11.0.1 (05 February 2020) -- redhat (Moss
+#
+# There is not much to change here except perhaps the
+# File daemon Name to
+#
+#
+# Copyright (C) 2000-2020 Kern Sibbald
+# License: BSD 2-Clause; see file LICENSE-FOSS
+
+#
+# List Directors who are permitted to contact this File daemon
+#
+Director {
+  Name = {{ director_name }}
+  Password = "{{ director_password }}"
+}
+
+#
+# Restricted Director, used by tray-monitor to get the
+#   status of the file daemon
+#
+Director {
+  Name = {{ monitor_name }}
+  Password = "{{ monitor_password }}"
+  Monitor = yes
+}
+
+#
+# "Global" File daemon configuration specifications
+#
+FileDaemon {                          # this is me
+  Name = {{ fd_name }}
+  FDport = {{ fd_port }}                  # where we listen for the director
+  WorkingDirectory = {{ fd_working_directory }}
+  Pid Directory = {{ fd_pid_directory }}
+  Maximum Concurrent Jobs = {{ fd_max_concurrent_jobs }}
+  Plugin Directory = {{ fd_plugin_directory }}
+}
+
+# Send all messages except skipped files back to Director
+Messages {
+  Name = Standard
+  director = {{ director_name }} = all, !skipped, !restored, !saved
+}

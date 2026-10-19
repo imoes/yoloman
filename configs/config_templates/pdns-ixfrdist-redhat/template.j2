@@ -1,0 +1,113 @@
+# Listen addresses. ixfrdist will listen on both UDP and TCP.
+# When no port is specified, 53 is used. When specifying ports for IPv6, use the
+# "bracket" notation:
+#
+#    listen:
+#      - '127.0.0.1'
+#      - '::1'
+#      - '192.0.2.3:5300'
+#      - '[2001:DB8:1234::334]:5353'
+#
+# By default, or when unset, ixfrdist listens on local loopback addresses.
+listen:
+  - '{{ listen_0 }}'
+  - '{{ listen_1 }}'
+
+# Netmasks or IP addresses of hosts that are allowed to query ixfrdist. Hosts
+# do not need a netmask:
+#
+#    acl:
+#      - '127.0.0.0/8'
+#      - '::1'
+#      - '192.0.2.55'
+#      - '2001:DB8:ABCD::/48'
+#
+# By default (or when unset), only loopback addresses are allowed.
+#
+acl:
+  - '{{ acl_0 }}'
+  - '{{ acl_1 }}'
+
+# Maximum number of records allowed in a single zone. ixfrdist will abort the
+# zone transfer from the master when more than this number of records have been
+# received. A value of 0 (the default) means unlimited
+#
+axfr-max-records: {{ axfr_max_records }}
+
+# Timeout in seconds an AXFR transaction requested by ixfrdist may take.
+# Increase this when the network to the authoritative servers is slow or the
+# domains are very large and you experience timeouts. Set to 20 by default or
+# when unset.
+#
+axfr-timeout: {{ axfr_timeout }}
+
+# Time in seconds between retries of the SOA query for a zone we have never
+# transferred.
+
+failed-soa-retry: {{ failed_soa_retry }}
+
+# Whether record compression should be enabled, leading to smaller answers
+# at the cost of an increased CPU and memory usage. Defaults to false.
+#
+compress: {{ compress }}
+
+# Amount of older copies/IXFR diffs to keep for every domain. This is set to
+# 20 by default or when unset.
+#
+keep: {{ keep }}
+
+# Number of threads to spawn for TCP connections (AXFRs) from downstream hosts.
+# This is set to 10 by default or when unset.
+#
+tcp-in-threads: {{ tcp_in_threads }}
+
+# The directory where the domain data is stored. When unset, the current
+# working directory is used. Note that this directory must be writable for the
+# user or group ixfrdist runs as.
+#
+# work-dir: '/var/lib/ixfrdist'
+
+# User to drop privileges to once all listen-sockets are bound. May be either
+# a username or numerical ID.
+#
+# uid: ixfrdist
+
+# Group to drop privileges to once all listen-sockets are bound. May be either
+# a username or numerical ID.
+#
+# gid: ixfrdist
+
+# The IP address and port where the webserver should listen
+#
+webserver-address: {{ webserver_address }}
+
+# The IP address(masks) that allowed to access the webserver. When not set,
+# it defaults to 127.0.0.0/8, ::1/128
+#
+webserver-acl:
+  - {{ webserver_acl_0 }}
+  - {{ webserver_acl_1 }}
+
+# How much the webserver should log: 'none', 'normal' or 'detailed'
+# With 'none', nothing is logged except for errors
+# With 'normal' (the default), one line per request is logged in the style of the common log format
+# with 'detailed', the full requests and responses (including headers) are logged
+webserver-loglevel: {{ webserver_loglevel }}
+
+# The domains to redistribute, the 'master' and 'domains' keys are mandatory.
+# When no port is specified, 53 is used. When specifying ports for IPv6, use the
+# "bracket" notation:
+#
+# You can optionally cap the refresh time of the SOA using 'max-soa-refresh' (seconds)
+# Otherwise, or if set to 0, the retreived SOA refresh time will be used
+# You can also send NOTIFY packets for the given domain to given destinations using `notify`
+#
+#    domains:
+#      - domain: example.com
+#        master: 192.0.2.15
+#        max-soa-refresh: 180
+#        notify: [192.0.3.1, 192.0.3.2:5301]
+#      - domain: rpz.example
+#        master: [2001:DB8:a34:543::53]:5353
+#
+domains: []

@@ -32,7 +32,7 @@ import { ConfigTemplate, ConfigTemplateListing } from '../../core/models/agent.m
       }
       @if (templates().length) {
         <div class="bm-ct">
-          <div class="bm-ct-list">
+          <div class="bm-ct-list" tabindex="0" role="region" aria-label="Config templates">
             @for (t of templates(); track t.name) {
               <div class="bm-ct-item" [class.bm-ct-sel]="selectedName() === t.name" (click)="select(t)">
                 <span class="bm-ct-name">{{ t.name }}</span>
@@ -61,9 +61,9 @@ import { ConfigTemplate, ConfigTemplateListing } from '../../core/models/agent.m
                 </tbody>
               </table>
               <h3>Sample values</h3>
-              <pre class="bm-ct-code">{{ t.sample | json }}</pre>
+              <pre class="bm-ct-code" tabindex="0" aria-label="Sample values">{{ t.sample | json }}</pre>
               <h3>Template (Jinja2)</h3>
-              <pre class="bm-ct-code">{{ t.template }}</pre>
+              <pre class="bm-ct-code" tabindex="0" aria-label="Template source">{{ t.template }}</pre>
             } @else if (!loading() && !err()) {
               <p class="bm-dim">Select a template.</p>
             }

@@ -1,53 +1,67 @@
-#!/bin/sh
+{#
+  openstack-debian-images-build-farm configuration template
+  This file drives the automated image build service scripts.
+  All variables are sourced from the Ansible role's variables/defaults.
+  Defaults are applied inline to ensure the template is idempotent and safe.
+#}
 
-# ==============================================================================
-# openstack-debian-images-build-farm: Daily Image Build Automation Script
-# ==============================================================================
-# This script orchestrates the daily building of OpenStack Debian images.
-# It is designed to run via cron. It checks for the presence of the build
-# tool and the configuration file before proceeding.
-# ==============================================================================
+# ==========================================================================
+# Daily Automation
+# ==========================================================================
 
-# Exit immediately if any command in the pipeline fails.
-set -e
+# Enable daily image updates. If not 'yes', the script exits without doing anything.
+# Valid values: 'yes' or 'no' (default: no)
+DAILY_IMAGE_UPDATES={{ DAILY_IMAGE_UPDATES | default('no') }}
 
-# --------------------------------------------------------------------------
-# Pre-flight checks
-# --------------------------------------------------------------------------
+# ==========================================================================
+# Mirror Configuration
+# ==========================================================================
 
-# Check if the daily image build utility is available on the system.
-if ! [ -x /usr/bin/daily-openstack-debian-image ] ; then
-	# If the executable is not found or not executable, exit silently.
-	# This prevents errors on systems where the package is not installed.
-	exit 0
-fi
+# URL of your mirror. Note this URL also be used in sources.list of the images.
+# Must be a valid HTTP/HTTPS URL.
+DEB_MIRROR={{ DEB_MIRROR | default('http://deb.debian.org/debian') }}
 
-# Check for the existence of the main configuration file.
-if ! [ -e /etc/openstack-debian-images/openstack-debian-images.conf ] ; then
-	# If the configuration file is missing, print an error and exit.
-	echo "$0 Configuration file /etc/openstack-debian-images/openstack-debian-images.conf missing: exiting..."
-	exit 1
-fi
+# Address of the debian-security mirror.
+# Must be a valid HTTP/HTTPS URL.
+SECURITY_MIRROR={{ SECURITY_MIRROR | default('http://security.debian.org/debian-security') }}
 
-# Source the configuration file to load variables like DAILY_IMAGE_UPDATES.
-. /etc/openstack-debian-images/openstack-debian-images.conf
+# ==========================================================================
+# Release Selection
+# ==========================================================================
 
-# --------------------------------------------------------------------------
-# Configuration check and execution
-# --------------------------------------------------------------------------
+# List Debian releases to build.
+# Comma-separated list of codenames (e.g., stretch,buster,bullseye,bookworm,unstable).
+RELEASE_LIST={{ RELEASE_LIST | default('stretch,buster,bullseye,bookworm,unstable') }}
 
-# DAILY_IMAGE_UPDATES: Enable daily image updates. If not 'yes', the script exits without doing anything.
-# The default value is 'yes'.
-# We compare the sourced variable against the Jinja2 default to handle cases
-# where the variable might be undefined or explicitly set to something else.
-if [ "${DAILY_IMAGE_UPDATES}" != "{{ DAILY_IMAGE_UPDATES | default('yes') }}" ] ; then
-	# If DAILY_IMAGE_UPDATES is not 'yes', skip the build process.
-	exit 0
-else
-	# Create the log directory if it does not exist.
-	mkdir -p /var/log/openstack-debian-images
-	
-	# Execute the daily image build script and log the output.
-	# stdout and stderr are both captured in the daily-check.log file.
-	/usr/bin/daily-openstack-debian-image >/var/log/openstack-debian-images/daily-check.log 2>&1
-fi
+# List of Debian rescue image to build.
+# Comma-separated list of codenames (e.g., stretch,buster,bullseye,bookworm,sid).
+RESCUE_LIST={{ RESCUE_LIST | default('stretch,buster,bullseye,bookworm,sid') }}
+
+# ==========================================================================
+# OpenStack Component Images
+# ==========================================================================
+
+# Should we also generate images for Octavia? List here images using the
+# format:
+#   <debian-release>-<openstack-release>
+#
+# If <openstack-release> is ommited, the OpenStack release shipped with
+# Debian is used. Otherwise, extrepo is installed, and use to setup the
+# OpenStack unofficial backport repository, with <openstack-release> as the
+# OpenStack release name.
+# Default: buster-train,buster-ussuri,bullseye,bullseye-wallaby
+OCTAVIA_IMAGES={{ OCTAVIA_IMAGES | default('buster-train,buster-ussuri,bullseye,bullseye-wallaby') }}
+
+# Should we also generate images for Manila? List here the image using
+# the format:
+#   <debian-release>
+# Default: bullseye
+MANILA_IMAGES={{ MANILA_IMAGES | default('bullseye') }}
+
+# ==========================================================================
+# Output Configuration
+# ==========================================================================
+
+# Where should we generate images?
+# Path to the web-accessible directory where images are stored.
+IMAGE_DEST={{ IMAGE_DEST | default('/var/www/html/openstack-debian-images') }}

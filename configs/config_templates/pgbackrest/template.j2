@@ -1,0 +1,42 @@
+# Rotate pgBackRest log files.
+#
+# Configuration for logrotate to manage /var/log/pgbackrest/*.log.
+# This ensures log files are rotated weekly, compressed, and retained for
+# a configurable number of generations to prevent disk exhaustion.
+
+/var/log/pgbackrest/*.log {
+    # Rotate logs on a weekly basis.
+    weekly
+
+    # Keep this many rotated log files before deleting the oldest ones.
+    # Default: 10
+    rotate {{ rotate_count | default('10') }}
+
+    # Delay compression of the most recently rotated log file until the
+    # next rotation cycle. This allows processes to finish writing to
+    # the uncompressed file if necessary.
+    delaycompress
+
+    # Compress rotated log files using gzip to save disk space.
+    compress
+
+    # Do not rotate the log file if it is empty. This prevents empty
+    # log files from being generated if no logs have been written.
+    notifempty
+
+    # Do not produce an error message if the log file is missing.
+    # This is useful for services that may not have started yet or
+    # have deleted their logs manually.
+    missingok
+
+    # Run the log rotation as user 'root' and group 'root'.
+    # pgBackRest logs are typically owned by root or the postgres user,
+    # ensuring proper permissions during rotation.
+    su root root
+
+    # Copy the log file to a new file and then truncate the original.
+    # This is essential for long-running processes like pgBackRest that
+    # keep file descriptors open to the original log file. Without this,
+    # logs would continue writing to the deleted (renamed) file.
+    copytruncate
+}

@@ -7,6 +7,7 @@ import { CheckRule, CheckRuleComparison, CheckRuleInput, MetricCatalogEntry } fr
 import { MonitoringService } from '../../../core/services/monitoring.service';
 import { isStatefulMetric } from '../../metric-kind.util';
 import { ConditionsEditorComponent } from '../conditions-editor/conditions-editor.component';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface ThresholdDialogData {
   /** OU scope (Block L3c) — set for an OU-scoped threshold. */
@@ -63,7 +64,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
 @Component({
   selector: 'app-threshold-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule, ConditionsEditorComponent],
+  imports: [BlockedReasonDirective, FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule, ConditionsEditorComponent],
   template: `
     <h2 mat-dialog-title>
       {{ data.rule ? 'Edit' : 'New' }} threshold {{ scopeLabel() }}
@@ -121,7 +122,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">{{ data.rule ? 'Save' : 'Create' }}</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">{{ data.rule ? 'Save' : 'Create' }}</button>
     </mat-dialog-actions>
   `,
   styles: [

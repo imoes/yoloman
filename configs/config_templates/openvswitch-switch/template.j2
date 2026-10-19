@@ -1,31 +1,48 @@
-# Open vSwitch (OVS) Switch Daemon Configuration Fragment
-# -------------------------------------------------------
-# This POSIX shell fragment configures runtime behaviour of the
-# openvswitch-switch package on Debian/Ubuntu systems.
-# Variables are drawn from the Ansible role schema and rendered
-# with safe defaults to prevent empty or missing values.
+# Open vSwitch (OVS) Switch Configuration Fragment
+# This file is sourced by the ovs-ctl init script to configure daemon behavior.
+# It is self-documenting: every variable maps to a schema field with a default.
 
-# FORCE_COREFILES: Enable generation of core dumps for OVS
-# daemon processes if a crash occurs. Set to 'yes' for debugging,
-# otherwise leave empty (default) to disable core files.
-# See: man ovs-vswitchd.conf.db for core dump implications.
-FORCE_COREFILES="{{ force_corefiles | default('') }}"
+# -------------------------------------------------------------------------
+# Force Core Dumps
+# -------------------------------------------------------------------------
+# Description: If set to 'yes', core files will be enabled for OVS processes.
+#              This is useful for debugging crashes in ovs-vswitchd or ovsdb-server.
+#              Default behavior (when unset or not 'yes') is to NOT generate core dumps.
+# Variable: force_corefiles
+# Default: None (commented out in config)
+{% if force_corefiles | default(None) is defined and force_corefiles | default(None) is not none and force_corefiles | default(None) | trim | lower == 'yes' %}
+FORCE_COREFILES=yes
+{% else %}
+# FORCE_COREFILES=yes
+{% endif %}
 
-# OVS_CTL_OPTS: Extra command-line options passed to the
-# ovs-ctl control script. Use this to wrap daemons in debuggers
-# (e.g. valgrind) or pass arbitrary flags supported by ovs-ctl.
-# Example: '--ovs-vswitchd-wrapper=valgrind'
-# See: /usr/share/doc/openvswitch-common/INSTALL.DPDK-ADVANCED.md.gz
-OVS_CTL_OPTS="{{ ovs_ctl_opts | default('') }}"
+# -------------------------------------------------------------------------
+# OVS Control Options
+# -------------------------------------------------------------------------
+# Description: Extra options to pass to ovs-ctl, e.g. for wrapping daemons
+#              with valgrind or setting other runtime flags.
+#              This string is appended directly to the ovs-ctl command line.
+#              Be careful with quoting here; usually space-separated flags work best.
+# Variable: ovs_ctl_opts
+# Default: None (empty, commented out in config)
+# Example: OVS_CTL_OPTS="--ovs-vswitchd-wrapper=valgrind"
+{% if ovs_ctl_opts | default(None) is defined and ovs_ctl_opts | default(None) is not none and ovs_ctl_opts | default(None) | trim | length > 0 %}
+OVS_CTL_OPTS={{ ovs_ctl_opts | default(None) | trim }}
+{% else %}
+# OVS_CTL_OPTS=
+{% endif %}
 
-# NOTE on DPDK Configuration:
-# DPDK-related options are NO LONGER configured via this shell
-# fragment. They are now managed through ovs-vsctl and ovsdb,
-# following the upstream design shift. For details, consult:
-#   - /usr/share/doc/openvswitch-common/INSTALL.DPDK.md.gz
-#   - /usr/share/doc/openvswitch-common/INSTALL.DPDK-ADVANCED.md.gz
+# -------------------------------------------------------------------------
+# DPDK Configuration Note
+# -------------------------------------------------------------------------
+# DPDK options are now configured via ovs-vsctl/ovsdb, see:
+# - /usr/share/doc/openvswitch-common/INSTALL.DPDK.md.gz
+# - /usr/share/doc/openvswitch-common/INSTALL.DPDK-ADVANCED.md.gz
 #
-# If you previously set e.g. '--vhost-owner libvirt-qemu:kvm
-# --vhost-perm 0664' here, those must be migrated to the
-# appropriate ovsdb fields or the new ovs-vsctl commands.
-# The legacy variable DPDK_OPTS is deprecated and not supported.
+# The variable 'dpdk-extra' was historically used as a fallback for users
+# who formerly set e.g. '--vhost-owner libvirt-qemu:kvm --vhost-perm 0664'
+# here or any other DPDK EAL arguments via DPDK_OPTS which are not covered by
+# the default switches provided by ovs-vsctl.
+#
+# For more on the new ovsdb based configuration of DPDK features, see:
+# `man ovs-vswitchd.conf.db`

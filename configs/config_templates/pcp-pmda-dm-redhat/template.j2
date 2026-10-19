@@ -1,0 +1,91 @@
+#
+# PCP PMDA DM Thin Configuration Template
+#
+# This configuration defines rules for the Performance Co-Pilot (PCP)
+# Device Mapper (DM) PMDA to monitor thin pool utilization.
+#
+# It monitors the percentage of data used in a DM thin pool and triggers
+# alerts or actions when a configured threshold is exceeded.
+#
+# See pmieconf(1) for syntax details.
+#
+
+# --- Rule Definition ---
+
+rule	dmthin.data_high_util
+	# Summary rule name, typically defaults to the rule identifier itself.
+	summary = "{{ rule | default('$rule$') }}"
+	# Enumerate over all hosts found by the PMDA.
+	enumerate = hosts
+	# Predicate: Calculates data utilization percentage.
+	# Formula: (used / total) * 100 > threshold
+	predicate =
+    "some_host (
+        some_inst (
+            ( 100 * dmthin.pool.data.used $hosts$ /
+                    dmthin.pool.data.total $hosts$ )
+            > $threshold$
+        )
+    )"
+	# Enable this rule by default.
+	enabled = yes
+	# Rule version.
+	version = 1
+	# Help text displayed in tools like pmie.
+	help	=
+	"Device Mapper thin pool data utilization percent exceeded
+	threshold percent of total size.
+
+	If this rule is enabled, the DM PMDA should be installed;
+	see pmdadm(1).";
+
+
+# --- Variable Definitions ---
+
+# Defines the 'rule' string variable used in the summary and potentially elsewhere.
+string	rule
+	# The summary rule name.
+	default = "{{ rule | default('$rule$') }}"
+	# This variable is read-only in this context.
+	modify	= no
+	# Do not display this variable in default listings.
+	display = no;
+
+# Defines the 'threshold' numeric variable.
+percent threshold
+	# The threshold of dmthin pool fullness expressed as a percentage.
+	# Usually in the range of 80 to 99.
+	default = {{ threshold | default(95) }}
+	help	=
+	"The threshold of dmthin pool fullness expressed as a percentage,
+	usually in the range of 80 to 99. "
+
+# Defines the 'action_expand' string variable.
+# Used for formatting action output (e.g., command line arguments).
+string	action_expand
+	# The action expansion format string.
+	# Common placeholders: %v (value), %i (instance), %h (host).
+	default = "{{ action_expand | default('%v%used [%i]@%h') }}"
+	# This variable is read-only in this context.
+	display	= no
+	modify	= no;
+
+# Defines the 'email_expand' string variable.
+# Used for formatting email subject/body content.
+string email_expand
+       # The email expansion format string.
+       # Common placeholders: %h (host), %i (instance), %v (value).
+       default = "{{ email_expand | default('host: %h pool: %i data utilization: %v%') }}"
+       # Do not display this variable in default listings.
+       display = no
+       # This variable is read-only in this context.
+       modify  = no;
+
+# Defines the 'delta' string variable.
+# Specifies the sampling interval for the evaluation.
+string	delta
+	# Sample interval between evaluations of this rule.
+	# Example: '10 mins', '1 hour'.
+	default = "{{ delta | default('10 mins') }}"
+	help =
+	"Sample interval between evaluations of this rule.";

@@ -1,0 +1,41 @@
+; =============================================================================
+; MacIP Gateway daemon configuration (netatalk 4.x)
+; =============================================================================
+;
+; This template configures the MacIP gateway service, allowing classic Macintosh
+; clients to access AppleTalk resources over an IP network.
+;
+; See the `macipgw.conf' manual page for all available options.
+;
+; Variables are sourced from the Ansible playbook variables. Each variable has
+; a sensible default to ensure the service starts even if no specific values
+; are provided by the role consumer.
+
+[Global]
+
+; The network address for the MacIP gateway.
+; This defines the IP network segment where MacIP traffic is routed.
+; Default: None (commented out in config unless specified)
+{% if network is defined and network is not none and (network is number or network is boolean or network | length > 0) %}
+network = {{ network }}
+{% else %}
+; network = 192.168.151.0
+{% endif %}
+
+; The netmask for the MacIP gateway network.
+; This specifies the subnet mask associated with the gateway network.
+; Default: None (commented out in config unless specified)
+{% if netmask is defined and netmask is not none and (netmask is number or netmask is boolean or netmask | length > 0) %}
+netmask = {{ netmask }}
+{% else %}
+; netmask = 255.255.255.0
+{% endif %}
+
+; The nameserver IP address used by the MacIP gateway.
+; This DNS server is queried by clients connecting through this gateway.
+; Default: None (commented out in config unless specified)
+{% if nameserver is defined and nameserver is not none and (nameserver is number or nameserver is boolean or nameserver | length > 0) %}
+nameserver = {{ nameserver }}
+{% else %}
+; nameserver = 8.8.8.8
+{% endif %}

@@ -1,0 +1,72 @@
+# phpMyAdmin - Web based MySQL browser written in php
+#
+# Allows only localhost by default
+#
+# But allowing phpMyAdmin to anyone other than localhost should be considered
+# dangerous unless properly secured by SSL
+
+# Set the document root for phpMyAdmin.
+# The document root directory for phpMyAdmin.
+Alias /phpMyAdmin {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}
+Alias /phpmyadmin {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}
+
+# Restrict access to the main phpMyAdmin directory.
+# By default, access is restricted to local connections only.
+# Ensure this is secured by SSL or proper authentication if exposed to untrusted networks.
+<Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/>
+    # Set default charset to UTF-8 for correct handling of multibyte characters.
+    AddDefaultCharset UTF-8
+
+    # Restrict access to local connections only.
+    Require local
+</Directory>
+
+# Restrict access to the setup directory.
+# The setup directory allows configuring servers and sessions; leaving it open is a security risk.
+<Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/setup/>
+    # Restrict access to local connections only.
+    Require local
+</Directory>
+
+# Prevent access to internal libraries directory.
+# These directories do not require access over HTTP - taken from the original
+# phpMyAdmin upstream tarball.
+<Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/libraries/>
+    # Deny all access to this directory.
+    Require all denied
+</Directory>
+
+# Prevent access to the templates directory.
+# These directories do not require access over HTTP - taken from the original
+# phpMyAdmin upstream tarball.
+<Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/templates/>
+    # Deny all access to this directory.
+    Require all denied
+</Directory>
+
+# Prevent access to the setup library directory.
+# These directories do not require access over HTTP - taken from the original
+# phpMyAdmin upstream tarball.
+<Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/setup/lib/>
+    # Deny all access to this directory.
+    Require all denied
+</Directory>
+
+# Prevent access to the setup frames directory.
+# These directories do not require access over HTTP - taken from the original
+# phpMyAdmin upstream tarball.
+<Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/setup/frames/>
+    # Deny all access to this directory.
+    Require all denied
+</Directory>
+
+# Optional: mod_security configuration.
+# This configuration prevents mod_security at phpMyAdmin directories from
+# filtering SQL etc.  This may break your mod_security implementation.
+# Uncomment the block below and the IfModule directive if using mod_security.
+#
+#<IfModule mod_security.c>
+#    <Directory {{ phpmyadmin_document_root | default('/usr/share/phpMyAdmin') }}/>
+#        SecRuleInheritance Off
+#    </Directory>
+#</IfModule>

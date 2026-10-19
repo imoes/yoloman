@@ -1,0 +1,96 @@
+# /etc/sane.d/hpaio.conf - Configuration for the HP All-in-One (io) SANE backend
+# This configuration file controls how the `hpaio` backend (part of libsane-hpaio)
+# discovers and communicates with HP scanners and printers connected via USB or Network.
+#
+# The format is a list of device URIs. Each line contains a single URI.
+# The backend supports both `net:` (network scanning via HP Jetdirect/Socket)
+# and `hpaio:` (USB scanning via SANE/HP).
+
+# ==============================================================================
+# Network Discovery Settings
+# ==============================================================================
+
+# [net] - Network scan settings
+# Defines the port and timeout for scanning devices over the network.
+
+# port: The TCP port used for HP Jetdirect (Socket) scanning.
+# Default: 8000 (HP standard socket port)
+# See: https://www.hplipopensource.com/hplip-web/scanning/scanning_network.html
+[net]
+port = {{ hpaio_net_port | default(8000) }}
+
+# timeout: The timeout in seconds for network connection attempts.
+# Default: 5 seconds
+# A higher value may help if the network is congested or the device is slow to respond.
+timeout = {{ hpaio_net_timeout | default(5) }}
+
+# ==============================================================================
+# Device Discovery Settings
+# ==============================================================================
+
+# [discovery] - Automatic discovery settings
+# Controls how the backend searches for devices.
+
+# enabled: Whether automatic discovery is enabled.
+# Default: true
+# If set to false, only explicitly listed URIs will be used.
+enabled = {{ hpaio_discovery_enabled | default(true) | lower }}
+
+# protocol: The protocol version to use during discovery (e.g., '1' for SNMP v1).
+# Default: 1
+# Note: SNMP v3 requires additional authentication configuration not handled here.
+protocol = {{ hpaio_discovery_protocol | default(1) }}
+
+# timeout: The timeout in seconds for discovery probes.
+# Default: 2 seconds
+timeout = {{ hpaio_discovery_timeout | default(2) }}
+
+# ==============================================================================
+# Static Device Entries
+# ==============================================================================
+
+# Static URIs for devices that are not automatically discovered or require specific configuration.
+# Format: uri
+# Examples:
+#   - USB device: hpaio:/usb/DeskJet_3050_J610_series?serial=CNxxxxxxxxxxxx
+#   - Network device: net:192.168.1.100
+#   - Auto-discovery: auto
+
+# List of static device URIs.
+# If empty or not defined, the backend relies on auto-discovery.
+# Add one URI per line.
+{% if hpaio_devices is defined and hpaio_devices is iterable %}
+{% for device_uri in hpaio_devices %}
+{{ device_uri | string }}
+{% endfor %}
+{% endif %}
+
+# ==============================================================================
+# Logging and Debugging
+# ==============================================================================
+
+# log_level: The verbosity of the backend's log output.
+# Options: 0 (none), 1 (errors), 2 (warnings), 3 (info), 4 (debug), 5 (trace)
+# Default: 0 (disabled in production)
+# Note: This setting may require `sane-find-scanner` or `scanimage` to be run
+#       with specific environment variables to actually capture the output.
+log_level = {{ hpaio_log_level | default(0) | int }}
+
+# log_file: Path to the log file if log_level > 0.
+# If not specified, logs may go to stdout/stderr or syslog depending on the caller.
+# Default: "" (empty string, meaning no file logging)
+log_file = {{ hpaio_log_file | default("") | string }}
+
+# ==============================================================================
+# Performance and Behavior
+# ==============================================================================
+
+# max_transfer_size: Maximum size of a single data transfer block in bytes.
+# Default: 65536 (64 KB)
+# Increasing this might improve throughput on high-speed networks but consumes more memory.
+max_transfer_size = {{ hpaio_max_transfer_size | default(65536) | int }}
+
+# use_cifs: Whether to use CIFS/SMB for scanning from network shares (experimental/legacy).
+# Default: false
+# Most modern HP devices use raw sockets (Jetdirect), not SMB.
+use_cifs = {{ hpaio_use_cifs | default(false) | lower }}

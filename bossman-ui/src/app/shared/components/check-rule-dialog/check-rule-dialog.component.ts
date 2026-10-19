@@ -9,6 +9,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { CheckRule, CheckRuleComparison, CheckRuleInput, CheckRuleScope } from '../../../core/models/monitoring.model';
 import { isStatefulMetric } from '../../metric-kind.util';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface CheckRuleDialogData {
   rule?: CheckRule;
@@ -29,7 +30,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
 @Component({
   selector: 'app-check-rule-dialog',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     ReactiveFormsModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -97,7 +98,7 @@ const COMPARISONS: { value: CheckRuleComparison; label: string }[] = [
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Save</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">Save</button>
     </mat-dialog-actions>
   `,
   styles: [

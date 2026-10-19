@@ -1,13 +1,112 @@
-# SphinxSearch indexer cron job configuration
 #
-# This template generates a crontab entry to rebuild SphinxSearch indexes daily.
-# It sources the SphinxSearch configuration and runs the indexer binary.
+# SphinxSearch Configuration Template
+# This configuration defines the data sources (SQL), indexes, indexer settings,
+# and the search daemon (searchd) behavior.
+#
 
-# Rebuild all indexes daily and notify searchd.
-# The cron job runs as the specified user, sourcing the config directory,
-# and executes the indexer binary if the start flag is set and the binary is executable.
-@daily      {{ indexer_user | default('sphinxsearch') }} . {{ sphinxsearch_config_dir | default('/etc/default/sphinxsearch') }} && if [ "$START" = "yes" ] && [ -x {{ indexer_binary | default('/usr/bin/indexer') }} ]; then {{ indexer_binary | default('/usr/bin/indexer') }} --quiet --rotate --all; fi
+source src1
+{
+    # MySQL host for the source connection.
+    type			= mysql
 
-# Example for rotating only specific indexes (usually these would be part of
-# a larger combined index).
-# */5 * * * * {{ indexer_user | default('sphinxsearch') }} [ -x {{ indexer_binary | default('/usr/bin/indexer') }} ] && {{ indexer_binary | default('/usr/bin/indexer') }} --quiet --rotate postdelta threaddelta
+    # MySQL host for the source connection.
+    sql_host		= {{ sphinxsearch_sql_host | default('localhost') }}
+
+    # MySQL user for the source connection.
+    sql_user		= {{ sphinxsearch_sql_user | default('test') }}
+
+    # MySQL password for the source connection.
+    sql_pass		= {{ sphinxsearch_sql_pass | default('') }}
+
+    # MySQL database name for the source connection.
+    sql_db			= {{ sphinxsearch_sql_db | default('test') }}
+
+    # MySQL port for the source connection.
+    sql_port		= {{ sphinxsearch_sql_port | default('3306') }}	# optional, default is 3306
+
+    # Default SQL query for the source. Fetches id, group, date, title, and content from the 'documents' table.
+    sql_query		= \
+		SELECT id, group_id, UNIX_TIMESTAMP(date_added) AS date_added, title, content \
+		FROM documents
+
+    # Integer attribute mapping for group_id.
+    sql_attr_uint		= group_id
+
+    # Timestamp attribute mapping for date_added.
+    sql_attr_timestamp	= date_added
+}
+
+index test1
+{
+    # Source to pull data from (must reference an existing 'source' block).
+    source			= src1
+
+    # Filesystem path for the test1 index.
+    path			= {{ sphinxsearch_index_test1_path | default('/var/lib/sphinxsearch/data/test1') }}
+}
+
+index testrt
+{
+    # Type of the index (rt = real-time).
+    type			= rt
+
+    # Memory limit for the real-time index.
+    rt_mem_limit		= {{ sphinxsearch_index_rt_mem_limit | default('128M') }}
+
+    # Filesystem path for the real-time index.
+    path			= {{ sphinxsearch_index_rt_path | default('/var/lib/sphinxsearch/data/testrt') }}
+
+    # Full-text field definition for 'title'.
+    rt_field		= title
+
+    # Full-text field definition for 'content'.
+    rt_field		= content
+
+    # Unsigned integer attribute for 'gid'.
+    rt_attr_uint		= gid
+}
+
+indexer
+{
+    # Memory limit for the indexer process.
+    mem_limit		= {{ sphinxsearch_indexer_mem_limit | default('128M') }}
+}
+
+searchd
+{
+    # Default listen address and port for SphinxSearch API queries.
+    listen			= {{ sphinxsearch_searchd_listen_default | default('127.0.0.1:9312') }}
+
+    # MySQL-compatible protocol listen address and port (allows MySQL clients to connect).
+    listen			= {{ sphinxsearch_searchd_listen_mysql | default('127.0.0.1:9306:mysql41') }}
+
+    # Path to the searchd log file.
+    log			= {{ sphinxsearch_searchd_log | default('/var/log/sphinxsearch/searchd.log') }}
+
+    # Path to the query log file.
+    query_log		= {{ sphinxsearch_searchd_query_log | default('/var/log/sphinxsearch/query.log') }}
+
+    # Read timeout for searchd connections (in seconds).
+    read_timeout		= {{ sphinxsearch_searchd_read_timeout | default('5') }}
+
+    # Maximum number of child processes for searchd.
+    max_children		= {{ sphinxsearch_searchd_max_children | default('30') }}
+
+    # Path to the searchd PID file.
+    pid_file		= {{ sphinxsearch_searchd_pid_file | default('/run/sphinxsearch/searchd.pid') }}
+
+    # Enable seamless index rotation.
+    seamless_rotate		= {{ sphinxsearch_searchd_seamless_rotate | default('1') }}
+
+    # Pre-open indexes on startup.
+    preopen_indexes		= {{ sphinxsearch_searchd_preopen_indexes | default('1') }}
+
+    # Unlink old index files after rotation.
+    unlink_old		= {{ sphinxsearch_searchd_unlink_old | default('1') }}
+
+    # Worker threads model for searchd (e.g., threads or forks). 'threads' is required for RT index support.
+    workers			= {{ sphinxsearch_searchd_workers | default('threads') }} # for RT to work
+
+    # Path to the binary log directory.
+    binlog_path		= {{ sphinxsearch_searchd_binlog_path | default('/var/lib/sphinxsearch/data') }}
+}

@@ -1,26 +1,29 @@
 # ==============================================================================
-# fwknop-server configuration template
+# fwknop-server daemon configuration template
 # ==============================================================================
-# This file configures the Single Packet Authorization (SPA) daemon, fwknopd.
-# fwknopd provides port-knocking functionality, allowing access to services
-# only after a specific sequence of packets (a "knock") is received.
+# This template configures the startup behavior of the fwknopd (FireWall KNock Over
+# Plain OPen) daemon. It manages whether the service starts at boot and passes
+# additional command-line arguments to the daemon.
 # ==============================================================================
 
-# -----------------------------------------------------------------------------
-# START_DAEMON
-# -----------------------------------------------------------------------------
+{% if START_DAEMON | default('no') == 'yes' %}
+# --------------------------------------------------------------------------
+# START_DAEMON: Controls whether fwknopd is started automatically at boot.
+# Schema Default: 'no'
 # Description: Set to 'yes' to start fwknopd at boot time.
-#              Set to 'no' if you manage the daemon lifecycle externally
-#              (e.g., via systemd or supervisor).
-# -----------------------------------------------------------------------------
-START_DAEMON="{{ START_DAEMON | default('no') }}"
+# --------------------------------------------------------------------------
+START_DAEMON={{ START_DAEMON | default('no') }}
+{% else %}
+# --------------------------------------------------------------------------
+# START_DAEMON: fwknopd will NOT start automatically at boot.
+# Schema Default: 'no'
+# --------------------------------------------------------------------------
+START_DAEMON={{ START_DAEMON | default('no') }}
+{% endif %}
 
-# -----------------------------------------------------------------------------
-# DAEMON_ARGS
-# -----------------------------------------------------------------------------
-# Description: Additional arguments to pass to fwknopd on startup.
-#              Common options include --override-config to specify alternative
-#              configuration files or --debug for verbose logging.
-# Example: DAEMON_ARGS="--override-config /etc/fwknop/fwknopd.conf"
-# -----------------------------------------------------------------------------
-DAEMON_ARGS="{{ DAEMON_ARGS | default('') }}"
+# --------------------------------------------------------------------------
+# DAEMON_ARGS: Additional command-line arguments passed to fwknopd on startup.
+# Schema Default: '' (empty)
+# Description: Additional arguments to pass to fwknopd on startup (e.g., --override-config path).
+# --------------------------------------------------------------------------
+DAEMON_ARGS={{ DAEMON_ARGS | default('') }}

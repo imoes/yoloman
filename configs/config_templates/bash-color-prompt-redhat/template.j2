@@ -1,0 +1,121 @@
+# ==============================================================================
+# Bash Color Prompt Configuration (RedHat/CentOS/Fedora style)
+# ==============================================================================
+# This template configures a colorful Bash prompt with directory trimming and
+# color coding. It is designed to only modify the prompt if the current PS1
+# matches standard Fedora/RHEL defaults or if forced.
+#
+# See /usr/share/doc/bash-color-prompt/README.md for full documentation.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Prompt Directory Trimming
+# ------------------------------------------------------------------------------
+# Number of path components to keep when trimming the directory in the prompt.
+# For example, if set to '3', /usr/local/bin will be shown as .../local/bin.
+# Default: 3
+{% if PROMPT_DIRTRIM is defined and PROMPT_DIRTRIM is not none and (PROMPT_DIRTRIM is number or PROMPT_DIRTRIM is boolean or PROMPT_DIRTRIM | length > 0) %}PROMPT_DIRTRIM="{{ PROMPT_DIRTRIM | default('3') }}"{% else %}# PROMPT_DIRTRIM=3{% endif %}
+
+# ------------------------------------------------------------------------------
+# Conditional Execution Block
+# ------------------------------------------------------------------------------
+# This block only executes if:
+# 1. The terminal supports color (TERM ends with "color") OR prompt_color_force is set.
+# 2. The current PS1 is the standard Fedora/RHEL default ("[\u@\h \W]\\$ ")
+#    OR the standard bare default ("\s-\v\$ ").
+#
+# This ensures we don't break custom prompt configurations.
+if [ '(' "$PS1" = "[\u@\h \W]\\$ " -o "$PS1" = "\\s-\\v\\\$ " ')' -a "${TERM: -5}" = "color" -o -n "${prompt_color_force}" ]; then
+
+    # ------------------------------------------------------------------------------
+    # Color Configuration Variables
+    # ------------------------------------------------------------------------------
+
+    # Default ANSI color code for the prompt text.
+    # This is used for the user@host and separator parts of the prompt.
+    # Common values: 32 (green), 33 (yellow), 36 (cyan).
+    # Default: 32
+    PROMPT_COLOR="${PROMPT_COLOR:-{{ PROMPT_COLOR | default('32') }}}"
+
+    # Prompt string component for user and hostname.
+    # \u = username, \h = hostname (short).
+    # Default: \u@\h
+    PROMPT_USERHOST="${PROMPT_USERHOST:-{{ PROMPT_USERHOST | default('\\u@\\h') }}}"
+
+    # Separator character between user/host and directory in the default prompt style.
+    # Default: :
+    PROMPT_SEPARATOR="${PROMPT_SEPARATOR:-{{ PROMPT_SEPARATOR | default(':') }}}"
+
+    # Prompt string component for the current working directory.
+    # \w = full path, \W = basename.
+    # Default: \w (full path)
+    PROMPT_DIRECTORY="${PROMPT_DIRECTORY:-{{ PROMPT_DIRECTORY | default('\\w') }}}"
+
+    # ------------------------------------------------------------------------------
+    # ANSI Color Escape Sequences
+    # ------------------------------------------------------------------------------
+    # These define the start and end codes for ANSI colors.
+    colorpre='\[\e['
+    colorsuf='m\]'
+    colorreset="${colorpre}0${colorsuf}"
+
+    # ------------------------------------------------------------------------------
+    # PS1 Construction
+    # ------------------------------------------------------------------------------
+    # This constructs the final PS1 string using the variables defined above.
+    # It applies colors to user/host, separator, directory, and end marker.
+    #
+    # Structure:
+    # [Color_UserHost][Separator][Color_Directory][EndMarker]
+    PS1='${PROMPT_START@P}'"${colorpre}"'${PROMPT_COLOR}'"${colorsuf}"'${PROMPT_USERHOST@P}'"${colorreset}"'${PROMPT_SEPARATOR@P}'"${colorpre}"'${PROMPT_DIR_COLOR:-${PROMPT_COLOR{{ '}}' }}'"${colorsuf}"'${PROMPT_DIRECTORY@P}'"${colorreset}"'${PROMPT_END@P}\$'"${colorreset} "
+
+    # ------------------------------------------------------------------------------
+    # Helper Function: prompt_default()
+    # ------------------------------------------------------------------------------
+    # Sets up the "modern" prompt style.
+    # Arguments:
+    #   $1: Color for the user/host part (overrides PROMPT_COLOR if set)
+    #   $2: Color for the directory part (overrides PROMPT_DIR_COLOR)
+    prompt_default() {
+        PROMPT_COLOR="$1"
+        PROMPT_DIR_COLOR="$2"
+        PROMPT_SEPARATOR='{{ PROMPT_SEPARATOR | default(':') }}'
+        PROMPT_DIRECTORY='{{ PROMPT_DIRECTORY | default('\\w') }}'
+        PROMPT_START=''
+        PROMPT_END=''
+    }
+
+    # ------------------------------------------------------------------------------
+    # Helper Function: prompt_traditional()
+    # ------------------------------------------------------------------------------
+    # Sets up the "traditional" prompt style, resembling the old-school
+    # [user@host dir]$ format.
+    # Arguments:
+    #   $1: Color for the user/host part (default: 0/white)
+    #   $2: Color for the directory part
+    prompt_traditional() {
+        PROMPT_COLOR="${1:-0}"
+        PROMPT_DIR_COLOR="$2"
+        PROMPT_SEPARATOR='{{ PROMPT_SEPARATOR_TRADITIONAL | default(' ') }}'
+        PROMPT_DIRECTORY='{{ PROMPT_DIRECTORY_TRADITIONAL | default('\\W') }}'
+        PROMPT_START='{{ PROMPT_START_TRADITIONAL | default('[') }}'
+        PROMPT_END='{{ PROMPT_END_TRADITIONAL | default(']') }}'
+    }
+
+    # ------------------------------------------------------------------------------
+    # Helper Function: prompt_default_os()
+    # ------------------------------------------------------------------------------
+    # Attempts to auto-detect colors from /etc/os-release (ANSI_COLOR).
+    # Arguments:
+    #   $1: Color for the directory part
+    prompt_default_os() {
+        eval $(grep ANSI_COLOR /etc/os-release)
+        PROMPT_COLOR="$ANSI_COLOR"
+        PROMPT_DIR_COLOR="$1"
+        PROMPT_SEPARATOR='{{ PROMPT_SEPARATOR | default(':') }}'
+        PROMPT_DIRECTORY='{{ PROMPT_DIRECTORY | default('\\w') }}'
+        PROMPT_START=''
+        PROMPT_END=''
+    }
+
+fi

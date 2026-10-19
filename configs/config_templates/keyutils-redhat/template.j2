@@ -1,0 +1,71 @@
+###############################################################################
+#
+# Copyright (C) 2005 Red Hat, Inc. All Rights Reserved.
+# Written by David Howells (dhowells@redhat)
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version
+# 2 of the License, or (at your option) any later version.
+#
+###############################################################################
+
+
+###############################################################################
+#
+# We can run programs or scripts
+# - Macro substitutions in arguments:
+#	%%...	%...
+#	%o	operation name
+#	%k	ID of key being operated upon
+#	%t	type of key being operated upon
+#	%d	description of key being operated upon
+#	%c	callout info
+#	%u	UID of requestor
+#	%g	GID of requestor
+#	%T	thread keyring of requestor (may be 0)
+#	%P	process keyring of requestor (may be 0)
+#	%S	session keyring of requestor (may be the user's default session)
+#
+################################################################################
+
+#OP	TYPE	DESCRIPTION	CALLOUT INFO	PROGRAM ARG1 ARG2 ARG3 ...
+#======	=======	===============	===============	===============================
+# Command to execute for dns_resolver key creation.
+# Uses %k for key ID. Default: /sbin/key.dns_resolver %k
+create  dns_resolver *               *               {{ dns_resolver_command | default('/sbin/key.dns_resolver %k') }}
+
+# Command to execute for negating keys.
+# Used for 'user' keys with 'debug:*' description.
+# Uses %k for key ID, %S for session keyring. Default: /bin/keyctl negate %k 30 %S
+create  user    debug:*      negate                {{ keyctl_negate_command | default('/bin/keyctl negate %k 30 %S') }}
+
+# Command to execute for rejecting keys in 'rejected' state.
+# Used for 'user' keys with 'debug:*' description and 'rejected' callout.
+# Uses %k for key ID, %c for callout, %S for session keyring. Default: /bin/keyctl reject %k 30 %c %S
+create  user    debug:*      rejected        {{ keyctl_reject_rejected_command | default('/bin/keyctl reject %k 30 %c %S') }}
+
+# Command to execute for rejecting keys in 'expired' state.
+# Used for 'user' keys with 'debug:*' description and 'expired' callout.
+# Uses %k for key ID, %c for callout, %S for session keyring. Default: /bin/keyctl reject %k 30 %c %S
+create  user    debug:*      expired         {{ keyctl_reject_expired_command | default('/bin/keyctl reject %k 30 %c %S') }}
+
+# Command to execute for rejecting keys in 'revoked' state.
+# Used for 'user' keys with 'debug:*' description and 'revoked' callout.
+# Uses %k for key ID, %c for callout, %S for session keyring. Default: /bin/keyctl reject %k 30 %c %S
+create  user    debug:*      revoked         {{ keyctl_reject_revoked_command | default('/bin/keyctl reject %k 30 %c %S') }}
+
+# Command to pipe input for debug:loop keys.
+# Used for 'user' keys with 'debug:loop:*' description.
+# Default: |/bin/cat
+create  user    debug:loop:* *              {{ cat_command | default('|/bin/cat') }}
+
+# Command to execute for debug requests.
+# Used for 'user' keys with 'debug:*' description.
+# Uses %k, %d, %c, %S. Default: /usr/share/keyutils/request-key-debug.sh %k %d %c %S
+create  user    debug:*      *               {{ request_key_debug_script_command | default('/usr/share/keyutils/request-key-debug.sh %k %d %c %S') }}
+
+# Command to execute for negating keys globally.
+# Matches any operation, type, or description.
+# Uses %k and %S. Default: /bin/keyctl negate %k 30 %S
+negate  *       *              *               {{ keyctl_negate_command | default('/bin/keyctl negate %k 30 %S') }}

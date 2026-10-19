@@ -1,0 +1,75 @@
+# Environment configuration for fakechroot.
+# This file is sourced by the shell to configure the fakechroot environment.
+# It handles PATH adjustments, command substitution mapping, and path exclusions.
+
+# ==============================================================================
+# PATH Extension
+# ==============================================================================
+# Description: Additional directories to append to PATH when chroot is not found.
+# Default: '/usr/sbin:/sbin'
+#
+# Logic: If the native `chroot` command is missing, we extend the PATH to include
+# the directories defined in `fakechroot_sbin_path`. This ensures that fakechroot
+# binaries in those directories are accessible if they were previously reachable.
+
+if ! command -v chroot >/dev/null; then
+    # Current PATH, or '/usr/bin:/bin' if empty, concatenated with the additional sbin paths.
+    # The variable fakechroot_sbin_path provides the extra directories.
+    PATH="${PATH:-/usr/bin:/bin}:{{ (fakechroot_sbin_path | default('/usr/sbin:/sbin')) }}"
+    export PATH
+fi
+
+# ==============================================================================
+# Command Substitution Mapping
+# ==============================================================================
+# Description: The base directory where fakechroot binaries are located.
+# Default: '/usr/bin'
+#
+# Logic: We iterate over the directories in the current PATH. For each directory,
+# we define a substitution for key utilities (chroot, env, ischroot, ldconfig, ldd, ldd).
+# These substitutions point to the fakechroot equivalents located in `fakechroot_bindir`.
+# This allows programs calling standard binaries to transparently use the fake chroot versions.
+
+fakechroot_chroot_env_cmd_subst=""
+for fakechroot_chroot_env_d in `echo $PATH | tr ':' ' '`; do
+    # Construct the substitution lines.
+    # We use the default filter to ensure fakechroot_bindir always has a value.
+    
+    # chroot.fakechroot
+    fakechroot_chroot_env_cmd_subst="$fakechroot_chroot_env_cmd_subst
+$fakechroot_chroot_env_d/chroot={{ (fakechroot_bindir | default('/usr/bin')) }}/chroot.fakechroot"
+    
+    # env.fakechroot
+    fakechroot_chroot_env_cmd_subst="$fakechroot_chroot_env_cmd_subst
+$fakechroot_chroot_env_d/env={{ (fakechroot_bindir | default('/usr/bin')) }}/env.fakechroot"
+    
+    # ischroot -> /bin/true (standard stub)
+    fakechroot_chroot_env_cmd_subst="$fakechroot_chroot_env_cmd_subst
+$fakechroot_chroot_env_d/ischroot=/bin/true"
+    
+    # ldconfig -> /bin/true (standard stub)
+    fakechroot_chroot_env_cmd_subst="$fakechroot_chroot_env_cmd_subst
+$fakechroot_chroot_env_d/ldconfig=/bin/true"
+    
+    # ldd.fakechroot
+    fakechroot_chroot_env_cmd_subst="$fakechroot_chroot_env_cmd_subst
+$fakechroot_chroot_env_d/ldd={{ (fakechroot_bindir | default('/usr/bin')) }}/ldd.fakechroot"
+done
+
+# Append the newly constructed substitutions to the existing FAKECHROOT_CMD_SUBST variable.
+# We use tr to convert newlines to colons to maintain the colon-separated list format.
+FAKECHROOT_CMD_SUBST="${FAKECHROOT_CMD_SUBST:+$FAKECHROOT_CMD_SUBST:}`echo \"$fakechroot_chroot_env_cmd_subst\" | tr '\012' ':'`"
+export FAKECHROOT_CMD_SUBST
+
+# ==============================================================================
+# Excluded Paths
+# ==============================================================================
+# Description: List of directories excluded from being chrooted.
+# Default: '/dev:/proc:/sys'
+#
+# Logic: Sets the FAKECHROOT_EXCLUDE_PATH environment variable. If it is not already
+# set in the environment, it defaults to the value defined in the schema.
+# This prevents fakechroot from intercepting calls to critical system paths.
+
+FAKECHROOT_EXCLUDE_PATH="${FAKECHROOT_EXCLUDE_PATH:-{{ (fakechroot_exclude_path | default('/dev:/proc:/sys')) }}}"
+export FAKECHROOT_EXCLUDE_PATH

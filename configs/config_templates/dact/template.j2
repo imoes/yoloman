@@ -15,11 +15,11 @@ version_check    {{ version_check | default('off') }}
 # Desc: Block size for compression (0 = auto)
 # Note: If the target application requires a numeric value without spaces,
 # ensure the default is emitted as a bare integer.
-block_size       {{ block_size | default(0) }}
+{% if block_size is defined and block_size is not none and (block_size is number or block_size is boolean or block_size | length > 0) %}block_size       {{ block_size | default(0) }}{% else %}#block_size      0{% endif %}
 
 # exclude_algo: default=0
 # Desc: Algorithm ID to exclude (0 = none)
-exclude_algo     {{ exclude_algo | default(0) }}
+{% if exclude_algo is defined and exclude_algo is not none and (exclude_algo is number or exclude_algo is boolean or exclude_algo | length > 0) %}exclude_algo     {{ exclude_algo | default(0) }}{% else %}#exclude_algo    0{% endif %}
 
 # use_urls: default='on'
 # Desc: Whether to enable URL-based features

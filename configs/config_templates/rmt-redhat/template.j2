@@ -1,0 +1,60 @@
+# ==============================================================================
+# RMT (Red Hat Satellite) Client Configuration
+# ==============================================================================
+# This configuration file controls the behavior of the `rmt` command and related
+# Satellite/Spacewalk client tools on Red Hat Enterprise Linux systems.
+#
+# Source: https://access.redhat.com/documentation/en-us/red_hat_satellite/
+# ==============================================================================
+
+[main]
+# The hostname or IP address of the Red Hat Satellite or Spacewalk server.
+# This is the primary endpoint for all RMT operations (sync, register, update).
+server_url = {{ rmt_server_url | default('satellite.example.com') }}
+
+# The port number for the HTTP(S) connection to the Satellite server.
+# If server_url includes a scheme and port, this may be ignored or used as fallback.
+port = {{ rmt_port | default('443') }}
+
+# Protocol scheme (http or https).
+# Defaults to https for security compliance in enterprise environments.
+protocol = {{ rmt_protocol | default('https') }}
+
+# Path to the CA certificate file for verifying the Satellite server's identity.
+# If empty, system-wide trust stores are used (not recommended for strict security).
+ca_cert = {{ rmt_ca_cert_path | default('/etc/rhsm/ca/redhat-uep.pem') }}
+
+# Path to the client certificate for mutual TLS authentication, if required.
+client_cert = {{ rmt_client_cert_path | default('/etc/rhsm/client-cert.pem') }}
+
+# Path to the client private key corresponding to the client certificate.
+client_key = {{ rmt_client_key_path | default('/etc/rhsm/client-key.pem') }}
+
+# Enable verbose logging for debugging connection issues.
+# Set to true during troubleshooting; false for production.
+verbose = {{ rmt_verbose | default('false') }}
+
+# Timeout in seconds for network operations.
+connect_timeout = {{ rmt_timeout | default('30') }}
+
+[repos]
+# Path to the local repository metadata cache directory.
+# Prevents re-downloading metadata on every sync if unchanged.
+cache_dir = {{ rmt_repo_cache_dir | default('/var/cache/rmt/repos') }}
+
+# Maximum age in seconds of cached repository metadata before forcing a refresh.
+cache_max_age = {{ rmt_repo_cache_max_age | default('86400') }}
+
+[log]
+# Path to the main RMT client log file.
+# Ensure the directory exists and the user running rmt has write permissions.
+log_file = {{ rmt_log_file | default('/var/log/rmt/rmt.log') }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+log_level = {{ rmt_log_level | default('INFO') }}
+
+# Whether to also log to the system journal (syslog).
+log_to_syslog = {{ rmt_log_syslog | default('true') }}
+
+# Facility for syslog messages (e.g., local0, daemon).
+syslog_facility = {{ rmt_log_facility | default('local0') }}

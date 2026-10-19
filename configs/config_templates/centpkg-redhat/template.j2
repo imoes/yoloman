@@ -1,0 +1,76 @@
+# Configuration for centpkg (CentOS Packaging Tool)
+# This template configures source lookaside storage, distgit access,
+# Koji integration, and Module Build Service (MBS) connection details.
+
+[centpkg]
+
+# Base URL for source lookaside storage.
+lookaside = {{ lookaside_url | default('https://sources.stream.centos.org/sources') }}
+
+# Hash algorithm used for lookaside sources.
+lookasidehash = {{ lookaside_hash | default('sha512') }}
+
+# URL for the lookaside upload CGI script.
+lookaside_cgi = {{ lookaside_cgi_url | default('https://sources.stream.rdu2.redhat.com/lookaside/upload.cgi') }}
+
+# Whether to use namespaced distgit repositories.
+distgit_namespaced = {{ distgit_namespaced | default('True') }}
+
+# Comma-separated list of distgit namespaces.
+distgit_namespaces = {{ distgit_namespaces | default('rpms') }}
+
+# Base URL for SSH access to git repositories.
+# Note: The %(repo)s placeholder is literal to git/centpkg, not a Jinja variable.
+gitbaseurl = {{ gitbaseurl | default('git+ssh://git@gitlab.com/redhat/centos-stream/%(repo)s.git') }}
+
+# Base URL for anonymous git access.
+# Note: The %(repo)s placeholder is literal to git/centpkg, not a Jinja variable.
+anongiturl = {{ anongiturl | default('https://gitlab.com/redhat/centos-stream/%(repo)s.git') }}
+
+# Regular expression to identify buildable branches.
+branchre = {{ branchre | default('.+\\d$|.+\\d-.+|master$') }}
+
+# Koji profile name to use for builds.
+kojiprofile = {{ kojiprofile | default('stream') }}
+
+# Command to invoke the Koji client.
+build_client = {{ build_client | default('koji -p stream') }}
+
+# Comma-separated list of Kerberos realms.
+kerberos_realms = {{ kerberos_realms | default('REDHAT.COM,IPA.REDHAT.COM') }}
+
+# Whether lookaside storage is namespaced.
+lookaside_namespaced = {{ lookaside_namespaced | default('True') }}
+
+git_excludes =
+  i386/
+  i686/
+  x86_64/
+  ppc/
+  ppc64/
+  ia64/
+  mips/
+  arm/
+  noarch/
+  /*.src.rpm
+  /build*.log
+  /.build-*.log
+  /*-build/
+  results_*/
+  clog
+
+[centpkg.distgit]
+
+# Base URL for the distgit API.
+apibaseurl = {{ apibaseurl | default('https://gitlab.com') }}
+
+# Authentication token for the distgit API.
+token = {{ token | default('') }}
+
+[centpkg.mbs]
+
+# Authentication method for Module Build Service.
+auth_method = {{ mbs_auth_method | default('kerberos') }}
+
+# Base URL for the Module Build Service API.
+api_url = {{ mbs_api_url | default('https://mbs.stream.rdu2.redhat.com/module-build-service/1/') }}

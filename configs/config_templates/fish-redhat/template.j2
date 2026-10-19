@@ -1,0 +1,60 @@
+# ==============================================================================
+# fish-shell: Red Hat System-wide Configuration Template
+# ==============================================================================
+# This template configures system-wide settings for the fish shell on Red Hat
+# based distributions. It serves as the base configuration loaded by all fish
+# instances, unless overridden by user-specific configs in $XDG_CONFIG_HOME/fish.
+#
+# Directory structure for overrides:
+# - System-wide: /etc/fish/config.fish (this file)
+# - User-specific: $XDG_CONFIG_HOME/fish/config.fish
+# - Drop-in snippets: /etc/fish/conf.d/*.fish
+# - User drop-ins: $XDG_CONFIG_HOME/fish/conf.d/*.fish
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Variable: xdg_config_home
+# Description: The XDG_CONFIG_HOME environment variable, typically used to determine
+#              the user configuration directory path.
+# ------------------------------------------------------------------------------
+# If XDG_CONFIG_HOME is not set, fish defaults to $HOME/.config.
+# This variable reference allows users to customize the path if needed.
+{% set xdg_config_home_val = xdg_config_home | default('$XDG_CONFIG_HOME') %}
+
+# The path to the user's configuration directory.
+# Note: In fish, this is often handled by the shell itself, but we document
+# the intended override path here for clarity.
+# set -g XDG_CONFIG_HOME {{ xdg_config_home_val }}
+
+# ------------------------------------------------------------------------------
+# General Behavior
+# ------------------------------------------------------------------------------
+# This file is executed by every fish instance.
+# Use `status` commands to conditionally apply settings for login or interactive shells.
+
+# Example: Settings only for login shells
+# if status is-login
+#     # Add custom login paths here
+# end
+
+# Example: Settings only for interactive shells
+# if status is-interactive
+#     # Add interactive prompts or colors here
+# end
+
+# ------------------------------------------------------------------------------
+# Configuration Snippets Directory (conf.d)
+# ------------------------------------------------------------------------------
+# To include modular configuration, place .fish files in the system conf.d directory:
+#    /etc/fish/conf.d/*.fish
+#
+# Users can override these snippets by placing files with the same name in their
+# local conf.d directory:
+#    {{ xdg_config_home_val }}/fish/conf.d/*.fish
+#
+# The system conf.d files are loaded first. User files in $XDG_CONFIG_HOME/fish/conf.d
+# are loaded later, allowing users to override or extend system settings.
+
+# Note: No default system-wide commands are inserted here to allow flexibility.
+# Administrators should add specific system-wide commands (e.g., PATH modifications)
+# directly to this file or via conf.d snippets.

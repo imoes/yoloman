@@ -1,90 +1,55 @@
-# ============================================================================
-# Package: fai-nfsroot
-# Description: FAI (Fully Automatic Installation) NFS root environment setup script.
-# This template generates an init script that handles the abort/cleanup phase
-# of a FAI installation over NFS. It ensures clean unmounting and reboots
-# the target system.
-#
-# Since the schema for `fai-nfsroot` is empty in the provided context,
-# this template renders as a static, self-documenting init script.
-# It does not consume variables for network configuration or credentials
-# as those are typically handled by the FAI master or the boot process
-# (PXE/IPXE) before the NFS root is mounted.
-#
-# Usage: This script is intended to be installed as `/etc/init.d/fai-abort`
-# or similar, triggered when an installation needs to be forcefully stopped.
-# ============================================================================
+// This file is used in the chroot environment from install_packages
+//
+// Configuration for FAI (Fully Automatic Installation) to control
+// the behavior of apt-get during the NFS root image creation.
+//
+// The APT block maps directly to apt-get command-line options.
+// Boolean options are passed as "true" or "false" strings.
 
-#!/bin/sh
+APT
+{
+    // Options for apt-get
+    Get
+    {
+        // Whether apt-get should automatically assume yes for prompts.
+        // Equivalent to: apt-get -y
+        // Default: true
+        Assume-Yes "{{ assume_yes | default(true) }}";
 
-### BEGIN INIT INFO
-# Provides:          fai-abort
-# Required-Start:    $remote_fs
-# Required-Stop:
-# Default-Start:     2 3 4 5
-# Default-Stop:
-# Short-Description: Reboot FAI in a clean manner
-# Description:       Ensures that the FAI installation process is aborted
-#                    cleanly by unmounting NFS shares and offering a shell
-#                    for debugging before rebooting.
-### END INIT INFO
+        // Whether apt-get should continue even if some packages are missing.
+        // Equivalent to: apt-get --fix-missing
+        // Default: true
+        Fix-Missing "{{ fix_missing | default(true) }}";
 
-# -----------------------------------------------------------------------------
-# Control block for init system compatibility (SysVinit style)
-# -----------------------------------------------------------------------------
-case "$1" in
-    start)
-        # Starting the abort service is a no-op; abort is event-driven.
-        ;;
-    stop)
-        # Stopping is also a no-op; the script executes immediately on invocation.
-        ;;
-    restart)
-        # Restarting implies running the abort sequence again.
-        ;;
-    force-reload)
-        # No state to reload.
-        ;;
-esac
+        // Whether apt-get should show packages that are upgraded.
+        // Equivalent to: apt-get --show-upgraded
+        // Default: true
+        Show-Upgraded "{{ show_upgraded | default(true) }}";
 
-# -----------------------------------------------------------------------------
-# Abort Sequence
-# -----------------------------------------------------------------------------
+        // Whether apt-get should purge packages, removing config files as well.
+        // Equivalent to: apt-get --purge
+        // Default: true
+        Purge "{{ purge | default(true) }}";
 
-# Notify the user that the installation has been aborted.
-echo FAI: installation aborted.
+        // Whether apt-get should clean up the package lists.
+        // Equivalent to: apt-get --clean
+        // Default: true
+        List-Cleanup "{{ list_cleanup | default(true) }}";
 
-# Provide instructions for the user to access the system for debugging.
-echo "Hit <ENTER> to obtain a shell"
+        // Whether apt-get should reinstall packages.
+        // Equivalent to: apt-get --reinstall
+        // Default: false
+        ReInstall "{{ reinstall | default(false) }}";
+    };
+};
 
-# Suggest the standard command to reboot the target via the FAI client.
-echo reboot with: faireboot
-
-# Provide an alternative manual reboot method if `faireboot` is unavailable.
-echo or after a logout
-
-# Open a virtual console (VT) running a bash shell for interactive debugging.
-# -c1: console 1
-# -f: force
-# -w: wait for the command to finish
-openvt -c1 -f -w -- /bin/bash
-
-# -----------------------------------------------------------------------------
-# Cleanup and Reboot
-# -----------------------------------------------------------------------------
-
-# Return to the root filesystem.
-cd /
-
-# Unmount all automatically mounted filesystems (including the NFS root).
-# -a: all
-# -r: read-only (ensure no data is lost during unmount)
-umount -ar
-
-# Force immediate reboot.
-# -d: don't sync (we already unmounted)
-# -f: force
-# -i: don't restart networking
-# -n: don't sync (redundant with -d, but safe)
-# -i: ignore busy devices
-reboot -dfi
+// Dpkg configuration block
+// Ensures that when configuration files are updated, the default
+// action is to keep the current configuration if no specific
+// override is provided, preventing interactive prompts during automation.
+DPkg
+{
+    Options {
+        "--force-confdef";
+    };
+};

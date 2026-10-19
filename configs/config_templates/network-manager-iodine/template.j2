@@ -1,34 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- D-Bus policy configuration for NetworkManager iodine plugin.
-     This file defines which users/processes may own or communicate with
-     the iodine plugin's D-Bus service name. -->
+<!--
+  D-Bus Policy Configuration for NetworkManager-iodine Plugin
+
+  This file defines the D-Bus access policies for the iodine plugin.
+  It restricts ownership and messaging to the root user only, ensuring
+  that only privileged processes can interact with the NetworkManager
+  iodine interface.
+-->
 <!DOCTYPE busconfig PUBLIC
- "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
-    <!--
-      Policy for the root user: allow root to own the service
-      and send messages to it.
-    -->
-    <policy user="root">
-        <!--
-          dbus_service_name: The D-Bus service name owned and used
-          by the NetworkManager-iodine plugin.
-        -->
-        <allow own="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
-        <allow send_destination="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
-    </policy>
+	<!--
+	  Policy for root user:
+	  Allows the root user to own the bus name and send messages to it.
+	-->
+	<policy user="root">
+		<!--
+		  Allow root to own the bus service name.
+		  Default: org.freedesktop.NetworkManager.iodine
+		-->
+		<allow own="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
+		
+		<!--
+		  Allow root to send messages to the bus service name.
+		  Default: org.freedesktop.NetworkManager.iodine
+		-->
+		<allow send_destination="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
+	</policy>
 
-    <!--
-      Default policy for all other users: deny ownership and
-      destination access to prevent unauthorized use.
-    -->
-    <policy context="default">
-        <!--
-          dbus_service_name: The D-Bus service name owned and used
-          by the NetworkManager-iodine plugin.
-        -->
-        <deny own="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
-        <deny send_destination="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
-    </policy>
+	<!--
+	  Default policy (applies to all other users):
+	  Denies ownership and messaging to prevent unauthorized access.
+	-->
+	<policy context="default">
+		<!--
+		  Deny other users from owning the bus service name.
+		  Default: org.freedesktop.NetworkManager.iodine
+		-->
+		<deny own="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
+		
+		<!--
+		  Deny other users from sending messages to the bus service name.
+		  Default: org.freedesktop.NetworkManager.iodine
+		-->
+		<deny send_destination="{{ dbus_service_name | default('org.freedesktop.NetworkManager.iodine') }}"/>
+	</policy>
 </busconfig>

@@ -1,0 +1,36 @@
+# System-wide GDB initialization file.
+# This template dynamically loads all .gdb and .py scripts from the
+# GDB initialization directory, allowing modular configuration of
+# GDB behavior (e.g., pretty-printers, custom commands).
+#
+# NOTE: GDB's `source` command does not support globbing patterns directly
+# in the initialization file. Therefore, this template generates explicit
+# `source` commands for every file found in the directory.
+
+{% set gdbinit_d_path = '/etc/gdbinit.d' %}
+python
+import glob
+import os
+
+# Define the directory path for GDB init scripts
+# Defaulting to the standard Red Hat location if not specified by schema
+init_dir = '{{ gdbinit_d_path | default("/etc/gdbinit.d") }}'
+
+# Ensure the directory exists before trying to list files
+if os.path.isdir(init_dir):
+    # glob.iglob is not available in python-2.4 (RHEL-5), so we use glob.glob.
+    # We iterate over .gdb files first, then .py files to ensure order of execution
+    # if dependencies exist between them (though typically they are independent).
+
+    # Load GDB command scripts (.gdb extension)
+    # These are executed as if typed directly into the GDB console.
+    # Sorting ensures deterministic load order.
+    for f in sorted(glob.glob(os.path.join(init_dir, '*.gdb'))):
+        gdb.execute('source ' + f)
+
+    # Load Python helper scripts (.py extension)
+    # These can define pretty-printers, custom commands, or helper functions
+    # for use in subsequent .gdb files or at the GDB prompt.
+    for f in sorted(glob.glob(os.path.join(init_dir, '*.py'))):
+        gdb.execute('source ' + f)
+end

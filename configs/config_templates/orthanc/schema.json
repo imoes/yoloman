@@ -1,0 +1,567 @@
+{
+  "name": {
+    "type": "string",
+    "default": "Orthanc",
+    "description": "The logical name of this instance of Orthanc."
+  },
+  "storage_directory": {
+    "type": "string",
+    "default": "/var/lib/orthanc/db-v6",
+    "description": "Path to the directory that holds the heavyweight files (i.e. the raw DICOM instances)."
+  },
+  "index_directory": {
+    "type": "string",
+    "default": "/var/lib/orthanc/db-v6",
+    "description": "Path to the directory that holds the SQLite index."
+  },
+  "storage_compression": {
+    "type": "string",
+    "default": "false",
+    "description": "Enable the transparent compression of the DICOM instances."
+  },
+  "maximum_storage_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size of the storage in MB (a value of \"0\" indicates no limit on the storage size)."
+  },
+  "maximum_patient_count": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of patients that can be stored at a given time in the storage."
+  },
+  "maximum_storage_mode": {
+    "type": "string",
+    "default": "Recycle",
+    "description": "Action to take when the maximum storage is reached.",
+    "enum": [
+      "Recycle",
+      "Reject"
+    ]
+  },
+  "maximum_storage_cache_size": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum size of the storage cache in MB."
+  },
+  "lua_heartbeat_period": {
+    "type": "number",
+    "default": 0,
+    "description": "The period (in seconds) between 2 calls of the \"OnHeartBeat\" lua callback."
+  },
+  "plugins_path": {
+    "type": "string",
+    "default": "/usr/share/orthanc/plugins/",
+    "description": "Path to the directory of plugins to be loaded."
+  },
+  "concurrent_jobs": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of processing jobs that are simultaneously running at any given time."
+  },
+  "jobs_engine_threads_count_resource_modification": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of threads used to execute ResourceModification jobs."
+  },
+  "http_server_enabled": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable the HTTP server."
+  },
+  "orthanc_explorer_enabled": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable/disable the Orthanc Explorer Web user interface."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8042,
+    "description": "HTTP port for the REST services and for the GUI."
+  },
+  "http_describe_errors": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable/disable JSON error messages in HTTP answers."
+  },
+  "http_compression_enabled": {
+    "type": "string",
+    "default": "false",
+    "description": "Enable HTTP compression."
+  },
+  "webdav_enabled": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable the publication of the content of the Orthanc server as a WebDAV share."
+  },
+  "webdav_delete_allowed": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether to allow deletions through the WebDAV share."
+  },
+  "webdav_upload_allowed": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to allow uploads through the WebDAV share."
+  },
+  "dicom_server_enabled": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable the DICOM server."
+  },
+  "dicom_aet": {
+    "type": "string",
+    "default": "ORTHANC",
+    "description": "The DICOM Application Entity Title."
+  },
+  "dicom_check_called_aet": {
+    "type": "string",
+    "default": "false",
+    "description": "Check whether the called AET corresponds to the AET of Orthanc."
+  },
+  "dicom_port": {
+    "type": "number",
+    "default": 4242,
+    "description": "The DICOM port."
+  },
+  "default_encoding": {
+    "type": "string",
+    "default": "Latin1",
+    "description": "The default encoding assumed for DICOM files without SpecificCharacterSet DICOM tag.",
+    "enum": [
+      "Ascii",
+      "Utf8",
+      "Latin1",
+      "Latin2",
+      "Latin3",
+      "Latin4",
+      "Latin5",
+      "Cyrillic",
+      "Windows1251",
+      "Arabic",
+      "Greek",
+      "Hebrew",
+      "Thai",
+      "Japanese",
+      "Chinese",
+      "JapaneseKanji",
+      "Korean",
+      "SimplifiedChinese"
+    ]
+  },
+  "accepted_transfer_syntaxes": {
+    "type": "string",
+    "default": "1.2.840.10008.1.*",
+    "description": "The transfer syntaxes that are accepted by Orthanc C-STORE SCP (wildcards allowed)."
+  },
+  "unknown_sop_class_accepted": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether Orthanc accepts to act as C-STORE SCP for unknown storage SOP classes."
+  },
+  "dicom_scp_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) after which DICOM associations are closed by the Orthanc SCP."
+  },
+  "remote_access_allowed": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether remote hosts can connect to the HTTP server."
+  },
+  "ssl_enabled": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether or not SSL is enabled."
+  },
+  "ssl_certificate": {
+    "type": "string",
+    "default": "certificate.pem",
+    "description": "Path to the SSL certificate used by the HTTP server."
+  },
+  "ssl_minimum_protocol_version": {
+    "type": "number",
+    "default": 4,
+    "description": "Sets the minimum accepted SSL protocol version for the HTTP server."
+  },
+  "ssl_verify_peers": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether or not peer client certificates shall be checked."
+  },
+  "ssl_trusted_client_certificates": {
+    "type": "string",
+    "default": "trustedClientCertificates.pem",
+    "description": "Path to a file containing the concatenation of the client SSL certificate(s)."
+  },
+  "dicom_tls_enabled": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether DICOM TLS is enabled in the Orthanc SCP."
+  },
+  "dicom_tls_remote_certificate_required": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether Orthanc rejects DICOM TLS connections from modalities that do not provide a certificate."
+  },
+  "dicom_tls_minimum_protocol_version": {
+    "type": "number",
+    "default": 0,
+    "description": "Sets the minimum accepted TLS protocol version for the DICOM server."
+  },
+  "dicom_always_allow_echo": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether the Orthanc SCP allows incoming C-ECHO requests from unknown modalities."
+  },
+  "dicom_always_allow_store": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether the Orthanc SCP allows incoming C-STORE requests from unknown modalities."
+  },
+  "dicom_always_allow_find": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether the Orthanc SCP allows incoming C-FIND requests from unknown modalities."
+  },
+  "dicom_always_allow_find_worklist": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether the Orthanc SCP allows incoming C-FIND requests for worklists from unknown modalities."
+  },
+  "dicom_always_allow_get": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether the Orthanc SCP allows incoming C-GET requests from unknown modalities."
+  },
+  "dicom_always_allow_move": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether the Orthanc SCP allows incoming C-MOVE requests from unknown modalities."
+  },
+  "dicom_check_modality_host": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether Orthanc checks the IP/hostname address of the remote modality."
+  },
+  "dicom_modalities_in_database": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether to store the DICOM modalities in the Orthanc database instead of in this configuration file."
+  },
+  "dicom_echo_checks_find": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether the C-ECHO SCU is automatically followed by a C-FIND SCU."
+  },
+  "dicom_default_retrieve_method": {
+    "type": "string",
+    "default": "C-MOVE",
+    "description": "Whether Orthanc uses C-MOVE or C-GET to retrieve a resource after a C-Find.",
+    "enum": [
+      "C-MOVE",
+      "C-GET"
+    ]
+  },
+  "dicom_scu_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) after which DICOM associations are considered closed by the Orthanc SCU."
+  },
+  "dicom_scu_preferred_transfer_syntax": {
+    "type": "string",
+    "default": "1.2.840.10008.1.2.1",
+    "description": "Preferred transfer syntax to transcode an instance if the remote modality doesn't support the original syntax."
+  },
+  "dicom_threads_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of threads that are used by the embedded DICOM server."
+  },
+  "orthanc_peers_in_database": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether to store the Orthanc peers in the Orthanc database instead of in this configuration file."
+  },
+  "http_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "Parameters of the HTTP proxy to be used by Orthanc."
+  },
+  "http_verbose": {
+    "type": "string",
+    "default": "false",
+    "description": "If set to \"true\", debug messages from libcurl will be issued."
+  },
+  "http_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Set the timeout for HTTP requests issued by Orthanc (in seconds)."
+  },
+  "https_verify_peers": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable the verification of the peers certificates during HTTPS requests."
+  },
+  "https_ca_certificates": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the CA certificates to validate peers in HTTPS requests."
+  },
+  "stable_age": {
+    "type": "number",
+    "default": 60,
+    "description": "Number of seconds without receiving any instance before a patient, a study or a series is considered as stable."
+  },
+  "strict_aet_comparison": {
+    "type": "string",
+    "default": "false",
+    "description": "Enable case-sensitive matching for AETs."
+  },
+  "store_md5_for_attachments": {
+    "type": "string",
+    "default": "true",
+    "description": "Compute and store the MD5 of the DICOM files."
+  },
+  "limit_find_results": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of results for a single C-FIND request at the Patient, Study or Series level."
+  },
+  "limit_find_instances": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of results for a single C-FIND request at the Instance level."
+  },
+  "log_exported_resources": {
+    "type": "string",
+    "default": "false",
+    "description": "Log the resources that are exported to other DICOM modalities or Orthanc peers."
+  },
+  "keep_alive": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable or disable HTTP Keep-Alive."
+  },
+  "keep_alive_timeout": {
+    "type": "number",
+    "default": 1,
+    "description": "Defines the Keep-Alive timeout in seconds."
+  },
+  "tcp_no_delay": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable or disable Nagle's algorithm."
+  },
+  "http_threads_count": {
+    "type": "number",
+    "default": 50,
+    "description": "Number of threads that are used by the embedded HTTP server."
+  },
+  "store_dicom": {
+    "type": "string",
+    "default": "true",
+    "description": "If set to \"false\", Orthanc will run in index-only mode."
+  },
+  "dicom_association_close_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of seconds of inactivity to wait before automatically closing a DICOM association used by Lua."
+  },
+  "query_retrieve_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of query/retrieve DICOM requests that are maintained by Orthanc."
+  },
+  "case_sensitive_pn": {
+    "type": "string",
+    "default": "false",
+    "description": "Enable case-sensitive match for PN value representation."
+  },
+  "load_private_dictionary": {
+    "type": "string",
+    "default": "true",
+    "description": "If set to \"false\", Orthanc will not load its default dictionary of private tags."
+  },
+  "synchronous_c_move": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to run DICOM C-MOVE operations synchronously."
+  },
+  "jobs_history_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of completed jobs that are kept in memory."
+  },
+  "save_jobs": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to save the jobs into the Orthanc database."
+  },
+  "overwrite_instances": {
+    "type": "string",
+    "default": "false",
+    "description": "Specifies how Orthanc reacts when it receives a DICOM instance whose SOPInstanceUID is already stored."
+  },
+  "media_archive_size": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum number of ZIP/media archives that are maintained by Orthanc."
+  },
+  "storage_access_on_find": {
+    "type": "string",
+    "default": "Always",
+    "description": "Performance setting to specify how Orthanc accesses the storage area during find operations.",
+    "enum": [
+      "Always",
+      "Never"
+    ]
+  },
+  "metrics_enabled": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether Orthanc monitors its metrics."
+  },
+  "execute_lua_enabled": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether calls to URI \"/tools/execute-script\" is enabled."
+  },
+  "rest_api_write_to_file_system_enabled": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether the REST API can write to the filesystem."
+  },
+  "http_request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Set the timeout while serving HTTP requests by the embedded Web server, in seconds."
+  },
+  "default_private_creator": {
+    "type": "string",
+    "default": "",
+    "description": "Set the default private creator that is used by Orthanc when it looks for a private tag."
+  },
+  "storage_commitment_reports_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of storage commitment reports to be kept in memory."
+  },
+  "transcode_dicom_protocol": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether Orthanc transcodes DICOM files to an uncompressed transfer syntax over the DICOM protocol."
+  },
+  "builtin_decoder_transcoder_order": {
+    "type": "string",
+    "default": "After",
+    "description": "Specifies whether the built-in decoder/transcoder of Orthanc is applied before or after the plugins.",
+    "enum": [
+      "Before",
+      "After"
+    ]
+  },
+  "ingest_transcoding_of_uncompressed": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether ingest transcoding is applied to incoming DICOM instances that have an uncompressed transfer syntax."
+  },
+  "ingest_transcoding_of_compressed": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether ingest transcoding is applied to incoming DICOM instances that have a compressed transfer syntax."
+  },
+  "dicom_lossy_transcoding_quality": {
+    "type": "number",
+    "default": 90,
+    "description": "The default compression level that is used when transcoding to one of the lossy/JPEG transfer syntaxes."
+  },
+  "sync_storage_area": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether \"fsync()\" is called after each write to the storage area."
+  },
+  "malloc_arena_max": {
+    "type": "number",
+    "default": 5,
+    "description": "Call mallopt(M_ARENA_MAX, ...) while starting Orthanc."
+  },
+  "deidentify_logs": {
+    "type": "string",
+    "default": "true",
+    "description": "Deidentify/anonymize the contents of the logs."
+  },
+  "deidentify_logs_dicom_version": {
+    "type": "string",
+    "default": "2023b",
+    "description": "The DICOM standard to follow for the deidentification/anonymization of the query contents.",
+    "enum": [
+      "2021b",
+      "2023b"
+    ]
+  },
+  "maximum_pdu_length": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum length of the PDU (Protocol Data Unit) in the DICOM network protocol, expressed in bytes."
+  },
+  "check_revisions": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether Orthanc protects the modification of metadata and attachments using revisions."
+  },
+  "synchronous_zip_stream": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether Orthanc streams ZIP archive/media to the HTTP client."
+  },
+  "zip_loader_threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Default number of loader threads when generating Zip archive/media."
+  },
+  "warnings_w001_tags_being_read_from_storage": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W001: TagsBeingReadFromStorage."
+  },
+  "warnings_w002_inconsistent_dicom_tags_in_db": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W002: InconsistentDicomTagsInDb."
+  },
+  "warnings_w003_decoder_failure": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W003: DecoderFailure."
+  },
+  "warnings_w004_no_main_dicom_tags_signature": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W004: NoMainDicomTagsSignature."
+  },
+  "warnings_w005_requesting_tag_from_lower_resource_level": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W005: RequestingTagFromLowerResourceLevel."
+  },
+  "warnings_w006_requesting_tag_from_meta_header": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W006: RequestingTagFromMetaHeader."
+  },
+  "warnings_w007_missing_requested_tags_not_read_from_disk": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable warning W007: MissingRequestedTagsNotReadFromDisk."
+  },
+  "read_only": {
+    "type": "string",
+    "default": "false",
+    "description": "Configure Orthanc in read only mode."
+  },
+  "maximum_concurrent_dcmtk_transcoders": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of DCMTK transcoders that are simultaneously running at any given time."
+  }
+}

@@ -1,71 +1,64 @@
-# For information about configuration values that can be set in this file see:
-#
-#   https://docs.mopidy.com/en/latest/config/
-#
-# Run `sudo mopidyctl config` to see the current effective config, based on
-# both defaults and this configuration file.
+# mopidy.conf — https://docs.mopidy.com/en/latest/config/ . Only keys Mopidy knows; a key is written only when
+# set, a section only when one of its keys is (the shipped file sets nothing). The earlier template invented keys
+# (media_dir, allowed_extensions, cors_allowed_origins, auth) — Mopidy disabled the extensions and exited.
 
-
-[core]
-core_max_history_size = {{ core_max_history_size }}
-
-[logging]
-config_file = /etc/mopidy/logging.conf
-verbosity = 0
-format = %(levelname)-8s [%(threadName)s] %(name)s[%(process)d] %(message)s
-color = true
-
-[file]
-enabled = {{ file_enabled | lower }}
-media_dir = {{ file_media_dir }}
-allowed_extensions = {{ file_allowed_extensions | join(',') }}
-metadata_timeout = 3
-
-[http]
-enabled = {{ http_enabled | lower }}
-hostname = {{ http_hostname }}
-port = {{ http_port }}
-cors_allowed_origins = {{ http_allowed_origins | join(',') }}
-auth =
-static_dir =
-zeroconf = Mopidy HTTP server on $HOSTNAME
-allowed_media_types =
-
-[mpd]
-enabled = {{ mpd_enabled | lower }}
-hostname = {{ mpd_hostname }}
-port = {{ mpd_port }}
-password = {{ mpd_password }}
-max_connections = 20
-connection_timeout = 60
-ipv6 = true
-
-[m3u]
-enabled = {{ library_backend == 'm3u' }}
-dir = {{ local_media_dir }}
-
-[local]
-enabled = {{ local_enabled | lower }}
-media_dir = {{ local_media_dir }}
-speculative_cache_size = 32
-scan_timeout = {{ local_scan_timeout }}
-scan_flush_threshold = {{ local_scan_flush_threshold }}
-scan_ignore_patterns = {{ local_scan_ignore_patterns | join(',') }}
-
-[local-images]
-enabled = {{ local_images_enabled | lower }}
-search_dirs = {{ local_images_search_dirs | join(',') }}
-
-[webstats]
-enabled = {{ webstats_enabled | lower }}
-
-[spotify]
-enabled = {{ spotify_enabled | lower }}
-username = {{ spotify_username }}
-password = {{ spotify_password }}
-client_id = {{ spotify_client_id }}
-client_secret = {{ spotify_client_secret }}
-bitrate = 160
-volume_normalization = true
-cache_dir = /var/cache/mopidy/spotify
-backend_timeout = 5
+{% if (core_max_tracklist_length is defined and core_max_tracklist_length is not none and (core_max_tracklist_length is number or core_max_tracklist_length is boolean or core_max_tracklist_length | length > 0)) or (core_cache_dir is defined and core_cache_dir is not none and (core_cache_dir is number or core_cache_dir is boolean or core_cache_dir | length > 0)) or (core_data_dir is defined and core_data_dir is not none and (core_data_dir is number or core_data_dir is boolean or core_data_dir | length > 0)) %}[core]
+{# Maximum number of tracks in the tracklist. #}
+{% if core_max_tracklist_length is defined and core_max_tracklist_length is not none and (core_max_tracklist_length is number or core_max_tracklist_length is boolean or core_max_tracklist_length | length > 0) %}max_tracklist_length = {{ core_max_tracklist_length }}
+{% endif %}
+{# Directory for cache files. #}
+{% if core_cache_dir is defined and core_cache_dir is not none and (core_cache_dir is number or core_cache_dir is boolean or core_cache_dir | length > 0) %}cache_dir = {{ core_cache_dir }}
+{% endif %}
+{# Directory for persistent data. #}
+{% if core_data_dir is defined and core_data_dir is not none and (core_data_dir is number or core_data_dir is boolean or core_data_dir | length > 0) %}data_dir = {{ core_data_dir }}
+{% endif %}
+{% endif %}
+{% if (logging_verbosity is defined and logging_verbosity is not none and (logging_verbosity is number or logging_verbosity is boolean or logging_verbosity | length > 0)) %}[logging]
+{# Log verbosity (-1 … 4). #}
+{% if logging_verbosity is defined and logging_verbosity is not none and (logging_verbosity is number or logging_verbosity is boolean or logging_verbosity | length > 0) %}verbosity = {{ logging_verbosity }}
+{% endif %}
+{% endif %}
+{% if (audio_output is defined and audio_output is not none and (audio_output is number or audio_output is boolean or audio_output | length > 0)) or (audio_mixer_volume is defined and audio_mixer_volume is not none and (audio_mixer_volume is number or audio_mixer_volume is boolean or audio_mixer_volume | length > 0)) %}[audio]
+{# GStreamer audio sink, e.g. autoaudiosink or alsasink. #}
+{% if audio_output is defined and audio_output is not none and (audio_output is number or audio_output is boolean or audio_output | length > 0) %}output = {{ audio_output }}
+{% endif %}
+{# Initial volume (0–100). #}
+{% if audio_mixer_volume is defined and audio_mixer_volume is not none and (audio_mixer_volume is number or audio_mixer_volume is boolean or audio_mixer_volume | length > 0) %}mixer_volume = {{ audio_mixer_volume }}
+{% endif %}
+{% endif %}
+{% if (file_media_dirs is defined and file_media_dirs is not none and (file_media_dirs is number or file_media_dirs is boolean or file_media_dirs | length > 0)) or (file_excluded_file_extensions is defined and file_excluded_file_extensions is not none and (file_excluded_file_extensions is number or file_excluded_file_extensions is boolean or file_excluded_file_extensions | length > 0)) or (file_show_dotfiles is defined and file_show_dotfiles is not none and (file_show_dotfiles is number or file_show_dotfiles is boolean or file_show_dotfiles | length > 0)) or (file_follow_symlinks is defined and file_follow_symlinks is not none and (file_follow_symlinks is number or file_follow_symlinks is boolean or file_follow_symlinks | length > 0)) %}[file]
+{# Media directories, each `path|Name`. #}
+{% if file_media_dirs is defined and file_media_dirs is not none and (file_media_dirs is number or file_media_dirs is boolean or file_media_dirs | length > 0) %}media_dirs = {% for v in file_media_dirs %}
+  {{ v }}{% endfor %}
+{% endif %}
+{# File extensions to skip. #}
+{% if file_excluded_file_extensions is defined and file_excluded_file_extensions is not none and (file_excluded_file_extensions is number or file_excluded_file_extensions is boolean or file_excluded_file_extensions | length > 0) %}excluded_file_extensions = {% for v in file_excluded_file_extensions %}
+  {{ v }}{% endfor %}
+{% endif %}
+{# Show files and directories starting with a dot. #}
+{% if file_show_dotfiles is defined and file_show_dotfiles is not none and (file_show_dotfiles is number or file_show_dotfiles is boolean or file_show_dotfiles | length > 0) %}show_dotfiles = {{ (file_show_dotfiles | bool) | ternary('true', 'false') }}
+{% endif %}
+{# Follow symbolic links. #}
+{% if file_follow_symlinks is defined and file_follow_symlinks is not none and (file_follow_symlinks is number or file_follow_symlinks is boolean or file_follow_symlinks | length > 0) %}follow_symlinks = {{ (file_follow_symlinks | bool) | ternary('true', 'false') }}
+{% endif %}
+{% endif %}
+{% if (http_hostname is defined and http_hostname is not none and (http_hostname is number or http_hostname is boolean or http_hostname | length > 0)) or (http_port is defined and http_port is not none and (http_port is number or http_port is boolean or http_port | length > 0)) or (http_allowed_origins is defined and http_allowed_origins is not none and (http_allowed_origins is number or http_allowed_origins is boolean or http_allowed_origins | length > 0)) or (http_csrf_protection is defined and http_csrf_protection is not none and (http_csrf_protection is number or http_csrf_protection is boolean or http_csrf_protection | length > 0)) %}[http]
+{# Address the HTTP server binds to. #}
+{% if http_hostname is defined and http_hostname is not none and (http_hostname is number or http_hostname is boolean or http_hostname | length > 0) %}hostname = {{ http_hostname }}
+{% endif %}
+{# HTTP port. #}
+{% if http_port is defined and http_port is not none and (http_port is number or http_port is boolean or http_port | length > 0) %}port = {{ http_port }}
+{% endif %}
+{# Extra origins allowed for WebSocket and RPC requests. #}
+{% if http_allowed_origins is defined and http_allowed_origins is not none and (http_allowed_origins is number or http_allowed_origins is boolean or http_allowed_origins | length > 0) %}allowed_origins = {% for v in http_allowed_origins %}
+  {{ v }}{% endfor %}
+{% endif %}
+{# Require CSRF protection headers on RPC requests. #}
+{% if http_csrf_protection is defined and http_csrf_protection is not none and (http_csrf_protection is number or http_csrf_protection is boolean or http_csrf_protection | length > 0) %}csrf_protection = {{ (http_csrf_protection | bool) | ternary('true', 'false') }}
+{% endif %}
+{% endif %}
+{% if (m3u_playlists_dir is defined and m3u_playlists_dir is not none and (m3u_playlists_dir is number or m3u_playlists_dir is boolean or m3u_playlists_dir | length > 0)) %}[m3u]
+{# Directory for M3U playlists. #}
+{% if m3u_playlists_dir is defined and m3u_playlists_dir is not none and (m3u_playlists_dir is number or m3u_playlists_dir is boolean or m3u_playlists_dir | length > 0) %}playlists_dir = {{ m3u_playlists_dir }}
+{% endif %}
+{% endif %}

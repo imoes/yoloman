@@ -1,0 +1,31 @@
+# Bodhi Client Configuration Template
+#
+# This template generates configuration or shell completions for the `bodhi-client`
+# package on Red Hat-based systems. It is primarily used for shell auto-completion
+# scripts rather than a traditional daemon configuration file.
+#
+# This is a static configuration block because bodhi-client is a CLI tool
+# that does not maintain persistent daemon state or complex runtime configuration
+# files in /etc. It relies on environment variables or command-line flags at runtime.
+
+# Shell completion function for the `bodhi` command.
+# This function allows bash to provide auto-completion suggestions
+# when the user types `bodhi <TAB>`.
+_bodhi_completion() {
+    # Invoke the built-in completion generator of the bodhi CLI.
+    # _BODHI_COMPLETE=complete signals the CLI to output completion words
+    # based on the current word list (COMP_WORDS) and current word index (COMP_CWORD).
+    #
+    # Note: These variables (COMP_WORDS, COMP_CWORD, _BODHI_COMPLETE) are
+    # provided by the Bash shell environment during tab-completion events.
+    # They are not defined in this config file.
+    COMPREPLY=( $( env COMP_WORDS="${COMP_WORDS[*]}" \
+                   COMP_CWORD=$COMP_CWORD \
+                   _BODHI_COMPLETE=complete $1 ) )
+    return 0
+}
+
+# Register the completion function for the `bodhi` command.
+# -F _bodhi_completion: Specifies the function to call.
+# -o default: Enables default file completion if no specific match is found.
+complete -F _bodhi_completion -o default bodhi;

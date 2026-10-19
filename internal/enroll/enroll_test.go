@@ -36,10 +36,10 @@ func TestRegister_Success(t *testing.T) {
 	defer srv.Close()
 
 	result, err := Register(context.Background(), srv.URL, Request{
-		Name:         "vpp0221",
+		Name:         "pve1",
 		EnrollSecret: "correct-secret",
 		Token:        "agent-own-token",
-		Address:      "vpp0221.example.com:8010",
+		Address:      "pve1.example.com:8010",
 	})
 	if err != nil {
 		t.Fatalf("Register: %v", err)
@@ -50,7 +50,7 @@ func TestRegister_Success(t *testing.T) {
 	if !strings.Contains(string(result.PublicKeyPEM), "fakekeydata") {
 		t.Errorf("PublicKeyPEM = %q, missing expected content", result.PublicKeyPEM)
 	}
-	if gotReq.Name != "vpp0221" || gotReq.Token != "agent-own-token" || gotReq.Address != "vpp0221.example.com:8010" {
+	if gotReq.Name != "pve1" || gotReq.Token != "agent-own-token" || gotReq.Address != "pve1.example.com:8010" {
 		t.Errorf("unexpected request received by server: %+v", gotReq)
 	}
 }
@@ -69,7 +69,7 @@ func TestRegister_WrongSecretRejected(t *testing.T) {
 	defer srv.Close()
 
 	_, err := Register(context.Background(), srv.URL, Request{
-		Name:         "vpp0221",
+		Name:         "pve1",
 		EnrollSecret: "wrong-secret",
 		Token:        "agent-own-token",
 	})

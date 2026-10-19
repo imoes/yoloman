@@ -1097,7 +1097,7 @@ async def test_stale_fan_out_keeps_its_mount_identity(db_session):
 async def test_same_timestamp_label_series_stay_distinct_objects(db_session):
     """Two series written at the IDENTICAL timestamp must not fold into one row.
 
-    The agent stamps every point of a sampling tick with the same `now`, so on vpp0221
+    The agent stamps every point of a sampling tick with the same `now`, so on pve1
     all five disk_used_pct mounts carry 15:05:25.000000. Metric is mapped onto the
     `metrics` VIEW, and while its mapped key was (time, agent_id, metric) — labels
     excluded — SQLAlchemy's identity map folded those five into ONE object: the query

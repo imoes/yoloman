@@ -1,0 +1,659 @@
+# -*- mode: conf -*-
+# vim:ft=cfg
+
+# Config file for Radicale - A simple calendar server
+#
+# Place it into /etc/radicale/config (global)
+# or ~/.config/radicale/config (user)
+#
+# The current values are the default ones
+
+
+[server]
+
+# CalDAV server hostnames separated by a comma
+# IPv4 syntax: address:port
+# IPv6 syntax: [address]:port
+# Hostname syntax (using "getaddrinfo" to resolve to IPv4/IPv6 adress(es)): hostname:port
+# For example: 0.0.0.0:9999, [::]:9999, localhost:9999
+{% if server_hosts is defined and server_hosts is not none and (server_hosts is number or server_hosts is boolean or server_hosts | length > 0) %}hosts = {{ server_hosts }}
+{% else %}#hosts = localhost:5232
+{% endif %}
+# Max parallel connections
+{% if server_max_connections is defined and server_max_connections is not none and (server_max_connections is number or server_max_connections is boolean or server_max_connections | length > 0) %}max_connections = {{ server_max_connections }}
+{% else %}#max_connections = 8
+{% endif %}
+# Base delay in case of error 5xx response (seconds)
+{% if delay_on_error is defined and delay_on_error is not none and (delay_on_error is number or delay_on_error is boolean or delay_on_error | length > 0) %}delay_on_error = {{ delay_on_error }}
+{% else %}#delay_on_error = 1
+{% endif %}
+# Max size of request body (bytes), default: 100 Mbyte
+# In case of using a reverse proxy in front of check also there related option
+{% if server_max_content_length is defined and server_max_content_length is not none and (server_max_content_length is number or server_max_content_length is boolean or server_max_content_length | length > 0) %}max_content_length = {{ server_max_content_length }}
+{% else %}#max_content_length = 100000000
+{% endif %}
+# Max resource size (bytes), default: 10 Mbyte
+# Limited to 80% of max_content_length to cover plain base64 encoded payload
+# Announced to clients requesting "max-resource-size" via PROPFIND
+{% if max_resource_size is defined and max_resource_size is not none and (max_resource_size is number or max_resource_size is boolean or max_resource_size | length > 0) %}max_resource_size = {{ max_resource_size }}
+{% else %}#max_resource_size = 10000000
+{% endif %}
+# Max occurrence by an RRULE, limit the number to prevent DoS attacks.
+{% if max_vevent_rrule_occurrence is defined and max_vevent_rrule_occurrence is not none and (max_vevent_rrule_occurrence is number or max_vevent_rrule_occurrence is boolean or max_vevent_rrule_occurrence | length > 0) %}max_vevent_rrule_occurrence = {{ max_vevent_rrule_occurrence }}
+{% else %}#max_vevent_rrule_occurrence = 10000
+{% endif %}
+# Socket timeout (seconds)
+{% if server_timeout is defined and server_timeout is not none and (server_timeout is number or server_timeout is boolean or server_timeout | length > 0) %}timeout = {{ server_timeout }}
+{% else %}#timeout = 30
+{% endif %}
+# SSL flag, enable HTTPS protocol
+{% if ssl is defined and ssl is not none and (ssl is number or ssl is boolean or ssl | length > 0) %}ssl = {{ ssl }}
+{% else %}#ssl = False
+{% endif %}
+# SSL certificate path
+{% if server_certificate is defined and server_certificate is not none and (server_certificate is number or server_certificate is boolean or server_certificate | length > 0) %}certificate = {{ server_certificate }}
+{% else %}#certificate = /etc/ssl/radicale.cert.pem
+{% endif %}
+# SSL private key
+{% if server_key is defined and server_key is not none and (server_key is number or server_key is boolean or server_key | length > 0) %}key = {{ server_key }}
+{% else %}#key = /etc/ssl/radicale.key.pem
+{% endif %}
+# CA certificate for validating clients. This can be used to secure
+# TCP traffic between Radicale and a reverse proxy
+{% if server_certificate_authority is defined and server_certificate_authority is not none and (server_certificate_authority is number or server_certificate_authority is boolean or server_certificate_authority | length > 0) %}certificate_authority {{ server_certificate_authority }}
+{% else %}#certificate_authority =
+{% endif %}
+# SSL protocol, secure configuration: ALL -SSLv3 -TLSv1 -TLSv1.1
+{% if server_protocol is defined and server_protocol is not none and (server_protocol is number or server_protocol is boolean or server_protocol | length > 0) %}protocol = {{ server_protocol }}
+{% else %}#protocol = (default)
+{% endif %}
+# SSL ciphersuite, secure configuration: DHE:ECDHE:-NULL:-SHA (see also "man openssl-ciphers")
+{% if server_ciphersuite is defined and server_ciphersuite is not none and (server_ciphersuite is number or server_ciphersuite is boolean or server_ciphersuite | length > 0) %}ciphersuite = {{ server_ciphersuite }}
+{% else %}#ciphersuite = (default)
+{% endif %}
+# script name to strip from URI if called by reverse proxy
+{% if server_script_name is defined and server_script_name is not none and (server_script_name is number or server_script_name is boolean or server_script_name | length > 0) %}script_name = {{ server_script_name }}
+{% else %}#script_name = (default taken from HTTP_X_SCRIPT_NAME or SCRIPT_NAME)
+{% endif %}
+# validate user type
+# Value: none|minimal|unicode-letter|no-unicode|strict
+{% if validate_user_value is defined and validate_user_value is not none and (validate_user_value is number or validate_user_value is boolean or validate_user_value | length > 0) %}validate_user_value = {{ validate_user_value }}
+{% else %}#validate_user_value = minimal
+{% endif %}
+# validate path value
+# Value: none|minimal|unicode-letter|no-unicode|strict
+{% if validate_path_value is defined and validate_path_value is not none and (validate_path_value is number or validate_path_value is boolean or validate_path_value | length > 0) %}validate_path_value = {{ validate_path_value }}
+{% else %}#validate_path_value = minimal
+{% endif %}
+
+[encoding]
+
+# Encoding for responding requests
+{% if encoding_request is defined and encoding_request is not none and (encoding_request is number or encoding_request is boolean or encoding_request | length > 0) %}request = {{ encoding_request }}
+{% else %}#request = utf-8
+{% endif %}
+# Encoding for storing local collections
+{% if encoding_stock is defined and encoding_stock is not none and (encoding_stock is number or encoding_stock is boolean or encoding_stock | length > 0) %}stock = {{ encoding_stock }}
+{% else %}#stock = utf-8
+{% endif %}
+
+[auth]
+
+# Authentication method
+# Value: none | htpasswd | remote_user | http_remote_user | http_x_remote_user | dovecot | ldap | oauth2 | pam | denyall
+#type = denyall
+
+# Cache logins for until expiration time
+{% if cache_logins is defined and cache_logins is not none and (cache_logins is number or cache_logins is boolean or cache_logins | length > 0) %}cache_logins = {{ cache_logins }}
+{% else %}#cache_logins = false
+{% endif %}
+{% if expiration is defined and expiration is not none and (expiration is number or expiration is boolean or expiration | length > 0) %}Expiration {{ expiration }}
+{% else %}# Expiration time for caching successful logins in seconds
+{% endif %}{% if auth_cache_successful_logins_expiry is defined and auth_cache_successful_logins_expiry is not none and (auth_cache_successful_logins_expiry is number or auth_cache_successful_logins_expiry is boolean or auth_cache_successful_logins_expiry | length > 0) %}cache_successful_logins_expiry = {{ auth_cache_successful_logins_expiry }}
+{% else %}#cache_successful_logins_expiry = 15
+{% endif %}
+## Expiration time of caching failed logins in seconds
+{% if auth_cache_failed_logins_expiry is defined and auth_cache_failed_logins_expiry is not none and (auth_cache_failed_logins_expiry is number or auth_cache_failed_logins_expiry is boolean or auth_cache_failed_logins_expiry | length > 0) %}cache_failed_logins_expiry = {{ auth_cache_failed_logins_expiry }}
+{% else %}#cache_failed_logins_expiry = 90
+{% endif %}
+# URI to the LDAP server
+{% if auth_ldap_uri is defined and auth_ldap_uri is not none and (auth_ldap_uri is number or auth_ldap_uri is boolean or auth_ldap_uri | length > 0) %}ldap_uri = {{ auth_ldap_uri }}
+{% else %}#ldap_uri = ldap://localhost
+{% endif %}
+# Base DN of the LDAP server to search for user accounts
+{% if auth_ldap_base is defined and auth_ldap_base is not none and (auth_ldap_base is number or auth_ldap_base is boolean or auth_ldap_base | length > 0) %}ldap_base = {{ auth_ldap_base }}
+{% else %}#ldap_base = ##BASE_DN##
+{% endif %}
+# Reader DN of the LDAP server;  (needs read access to users and - if defined - groups)
+{% if auth_ldap_reader_dn is defined and auth_ldap_reader_dn is not none and (auth_ldap_reader_dn is number or auth_ldap_reader_dn is boolean or auth_ldap_reader_dn | length > 0) %}ldap_reader_dn = {{ auth_ldap_reader_dn }}
+{% else %}#ldap_reader_dn = CN=ldapreader,CN=Users,##BASE_DN##
+{% endif %}
+# Password of the reader DN (better: use 'ldap_secret_file'!)
+{% if auth_ldap_secret is defined and auth_ldap_secret is not none and (auth_ldap_secret is number or auth_ldap_secret is boolean or auth_ldap_secret | length > 0) %}ldap_secret = {{ auth_ldap_secret }}
+{% else %}#ldap_secret = ldapreader-secret
+{% endif %}
+# Path to the file containing the password of the reader DN
+{% if auth_ldap_secret_file is defined and auth_ldap_secret_file is not none and (auth_ldap_secret_file is number or auth_ldap_secret_file is boolean or auth_ldap_secret_file | length > 0) %}ldap_secret_file = {{ auth_ldap_secret_file }}
+{% else %}#ldap_secret_file = /run/secrets/ldap_password
+{% endif %}
+# Filter to search for the LDAP entry of the user to authenticate. It must contain '{0}' as placeholder for the login name.
+{% if auth_ldap_filter is defined and auth_ldap_filter is not none and (auth_ldap_filter is number or auth_ldap_filter is boolean or auth_ldap_filter | length > 0) %}ldap_filter = {{ auth_ldap_filter }}
+{% else %}#ldap_filter = (&(objectClass=person)(uid={0}))
+{% endif %}
+# Attribute holding the value to be used as username after authentication
+{% if auth_ldap_user_attribute is defined and auth_ldap_user_attribute is not none and (auth_ldap_user_attribute is number or auth_ldap_user_attribute is boolean or auth_ldap_user_attribute | length > 0) %}ldap_user_attribute = {{ auth_ldap_user_attribute }}
+{% else %}#ldap_user_attribute = cn
+{% endif %}
+# Encryption mode to be used. Default: none; one of: none, tls, starttls
+{% if auth_ldap_security is defined and auth_ldap_security is not none and (auth_ldap_security is number or auth_ldap_security is boolean or auth_ldap_security | length > 0) %}ldap_security = {{ auth_ldap_security }}
+{% else %}#ldap_security = none
+{% endif %}
+# Certificate verification mode for tls & starttls. Default: REQUIRED; one of NONE, OPTIONAL, REQUIRED
+{% if auth_ldap_ssl_verify_mode is defined and auth_ldap_ssl_verify_mode is not none and (auth_ldap_ssl_verify_mode is number or auth_ldap_ssl_verify_mode is boolean or auth_ldap_ssl_verify_mode | length > 0) %}ldap_ssl_verify_mode = {{ auth_ldap_ssl_verify_mode }}
+{% else %}#ldap_ssl_verify_mode = REQUIRED
+{% endif %}
+# Path to the CA file in PEM format to certify the server certificate
+{% if auth_ldap_ssl_ca_file is defined and auth_ldap_ssl_ca_file is not none and (auth_ldap_ssl_ca_file is number or auth_ldap_ssl_ca_file is boolean or auth_ldap_ssl_ca_file | length > 0) %}ldap_ssl_ca_file {{ auth_ldap_ssl_ca_file }}
+{% else %}#ldap_ssl_ca_file =
+{% endif %}
+# Attribute in the user's LDAP entry to read the group memberships from; default: not set
+{% if auth_ldap_groups_attribute is defined and auth_ldap_groups_attribute is not none and (auth_ldap_groups_attribute is number or auth_ldap_groups_attribute is boolean or auth_ldap_groups_attribute | length > 0) %}ldap_groups_attribute = {{ auth_ldap_groups_attribute }}
+{% else %}#ldap_groups_attribute = memberOf
+{% endif %}
+# Attribute in the group entries to read the group's members from, e.g. member; default: not set
+{% if ldap_group_members_attribute is defined and ldap_group_members_attribute is not none and (ldap_group_members_attribute is number or ldap_group_members_attribute is boolean or ldap_group_members_attribute | length > 0) %}ldap_group_members_attribute = {{ ldap_group_members_attribute }}
+{% else %}#ldap_group_members_attribute = member
+{% endif %}
+# Base DN to search for groups; only if it differs from 'ldap_base' and if 'ldap_group_members_attribute' is set
+{% if ldap_group_base is defined and ldap_group_base is not none and (ldap_group_base is number or ldap_group_base is boolean or ldap_group_base | length > 0) %}ldap_group_base = {{ ldap_group_base }}
+{% else %}#ldap_group_base = ##GROUP_BASE_DN##
+{% endif %}
+# Search filter to search for groups having the user DN found as member; only if 'ldap_group_members_attribute' is set
+{% if ldap_group_filter is defined and ldap_group_filter is not none and (ldap_group_filter is number or ldap_group_filter is boolean or ldap_group_filter | length > 0) %}ldap_group_filter = {{ ldap_group_filter }}
+{% else %}#ldap_group_filter = (objectclass=groupOfNames)
+{% endif %}
+# Quirks for Authentik LDAP server: ignore modifyTimestamp and createTimestamp attributes
+{% if ldap_ignore_attribute_create_modify_timestamp is defined and ldap_ignore_attribute_create_modify_timestamp is not none and (ldap_ignore_attribute_create_modify_timestamp is number or ldap_ignore_attribute_create_modify_timestamp is boolean or ldap_ignore_attribute_create_modify_timestamp | length > 0) %}ldap_ignore_attribute_create_modify_timestamp = {{ ldap_ignore_attribute_create_modify_timestamp }}
+{% else %}#ldap_ignore_attribute_create_modify_timestamp = false
+{% endif %}
+# Connection type for dovecot authentication (AF_UNIX|AF_INET|AF_INET6)
+# Note: credentials are transmitted in cleartext
+{% if auth_dovecot_connection_type is defined and auth_dovecot_connection_type is not none and (auth_dovecot_connection_type is number or auth_dovecot_connection_type is boolean or auth_dovecot_connection_type | length > 0) %}dovecot_connection_type = {{ auth_dovecot_connection_type }}
+{% else %}#dovecot_connection_type = AF_UNIX
+{% endif %}
+# The path to the Dovecot client authentication socket (eg. /run/dovecot/auth-client on Fedora). Radicale must have read / write access to the socket.
+{% if auth_dovecot_socket is defined and auth_dovecot_socket is not none and (auth_dovecot_socket is number or auth_dovecot_socket is boolean or auth_dovecot_socket | length > 0) %}dovecot_socket = {{ auth_dovecot_socket }}
+{% else %}#dovecot_socket = /var/run/dovecot/auth-client
+{% endif %}
+# Host of via network exposed dovecot socket
+{% if auth_dovecot_host is defined and auth_dovecot_host is not none and (auth_dovecot_host is number or auth_dovecot_host is boolean or auth_dovecot_host | length > 0) %}dovecot_host = {{ auth_dovecot_host }}
+{% else %}#dovecot_host = localhost
+{% endif %}
+# Port of via network exposed dovecot socket
+{% if auth_dovecot_port is defined and auth_dovecot_port is not none and (auth_dovecot_port is number or auth_dovecot_port is boolean or auth_dovecot_port | length > 0) %}dovecot_port = {{ auth_dovecot_port }}
+{% else %}#dovecot_port = 12345
+{% endif %}
+# Remote address source for authentication mechanisms (such as dovecot)
+# that are passed this information.
+{% if remote_ip_source is defined and remote_ip_source is not none and (remote_ip_source is number or remote_ip_source is boolean or remote_ip_source | length > 0) %}remote_ip_source = {{ remote_ip_source }}
+{% else %}#remote_ip_source = REMOTE_ADDR
+{% endif %}
+# IMAP server hostname
+# Syntax: address | address:port | [address]:port | imap.server.tld
+{% if auth_imap_host is defined and auth_imap_host is not none and (auth_imap_host is number or auth_imap_host is boolean or auth_imap_host | length > 0) %}imap_host = {{ auth_imap_host }}
+{% else %}#imap_host = localhost
+{% endif %}
+# Secure the IMAP connection
+# Value: tls | starttls | none
+{% if auth_imap_security is defined and auth_imap_security is not none and (auth_imap_security is number or auth_imap_security is boolean or auth_imap_security | length > 0) %}imap_security = {{ auth_imap_security }}
+{% else %}#imap_security = tls
+{% endif %}
+# Append '@' + domain to login before trying IMAP connection (optional)
+# Value: domain.tld
+{% if imap_append_domain is defined and imap_append_domain is not none and (imap_append_domain is number or imap_append_domain is boolean or imap_append_domain | length > 0) %}imap_append_domain {{ imap_append_domain }}
+{% else %}#imap_append_domain =
+{% endif %}
+# OAuth2 token endpoint URL
+{% if auth_oauth2_token_endpoint is defined and auth_oauth2_token_endpoint is not none and (auth_oauth2_token_endpoint is number or auth_oauth2_token_endpoint is boolean or auth_oauth2_token_endpoint | length > 0) %}oauth2_token_endpoint = {{ auth_oauth2_token_endpoint }}
+{% else %}#oauth2_token_endpoint = <URL>
+{% endif %}
+# OAuth2 client id
+{% if oauth2_client_id is defined and oauth2_client_id is not none and (oauth2_client_id is number or oauth2_client_id is boolean or oauth2_client_id | length > 0) %}oauth2_client_id = {{ oauth2_client_id }}
+{% else %}#oauth2_client_id = radicale
+{% endif %}
+# OAuth2 client secret (optional)
+{% if oauth2_client_secret is defined and oauth2_client_secret is not none and (oauth2_client_secret is number or oauth2_client_secret is boolean or oauth2_client_secret | length > 0) %}oauth2_client_secret {{ oauth2_client_secret }}
+{% else %}#oauth2_client_secret =
+{% endif %}
+# PAM service
+{% if auth_pam_serivce is defined and auth_pam_serivce is not none and (auth_pam_serivce is number or auth_pam_serivce is boolean or auth_pam_serivce | length > 0) %}pam_serivce = {{ auth_pam_serivce }}
+{% else %}#pam_serivce = radicale
+{% endif %}
+# PAM group user should be member of
+{% if auth_pam_group_membership is defined and auth_pam_group_membership is not none and (auth_pam_group_membership is number or auth_pam_group_membership is boolean or auth_pam_group_membership | length > 0) %}pam_group_membership {{ auth_pam_group_membership }}
+{% else %}#pam_group_membership =
+{% endif %}
+# Htpasswd filename
+{% if auth_htpasswd_filename is defined and auth_htpasswd_filename is not none and (auth_htpasswd_filename is number or auth_htpasswd_filename is boolean or auth_htpasswd_filename | length > 0) %}htpasswd_filename = {{ auth_htpasswd_filename }}
+{% else %}#htpasswd_filename = /etc/radicale/users
+{% endif %}
+# Htpasswd encryption method
+# Value: plain | bcrypt | md5 | sha256 | sha512 | argon2 | autodetect
+# bcrypt requires the installation of 'bcrypt' module.
+# argon2 requires the installation of 'argon2-cffi' module.
+{% if auth_htpasswd_encryption is defined and auth_htpasswd_encryption is not none and (auth_htpasswd_encryption is number or auth_htpasswd_encryption is boolean or auth_htpasswd_encryption | length > 0) %}htpasswd_encryption = {{ auth_htpasswd_encryption }}
+{% else %}#htpasswd_encryption = autodetect
+{% endif %}
+# Enable caching of htpasswd file based on size and mtime_ns
+{% if htpasswd_cache is defined and htpasswd_cache is not none and (htpasswd_cache is number or htpasswd_cache is boolean or htpasswd_cache | length > 0) %}htpasswd_cache = {{ htpasswd_cache }}
+{% else %}#htpasswd_cache = False
+{% endif %}
+# Incorrect or missing authentication or denied access average delay (seconds)
+{% if auth_delay is defined and auth_delay is not none and (auth_delay is number or auth_delay is boolean or auth_delay | length > 0) %}delay = {{ auth_delay }}
+{% else %}#delay = 1
+{% endif %}
+# Message displayed in the client when a password is needed
+{% if auth_realm is defined and auth_realm is not none and (auth_realm is number or auth_realm is boolean or auth_realm | length > 0) %}realm = {{ auth_realm }}
+{% else %}#realm = Radicale - Password Required
+{% endif %}
+# Convert username to lowercase, must be true for case-insensitive auth providers
+{% if lc_username is defined and lc_username is not none and (lc_username is number or lc_username is boolean or lc_username | length > 0) %}lc_username = {{ lc_username }}
+{% else %}#lc_username = False
+{% endif %}
+# Strip domain name from username
+{% if strip_domain is defined and strip_domain is not none and (strip_domain is number or strip_domain is boolean or strip_domain | length > 0) %}strip_domain = {{ strip_domain }}
+{% else %}#strip_domain = False
+{% endif %}
+# URL Decode the given username (when URL-encoded by the client - useful for iOS devices when using email address)
+{% if urldecode_username is defined and urldecode_username is not none and (urldecode_username is number or urldecode_username is boolean or urldecode_username | length > 0) %}urldecode_username = {{ urldecode_username }}
+{% else %}#urldecode_username = False
+{% endif %}
+
+[group]
+
+# Group lookup method
+# Value: none | from_auth | htgroup
+type = {{ type | default('none') }}
+
+# Htgroup filename
+{% if htgroup_filename is defined and htgroup_filename is not none and (htgroup_filename is number or htgroup_filename is boolean or htgroup_filename | length > 0) %}htgroup_filename = {{ htgroup_filename }}
+{% else %}#htgroup_filename = /etc/radicale/groups
+{% endif %}
+# Enable caching of htgroup file based on size and mtime_ns
+{% if htgroup_cache is defined and htgroup_cache is not none and (htgroup_cache is number or htgroup_cache is boolean or htgroup_cache | length > 0) %}htgroup_cache = {{ htgroup_cache }}
+{% else %}#htgroup_cache = False
+{% endif %}
+# Folder under *collection_root_folder* containing collections of base64 encoded group names
+# group_collections_folder = "GROUPS"
+
+
+[rights]
+
+# Rights backend
+# Value: authenticated | owner_only | owner_write | from_file
+#type = owner_only
+
+# File for rights management from_file
+{% if rights_file is defined and rights_file is not none and (rights_file is number or rights_file is boolean or rights_file | length > 0) %}file = {{ rights_file }}
+{% else %}#file = /etc/radicale/rights
+{% endif %}
+# Permit delete of a collection (global)
+{% if permit_delete_collection is defined and permit_delete_collection is not none and (permit_delete_collection is number or permit_delete_collection is boolean or permit_delete_collection | length > 0) %}permit_delete_collection = {{ permit_delete_collection }}
+{% else %}#permit_delete_collection = True
+{% endif %}
+# Permit overwrite of a collection (global)
+{% if permit_overwrite_collection is defined and permit_overwrite_collection is not none and (permit_overwrite_collection is number or permit_overwrite_collection is boolean or permit_overwrite_collection | length > 0) %}permit_overwrite_collection = {{ permit_overwrite_collection }}
+{% else %}#permit_overwrite_collection = True
+{% endif %}
+
+[storage]
+
+# Storage backend
+# Value: multifilesystem | multifilesystem_nolock
+#type = multifilesystem
+
+# Folder for storing local collections, created if not present
+{% if storage_filesystem_folder is defined and storage_filesystem_folder is not none and (storage_filesystem_folder is number or storage_filesystem_folder is boolean or storage_filesystem_folder | length > 0) %}filesystem_folder = {{ storage_filesystem_folder }}
+{% else %}#filesystem_folder = /var/lib/radicale/collections
+{% endif %}
+# Folder for storing cache of local collections, created if not present
+# Note: only used in case of use_cache_subfolder_* options are active
+# Note: can be used on multi-instance setup to cache files on local node (see below)
+{% if storage_filesystem_cache_folder is defined and storage_filesystem_cache_folder is not none and (storage_filesystem_cache_folder is number or storage_filesystem_cache_folder is boolean or storage_filesystem_cache_folder | length > 0) %}filesystem_cache_folder = {{ storage_filesystem_cache_folder }}
+{% else %}#filesystem_cache_folder = (filesystem_folder)
+{% endif %}
+# Use subfolder 'collection-cache' for 'item' cache file structure instead of inside collection folder
+# Note: can be used on multi-instance setup to cache 'item' on local node
+{% if use_cache_subfolder_for_item is defined and use_cache_subfolder_for_item is not none and (use_cache_subfolder_for_item is number or use_cache_subfolder_for_item is boolean or use_cache_subfolder_for_item | length > 0) %}use_cache_subfolder_for_item = {{ use_cache_subfolder_for_item }}
+{% else %}#use_cache_subfolder_for_item = False
+{% endif %}
+# Use subfolder 'collection-cache' for 'history' cache file structure instead of inside collection folder
+# Note: use only on single-instance setup, will break consistency with client in multi-instance setup
+{% if use_cache_subfolder_for_history is defined and use_cache_subfolder_for_history is not none and (use_cache_subfolder_for_history is number or use_cache_subfolder_for_history is boolean or use_cache_subfolder_for_history | length > 0) %}use_cache_subfolder_for_history = {{ use_cache_subfolder_for_history }}
+{% else %}#use_cache_subfolder_for_history = False
+{% endif %}
+# Use subfolder 'collection-cache' for 'sync-token' cache file structure instead of inside collection folder
+# Note: use only on single-instance setup, will break consistency with client in multi-instance setup
+{% if use_cache_subfolder_for_synctoken is defined and use_cache_subfolder_for_synctoken is not none and (use_cache_subfolder_for_synctoken is number or use_cache_subfolder_for_synctoken is boolean or use_cache_subfolder_for_synctoken | length > 0) %}use_cache_subfolder_for_synctoken = {{ use_cache_subfolder_for_synctoken }}
+{% else %}#use_cache_subfolder_for_synctoken = False
+{% endif %}
+# Use last modifiction time (nanoseconds) and size (bytes) for 'item' cache instead of SHA256 (improves speed)
+# Note: check used filesystem mtime precision before enabling
+# Note: conversion is done on access, bulk conversion can be done offline using storage verification option: radicale --verify-storage
+{% if use_mtime_and_size_for_item_cache is defined and use_mtime_and_size_for_item_cache is not none and (use_mtime_and_size_for_item_cache is number or use_mtime_and_size_for_item_cache is boolean or use_mtime_and_size_for_item_cache | length > 0) %}use_mtime_and_size_for_item_cache = {{ use_mtime_and_size_for_item_cache }}
+{% else %}#use_mtime_and_size_for_item_cache = False
+{% endif %}
+# Use configured umask for folder creation (not applicable for OS Windows)
+# Useful value: 0077 | 0027 | 0007 | 0022
+{% if storage_folder_umask is defined and storage_folder_umask is not none and (storage_folder_umask is number or storage_folder_umask is boolean or storage_folder_umask | length > 0) %}folder_umask = {{ storage_folder_umask }}
+{% else %}#folder_umask = (system default, usual 0022)
+{% endif %}
+# Delete sync token that are older (seconds)
+{% if storage_max_sync_token_age is defined and storage_max_sync_token_age is not none and (storage_max_sync_token_age is number or storage_max_sync_token_age is boolean or storage_max_sync_token_age | length > 0) %}max_sync_token_age = {{ storage_max_sync_token_age }}
+{% else %}#max_sync_token_age = 2592000
+{% endif %}
+# Skip broken item instead of triggering an exception
+{% if skip_broken_item is defined and skip_broken_item is not none and (skip_broken_item is number or skip_broken_item is boolean or skip_broken_item | length > 0) %}skip_broken_item = {{ skip_broken_item }}
+{% else %}#skip_broken_item = True
+{% endif %}
+# Strict preconditions check on PUT
+{% if strict_preconditions is defined and strict_preconditions is not none and (strict_preconditions is number or strict_preconditions is boolean or strict_preconditions | length > 0) %}strict_preconditions = {{ strict_preconditions }}
+{% else %}#strict_preconditions = False
+{% endif %}
+# Command that is run after changes to storage, default is emtpy
+#  Supported placeholders:
+#   %(user)s: logged-in user
+#   %(cwd)s : current working directory
+#   %(path)s: full path of item
+#   %(to_path)s: full path of destination item (only set on MOVE request)
+#   %(request)s: request method
+#  Command will be executed with base directory defined in filesystem_folder
+#  For "git" check DOCUMENTATION.md for bootstrap instructions
+# Example(test): echo \"user=%(user)s path=%(path)s cwd=%(cwd)s\"
+# Example(test/json): echo \"hook-json {'user':'%(user)s', 'cwd':'%(cwd)s', 'path':'%(path)s', 'request':'%(request)s', 'to_path':'%(to_path)s'}\"
+# Example(git): git add -A && (git diff --cached --quiet || git commit -m "Changes by \"%(user)s\"")
+# Note: in case SELinux is active, set related toggle: setsebool -P radicale_exec_storage_hook 1
+{% if storage_hook is defined and storage_hook is not none and (storage_hook is number or storage_hook is boolean or storage_hook | length > 0) %}hook {{ storage_hook }}
+{% else %}#hook =
+{% endif %}
+# Create predefined user collections
+#
+# json format:
+#
+{% if storage_predefined_collections is defined and storage_predefined_collections is not none and (storage_predefined_collections is number or storage_predefined_collections is boolean or storage_predefined_collections | length > 0) %}predefined_collections = {{ storage_predefined_collections }}
+{% else %}# predefined_collections = {
+{% endif %}#    "def-personal-addressbook": {
+#       "D:displayname": "Personal Address Book",
+#       "tag": "VADDRESSBOOK"
+#    },
+#    "def-work-addressbook": {
+#       "D:displayname": "Work Address Book",
+#       "tag": "VADDRESSBOOK"
+#    },
+#    "def-personal-calendar": {
+#       "C:supported-calendar-component-set": "VEVENT,VJOURNAL,VTODO",
+#       "D:displayname": "Personal Calendar",
+#       "tag": "VCALENDAR"
+#    },
+#    "def-birthday-calendar": {
+#       "C:supported-calendar-component-set": "VEVENT",
+#       "D:displayname": "Birthday Calendar",
+#       "tag": "VCALENDAR"
+#    },
+#    "def-work-calendar": {
+#       "C:supported-calendar-component-set": "VEVENT",
+#       "D:displayname": "Work Calendar",
+#       "tag": "VCALENDAR"
+#    }
+#  }
+#predefined_collections =
+
+
+[sharing]
+
+# Sharing database type
+# Value: none | csv | files
+#type = none
+
+# Sharing database path for type 'csv'
+#database_path = (filesystem_folder)/collection-db/sharing.csv
+
+# Sharing database path for type 'files'
+#database_path = (filesystem_folder)/collection-db/files
+
+# Share collection by token
+{% if collection_by_token is defined and collection_by_token is not none and (collection_by_token is number or collection_by_token is boolean or collection_by_token | length > 0) %}collection_by_token = {{ collection_by_token }}
+{% else %}#collection_by_token = false
+{% endif %}
+# Share collection by map
+{% if collection_by_map is defined and collection_by_map is not none and (collection_by_map is number or collection_by_map is boolean or collection_by_map | length > 0) %}collection_by_map = {{ collection_by_map }}
+{% else %}#collection_by_map = false
+{% endif %}
+# Permit create of token-based sharing
+#  If False it can be explicitly granted by permissions: t
+#  If True it can be explicitly forbidden by permissions: T
+{% if permit_create_token is defined and permit_create_token is not none and (permit_create_token is number or permit_create_token is boolean or permit_create_token | length > 0) %}permit_create_token = {{ permit_create_token }}
+{% else %}#permit_create_token = false
+{% endif %}
+# Permit create of map-based sharing
+#  If False it can be explicitly granted by permissions: m
+#  If True it can be explicitly forbidden by permissions: M
+{% if permit_create_map is defined and permit_create_map is not none and (permit_create_map is number or permit_create_map is boolean or permit_create_map | length > 0) %}permit_create_map = {{ permit_create_map }}
+{% else %}#permit_create_map = false
+{% endif %}
+# Permit properties overlay
+#  If False it can be explicitly granted by share permissions: P
+#  If True it can be explicitly forbidden by share permissions: p
+{% if permit_properties_overlay is defined and permit_properties_overlay is not none and (permit_properties_overlay is number or permit_properties_overlay is boolean or permit_properties_overlay | length > 0) %}permit_properties_overlay = {{ permit_properties_overlay }}
+{% else %}#permit_properties_overlay = false
+{% endif %}
+# Enforce properties overlay on write access
+#  If False it can be explicitly enforced by share permissions: E
+#  If True it can be explicitly forbidden by share permissions: e
+{% if enforce_properties_overlay is defined and enforce_properties_overlay is not none and (enforce_properties_overlay is number or enforce_properties_overlay is boolean or enforce_properties_overlay | length > 0) %}enforce_properties_overlay = {{ enforce_properties_overlay }}
+{% else %}#enforce_properties_overlay = true
+{% endif %}
+# Default permissions for token-based sharing
+#   Supported: rwEePp
+{% if default_permissions_create_token is defined and default_permissions_create_token is not none and (default_permissions_create_token is number or default_permissions_create_token is boolean or default_permissions_create_token | length > 0) %}default_permissions_create_token = {{ default_permissions_create_token }}
+{% else %}#default_permissions_create_token = rp
+{% endif %}
+# Default permissions for map-based sharing
+#   Supported: rwEePp
+{% if default_permissions_create_map is defined and default_permissions_create_map is not none and (default_permissions_create_map is number or default_permissions_create_map is boolean or default_permissions_create_map | length > 0) %}default_permissions_create_map = {{ default_permissions_create_map }}
+{% else %}#default_permissions_create_map = r
+{% endif %}
+# Global template for summary of conversion "bday"
+{% if conversion_bday_summary_template is defined and conversion_bday_summary_template is not none and (conversion_bday_summary_template is number or conversion_bday_summary_template is boolean or conversion_bday_summary_template | length > 0) %}conversion_bday_summary_template = {{ conversion_bday_summary_template }}
+{% else %}#conversion_bday_summary_template = [{n:f} {n:g} |{fn}|{nickname}] ({year}) (BDAY)
+{% endif %}
+# Global template for description of conversion "bday"
+{% if conversion_bday_description_template is defined and conversion_bday_description_template is not none and (conversion_bday_description_template is number or conversion_bday_description_template is boolean or conversion_bday_description_template | length > 0) %}conversion_bday_description_template = {{ conversion_bday_description_template }}
+{% else %}#conversion_bday_description_template = BDAY={year}-{month}-{day}
+{% endif %}
+# Global template of alarm trigger of conversion "bday"
+#  Example: "-15H;BDAY tomorrow$9H;BDAY today"
+{% if conversion_bday_alarm_trigger_template is defined and conversion_bday_alarm_trigger_template is not none and (conversion_bday_alarm_trigger_template is number or conversion_bday_alarm_trigger_template is boolean or conversion_bday_alarm_trigger_template | length > 0) %}conversion_bday_alarm_trigger_template = {{ conversion_bday_alarm_trigger_template }}
+{% else %}#conversion_bday_alarm_trigger_template = ""
+{% endif %}
+# Global categories of conversion "bday"
+{% if conversion_bday_categories is defined and conversion_bday_categories is not none and (conversion_bday_categories is number or conversion_bday_categories is boolean or conversion_bday_categories | length > 0) %}conversion_bday_categories = {{ conversion_bday_categories }}
+{% else %}#conversion_bday_categories = Birthday
+{% endif %}
+# Global max limit of "bday" age
+#  Only active in case of {age} is used as placeholder
+{% if conversion_bday_age_max is defined and conversion_bday_age_max is not none and (conversion_bday_age_max is number or conversion_bday_age_max is boolean or conversion_bday_age_max | length > 0) %}conversion_bday_age_max = {{ conversion_bday_age_max }}
+{% else %}#conversion_bday_age_max = 99
+{% endif %}
+
+[web]
+
+# Web interface backend
+# Value: none | internal
+#type = internal
+
+# Prefer browser login
+{% if prefer_browser_login is defined and prefer_browser_login is not none and (prefer_browser_login is number or prefer_browser_login is boolean or prefer_browser_login | length > 0) %}prefer_browser_login = {{ prefer_browser_login }}
+{% else %}#prefer_browser_login = False
+{% endif %}
+
+[logging]
+
+# Threshold for the logger
+# Value: trace | debug | info | notice | warning | error | critical | alert
+level = {{ logging_level | default('info') }}
+
+# Limit content of wrapped text (chars)
+{% if limit_content is defined and limit_content is not none and (limit_content is number or limit_content is boolean or limit_content | length > 0) %}limit_content = {{ limit_content }}
+{% else %}#limit_content = 3000
+{% endif %}
+# filter debug messages starting with '<TOKEN>'
+{% if trace_filter is defined and trace_filter is not none and (trace_filter is number or trace_filter is boolean or trace_filter | length > 0) %}trace_filter = {{ trace_filter }}
+{% else %}#trace_filter = ""
+{% endif %}
+# Don't include passwords in logs
+{% if mask_passwords is defined and mask_passwords is not none and (mask_passwords is number or mask_passwords is boolean or mask_passwords | length > 0) %}mask_passwords = {{ mask_passwords }}
+{% else %}#mask_passwords = True
+{% endif %}
+# Log bad PUT request content
+{% if bad_put_request_content is defined and bad_put_request_content is not none and (bad_put_request_content is number or bad_put_request_content is boolean or bad_put_request_content | length > 0) %}bad_put_request_content = {{ bad_put_request_content }}
+{% else %}#bad_put_request_content = False
+{% endif %}
+# Log backtrace on level=debug
+{% if backtrace_on_debug is defined and backtrace_on_debug is not none and (backtrace_on_debug is number or backtrace_on_debug is boolean or backtrace_on_debug | length > 0) %}backtrace_on_debug = {{ backtrace_on_debug }}
+{% else %}#backtrace_on_debug = False
+{% endif %}
+# Log request header on level=debug
+{% if request_header_on_debug is defined and request_header_on_debug is not none and (request_header_on_debug is number or request_header_on_debug is boolean or request_header_on_debug | length > 0) %}request_header_on_debug = {{ request_header_on_debug }}
+{% else %}#request_header_on_debug = False
+{% endif %}
+# Log request content on level=debug
+{% if request_content_on_debug is defined and request_content_on_debug is not none and (request_content_on_debug is number or request_content_on_debug is boolean or request_content_on_debug | length > 0) %}request_content_on_debug = {{ request_content_on_debug }}
+{% else %}#request_content_on_debug = False
+{% endif %}
+# Log response header on level=debug
+{% if response_header_on_debug is defined and response_header_on_debug is not none and (response_header_on_debug is number or response_header_on_debug is boolean or response_header_on_debug | length > 0) %}response_header_on_debug = {{ response_header_on_debug }}
+{% else %}#response_header_on_debug = False
+{% endif %}
+# Log response content on level=debug
+{% if response_content_on_debug is defined and response_content_on_debug is not none and (response_content_on_debug is number or response_content_on_debug is boolean or response_content_on_debug | length > 0) %}response_content_on_debug = {{ response_content_on_debug }}
+{% else %}#response_content_on_debug = False
+{% endif %}
+# Log request header on level=notice with condition
+{% if request_header_on_notice_condition is defined and request_header_on_notice_condition is not none and (request_header_on_notice_condition is number or request_header_on_notice_condition is boolean or request_header_on_notice_condition | length > 0) %}request_header_on_notice_condition = {{ request_header_on_notice_condition }}
+{% else %}#request_header_on_notice_condition = {}
+{% endif %}
+# Log request content on level=notice with condition
+{% if request_content_on_notice_condition is defined and request_content_on_notice_condition is not none and (request_content_on_notice_condition is number or request_content_on_notice_condition is boolean or request_content_on_notice_condition | length > 0) %}request_content_on_notice_condition = {{ request_content_on_notice_condition }}
+{% else %}#request_content_on_notice_condition = {}
+{% endif %}
+# Log response header on level=notice with condition
+{% if response_header_on_notice_condition is defined and response_header_on_notice_condition is not none and (response_header_on_notice_condition is number or response_header_on_notice_condition is boolean or response_header_on_notice_condition | length > 0) %}response_header_on_notice_condition = {{ response_header_on_notice_condition }}
+{% else %}#response_header_on_notice_condition = {}
+{% endif %}
+# Log response content on level=notice with condition
+{% if response_content_on_notice_condition is defined and response_content_on_notice_condition is not none and (response_content_on_notice_condition is number or response_content_on_notice_condition is boolean or response_content_on_notice_condition | length > 0) %}response_content_on_notice_condition = {{ response_content_on_notice_condition }}
+{% else %}#response_content_on_notice_condition = {}
+{% endif %}
+# Log rights rule which doesn't match on level=debug
+{% if rights_rule_doesnt_match_on_debug is defined and rights_rule_doesnt_match_on_debug is not none and (rights_rule_doesnt_match_on_debug is number or rights_rule_doesnt_match_on_debug is boolean or rights_rule_doesnt_match_on_debug | length > 0) %}rights_rule_doesnt_match_on_debug = {{ rights_rule_doesnt_match_on_debug }}
+{% else %}#rights_rule_doesnt_match_on_debug = False
+{% endif %}
+# Log storage cache actions on level=debug
+{% if storage_cache_actions_on_debug is defined and storage_cache_actions_on_debug is not none and (storage_cache_actions_on_debug is number or storage_cache_actions_on_debug is boolean or storage_cache_actions_on_debug | length > 0) %}storage_cache_actions_on_debug = {{ storage_cache_actions_on_debug }}
+{% else %}#storage_cache_actions_on_debug = False
+{% endif %}
+# Log profiling data on level=info
+# Value: per_request | per_request_method | none
+{% if profiling is defined and profiling is not none and (profiling is number or profiling is boolean or profiling | length > 0) %}profiling = {{ profiling }}
+{% else %}#profiling = none
+{% endif %}
+# Log profiling data per request minimum duration (seconds)
+{% if profiling_per_request_min_duration is defined and profiling_per_request_min_duration is not none and (profiling_per_request_min_duration is number or profiling_per_request_min_duration is boolean or profiling_per_request_min_duration | length > 0) %}profiling_per_request_min_duration = {{ profiling_per_request_min_duration }}
+{% else %}#profiling_per_request_min_duration = 3
+{% endif %}
+# Log profiling request header (if passing minimum duration)
+{% if profiling_per_request_header is defined and profiling_per_request_header is not none and (profiling_per_request_header is number or profiling_per_request_header is boolean or profiling_per_request_header | length > 0) %}profiling_per_request_header = {{ profiling_per_request_header }}
+{% else %}#profiling_per_request_header = False
+{% endif %}
+# Log profiling request XML (if passing minimum duration)
+{% if profiling_per_request_xml is defined and profiling_per_request_xml is not none and (profiling_per_request_xml is number or profiling_per_request_xml is boolean or profiling_per_request_xml | length > 0) %}profiling_per_request_xml = {{ profiling_per_request_xml }}
+{% else %}#profiling_per_request_xml = False
+{% endif %}
+# Log profiling data per request method interval (seconds)
+{% if profiling_per_request_method_interval is defined and profiling_per_request_method_interval is not none and (profiling_per_request_method_interval is number or profiling_per_request_method_interval is boolean or profiling_per_request_method_interval | length > 0) %}profiling_per_request_method_interval = {{ profiling_per_request_method_interval }}
+{% else %}#profiling_per_request_method_interval = 600
+{% endif %}
+# Log profiling top X functions (limit)
+{% if profiling_top_x_functions is defined and profiling_top_x_functions is not none and (profiling_top_x_functions is number or profiling_top_x_functions is boolean or profiling_top_x_functions | length > 0) %}profiling_top_x_functions = {{ profiling_top_x_functions }}
+{% else %}#profiling_top_x_functions = 10
+{% endif %}
+
+[headers]
+
+# Additional HTTP headers
+{% if access_control_allow_origin is defined and access_control_allow_origin is not none and (access_control_allow_origin is number or access_control_allow_origin is boolean or access_control_allow_origin | length > 0) %}Access-Control-Allow-Origin = {{ access_control_allow_origin }}
+{% else %}#Access-Control-Allow-Origin = *
+{% endif %}
+# Set CSP to disallow execution of unknown javascript
+# This may become the default in future versions, override if you need a different CSP.
+Content-Security-Policy = {{ content_security_policy | default('default-src \'self\'; object-src \'none\'') }}
+
+
+[hook]
+
+# Hook types
+# Value: none | rabbitmq | email
+#type = none
+
+# dry-run (do not really trigger hook action)
+{% if dryrun is defined and dryrun is not none and (dryrun is number or dryrun is boolean or dryrun | length > 0) %}dryrun = {{ dryrun }}
+{% else %}#dryrun = False
+{% endif %}
+# hook: rabbitmq
+{% if rabbitmq_endpoint is defined and rabbitmq_endpoint is not none and (rabbitmq_endpoint is number or rabbitmq_endpoint is boolean or rabbitmq_endpoint | length > 0) %}rabbitmq_endpoint {{ rabbitmq_endpoint }}
+{% else %}#rabbitmq_endpoint =
+{% endif %}{% if rabbitmq_topic is defined and rabbitmq_topic is not none and (rabbitmq_topic is number or rabbitmq_topic is boolean or rabbitmq_topic | length > 0) %}rabbitmq_topic {{ rabbitmq_topic }}
+{% else %}#rabbitmq_topic =
+{% endif %}{% if rabbitmq_queue_type is defined and rabbitmq_queue_type is not none and (rabbitmq_queue_type is number or rabbitmq_queue_type is boolean or rabbitmq_queue_type | length > 0) %}rabbitmq_queue_type = {{ rabbitmq_queue_type }}
+{% else %}#rabbitmq_queue_type = classic
+{% endif %}
+# hook: email
+{% if smtp_server is defined and smtp_server is not none and (smtp_server is number or smtp_server is boolean or smtp_server | length > 0) %}smtp_server = {{ smtp_server }}
+{% else %}#smtp_server = localhost
+{% endif %}{% if smtp_port is defined and smtp_port is not none and (smtp_port is number or smtp_port is boolean or smtp_port | length > 0) %}smtp_port = {{ smtp_port }}
+{% else %}#smtp_port = 25
+{% endif %}{% if smtp_security is defined and smtp_security is not none and (smtp_security is number or smtp_security is boolean or smtp_security | length > 0) %}smtp_security = {{ smtp_security }}
+{% else %}#smtp_security = starttls
+{% endif %}{% if smtp_ssl_verify_mode is defined and smtp_ssl_verify_mode is not none and (smtp_ssl_verify_mode is number or smtp_ssl_verify_mode is boolean or smtp_ssl_verify_mode | length > 0) %}smtp_ssl_verify_mode = {{ smtp_ssl_verify_mode }}
+{% else %}#smtp_ssl_verify_mode = REQUIRED
+{% endif %}{% if smtp_username is defined and smtp_username is not none and (smtp_username is number or smtp_username is boolean or smtp_username | length > 0) %}smtp_username {{ smtp_username }}
+{% else %}#smtp_username =
+{% endif %}{% if smtp_password is defined and smtp_password is not none and (smtp_password is number or smtp_password is boolean or smtp_password | length > 0) %}smtp_password {{ smtp_password }}
+{% else %}#smtp_password =
+{% endif %}{% if smtp_password_file is defined and smtp_password_file is not none and (smtp_password_file is number or smtp_password_file is boolean or smtp_password_file | length > 0) %}smtp_password_file {{ smtp_password_file }}
+{% else %}#smtp_password_file =
+{% endif %}{% if from_email is defined and from_email is not none and (from_email is number or from_email is boolean or from_email | length > 0) %}from_email {{ from_email }}
+{% else %}#from_email =
+{% endif %}{% if mass_email is defined and mass_email is not none and (mass_email is number or mass_email is boolean or mass_email | length > 0) %}mass_email = {{ mass_email }}
+{% else %}#mass_email = False
+{% endif %}{% if new_or_added_to_event_template is defined and new_or_added_to_event_template is not none and (new_or_added_to_event_template is number or new_or_added_to_event_template is boolean or new_or_added_to_event_template | length > 0) %}new_or_added_to_event_template {{ new_or_added_to_event_template }}
+{% else %}#new_or_added_to_event_template =
+{% endif %}{% if deleted_or_removed_from_event_template is defined and deleted_or_removed_from_event_template is not none and (deleted_or_removed_from_event_template is number or deleted_or_removed_from_event_template is boolean or deleted_or_removed_from_event_template | length > 0) %}deleted_or_removed_from_event_template {{ deleted_or_removed_from_event_template }}
+{% else %}#deleted_or_removed_from_event_template =
+{% endif %}{% if updated_event_template is defined and updated_event_template is not none and (updated_event_template is number or updated_event_template is boolean or updated_event_template | length > 0) %}updated_event_template {{ updated_event_template }}
+{% else %}#updated_event_template =
+{% endif %}
+
+[reporting]
+
+# When returning an expanded report, limit the number of returned
+# occurences per event to prevent DoS attacks.
+{% if max_expand_occurrence is defined and max_expand_occurrence is not none and (max_expand_occurrence is number or max_expand_occurrence is boolean or max_expand_occurrence | length > 0) %}max_expand_occurrence = {{ max_expand_occurrence }}
+{% else %}#max_expand_occurrence = 10000
+{% endif %}
+# When returning a free-busy report, limit the number of returned
+# occurences per event to prevent DoS attacks.
+{% if reporting_max_freebusy_occurrence is defined and reporting_max_freebusy_occurrence is not none and (reporting_max_freebusy_occurrence is number or reporting_max_freebusy_occurrence is boolean or reporting_max_freebusy_occurrence | length > 0) %}max_freebusy_occurrence = {{ reporting_max_freebusy_occurrence }}
+{% else %}#max_freebusy_occurrence = 10000
+{% endif %}

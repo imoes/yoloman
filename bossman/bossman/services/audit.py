@@ -47,6 +47,7 @@ _CATEGORIES: list[tuple[str, str]] = [
     ("/api/v1/deployments", "execution"),
     ("/api/v1/deploy", "execution"),
     ("/api/v1/runs", "execution"),
+    ("/api/v1/kubernetes", "kubernetes"),
     ("/api/v1/agents", "config"),
     ("/api/v1/thresholds", "monitoring"),
     ("/api/v1/checks", "monitoring"),

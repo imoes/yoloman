@@ -157,9 +157,9 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-filters input { flex: 1; min-width: 180px; }
       .bm-chk { font-size: 12.5px; display: flex; align-items: center; gap: 5px; opacity: 0.85; }
       .bm-loading { display: flex; justify-content: center; padding: 24px; }
-      .bm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: 6px 12px; font-size: 12px; }
-      .bm-ct td { padding: 8px 12px; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-ct { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px; font-size: 12px; }
+      .bm-ct td { padding: var(--bm-cell-py) 12px; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-row { cursor: pointer; }
       .bm-row:hover { background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
       .bm-exp mat-icon { font-size: 18px; opacity: 0.6; vertical-align: middle; }
@@ -169,14 +169,17 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-hosts th { text-align: left; opacity: 0.55; padding: 4px 8px; font-weight: 500; }
       .bm-hosts td { padding: 4px 8px; border-top: 1px dashed var(--mat-sys-outline-variant); }
       .bm-sev { font-size: 11px; padding: 1px 8px; border-radius: 999px; text-transform: capitalize; background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); }
-      .bm-sev-critical, .bm-scard.bm-sev-critical .bm-num { color: #b71c1c; }
-      .bm-sev-important, .bm-scard.bm-sev-important .bm-num { color: #e65100; }
-      .bm-sev-moderate { color: #f9a825; }
+      /* Status tokens (styles.scss, measured AA on the dark surfaces); "important" sits between crit and warn.
+         The former #b71c1c / #e65100 reached only ~2.6 / 4.4:1 on the dark card. */
+      .bm-sev-critical, .bm-scard.bm-sev-critical .bm-num { color: var(--bm-red); }
+      .bm-sev-important, .bm-scard.bm-sev-important .bm-num { color: color-mix(in srgb, var(--bm-red) 50%, var(--bm-gold)); }
+      .bm-sev-moderate { color: var(--bm-gold); }
       /* Debian leaves ~80% of CVEs untriaged and marks another 8k "unimportant"
          (no security impact as shipped). Both are real answers, not missing data,
          so they get their own muted styling instead of looking like a low finding. */
-      .bm-sev-untriaged { opacity: 0.75; font-style: italic; }
-      .bm-sev-unimportant { opacity: 0.55; }
+      /* Muted by colour, not opacity: an opacity compounds with .bm-lbl's and left the label at 4.2:1. */
+      .bm-sev-untriaged { color: var(--mat-sys-on-surface-variant); font-style: italic; }
+      .bm-sev-unimportant { color: var(--mat-sys-on-surface-variant); }
       .bm-empty { opacity: 0.6; padding: 16px 12px; }
       .bm-err { color: #c62828; }
       .bm-cb { width: 34px; }

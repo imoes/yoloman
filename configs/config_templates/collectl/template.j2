@@ -76,8 +76,9 @@ DaemonCommands = -f {{ dir | default('/var/log/collectl') }} -r00:00,{{ retentio
 
 # Interval: The default polling interval in seconds for the primary metric set.
 # Interval1 is typically the shortest interval.
-#Interval =     {{ interval | default(10) }}
-
+{% if interval is defined and interval is not none and (interval is number or interval is boolean or interval | length > 0) %}Interval =     {{ interval | default(10) }}
+{% else %}#Interval =     10
+{% endif %}
 # Interval2: The polling interval for the second set of metrics (slower).
 # Interval2 =    60
 

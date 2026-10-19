@@ -8,53 +8,42 @@
 #    License published by the Free Software Foundation.
 #
 # ------------------------------------------------------------------
-# AppArmor ABI version declaration.
-# Specifies the version of the AppArmor ABI used to compile and interpret the profile rules.
-# Must match the kernel's AppArmor ABI version for compatibility.
-# @see apparmor_abi_version
-abi {{ (apparmor_abi_version | default('4.0')) }},
 
-# Include global tunables (variable definitions like @{HOME}, @{TMP}, etc.).
-# This provides standard variable definitions used throughout the profile.
+# AppArmor ABI version used in the profile.
+# Defaults to '4.0' if not specified in the Ansible variables.
+abi <abi/{{ apparmor_abi_version | default('4.0') }}>,
+
 include <tunables/global>
 
-# Profile definition for the 'ping' utility.
-# Defines the access control policy for the ping command.
-# The 'flags=(complain)' mode logs violations but does not block them.
-# Remove 'flags=(complain)' to enforce strict blocking (enforce mode).
+# Profile for the ping utility.
+# Defines the security policy for /{usr/,}bin/{,iputils-}ping running in complain mode.
 profile ping /{usr/,}bin/{,iputils-}ping flags=(complain) {
-  # Include base abstractions providing common file and library access.
+  # Include base abstractions required for standard operation.
   include <abstractions/base>
-  
-  # Include abstractions for console access.
+
+  # Include console-related abstractions (tty access, etc.).
   include <abstractions/consoles>
-  
-  # Include abstractions for DNS resolution and nameservice access.
+
+  # Include nameservice abstractions (DNS, NIS, etc.).
   include <abstractions/nameservice>
 
-  # Allow raw network capabilities.
-  # net_raw: Used to construct ICMP packets.
+  # Allow raw network capabilities required for ping.
   capability net_raw,
-  # setuid: Allowed for privilege escalation if required by the binary (though ping usually doesn't need it in modern kernels, it's often included for compatibility).
   capability setuid,
 
-  # Allow raw network access for IPv4 and IPv6.
-  # ICMP packets are transmitted over raw sockets.
+  # Allow raw IPv4 and IPv6 network access.
   network inet raw,
   network inet6 raw,
 
-  # Read access for the ping binary and libraries.
-  # 'mixr' allows mixed read and execute.
+  # Read/write access to the ping binary itself and libraries.
   /{,usr/}bin/{,iputils-}ping mixr,
 
   # Read access to module configuration.
   /etc/modules.conf r,
 
-  # Read access to IPv6 disable status in procfs.
+  # Read access to IPv6 sysctl settings to determine if IPv6 is disabled.
   @{PROC}/sys/net/ipv6/conf/all/disable_ipv6 r,
 
-  # Site-specific additions and overrides.
-  # Include local customizations for the ping profile if they exist.
-  # @see /etc/apparmor.d/local/bin.ping
+  # Site-specific additions and overrides. See local/README for details.
   include if exists <local/bin.ping>
 }

@@ -1,0 +1,155 @@
+# ==============================================================================
+# xorgxrdp-glamor Configuration Template
+# This file configures the X.Org server for xrdp (Remote Desktop Protocol)
+# with Glamor acceleration. It defines the layout, input devices, monitor
+# specifications, video device, and screen settings.
+# ==============================================================================
+
+# --- Section: ServerLayout ---
+# Defines the overall layout of the X server, linking the screen and input devices.
+Section "ServerLayout"
+    # Identifier for the ServerLayout section.
+    Identifier "{{ server_layout_identifier | default('Default Layout') }}"
+    
+    # Reference to the Screen identifier used in the ServerLayout.
+    Screen "{{ server_layout_screen_ref | default('Screen (xrdpdev)') }}"
+    
+    # Identifier for the xrdp Mouse input device.
+    InputDevice "{{ input_device_mouse_identifier | default('xrdpMouse') }}" "CorePointer"
+    
+    # Identifier for the xrdp Keyboard input device.
+    InputDevice "{{ input_device_keyboard_identifier | default('xrdpKeyboard') }}" "CoreKeyboard"
+EndSection
+
+# --- Section: ServerFlags ---
+# Global server flags and options.
+Section "ServerFlags"
+    # Prevents "ServerLayout" sections in xorg.conf.d files from overriding this layout.
+    # Commented out if the layout identifier is empty/undefined to avoid confusing default behavior.
+    {% if (server_layout_identifier | default(None)) is defined and (server_layout_identifier | default(None)) is not none and ((server_layout_identifier | default('')) | string | length > 0) %}    overriding the "{{ server_layout_identifier | default('') }}" layout (xrdp #1784)
+{% else %}    # overriding the "X11 Server" layout (xrdp #1784)
+{% endif %}
+    
+    # Option to set the default server layout.
+    Option "DefaultServerLayout" "{{ server_layout_identifier | default('X11 Server') }}"
+    
+    # Option to prevent VT switching (Virtual Terminal).
+    # Values: 'on' or 'off'.
+    Option "DontVTSwitch" "{{ dont_vtswitch | default('on') }}"
+    
+    # Option to disable automatic device addition.
+    Option "AutoAddDevices" "{{ auto_add_devices | default('off') }}"
+    
+    # Option to disable automatic GPU addition.
+    Option "AutoAddGPU" "{{ auto_add_gpu | default('off') }}"
+EndSection
+
+# --- Section: Module ---
+# Loads necessary X server modules.
+Section "Module"
+    Load "dbe"
+    Load "ddc"
+    Load "extmod"
+    Load "glx"
+    Load "int10"
+    Load "record"
+    Load "vbe"
+    Load "glamoregl"
+    Load "xorgxrdp"
+    Load "fb"
+EndSection
+
+# --- Section: InputDevice (Keyboard) ---
+# Configures the keyboard input device.
+Section "InputDevice"
+    # Identifier for the xrdp Keyboard input device.
+    Identifier "{{ input_device_keyboard_identifier | default('xrdpKeyboard') }}"
+    
+    # Driver module for the xrdp keyboard.
+    Driver "{{ input_device_keyboard_driver | default('xrdpkeyb') }}"
+EndSection
+
+# --- Section: InputDevice (Mouse) ---
+# Configures the mouse input device.
+Section "InputDevice"
+    # Identifier for the xrdp Mouse input device.
+    Identifier "{{ input_device_mouse_identifier | default('xrdpMouse') }}"
+    
+    # Driver module for the xrdp mouse.
+    Driver "{{ input_device_mouse_driver | default('xrdpmouse') }}"
+EndSection
+
+# --- Section: Monitor ---
+# Defines monitor characteristics and supported resolutions.
+Section "Monitor"
+    # Identifier for the Monitor section.
+    Identifier "{{ monitor_identifier | default('Monitor') }}"
+    
+    # Option value for DPMS (Display Power Management Signaling).
+    # Empty enables default.
+    Option "DPMS" "{{ monitor_dpms | default('on') }}"
+    
+    # Horizontal sync frequency range for the monitor.
+    HorizSync {{ monitor_horiz_sync | default('30-80') }}
+    
+    # Vertical refresh frequency range for the monitor.
+    VertRefresh {{ monitor_vert_refresh | default('60-75') }}
+    
+    # ModeLine for 1920x1080 resolution.
+    ModeLine "{{ mode_line_1920x1080_resolution | default('1920x1080') }}" {{ mode_line_1920x1080_clock | default('138.500') }} {{ mode_line_1920x1080_timings | default('1920 1968 2000 2080 1080 1083 1088 1111 +hsync -vsync') }}
+    
+    # ModeLine for 1280x720 resolution.
+    ModeLine "{{ mode_line_1280x720_resolution | default('1280x720') }}" {{ mode_line_1280x720_clock | default('74.25') }} {{ mode_line_1280x720_timings | default('1280 1720 1760 1980 720 725 730 750 +HSync +VSync') }}
+    
+    # ModeLine for 1368x768 resolution.
+    ModeLine "{{ mode_line_1368x768_resolution | default('1368x768') }}" {{ mode_line_1368x768_clock | default('72.25') }} {{ mode_line_1368x768_timings | default('1368 1416 1448 1528 768 771 781 790 +hsync -vsync') }}
+    
+    # ModeLine for 1600x900 resolution.
+    Modeline "{{ mode_line_1600x900_resolution | default('1600x900') }}" {{ mode_line_1600x900_clock | default('119.00') }} {{ mode_line_1600x900_timings | default('1600 1696 1864 2128 900 901 904 932 -hsync +vsync') }}
+EndSection
+
+# --- Section: Device ---
+# Defines the video card/device settings.
+Section "Device"
+    # Identifier for the Device (video card) section.
+    Identifier "{{ device_identifier | default('Video Card (xrdpdev)') }}"
+    
+    # Driver module for the xrdp video device.
+    Driver "{{ device_driver | default('xrdpdev') }}"
+    
+    # Path to the DRM render node.
+    Option "DRMDevice" "{{ device_drm_device | default('/dev/dri/renderD128') }}"
+    
+    # Enable DRI3 extension (1=on, 0=off).
+    Option "DRI3" "{{ device_dri3 | default('1') }}"
+    
+    # Space-separated list of allowed DRM drivers.
+    Option "DRMAllowList" "{{ device_drm_allow_list | default('amdgpu i915 msm radeon') }}"
+EndSection
+
+# --- Section: Screen ---
+# Defines the screen configuration, linking device, monitor, and display settings.
+Section "Screen"
+    # Identifier for the Screen section.
+    Identifier "{{ screen_identifier | default('Screen (xrdpdev)') }}"
+    
+    # Reference to the Device identifier used in the Screen.
+    Device "{{ screen_device_ref | default('Video Card (xrdpdev)') }}"
+    
+    # Comment out this line for xorg < 1.18.0
+    GPUDevice "{{ screen_gpu_device | default('') }}"
+    
+    # Reference to the Monitor identifier used in the Screen.
+    Monitor "{{ screen_monitor_ref | default('Monitor') }}"
+    
+    # Default color depth for the screen.
+    DefaultDepth {{ screen_default_depth | default('24') }}
+    
+    SubSection "Display"
+        # Depth setting within the Display subsection.
+        Depth {{ screen_display_depth | default('24') }}
+        
+        # List of supported display modes.
+        Modes {{ screen_display_modes | default('"640x480" "800x600" "1024x768" "1280x720" "1280x1024" "1600x900" "1920x1080"') }}
+    EndSubSection
+EndSection

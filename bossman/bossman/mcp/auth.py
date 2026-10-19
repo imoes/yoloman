@@ -17,13 +17,17 @@ import json
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from bossman.services.auth import AuthError, authenticate_api_token
+from bossman.services.auth import AuthError, Identity, authenticate_api_token
 
 # Set by the middleware for the duration of one request, read by MCP tools
 # (see bossman/mcp/server.py's run_plan) that want to record which caller
 # actually triggered an action — task-local, so it does not leak between
 # concurrent requests.
 current_identity: contextvars.ContextVar[str | None] = contextvars.ContextVar("bossman_mcp_identity", default=None)
+# The same caller as a services.auth.Identity (kind api_token, with the token's UID), for tools that
+# authorise against the host ACL exactly as the REST routes do (user_can_manage_agent).
+current_auth_identity: contextvars.ContextVar[Identity | None] = contextvars.ContextVar(
+    "bossman_mcp_auth_identity", default=None)
 
 
 class McpBearerAuthMiddleware:
@@ -51,9 +55,11 @@ class McpBearerAuthMiddleware:
                 return
 
         reset_token = current_identity.set(api_token.name)
+        reset_auth = current_auth_identity.set(Identity(kind="api_token", name=api_token.name, token_id=api_token.id))
         try:
             await self.app(scope, receive, send)
         finally:
+            current_auth_identity.reset(reset_auth)
             current_identity.reset(reset_token)
 
 

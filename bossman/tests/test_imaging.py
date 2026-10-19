@@ -1023,3 +1023,19 @@ def test_percent_mode_is_unchanged_by_the_grow_mode_parameter():
                      grow_policy={"root": 50, "var": 30, "home": 20}, grow_mode="percent")
     assert [(p.volume.role, p.size_bytes, p.grow) for p in a.volumes] == \
            [(p.volume.role, p.size_bytes, p.grow) for p in b.volumes]
+
+
+def test_grow_policy_sizes_volumes_of_one_role_apart_by_mountpoint():
+    # debian13-tmpl holds /opt, /tmp and /usr all with role "data": a role key gave the three ONE share and the
+    # page showed "Sum: 80 %" for a valid policy. A mountpoint key sizes exactly one volume.
+    opt = Volume(role="data", fs_type="ext4", size_bytes=2 * GiB, used_bytes=1 * GiB, vg=_VG, lv="opt", mountpoint="/opt")
+    tmp = Volume(role="data", fs_type="ext4", size_bytes=2 * GiB, used_bytes=1 * GiB, vg=_VG, lv="tmp", mountpoint="/tmp")
+    root = Volume(role="root", fs_type="ext4", size_bytes=10 * GiB, used_bytes=4 * GiB, vg=_VG, lv="root", mountpoint="/")
+    layout = SourceLayout(disk_size=50 * GiB, volumes=(ESP, BOOT, opt, tmp, root))
+    plan = plan_restore(layout, Disk("vda", 200 * GiB), grow_policy={"/opt": 40, "/tmp": 10, "/": 50})
+    by = {p.volume.mountpoint: p for p in plan.volumes if p.volume.mountpoint}
+    assert by["/opt"].size_bytes > 3 * by["/tmp"].size_bytes
+    # A role key still sizes every volume of that role (saved policies keep working).
+    legacy = plan_restore(layout, Disk("vda", 200 * GiB), grow_policy={"data": 20, "root": 60})
+    lby = {p.volume.mountpoint: p for p in legacy.volumes if p.volume.mountpoint}
+    assert lby["/opt"].size_bytes == lby["/tmp"].size_bytes and lby["/opt"].grow

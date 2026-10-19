@@ -1,0 +1,29 @@
+# ============================================================================
+# /etc/sysconfig/memcached — memcached settings on RHEL/AlmaLinux/Fedora
+# The EnvironmentFile of memcached.service, whose ExecStart is
+#   memcached -p ${PORT} -u ${USER} -m ${CACHESIZE} -c ${MAXCONN} $OPTIONS
+# so every variable must stay set. Shell KEY="value" syntax.
+# Field names are shared with the Debian template (memcached.conf) where the
+# setting is the same, so one role form configures both families.
+# ============================================================================
+
+# TCP port to listen on.
+# Schema: port (integer) | Default: 11211
+PORT="{{ port | default(11211) }}"
+
+# User the daemon runs as (the EL package creates `memcached`).
+# Schema: memcached_user (string) | Default: 'memcached'
+USER="{{ memcached_user | default('memcached') }}"
+
+# Maximum simultaneous connections.
+# Schema: max_connections (integer) | Default: 1024
+MAXCONN="{{ max_connections | default(1024) }}"
+
+# Memory for item storage, in megabytes.
+# Schema: max_memory_mb (integer) | Default: 64
+CACHESIZE="{{ max_memory_mb | default(64) }}"
+
+# Further daemon options: the listen address (-l) plus extra flags.
+# Schema: bind_address (string) | Default: '127.0.0.1,::1'
+# Schema: extra_options (list) | Default: []
+OPTIONS="-l {{ bind_address | default('127.0.0.1,::1') }}{% for opt in extra_options | default([]) %} {{ opt }}{% endfor %}"

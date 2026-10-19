@@ -1,48 +1,135 @@
-#!/bin/sh
+# ==============================================================================
+# ftpmirror Configuration Template
+# ==============================================================================
+# This file is managed by Ansible. Do not edit manually.
+# Configuration parameters correspond to ftpmirror(1) and ftpmirror.conf(5).
 #
-# File: /etc/cron.daily/ftpmirror
-# Description: Cron script to save a log of ftpmirror tasks.
-# Author: Dario Minnucci <debian@midworld.net>
-# 
+# Self-documenting template: every variable has a default, every directive
+# has a comment derived from the schema description.
 
-CONFIG_DIR={{ config_dir }}
-LOG_FILE={{ log_file }}
+# ------------------------------------------------------------------------------
+# Authentication / Session Credentials
+# ------------------------------------------------------------------------------
 
-#
-# Don't run if this package is removed but not purged
-#
-if [ ! -f {{ ftpmirror_bin }} ]; then
-    exit 0
-fi
+# Login name for ftp session
+# Default: None (Anonymous login is typically used depending on the remote server policy)
+ftp-user = {{ ftp_user | default('') }}
 
+# Password for ftp session, typically an email address
+# Default: None (Required if ftp-user is not 'anonymous' or if the remote server mandates email contact)
+ftp-pass = {{ ftp_pass | default('') }}
 
-#
-# Logging section
-#
-if [ -x {{ savelog_bin }} ]; then
-    savelog -c 7 -m 644 -u root -g root $LOG_FILE >/dev/null
-fi
+# HTTP proxy to use if no listing method required
+# Default: None (Useful if direct FTP connections are blocked but HTTP proxy access is available)
+{% if http_proxy is defined and http_proxy is not none and (http_proxy is number or http_proxy is boolean or http_proxy | length > 0) %}http-proxy = {{ http_proxy | default('') }}{% else %}# http-proxy = proxy.your.net.com{% endif %}
 
-exec >$LOG_FILE 2>&1
+# ------------------------------------------------------------------------------
+# Transfer Mode & Behavior
+# ------------------------------------------------------------------------------
 
+# Use passive mode for data transfer
+# Default: 'yes' (Passive mode is generally required for clients behind firewalls/NAT)
+ftp-passive = {{ ftp_passive | default('yes') }}
 
-#
-# Get package list from /etc/ftpmirror/list.daily
-#
-PACKAGES=`cat ${CONFIG_DIR}/list.daily | grep -v '#'`
+# Force getting mtime via MDTM ftp command
+# Default: None (Ensures accurate file timestamps are preserved during synchronization)
+{% if ftp_force_mtime is defined and ftp_force_mtime is not none and (ftp_force_mtime is number or ftp_force_mtime is boolean or ftp_force_mtime | length > 0) %}ftp-force-mtime = {{ ftp_force_mtime | default('') }}{% else %}# ftp-force-mtime = yes{% endif %}
 
-for i in $PACKAGES; do
+# See ftp statistics report
+# Default: None (Enables reporting of bytes transferred, files skipped, etc.)
+ftp-stats = {{ ftp_stats | default('') }}
 
-    TIMESTAMP=`date +"%Y-%m-%d %H:%M:%S"`
+# Log mask to list up all available files
+# Default: None (Controls verbosity and which events are logged/processed)
+{% if log_mask is defined and log_mask is not none and (log_mask is number or log_mask is boolean or log_mask | length > 0) %}log-mask = {{ log_mask | default('') }}{% else %}# log-mask = main=6{% endif %}
 
-    echo ""
-    echo "---------------------------------------------------------"
-    echo " $TIMESTAMP - Package to process: $i"
-    echo "---------------------------------------------------------"
+# Whether to unlink no file
+# Default: 'yes' (If 'no', files that should not be there are removed. If 'yes', they are left alone)
+{% if unlink is defined and unlink is not none and (unlink is number or unlink is boolean or unlink | length > 0) %}unlink = {{ unlink | default('yes') }}{% else %}# unlink = no{% endif %}
 
-    # Process parsed package
-    {{ ftpmirror_bin }} $i
+# ------------------------------------------------------------------------------
+# Directory Structure
+# ------------------------------------------------------------------------------
 
-done
+# Temporary directory used for operations
+# Default: None (Downloaded files are staged here before being moved to their final location)
+{% if temp_directory is defined and temp_directory is not none and (temp_directory is number or temp_directory is boolean or temp_directory | length > 0) %}temp-directory = {{ temp_directory | default('') }}{% else %}# temp-directory = /tmp{% endif %}
 
-exit 0
+# Directory for lock files (defaults to temp-directory)
+# Default: None (Prevents concurrent runs from corrupting data; falls back to temp_directory or /tmp)
+# Note: Using nested default to handle the case where temp_directory is also empty/None
+{% if lock_directory is defined and lock_directory is not none and (lock_directory is number or lock_directory is boolean or lock_directory | length > 0) %}lock-directory = {{ lock_directory | default((temp_directory | default('/tmp'))) }}{% else %}# lock-directory = /tmp{% endif %}
+
+# Generic remote directory pattern (%s is replaced by the package name)
+# This value is derived from schema defaults if explicitly set, or hardcoded if not present in schema.
+# Since schema does not provide remote-directory, we keep it static or allow override if a field existed.
+remote-directory = /pub/%s
+
+# Generic local directory pattern (%s is replaced by the package name)
+local-directory  = ~ftp/pub/%s
+
+# ------------------------------------------------------------------------------
+# File Exclusion Patterns
+# ------------------------------------------------------------------------------
+# The following regexps exclude unwanted files from being downloaded.
+# Syntax: transfer-file-regexp += !<pattern>
+# The '!' indicates exclusion.
+
+# Exclude home directories
+transfer-file-regexp += !/~$/
+# Exclude hidden dot-files starting with /#
+transfer-file-regexp += !/\/\#/
+# Exclude hidden dot-files starting with /.#
+transfer-file-regexp += !/\/\.\#/
+# Exclude .cache directories
+transfer-file-regexp += !/\/\.cache/
+# Exclude .message files
+transfer-file-regexp += !/\/\.message/
+# Exclude .mirror files
+transfer-file-regexp += !/\/\.mirror/
+# Exclude .nfs files (NFS lock files)
+transfer-file-regexp += !/\/\.nfs/
+# Exclude .notready files (indicates incomplete transfer)
+transfer-file-regexp += !/\/\.notready/
+# Exclude .in files (in-progress transfers)
+transfer-file-regexp += !/\/\.in/
+# Exclude .desc.txt files
+transfer-file-regexp += !/\/\.desc\.txt$/
+# Exclude core dumps
+transfer-file-regexp += !/\/core$/
+transfer-file-regexp += !/\.core$/
+
+# ------------------------------------------------------------------------------
+# Directory Exclusion Patterns
+# ------------------------------------------------------------------------------
+# Exclude specific directories from being synced.
+# Syntax: transfer-directory-regexp += !<pattern>
+
+# Exclude home directories at root level
+transfer-directory-regexp += !/~\/$/
+# Exclude lost+found directories
+transfer-directory-regexp += !/\/lost\+found\/$/
+
+# ------------------------------------------------------------------------------
+# System Paths
+# ------------------------------------------------------------------------------
+
+# Path to the ftpmirror binary
+# Default: '/usr/sbin/ftpmirror' (Used for executing the tool or upstream commands)
+ftpmirror_bin = {{ ftpmirror_bin | default('/usr/sbin/ftpmirror') }}
+
+# Path to the daily log file
+# Default: '/var/log/ftpmirror/ftpmirror.daily'
+log_file = {{ log_file | default('/var/log/ftpmirror/ftpmirror.daily') }}
+
+# Path to the savelog binary used for log rotation
+# Default: '/usr/bin/savelog'
+savelog_bin = {{ savelog_bin | default('/usr/bin/savelog') }}
+
+# Directory containing ftpmirror configuration files
+# Default: '/etc/ftpmirror' (Additional config snippets may be loaded from here)
+config_dir = {{ config_dir | default('/etc/ftpmirror') }}
+
+# ==============================================================================
+# End of Configuration
+# ==============================================================================

@@ -1,0 +1,56 @@
+#
+# Mod_perl incorporates a Perl interpreter into the Apache web server,
+# so that the Apache web server can directly execute Perl code.
+# Mod_perl links the Perl runtime library into the Apache web server
+# and provides an object-oriented Perl interface for Apache's C
+# language API.  The end result is a quicker CGI script turnaround
+# process, since no external Perl interpreter has to be started.
+#
+
+# The warning flag for PerlSwitches (e.g., 'w' for warnings).
+# Warnings should be enabled during the development process, but
+# should be disabled on a production server as they affect performance.
+#PerlSwitches -{{ warnings_flag | default('w') }}
+
+# The taint checking flag for PerlSwitches (e.g., 'T' for taint mode).
+# When Perl is running in taint mode various checks are performed to
+# reduce the risk of insecure data being passed to a subshell or being
+# used to modify the filesystem.  Unfortunately many Perl modules are
+# not taint-safe, so you should exercise care before enabling it on
+# a production server.
+#PerlSwitches -{{ taint_flag | default('T') }}
+
+# The document root directory for Perl scripts handled by mod_perl.
+# This allows execution of mod_perl to compile your scripts to
+# subroutines which it will execute directly, avoiding the costly
+# compile process for most requests.
+#
+{% set perl_root = perl_script_root | default('/var/www/perl') %}
+Alias /perl {{ perl_root }}
+<Directory {{ perl_root }}>
+    SetHandler perl-script
+    PerlResponseHandler ModPerl::Registry
+    PerlOptions +ParseHeaders
+    Options +ExecCGI
+</Directory>
+
+# The domain suffix used to restrict access to the perl-status page.
+# This will allow remote server configuration reports, with the URL of
+# http://servername/perl-status
+#
+{% set domain = domain_suffix | default(omit) %}
+{% if domain is defined and domain | length > 0 %}
+# Change the ".{{ domain }}" to match your domain to enable.
+<Location /perl-status>
+    SetHandler perl-script
+    PerlResponseHandler Apache2::Status
+    Require host .{{ domain }}
+</Location>
+{% else %}
+# Change the ".example.com" to match your domain to enable.
+# <Location /perl-status>
+#     SetHandler perl-script
+#     PerlResponseHandler Apache2::Status
+#     Require host .example.com
+# </Location>
+{% endif %}

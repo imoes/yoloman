@@ -38,6 +38,33 @@ def release_codename(updates: dict) -> tuple[str, str]:
     return distro, codename
 
 
+def correlate_windows(feed, facts: dict) -> tuple[list[dict], list[str]]:
+    """Correlate a Windows host from `windows_update_facts`' data (plan B13): per pending update, the CVE ids Windows
+    gave (rare — measured: none on bossman-wintest), else the CVEs Microsoft's security data lists for its KB.
+    Severity in MSRC's own words (Critical, Important, Moderate, Low). Returns (rows, KBs with no CVE known) — the
+    second list is said, not dropped: an update without a known CVE is still an update."""
+    rows: list[dict] = []
+    unmapped: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for u in facts.get("pending") or []:
+        kb = u.get("kb") or ""
+        title = u.get("title") or ""
+        found = [{"cve": c, "severity": u.get("msrc_severity") if u.get("msrc_severity") != "unrated" else ""}
+                 for c in u.get("cve_ids") or []]
+        if not found and kb:
+            found = feed.lookup_kb(kb) if feed.has("windows") else []
+        if not found:
+            unmapped.append(kb or title)
+            continue
+        for a in found:
+            if (a["cve"], kb) in seen:
+                continue
+            seen.add((a["cve"], kb))
+            rows.append({"cve": a["cve"], "package": kb, "source_package": title, "current_version": "",
+                         "fixed_version": kb, "severity": a.get("severity") or "", "distro": "windows"})
+    return rows, unmapped
+
+
 def correlate(feed, updates: dict) -> list[dict]:
     """Correlate one host. `updates` is the package_updates tool's `data`."""
     manager = updates.get("manager", "")

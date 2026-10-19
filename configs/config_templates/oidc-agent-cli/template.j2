@@ -1,114 +1,114 @@
 # ==============================================================================
-# oidc-agent-cli configuration
+# oidc-agent-cli Configuration Template
+# ==============================================================================
+# This template generates the OIDC provider registration/management URLs for
+# various federated identity providers (indigo-datacloud, EGI, Helmholtz, etc.).
 #
-# This file contains a list of OpenID Connect (OIDC) provider endpoints and
-# their associated metadata (registration URLs, contact emails).
-# It is consumed by oidc-agent-cli to auto-discover or configure trusted
-# identity providers.
-#
-# Format per line (space/tab separated):
-#   1. Provider Base URL (e.g., https://provider.example.com/)
-#   2. Dynamic Client Registration URL (optional, often /manage/dev/dynreg)
-#   3. Support Contact Email (optional)
-#
-# Variables correspond to specific identity providers. All are optional with
-# sensible defaults provided via Jinja2 `default()` filters.
+# Each block corresponds to a specific identity provider. The variables provided
+# in the schema must be set via Ansible inventory or group_vars.
 # ==============================================================================
 
-{# --- indigo-datacloud Test Environment --- #}
+# --- indigo-datacloud Test Environment ---
 # Primary OIDC provider hostname for indigo-datacloud test environment
-{{ 'https://' + (oidc_host1 | default('iam-test.indigo-datacloud.eu')) + '/' }}
-# Dynamic client registration and support info for indigo-datacloud
-{{ (oidc_host1 | default('iam-test.indigo-datacloud.eu')) + '/manage/dev/dynreg' }}
+# Format: <host>/ <host>/manage/dev/dynreg
+{{ (oidc_host1 | default('https://iam-test.indigo-datacloud.eu')) }}/ {{ (oidc_host1 | default('https://iam-test.indigo-datacloud.eu')) }}/manage/dev/dynreg
 
-{# --- Deep Hybrid Datacloud --- #}
+
+# --- deep-hybrid-datacloud ---
 # Secondary OIDC provider hostname for deep-hybrid-datacloud
-{{ 'https://' + (oidc_host2 | default('iam.deep-hybrid-datacloud.eu')) + '/' }}
-# Dynamic client registration and support email for deep-hybrid-datacloud
-{{ (oidc_host2 | default('iam.deep-hybrid-datacloud.eu')) + '/manage/dev/dynreg' }} {{ (oidc_contact2 | default('deep-hdc-iam-support@lists.cnaf.infn.it')) }}
+# Support email for deep-hybrid-datacloud
+# Format: <host>/ <host>/manage/dev/dynreg <contact>
+{{ (oidc_host2 | default('https://iam.deep-hybrid-datacloud.eu')) }}/ {{ (oidc_host2 | default('https://iam.deep-hybrid-datacloud.eu')) }}/manage/dev/dynreg {{ (oidc_contact2 | default('deep-hdc-iam-support@lists.cnaf.infn.it')) }}
 
-{# --- Extreme Datacloud --- #}
+
+# --- extreme-datacloud ---
 # OIDC provider hostname for extreme-datacloud
-{{ 'https://' + (oidc_host3 | default('iam.extreme-datacloud.eu')) + '/' }}
-# Dynamic client registration and support email for extreme-datacloud
-{{ (oidc_host3 | default('iam.extreme-datacloud.eu')) + '/manage/dev/dynreg' }} {{ (oidc_contact3 | default('deep-xdc-iam-support@lists.cnaf.infn.it')) }}
+# Support email for extreme-datacloud
+# Format: <host>/ <host>/manage/dev/dynreg <contact>
+{{ (oidc_host3 | default('https://iam.extreme-datacloud.eu')) }}/ {{ (oidc_host3 | default('https://iam.extreme-datacloud.eu')) }}/manage/dev/dynreg {{ (oidc_contact3 | default('deep-xdc-iam-support@lists.cnaf.infn.it')) }}
 
-{# --- Cloud CNAF Demo --- #}
+
+# --- cloud.cnaf Demo ---
 # OIDC provider hostname for cloud.cnaf demo
-{{ 'https://' + (oidc_host4 | default('iam-demo.cloud.cnaf.infn.it')) + '/' }}
-# Dynamic client registration for cloud.cnaf demo
-{{ (oidc_host4 | default('iam-demo.cloud.cnaf.infn.it')) + '/manage/dev/dynreg' }}
+# Format: <host>/ <host>/manage/dev/dynreg
+{{ (oidc_host4 | default('https://iam-demo.cloud.cnaf.infn.it')) }}/ {{ (oidc_host4 | default('https://iam-demo.cloud.cnaf.infn.it')) }}/manage/dev/dynreg
 
-{# --- EUDAT b2access --- #}
+
+# --- EUDAT (b2access) ---
 # OIDC provider hostname for b2access EUDAT
-{{ 'https://' + (oidc_host5 | default('b2access.eudat.eu')) + '/oauth2/' }}
-# Main portal for b2access EUDAT
-{{ 'https://' + (oidc_host5 | default('b2access.eudat.eu')) + '/' }}
+# Format: <host>/oauth2/ <host>/
+{{ (oidc_host5 | default('https://b2access.eudat.eu')) }}/oauth2/ {{ (oidc_host5 | default('https://b2access.eudat.eu')) }}/
 
-{# --- Juelich b2access Integration --- #}
+
+# --- b2access Integration Juelich ---
 # OIDC provider hostname for b2access integration Juelich
-{{ 'https://' + (oidc_host6 | default('b2access-integration.fz-juelich.de')) + '/oauth2' }}
-# Main portal for b2access integration Juelich
-{{ 'https://' + (oidc_host6 | default('b2access-integration.fz-juelich.de')) + '/' }}
+# Format: <host>/oauth2 <host>/
+{{ (oidc_host6 | default('https://b2access-integration.fz-juelich.de')) }}/oauth2 {{ (oidc_host6 | default('https://b2access-integration.fz-juelich.de')) }}/
 
-{# --- Helmholtz Development --- #}
+
+# --- Helmholtz Development ---
 # OIDC provider hostname for Helmholtz development login
-{{ 'https://' + (oidc_host7 | default('login-dev.helmholtz.de')) + '/oauth2/' }}
-# Main portal for Helmholtz development
-{{ 'https://' + (oidc_host7 | default('login-dev.helmholtz.de')) + '/' }}
+# Format: <host>/oauth2/ <host>/
+{{ (oidc_host7 | default('https://login-dev.helmholtz.de')) }}/oauth2/ {{ (oidc_host7 | default('https://login-dev.helmholtz.de')) }}/
 
-{# --- Helmholtz Production --- #}
+
+# --- Helmholtz Production ---
 # OIDC provider hostname for Helmholtz production login
-{{ 'https://' + (oidc_host8 | default('login.helmholtz.de')) + '/oauth2/' }}
-# Main portal for Helmholtz production
-{{ 'https://' + (oidc_host8 | default('login.helmholtz.de')) + '/' }}
+# Format: <host>/oauth2/ <host>/
+{{ (oidc_host8 | default('https://login.helmholtz.de')) }}/oauth2/ {{ (oidc_host8 | default('https://login.helmholtz.de')) }}/
 
-{# --- Human Brain Project --- #}
+
+# --- Human Brain Project ---
 # OIDC provider hostname for Human Brain Project
-{{ 'https://' + (oidc_host9 | default('services.humanbrainproject.eu')) + '/oidc/' }}
-# Dynamic client registration and support email for Human Brain Project
-{{ (oidc_host9 | default('services.humanbrainproject.eu')) + '/oidc/manage/dev/dynreg' }} {{ (oidc_contact9 | default('platform@humanbrainproject.eu')) }}
+# Support email for Human Brain Project
+# Format: <host>/oidc/ <host>/oidc/manage/dev/dynreg <contact>
+{{ (oidc_host9 | default('https://services.humanbrainproject.eu')) }}/oidc/ {{ (oidc_host9 | default('https://services.humanbrainproject.eu')) }}/oidc/manage/dev/dynreg {{ (oidc_contact9 | default('platform@humanbrainproject.eu')) }}
 
-{# --- Google Accounts --- #}
+
+# --- Google Accounts ---
 # OIDC provider hostname for Google Accounts
-{{ 'https://' + (oidc_host10 | default('accounts.google.com')) + '/' }}
-# Console/Management for Google Accounts
-{{ (oidc_host10 | default('accounts.google.com')) + '/console/' }}
+# Alt URL for Google Accounts management
+# Format: <host>/ <host_alt>/
+{{ (oidc_host10 | default('https://accounts.google.com')) }}/ {{ (oidc_host10_alt | default('https://console.developers.google.com')) }}/
 
-{# --- EGI AAI Production --- #}
+
+# --- EGI AAI Production ---
 # OIDC provider hostname for EGI AAI production
-{{ 'https://' + (oidc_host11 | default('aai.egi.eu')) + '/oidc/' }}
 # Support email for EGI AAI production
-{{ (oidc_contact11 | default('egi-aai-checkin@lists.grnet.gr')) }}
+# Format: <host>/oidc/  <contact>
+{{ (oidc_host11 | default('https://aai.egi.eu')) }}/oidc/  {{ (oidc_contact11 | default('egi-aai-checkin@lists.grnet.gr')) }}
 
-{# --- EGI AAI Demo --- #}
+
+# --- EGI AAI Demo ---
 # OIDC provider hostname for EGI AAI demo
-{{ 'https://' + (oidc_host12 | default('aai-demo.egi.eu')) + '/oidc/' }}
 # Support email for EGI AAI demo
-{{ (oidc_contact12 | default('egi-aai-checkin@lists.grnet.gr')) }}
+# Format: <host>/oidc/  <contact>
+{{ (oidc_host12 | default('https://aai-demo.egi.eu')) }}/oidc/  {{ (oidc_contact12 | default('egi-aai-checkin@lists.grnet.gr')) }}
 
-{# --- EGI AAI Development --- #}
+
+# --- EGI AAI Development ---
 # OIDC provider hostname for EGI AAI development
-{{ 'https://' + (oidc_host13 | default('aai-dev.egi.eu')) + '/oidc' }}
-# Dynamic client registration and support email for EGI AAI development
-{{ (oidc_host13 | default('aai-dev.egi.eu')) + '/oidc/manage/admin/client/new' }} {{ (oidc_contact13 | default('egi-aai-checkin@lists.grnet.gr')) }}
+# Support email for EGI AAI development
+# Format: <host>/oidc <host>/oidc/manage/admin/client/new <contact>
+{{ (oidc_host13 | default('https://aai-dev.egi.eu')) }}/oidc {{ (oidc_host13 | default('https://aai-dev.egi.eu')) }}/oidc/manage/admin/client/new {{ (oidc_contact13 | default('egi-aai-checkin@lists.grnet.gr')) }}
 
-{# --- Elixir-Czech --- #}
+
+# --- Elixir-Czech ---
 # OIDC provider hostname for Elixir-Czech login
-{{ 'https://' + (oidc_host14 | default('login.elixir-czech.org')) + '/oidc/' }}
-# Dynamic client registration and support email for Elixir-Czech
-{{ (oidc_host14 | default('login.elixir-czech.org')) + '/oidc/manage/dev/dynreg/new' }} {{ (oidc_contact14 | default('aai-contact@elixir-europe.org')) }}
+# Support email for Elixir-Czech
+# Format: <host>/oidc/ <host>/oidc/manage/dev/dynreg/new <contact>
+{{ (oidc_host14 | default('https://login.elixir-czech.org')) }}/oidc/ {{ (oidc_host14 | default('https://login.elixir-czech.org')) }}/oidc/manage/dev/dynreg/new {{ (oidc_contact14 | default('aai-contact@elixir-europe.org')) }}
 
-{# --- KIT SCC --- #}
-# OIDC provider hostname for KIT SCC (Authentication Realm)
-{{ 'https://' + (oidc_host15 | default('oidc.scc.kit.edu')) + '/auth/realms/kit/' }}
-# Alternative hostname for KIT SCC services info
-{{ (oidc_host15_alt1 | default('www.scc.kit.edu')) }}
-# Alternative hostname for KIT SCC contact info
-{{ (oidc_host15_alt2 | default('www.scc.kit.edu')) }}
 
-{# --- WLCG Cloud CNAF --- #}
+# --- KIT SCC ---
+# OIDC provider hostname for KIT SCC
+# Alt hostname for KIT SCC services info
+# Alt hostname for KIT SCC contact info
+# Format: <host>/auth/realms/kit/ <host_alt1>/dienste/openid-connect.php <host_alt2>/personen/matthias.bonn.php
+{{ (oidc_host15 | default('https://oidc.scc.kit.edu')) }}/auth/realms/kit/ {{ (oidc_host15_alt1 | default('https://www.scc.kit.edu')) }}/dienste/openid-connect.php {{ (oidc_host15_alt2 | default('https://www.scc.kit.edu')) }}/personen/matthias.bonn.php
+
+
+# --- WLCG Cloud CNAF ---
 # OIDC provider hostname for WLCG cloud CNAF
-{{ 'https://' + (oidc_host16 | default('wlcg.cloud.cnaf.infn.it')) + '/' }}
-# Dynamic client registration for WLCG cloud CNAF
-{{ (oidc_host16 | default('wlcg.cloud.cnaf.infn.it')) + '/manage/dev/dynreg' }}
+# Format: <host>/ <host>/manage/dev/dynreg
+{{ (oidc_host16 | default('https://wlcg.cloud.cnaf.infn.it')) }}/ {{ (oidc_host16 | default('https://wlcg.cloud.cnaf.infn.it')) }}/manage/dev/dynreg

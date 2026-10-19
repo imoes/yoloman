@@ -1,8 +1,16 @@
-# DLM_CONTROLD_OPTS -- set command line options for dlm_controld
-# Description: Passes custom command line arguments to the Distributed Lock Manager control daemon.
-# Common options include:
-#   -D      : Run in foreground (useful for debugging or systemd Type=notify)
-#   -p PORT : Listen on a specific port (default is usually dynamic or standard)
-#   -v      : Verbose logging
-# Reference: man dlm_controld for the full list of supported options.
-DLM_CONTROLD_OPTS="{{ dlm_controld_opts | default('') | trim }}"
+# /etc/sysconfig/dlm_controld configuration
+#
+# This file defines the command line options passed to the
+# dlm_controld service (Distributed Lock Manager daemon).
+#
+# Reference: See the 'dlm_controld' man page for available options.
+
+# DLM_CONTROLD_OPTS -- Command line options for dlm_controld.
+# Example values: '-D' (debug), '-p 1234' (pid file), etc.
+# If empty or not set, no extra options are passed.
+{% set opts = dlm_controld_opts | default('') %}
+{% if opts is string and opts | trim | length > 0 %}
+DLM_CONTROLD_OPTS="{{ opts }}"
+{% else %}
+# DLM_CONTROLD_OPTS=""
+{% endif %}

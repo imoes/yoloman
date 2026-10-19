@@ -1,0 +1,64 @@
+# ==============================================================================
+# ELRepo Release Configuration for Red Hat Enterprise Linux / CentOS / Rocky / Alma
+# ==============================================================================
+# This configuration file defines the YUM/DNF repositories for the ELRepo Project.
+# ELRepo provides hardware-related packages for Enterprise Linux, including
+# kernel drivers, firmware, and specialized utilities not found in the default
+# distribution repositories.
+#
+# Variables:
+#   - basearch:     The system architecture (e.g., x86_64, aarch64).
+#   - releasever:   The major version of Enterprise Linux (e.g., 7, 8, 9).
+#   - elrepo_*_enabled: Boolean flags to control whether specific ELRepo repos are active.
+# ==============================================================================
+
+[elrepo]
+# The main ELRepo repository. Contains standard community enterprise Linux packages.
+name=ELRepo.org Community Enterprise Linux Repository - {{ basearch | default('$basearch') }}
+# Base URLs for fetching packages. The first is the primary source, followed by a mirror.
+# Note: $basearch and $releasever are YUM/DNF variables resolved at runtime.
+baseurl=http://elrepo.org/linux/elrepo/el{{ releasever | default('$releasever') }}/{{ basearch | default('$basearch') }}/
+        http://mirrors.elrepo.org/elrepo/el{{ releasever | default('$releasever') }}/{{ basearch | default('$basearch') }}/
+# Stop processing this repository if a fatal error occurs (e.g., network failure).
+fatal_errors=1
+# Whether this repository is enabled by default. Controlled by the elrepo_enabled variable.
+enabled={{ elrepo_enabled | default(True) | ternary(1, 0) }}
+# Enable GPG signature checking for package integrity.
+gpgcheck=1
+# Path to the GPG public key used to sign ELRepo packages.
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-elrepo.org
+
+[elrepo-kernel]
+# The ELRepo Kernel repository. Provides newer Linux kernels and related modules.
+# Use with caution as these may be less stable than distribution-default kernels.
+name=ELRepo.org Community Enterprise Linux Kernel - {{ basearch | default('$basearch') }}
+# Base URL for kernel packages.
+baseurl=http://elrepo.org/linux/kernel/el{{ releasever | default('$releasever') }}/{{ basearch | default('$basearch') }}/
+fatal_errors=1
+# Whether this repository is enabled by default. Controlled by the elrepo_kernel_enabled variable.
+enabled={{ elrepo_kernel_enabled | default(False) | ternary(1, 0) }}
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-elrepo.org
+
+[elrepo-extras]
+# The ELRepo Extras repository. Contains additional utilities and tools not in the main repo.
+name=ELRepo.org Community Enterprise Linux Extras - {{ basearch | default('$basearch') }}
+# Base URL for extras packages.
+baseurl=http://elrepo.org/linux/extras/el{{ releasever | default('$releasever') }}/{{ basearch | default('$basearch') }}/
+fatal_errors=1
+# Whether this repository is enabled by default. Controlled by the elrepo_extras_enabled variable.
+enabled={{ elrepo_extras_enabled | default(False) | ternary(1, 0) }}
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-elrepo.org
+
+[elrepo-deprecated]
+# The ELRepo Deprecated repository. Contains older versions of packages that are no longer supported.
+# Not recommended for production use.
+name=ELRepo.org Community Enterprise Linux Deprecated - {{ basearch | default('$basearch') }}
+# Base URL for deprecated packages.
+baseurl=http://elrepo.org/linux/deprecated/el{{ releasever | default('$releasever') }}/{{ basearch | default('$basearch') }}/
+fatal_errors=1
+# Whether this repository is enabled by default. Controlled by the elrepo_deprecated_enabled variable.
+enabled={{ elrepo_deprecated_enabled | default(False) | ternary(1, 0) }}
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-elrepo.org

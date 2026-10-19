@@ -1,46 +1,62 @@
 ######################################
-# GoAccess Configuration Template
-# Self-documenting: Every variable is described, defaulted, and safe.
+# Time Format Options (required)
 ######################################
-
-######################################
-# Time Format Options
-######################################
-
-# Time format in log (e.g., %H:%M:%S for HH:MM:SS).
-# Defaults to 24-hour clock with leading zeros.
-time-format {{ time_format | default('%H:%M:%S') }}
-
-# Google Cloud Storage or the time in microseconds since the Unix epoch.
-# #time-format %f
+#
+# The hour (24-hour clock) [00,23]; leading zeros are permitted but not required.
+# The minute [00,59]; leading zeros are permitted but not required.
+# The seconds [00,60]; leading zeros are permitted but not required.
+# See `man strftime` for more details
+#
+# The following time format works with any of the
+# Apache/NGINX's log formats below.
+#
+{% if time_format is defined and time_format is not none and (time_format is number or time_format is boolean or time_format | length > 0) %}time-format {{ time_format }}
+{% else %}#time-format %H:%M:%S
+{% endif %}#
+# Google Cloud Storage or
+# The time in microseconds since the Unix epoch.
+#
+#time-format %f
 
 # Squid native log format
-# #time-format %s
+#
+#time-format %s
 
 ######################################
-# Date Format Options
+# Date Format Options (required)
 ######################################
-
-# Date format in log (e.g., %Y-%m-%d for ISO dates).
-# Defaults to Day/Month/Year format typical of Apache/Nginx.
-date-format {{ date_format | default('%d/%b/%Y') }}
-
+#
+# The date-format variable followed by a space, specifies
+# the log format date containing any combination of regular
+# characters and special format specifiers. They all begin with a
+# percentage (%) sign. See `man strftime`
+#
+# The following date format works with any of the
+# Apache/NGINX's log formats below.
+#
+{% if date_format is defined and date_format is not none and (date_format is number or date_format is boolean or date_format | length > 0) %}date-format {{ date_format }}
+{% else %}#date-format %d/%b/%Y
+{% endif %}#
 # AWS | Amazon CloudFront (Download Distribution)
 # AWS | Elastic Load Balancing
 # W3C (IIS)
-# #date-format %Y-%m-%d
-
-# Google Cloud Storage or the time in microseconds since the Unix epoch.
-# #date-format %f
+#
+#date-format %Y-%m-%d
+#
+# Google Cloud Storage or
+# The time in microseconds since the Unix epoch.
+#
+#date-format %f
 
 # Squid native log format
 # Caddy
-# #date-format %s
+#
+#date-format %s
 
 ######################################
 # Date/Time Format Option
 ######################################
-
+#
 # The datetime-format variable followed by a space, specifies
 # the log format date and time containing any combination of regular
 # characters and special format specifiers. They all begin with a
@@ -49,12 +65,14 @@ date-format {{ date_format | default('%d/%b/%Y') }}
 # This gives the ability to get the timezone from a request and
 # convert it to another timezone for output. See --tz=<timezone> in
 # the man page.
-datetime-format %d/%b/%Y:%H:%M:%S %z
-
+#
+{% if datetime_format is defined and datetime_format is not none and (datetime_format is number or datetime_format is boolean or datetime_format | length > 0) %}datetime-format {{ datetime_format }}
+{% else %}#datetime-format %d/%b/%Y:%H:%M:%S %z
+{% endif %}
 ######################################
 # Log Format Options (required)
 ######################################
-
+#
 # The log-format variable followed by a space or \t for
 # tab-delimited, specifies the log format string.
 #
@@ -105,8 +123,8 @@ datetime-format %d/%b/%Y:%H:%M:%S %z
 
 # In addition to specifying the raw log/date/time formats, for
 # simplicity, any of the following predefined log format names can be
-# supplied to the log/date/time-format variables. GoAccess can also
-# handle one predefined name in one variable and another predefined
+# supplied to the log/date/time-format variables. GoAccess  can  also
+# handle  one  predefined name in one variable and another predefined
 # name in another variable.
 #
 #log-format COMBINED
@@ -131,24 +149,27 @@ datetime-format %d/%b/%Y:%H:%M:%S %z
 # 2 : Green
 # 3 : Monokai (if 256-colors supported)
 #
-#color-scheme 3
-
+{% if color_scheme is defined and color_scheme is not none and (color_scheme is number or color_scheme is boolean or color_scheme | length > 0) %}color-scheme {{ color_scheme }}
+{% else %}#color-scheme 3
+{% endif %}
 # Prompt log/date configuration window on program start.
 #
-config-dialog false
+config-dialog {{ config_dialog | default('false') }}
 
 # Color highlight active panel.
 #
-hl-header true
+hl-header {{ hl_header | default('true') }}
 
 # Specify a custom CSS file in the HTML report.
 #
-#html-custom-css /path/file.css
-
+{% if html_custom_css is defined and html_custom_css is not none and (html_custom_css is number or html_custom_css is boolean or html_custom_css | length > 0) %}html-custom-css {{ html_custom_css }}
+{% else %}#html-custom-css /path/file.css
+{% endif %}
 # Specify a custom JS file in the HTML report.
 #
-#html-custom-js /path/file.js
-
+{% if html_custom_js is defined and html_custom_js is not none and (html_custom_js is number or html_custom_js is boolean or html_custom_js | length > 0) %}html-custom-js {{ html_custom_js }}
+{% else %}#html-custom-js /path/file.js
+{% endif %}
 # Set default HTML preferences.
 #
 # NOTE: A valid JSON object is required.
@@ -156,62 +177,70 @@ hl-header true
 # The parser will only parse the value next to `html-prefs` (single line)
 # It allows the ability to customize each panel plot. See example below.
 #
-#html-prefs {"theme":"bright","perPage":5,"layout":"horizontal","showTables":true,"visitors":{"plot":{"chartType":"bar"}}}
-
+{% if html_prefs is defined and html_prefs is not none and (html_prefs is number or html_prefs is boolean or html_prefs | length > 0) %}html-prefs {{ html_prefs }}
+{% else %}#html-prefs {"theme":"bright","perPage":5,"layout":"horizontal","showTables":true,"visitors":{"plot":{"chartType":"bar"}}}
+{% endif %}
 # Set HTML report page title and header.
 #
-#html-report-title My Awesome Web Stats
+{% if html_report_title is defined and html_report_title is not none and (html_report_title is number or html_report_title is boolean or html_report_title | length > 0) %}html-report-title {{ html_report_title }}
+{% else %}#html-report-title My Awesome Web Stats
+{% endif %}
+# Format JSON output using tabs and newlines.
+#
+json-pretty-print {{ output_json | default('false') }}
 
-# Enable JSON output for programmatic access.
-# When true, enables pretty-printing for JSON output.
-json-pretty-print {{ output_json | default(false) | lower }}
-
-# Turn off colored output. This is the default output on
+# Turn off colored output. This is the  default output on
 # terminals that do not support colors.
 # true  : for no color output
 # false : use color-scheme
 #
-no-color false
+no-color {{ no_color | default('false') }}
 
 # Don't write column names in the terminal output. By default, it displays
 # column names for each available metric in every panel.
 #
-no-column-names false
+no-column-names {{ no_column_names | default('false') }}
 
 # Disable summary metrics on the CSV output.
 #
-no-csv-summary false
+no-csv-summary {{ no_csv_summary | default('false') }}
 
 # Disable progress metrics.
 #
-no-progress false
+no-progress {{ no_progress | default('false') }}
 
 # Disable scrolling through panels on TAB.
 #
-no-tab-scroll false
+no-tab-scroll {{ no_tab_scroll | default('false') }}
 
 # Disable progress metrics and parsing spinner.
-# #no-parsing-spinner true
-
+#
+{% if no_parsing_spinner is defined and no_parsing_spinner is not none and (no_parsing_spinner is number or no_parsing_spinner is boolean or no_parsing_spinner | length > 0) %}no-parsing-spinner {{ no_parsing_spinner }}
+{% else %}#no-parsing-spinner true
+{% endif %}
 # Do not show the last updated field displayed in the HTML generated report.
-# #no-html-last-updated true
-
+#
+{% if no_html_last_updated is defined and no_html_last_updated is not none and (no_html_last_updated is number or no_html_last_updated is boolean or no_html_last_updated | length > 0) %}no-html-last-updated {{ no_html_last_updated }}
+{% else %}#no-html-last-updated true
+{% endif %}
 # Outputs the report date/time data in the given timezone. Note that it
 # uses the canonical timezone name. See --datetime-format in order to
 # properly specify a timezone in the date/time format.
-# Time zone to use for parsing and displaying timestamps (e.g., 'UTC', 'America/New_York').
-tz {{ time_zone | default('UTC') }}
-
+#
+{% if time_zone is defined and time_zone is not none and (time_zone is number or time_zone is boolean or time_zone | length > 0) %}tz {{ time_zone }}
+{% else %}#tz Europe/Berlin
+{% endif %}
 # Enable mouse support on main dashboard.
 #
-with-mouse false
+with-mouse {{ with_mouse | default('false') }}
 
 # Maximum number of items to show per panel.
 # Note: Only the CSV and JSON outputs allow a maximum greater than the
 # default value of 366.
 #
-#max-items 366
-
+{% if max_items is defined and max_items is not none and (max_items is number or max_items is boolean or max_items | length > 0) %}max-items {{ max_items }}
+{% else %}#max-items 366
+{% endif %}
 # Custom colors for the terminal output
 # Tailor GoAccess to suit your own tastes.
 #
@@ -244,8 +273,6 @@ with-mouse false
 #color COLOR_MTRC_MTHD              color139:color-1
 #color COLOR_MTRC_HITS_PERC         color186:color-1
 #color COLOR_MTRC_HITS_PERC_MAX     color139:color-1
-#color COLOR_MTRC_HITS_PERC_MAX     color139:color-1
-#color COLOR_MTRC_HITS_PERC_MAX     color139:color-1
 #color COLOR_MTRC_HITS_PERC_MAX     color139:color-1 VISITORS
 #color COLOR_MTRC_HITS_PERC_MAX     color139:color-1 OS
 #color COLOR_MTRC_HITS_PERC_MAX     color139:color-1 BROWSERS
@@ -273,35 +300,49 @@ with-mouse false
 
 # Specify IP address to bind server to.
 #
-#addr 0.0.0.0
-
-# Run as background daemon (required for real-time streaming).
-daemonize {{ daemon_mode | default(false) | lower }}
-
+{% if addr is defined and addr is not none and (addr is number or addr is boolean or addr | length > 0) %}addr {{ addr }}
+{% else %}#addr 0.0.0.0
+{% endif %}
+# Run GoAccess as daemon (if --real-time-html enabled).
+#
+{% if daemon_mode is defined and daemon_mode is not none and (daemon_mode is number or daemon_mode is boolean or daemon_mode | length > 0) %}daemonize {{ daemon_mode }}
+{% else %}#daemonize false
+{% endif %}
 # Ensure clients send the specified origin header upon the WebSocket
 # handshake.
 #
-#origin http://example.org
-
+{% if origin is defined and origin is not none and (origin is number or origin is boolean or origin | length > 0) %}origin {{ origin }}
+{% else %}#origin http://example.org
+{% endif %}
 # The port to which the connection is being attempted to connect.
 # By default GoAccess' WebSocket server listens on port 7890
 # See man page or http://gwsocket.io for details.
 #
-#port 7890
-
+{% if port is defined and port is not none and (port is number or port is boolean or port | length > 0) %}port {{ port }}
+{% else %}#port 7890
+{% endif %}
 # Write the PID to a file when used along the daemonize option.
 #
-#pid-file /var/run/goaccess.pid
-
-# Enable HTML report generation (required for web UI / real-time dashboard).
-real-time-html {{ output_html | default(true) | lower }}
-
-# SSL certificate file path (required if ws_ssl=true).
-ssl-cert {{ ssl_cert | default('/etc/ssl/certs/goaccess.crt') }}
-
-# SSL private key file path (required if ws_ssl=true).
-ssl-key {{ ssl_key | default('/etc/ssl/private/goaccess.key') }}
-
+{% if pid_file is defined and pid_file is not none and (pid_file is number or pid_file is boolean or pid_file | length > 0) %}pid-file {{ pid_file }}
+{% else %}#pid-file /var/run/goaccess.pid
+{% endif %}
+# Enable real-time HTML output.
+#
+{% if output_html is defined and output_html is not none and (output_html is number or output_html is boolean or output_html | length > 0) %}real-time-html {{ output_html }}
+{% else %}#real-time-html true
+{% endif %}
+# Path to TLS/SSL certificate.
+# Note that ssl-cert and ssl-key need to be used to enable TLS/SSL.
+#
+{% if ssl_cert is defined and ssl_cert is not none and (ssl_cert is number or ssl_cert is boolean or ssl_cert | length > 0) %}ssl-cert {{ ssl_cert }}
+{% else %}#ssl-cert /path/ssl/domain.crt
+{% endif %}
+# Path to TLS/SSL private key.
+# Note that ssl-cert and ssl-key need to be used to enable TLS/SSL.
+#
+{% if ssl_key is defined and ssl_key is not none and (ssl_key is number or ssl_key is boolean or ssl_key | length > 0) %}ssl-key {{ ssl_key }}
+{% else %}#ssl-key /path/ssl/domain.key
+{% endif %}
 # URL to which the WebSocket server responds. This is the URL supplied
 # to the WebSocket constructor on the client side.
 #
@@ -319,40 +360,50 @@ ssl-key {{ ssl_key | default('/etc/ssl/private/goaccess.key') }}
 # specified here. Also, make sure it is a valid host and NOT an http
 # address.
 #
-#ws-url goaccess.io
-
+{% if ws_url is defined and ws_url is not none and (ws_url is number or ws_url is boolean or ws_url | length > 0) %}ws-url {{ ws_url }}
+{% else %}#ws-url goaccess.io
+{% endif %}
 # Path to read named pipe (FIFO).
 #
-#fifo-in /tmp/wspipein.fifo
-
+{% if fifo_in is defined and fifo_in is not none and (fifo_in is number or fifo_in is boolean or fifo_in | length > 0) %}fifo-in {{ fifo_in }}
+{% else %}#fifo-in /tmp/wspipein.fifo
+{% endif %}
 # Path to write named pipe (FIFO).
 #
-#fifo-out /tmp/wspipeout.fifo
-
+{% if fifo_out is defined and fifo_out is not none and (fifo_out is number or fifo_out is boolean or fifo_out | length > 0) %}fifo-out {{ fifo_out }}
+{% else %}#fifo-out /tmp/wspipeout.fifo
+{% endif %}
 ######################################
 # File Options
 ######################################
 
-# Primary log file path (supports wildcards for multiple files).
-log-file {{ log_file | default('/var/log/nginx/access.log') }}
-
+# Specify the path to the input log file. If set, it will take
+# priority over -f from the command line.
+#
+{% if log_file is defined and log_file is not none and (log_file is number or log_file is boolean or log_file | length > 0) %}log-file {{ log_file }}
+{% else %}#log-file /var/log/apache2/access.log
+{% endif %}
 # Send all debug messages to the specified file.
 #
-#debug-file debug.log
-
+{% if debug_file is defined and debug_file is not none and (debug_file is number or debug_file is boolean or debug_file | length > 0) %}debug-file {{ debug_file }}
+{% else %}#debug-file debug.log
+{% endif %}
 # Specify a custom configuration file to use. If set, it will take
 # priority over the global configuration file (if any).
 #
-#config-file <filename>
-
+{% if config_file is defined and config_file is not none and (config_file is number or config_file is boolean or config_file | length > 0) %}config-file {{ config_file }}
+{% else %}#config-file <filename>
+{% endif %}
 # Log invalid requests to the specified file.
 #
-#invalid-requests <filename>
-
+{% if invalid_requests is defined and invalid_requests is not none and (invalid_requests is number or invalid_requests is boolean or invalid_requests | length > 0) %}invalid-requests {{ invalid_requests }}
+{% else %}#invalid-requests <filename>
+{% endif %}
 # Do not load the global configuration file.
 #
-no-global-config false
-
+{% if no_global_config is defined and no_global_config is not none and (no_global_config is number or no_global_config is boolean or no_global_config | length > 0) %}no-global-config {{ no_global_config }}
+{% else %}#no-global-config false
+{% endif %}
 ######################################
 # Parse Options
 ######################################
@@ -360,11 +411,11 @@ no-global-config false
 # Enable a list of user-agents by host. For faster parsing, do not
 # enable this flag.
 #
-agent-list false
+agent-list {{ agent_list | default('false') }}
 
-# Enable IP resolver on HTML|JSON|CSV output.
+#  Enable IP resolver on HTML|JSON|CSV output.
 #
-with-output-resolver false
+with-output-resolver {{ with_output_resolver | default('false') }}
 
 # Exclude an IPv4 or IPv6 from being counted.
 # Ranges can be included as well using a dash in between
@@ -380,16 +431,16 @@ with-output-resolver false
 #
 # <yes|no> [default: yes]
 #
-http-method yes
+http-method {{ http_method | default('yes') }}
 
 # Include HTTP request protocol if found. This will create a
 # request key containing the request protocol + the actual request.
 #
 # <yes|no> [default: yes]
 #
-http-protocol yes
+http-protocol {{ http_protocol | default('yes') }}
 
-# Write output to stdout given one of the following files and the
+# Write  output to stdout given one of the following files and the
 # corresponding extension for the output format:
 #
 # /path/file.csv  - Comma-separated values (CSV)
@@ -399,16 +450,16 @@ http-protocol yes
 # output /path/file.html
 
 # Ignore request's query string.
-# i.e., www.google.com/page.htm?query => www.google.com/page.htm
+# i.e.,  www.google.com/page.htm?query => www.google.com/page.htm
 #
 # Note: Removing the query string can greatly decrease memory
 # consumption, especially on timestamped requests.
 #
-no-query-string false
+no-query-string {{ no_query_string | default('false') }}
 
 # Disable IP resolver on terminal output.
 #
-no-term-resolver false
+no-term-resolver {{ no_term_resolver | default('false') }}
 
 # Treat non-standard status code 444 as 404.
 #
@@ -424,27 +475,30 @@ no-term-resolver false
 # e.g., 192.168.20.100 => 192.168.20.0
 # e.g., 2a03:2880:2110:df07:face:b00c::1 => 2a03:2880:2110:df07::
 #
-#anonymize-ip false
-
+{% if anonymize_ip is defined and anonymize_ip is not none and (anonymize_ip is number or anonymize_ip is boolean or anonymize_ip | length > 0) %}anonymize-ip {{ anonymize_ip }}
+{% else %}#anonymize-ip false
+{% endif %}
 # Include static files that contain a query string in the static files
 # panel.
 # e.g., /fonts/fontawesome-webfont.woff?v=4.0.3
 #
-all-static-files false
+all-static-files {{ all_static_files | default('false') }}
 
 # Include an additional delimited list of browsers/crawlers/feeds etc.
 # See config/browsers.list for an example or
 # https://raw.githubusercontent.com/allinurl/goaccess/master/config/browsers.list
 #
-#browsers-file <filename>
-
+{% if browsers_file is defined and browsers_file is not none and (browsers_file is number or browsers_file is boolean or browsers_file | length > 0) %}browsers-file {{ browsers_file }}
+{% else %}#browsers-file <filename>
+{% endif %}
 # Date specificity. Possible values: `date` (default), or `hr` or `min`.
 #
-#date-spec hr|min
-
+{% if date_spec is defined and date_spec is not none and (date_spec is number or date_spec is boolean or date_spec | length > 0) %}date-spec {{ date_spec }}
+{% else %}#date-spec hr|min
+{% endif %}
 # Decode double-encoded values.
 #
-double-decode false
+double-decode {{ double_decode | default('false') }}
 
 # Enable parsing/displaying the given panel.
 #
@@ -475,21 +529,26 @@ double-decode false
 # Hour specificity. Possible values: `hr` (default), or `min` (tenth
 # of a minute).
 #
-#hour-spec min
-
-# If true, exclude known search engine bots and queries from reports.
-ignore-crawlers {{ ignore_search_engine | default(false) | lower }}
+{% if hour_spec is defined and hour_spec is not none and (hour_spec is number or hour_spec is boolean or hour_spec | length > 0) %}hour-spec {{ hour_spec }}
+{% else %}#hour-spec min
+{% endif %}
+# Ignore crawlers from being counted.
+# This will ignore robots listed under browsers.c
+# Note that it will count them towards the total
+# number of requests, but excluded from any of the panels.
+#
+ignore-crawlers {{ ignore_search_engine | default('false') }}
 
 # Parse and display crawlers only.
 # This will ignore all hosts except robots listed under browsers.c
 # Note that it will count them towards the total
 # number of requests, but excluded from any of the panels.
 #
-crawlers-only false
+crawlers-only {{ crawlers_only | default('false') }}
 
 # Unknown browsers and OS are considered as crawlers
 #
-unknowns-as-crawlers false
+unknowns-as-crawlers {{ unknowns_as_crawlers | default('false') }}
 
 # Ignore static file requests.
 # req : Only ignore request from valid requests
@@ -543,18 +602,20 @@ ignore-panel KEYPHRASES
 
 # Number of lines from the access log to test against the provided
 # log/date/time format. By default, the parser is set to test 10
-# lines. If set to 0, the parser won't test any lines and will parse
+# lines. If set to 0, the parser won't test  any  lines and will parse
 # the whole access log.
 #
-#num-tests 10
-
+{% if num_tests is defined and num_tests is not none and (num_tests is number or num_tests is boolean or num_tests | length > 0) %}num-tests {{ num_tests }}
+{% else %}#num-tests 10
+{% endif %}
 # Parse log and exit without outputting data.
 #
-#process-and-exit false
-
+{% if process_and_exit is defined and process_and_exit is not none and (process_and_exit is number or process_and_exit is boolean or process_and_exit | length > 0) %}process-and-exit {{ process_and_exit }}
+{% else %}#process-and-exit false
+{% endif %}
 # Display real OS names. e.g, Windows XP, Snow Leopard.
 #
-real-os true
+real-os {{ real_os | default('true') }}
 
 # Sort panel on initial load.
 # Sort options are separated by comma.
@@ -696,8 +757,9 @@ static-file .zst
 
 # Standard GeoIP database for less memory usage (GeoIP Legacy).
 #
-#std-geoip false
-
+{% if std_geoip is defined and std_geoip is not none and (std_geoip is number or std_geoip is boolean or std_geoip | length > 0) %}std-geoip {{ std_geoip }}
+{% else %}#std-geoip false
+{% endif %}
 # === GeoIP2
 # For GeoIP2 databases, you can use DB-IP Lite databases.
 # DB-IP is licensed under a Creative Commons Attribution 4.0 International License.
@@ -714,24 +776,24 @@ static-file .zst
 # Download the GeoLite2-Country.mmdb.gz
 # gunzip GeoLite2-Country.mmdb.gz
 #
-# Path to MaxMind GeoIP database file (e.g., /usr/share/GeoIP/GeoLite2-Country.mmdb).
-# Leave empty to disable.
-geoip-database {{ geoip_database | default('') }}
-
+{% if geoip_database is defined and geoip_database is not none and (geoip_database is number or geoip_database is boolean or geoip_database | length > 0) %}geoip-database {{ geoip_database }}
+{% else %}#geoip-database /usr/local/share/GeoIP/GeoLiteCity.dat
+{% endif %}
 ######################################
 # Persistence Options
 ######################################
 
 # Path where the persisted database files are stored on disk.
 # The default value is the /tmp directory.
-#
-db-path /tmp
-
+{% if db_path is defined and db_path is not none and (db_path is number or db_path is boolean or db_path | length > 0) %}db-path {{ db_path }}
+{% else %}#db-path /tmp
+{% endif %}
 # Persist parsed data into disk.
-#
-persist true
-
+{% if persist is defined and persist is not none and (persist is number or persist is boolean or persist | length > 0) %}persist {{ persist }}
+{% else %}#persist true
+{% endif %}
 # Load previously stored data from disk.
 # Database files need to exist. See `persist`.
-#
-restore true
+{% if restore is defined and restore is not none and (restore is number or restore is boolean or restore | length > 0) %}restore {{ restore }}
+{% else %}#restore true
+{% endif %}

@@ -203,6 +203,17 @@ type Collector struct {
 	connFailed   uint64 // SYN_SENT → CLOSE (refused/reset/timed-out)
 	retransCount uint64 // tcp:tcp_retransmit_skb fires
 
+	// Per-interval event counts for the ring-buffered signals, so OOM kills
+	// and signals become comparable time series (before/after a tuning
+	// change, docs/kernel-tuning.md) instead of only a recent-events list.
+	oomCount     uint64
+	signalCounts map[string]uint64 // by signal name — a small fixed set (notable signals only)
+
+	// runqPrev is the cumulative run-queue histogram at the previous
+	// snapshot; the in-kernel map is never reset, so the per-interval
+	// delta is computed here.
+	runqPrev map[uint64]uint64
+
 	edgeSink EdgeSink
 }
 
@@ -248,6 +259,56 @@ func (c *Collector) SnapshotConnCounters() (success, failed, retrans uint64) {
 	success, failed, retrans = c.connSuccess, c.connFailed, c.retransCount
 	c.connSuccess, c.connFailed, c.retransCount = 0, 0, 0
 	return
+}
+
+// SnapshotEventCounters returns the OOM kills and signal deliveries counted
+// since the previous call, then resets them (same pattern as
+// SnapshotConnCounters). signals is keyed by signal name; a name absent from
+// the map had no delivery in the interval.
+func (c *Collector) SnapshotEventCounters() (oom uint64, signals map[string]uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	oom, signals = c.oomCount, c.signalCounts
+	c.oomCount, c.signalCounts = 0, nil
+	if signals == nil {
+		signals = map[string]uint64{}
+	}
+	return oom, signals
+}
+
+// SnapshotRunqLatency returns the run-queue latency histogram for the
+// interval since the previous call: {le in µs: tasks that waited that long}.
+// The kernel map is cumulative, so this is the difference to the previous
+// snapshot (the first call returns everything since the collector started).
+func (c *Collector) SnapshotRunqLatency() (map[string]uint64, error) {
+	cur, err := c.RunqLatency()
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delta, next := runqDelta(c.runqPrev, cur)
+	c.runqPrev = next
+	return delta, nil
+}
+
+// runqDelta subtracts the previous cumulative histogram from the current
+// one. A bucket that went DOWN means the map was recreated (collector
+// reload), and the current value is the whole interval's count.
+func runqDelta(prev map[uint64]uint64, cur []RunqBucket) (delta map[string]uint64, next map[uint64]uint64) {
+	delta = make(map[string]uint64, len(cur))
+	next = make(map[uint64]uint64, len(cur))
+	for _, b := range cur {
+		next[b.LatencyUs] = b.Count
+		d := b.Count
+		if p, ok := prev[b.LatencyUs]; ok && p <= b.Count {
+			d = b.Count - p
+		}
+		if d > 0 {
+			delta[strconv.FormatUint(b.LatencyUs, 10)] = d
+		}
+	}
+	return delta, next
 }
 
 func histToMap(h []uint64) map[string]uint64 {
@@ -627,6 +688,7 @@ func (c *Collector) appendOOMKill(e OOMKillEvent) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.oomKills = append(c.oomKills, e)
+	c.oomCount++
 	if len(c.oomKills) > c.maxEvents {
 		c.oomKills = c.oomKills[len(c.oomKills)-c.maxEvents:]
 	}
@@ -645,6 +707,10 @@ func (c *Collector) appendSignal(e SignalEvent) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.signals = append(c.signals, e)
+	if c.signalCounts == nil {
+		c.signalCounts = map[string]uint64{}
+	}
+	c.signalCounts[e.Signal]++
 	if len(c.signals) > c.maxEvents {
 		c.signals = c.signals[len(c.signals)-c.maxEvents:]
 	}

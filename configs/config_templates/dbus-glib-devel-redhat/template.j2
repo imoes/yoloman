@@ -1,0 +1,28 @@
+# D-Bus Bash Completion Helper Template
+# This template generates the bash completion script for `dbus-send`.
+# It is installed as part of the dbus-glib-devel package on Red Hat-based systems.
+#
+# Variables:
+#   None expected. This is a static helper script wrapper.
+#   If future extensions require configuration, they should be passed here.
+
+# Check for bash
+[ -z "$BASH_VERSION" ] && return
+
+################################################################################
+
+__dbus_send() {
+    local IFS=$'\n'
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # --name=value style option
+    if [[ "$cur" == *=* ]] ; then
+        cur=${cur/*=/}
+    fi
+
+    COMPREPLY=($(compgen -W "$(/usr/libexec/dbus-bash-completion-helper dbus-send ${COMP_WORDS[@]:0})" -- $cur))
+}
+
+################################################################################
+
+complete -o nospace -F __dbus_send dbus-send

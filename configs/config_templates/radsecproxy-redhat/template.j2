@@ -1,0 +1,85 @@
+# ============================================================================
+# radsecproxy configuration
+# Generated from Ansible role radsecproxy-redhat
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+
+# Log level: 1 (less verbose) to 5 (more verbose). Default is 3.
+# LogLevel		3
+
+# Log destination. Can be a file path or syslog facility.
+# Examples:
+#   file:///var/log/radsecproxy/radsecproxy.log
+#   x-syslog:///
+#   x-syslog:///log_local2
+# LogDestination		file:///var/log/radsecproxy/radsecproxy.log
+
+# Enable logging of thread IDs in log entries.
+# LogThreadId		on
+
+# Loop prevention: prevents infinite proxy loops.
+# LoopPrevention		on
+
+# Add a TTL attribute (value 20) if not present to prevent endless loops.
+# AddTTL 20
+
+# ---------------------------------------------------------------------------
+# F-Ticks / Logging Details Configuration
+# ---------------------------------------------------------------------------
+
+# Log MAC address handling: Original, Static, VendorHashed, etc.
+# LogMAC		Original
+
+# F-Ticks Reporting mode: None, Basic, Full.
+# FTicksReporting		None
+
+# F-Ticks MAC handling: Static, Original, etc.
+# FTicksMAC		Static
+
+# Syslog facility for F-Ticks messages.
+# FTicksSyslogFacility	log_local1
+
+# Prefix for F-Ticks messages (default "eduroam").
+# FTicksPrefix eduroam
+
+# ---------------------------------------------------------------------------
+# TLS Configuration (Global/Default)
+# ---------------------------------------------------------------------------
+# radsecproxy uses named TLS blocks (e.g., 'default', 'defaultserver').
+# If specific TLS params are not provided in the schema below, the standard
+# 'default' behavior applies. The schema provided for this package is minimal
+# (only client secret and realm reply), so no specific TLS block generation
+# is triggered here. Users should define TLS blocks elsewhere or rely on
+# system defaults if not needed for the local client connection.
+
+# ---------------------------------------------------------------------------
+# Client Configuration
+# ---------------------------------------------------------------------------
+
+# Client definition for localhost.
+# The 'type' can be udp, tcp, tls, or dtls.
+# The 'secret' is the shared secret used for message authentication.
+client localhost {
+    # Connection type: UDP is standard for local testing/loopback.
+    type	udp
+
+    # The shared secret for the localhost UDP client.
+    # Default: testing123
+    secret {{ radsecproxy_client_secret | default('testing123') }}
+}
+
+# ---------------------------------------------------------------------------
+# Realm Configuration
+# ---------------------------------------------------------------------------
+
+# Catch-all realm definition.
+# Matches any realm not explicitly defined above.
+realm * {
+    # The reply message sent when a realm is not found (default catch-all realm).
+    # This message is included in the reject packet.
+    # Default: "User unknown"
+    replymessage {{ radsecproxy_default_realm_reply_message | default('"User unknown"') }}
+}

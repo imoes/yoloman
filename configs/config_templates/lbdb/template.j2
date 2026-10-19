@@ -55,7 +55,7 @@ INMAIL_DB="{{ inmail_db | default('${XDG_DATA_HOME:-$HOME/.local/share}/lbdb/m_i
 # If you want m_finger to ask other host then localhost, create a list here:
 # (a space separated list):
 #
-M_FINGER_HOSTS="{{ finger_hosts | default('master.debian.org va.debian.org localhost') }}"
+{% if finger_hosts is defined and finger_hosts is not none and (finger_hosts is number or finger_hosts is boolean or finger_hosts | length > 0) %}M_FINGER_HOSTS="{{ finger_hosts | default('master.debian.org va.debian.org localhost') }}"{% else %}#M_FINGER_HOSTS="master.debian.org va.debian.org localhost"{% endif %}
 
 #
 # If it isn't possible to find out the correct mail domain name of
@@ -63,7 +63,7 @@ M_FINGER_HOSTS="{{ finger_hosts | default('master.debian.org va.debian.org local
 # or /etc/HOSTNAME, you can specify it in the variable
 # MAIL_DOMAIN_NAME. This overrides all other mechanisms.
 #
-MAIL_DOMAIN_NAME="{{ mail_domain_name | default('does-not-exist.org') }}"
+{% if mail_domain_name is defined and mail_domain_name is not none and (mail_domain_name is number or mail_domain_name is boolean or mail_domain_name | length > 0) %}MAIL_DOMAIN_NAME="{{ mail_domain_name | default('does-not-exist.org') }}"{% else %}#MAIL_DOMAIN_NAME=does-not-exist.org{% endif %}
 
 # - m_muttalias      query set of mutt alias files:
 #
@@ -73,8 +73,8 @@ MAIL_DOMAIN_NAME="{{ mail_domain_name | default('does-not-exist.org') }}"
 # not exist) prepended before the file name. Absolute file names
 # (beginning with /) will be taken direct.
 #
-MUTT_DIRECTORY="{{ mutt_directory | default('$HOME/.mutt') }}"
-MUTTALIAS_FILES="{{ muttalias_files | default('.muttrc .mail_aliases muttrc aliases') }}"
+{% if mutt_directory is defined and mutt_directory is not none and (mutt_directory is number or mutt_directory is boolean or mutt_directory | length > 0) %}MUTT_DIRECTORY="{{ mutt_directory | default('$HOME/.mutt') }}"{% else %}#MUTT_DIRECTORY="$HOME/.mutt"{% endif %}
+{% if muttalias_files is defined and muttalias_files is not none and (muttalias_files is number or muttalias_files is boolean or muttalias_files | length > 0) %}MUTTALIAS_FILES="{{ muttalias_files | default('.muttrc .mail_aliases muttrc aliases') }}"{% else %}#MUTTALIAS_FILES=".muttrc .mail_aliases muttrc aliases"{% endif %}
 
 
 # - m_pine      search pine addressbook files for aliases:
@@ -88,8 +88,8 @@ MUTTALIAS_FILES="{{ muttalias_files | default('.muttrc .mail_aliases muttrc alia
 # these addressbooks are searched for aliases. All filenames without
 # leading slash are searched in $HOME.
 #
-PINERC="{{ pine_rc | default('/etc/pine.conf /etc/pine.conf.fixed .pinerc') }}"
-PINE_ADDRESSBOOKS="{{ pine_addressbooks | default('/etc/addressbook .addressbook') }}"
+{% if pine_rc is defined and pine_rc is not none and (pine_rc is number or pine_rc is boolean or pine_rc | length > 0) %}PINERC="{{ pine_rc | default('/etc/pine.conf /etc/pine.conf.fixed .pinerc') }}"{% else %}#PINERC="/etc/pine.conf /etc/pine.conf.fixed .pinerc"{% endif %}
+{% if pine_addressbooks is defined and pine_addressbooks is not none and (pine_addressbooks is number or pine_addressbooks is boolean or pine_addressbooks | length > 0) %}PINE_ADDRESSBOOKS="{{ pine_addressbooks | default('/etc/addressbook .addressbook') }}"{% else %}#PINE_ADDRESSBOOKS="/etc/addressbook .addressbook"{% endif %}
 
 
 # - m_wanderlust      search your WanderLust addresses files:
@@ -98,7 +98,7 @@ PINE_ADDRESSBOOKS="{{ pine_addressbooks | default('/etc/addressbook .addressbook
 # book.  If you don't set this variable, the default
 # ($HOME/.addresses) is used.
 #
-WANDERLUST_ADDRESSES="{{ wanderlust_addresses | default('$HOME/.addresses') }}"
+{% if wanderlust_addresses is defined and wanderlust_addresses is not none and (wanderlust_addresses is number or wanderlust_addresses is boolean or wanderlust_addresses | length > 0) %}WANDERLUST_ADDRESSES="{{ wanderlust_addresses | default('$HOME/.addresses') }}"{% else %}#WANDERLUST_ADDRESSES="$HOME/.addresses"{% endif %}
 
 
 # - m_palm      search your Palm addressbook file:
@@ -108,7 +108,7 @@ WANDERLUST_ADDRESSES="{{ wanderlust_addresses | default('$HOME/.addresses') }}"
 # variable PALM_ADDRESS_DATABASE or if this isn't set in
 # $HOME/.jpilot/AddressDB.pdb.
 #
-PALM_ADDRESS_DATABASE="{{ palm_address_database | default('$HOME/.jpilot/AddressDB.pdb') }}"
+{% if palm_address_database is defined and palm_address_database is not none and (palm_address_database is number or palm_address_database is boolean or palm_address_database | length > 0) %}PALM_ADDRESS_DATABASE="{{ palm_address_database | default('$HOME/.jpilot/AddressDB.pdb') }}"{% else %}#PALM_ADDRESS_DATABASE="$HOME/.jpilot/AddressDB.pdb"{% endif %}
 
 
 # - m_gnomecard  search your GnomeCard address database files.
@@ -120,7 +120,7 @@ PALM_ADDRESS_DATABASE="{{ palm_address_database | default('$HOME/.jpilot/Address
 # least falls back to $HOME/.gnome/GnomeCard.gcrd. If a filename does
 # not start with a slash, it is prefixed with $HOME/.
 #
-GNOMECARD_FILES="{{ gnomecard_files | default('$HOME/.gnome/GnomeCard.gcrd') }}"
+{% if gnomecard_files is defined and gnomecard_files is not none and (gnomecard_files is number or gnomecard_files is boolean or gnomecard_files | length > 0) %}GNOMECARD_FILES="{{ gnomecard_files | default('$HOME/.gnome/GnomeCard.gcrd') }}"{% else %}#GNOMECARD_FILES="$HOME/.gnome/GnomeCard.gcrd"{% endif %}
 
 
 # - m_bbdb  search your BBDB (big brother database).
@@ -132,7 +132,7 @@ GNOMECARD_FILES="{{ gnomecard_files | default('$HOME/.gnome/GnomeCard.gcrd') }}"
 # You can configure the EMACS variable to tell this module which
 # emacsen to use. Otherwise it will fall back to emacs or xemacs.
 #
-EMACS="{{ emacs_cmd | default('emacs') }}"
+{% if emacs_cmd is defined and emacs_cmd is not none and (emacs_cmd is number or emacs_cmd is boolean or emacs_cmd | length > 0) %}EMACS="{{ emacs_cmd | default('emacs') }}"{% else %}#EMACS="emacs"{% endif %}
 
 
 # - m_ldap  query an LDAP server.
@@ -144,7 +144,7 @@ EMACS="{{ emacs_cmd | default('emacs') }}"
 # file. For this you have to define the selected entries as a space
 # separated list in the the variable LDAP_NICKS.
 #
-LDAP_NICKS="{{ ldap_nicks | default('debian bigfoot') }}"
+{% if ldap_nicks is defined and ldap_nicks is not none and (ldap_nicks is number or ldap_nicks is boolean or ldap_nicks | length > 0) %}LDAP_NICKS="{{ ldap_nicks | default('debian bigfoot') }}"{% else %}#LDAP_NICKS="debian bigfoot"{% endif %}
 
 
 # - m_abook query the abook(1) program
@@ -153,7 +153,7 @@ LDAP_NICKS="{{ ldap_nicks | default('debian bigfoot') }}"
 # variable. It contains a space separated list of all your files.
 # Default is $HOME/.abook/addressbook $HOME/.abook.addressbook
 #
-ABOOK_FILES="{{ abook_files | default('$HOME/.abook/friends $HOME/.abook/work') }}"
+{% if abook_files is defined and abook_files is not none and (abook_files is number or abook_files is boolean or abook_files | length > 0) %}ABOOK_FILES="{{ abook_files | default('$HOME/.abook/friends $HOME/.abook/work') }}"{% else %}# ABOOK_FILES="$HOME/.abook/friends $HOME/.abook/work"{% endif %}
 
 
 # - m_passwd search in /etc/passwd
@@ -167,14 +167,14 @@ ABOOK_FILES="{{ abook_files | default('$HOME/.abook/friends $HOME/.abook/work') 
 # If the consuming application expects a strict boolean, remove quotes.
 # Given the context of lbdb config, it often treats "true" string as truthy.
 # We keep quotes to match the default schema behavior of string representation.
-PASSWD_IGNORESYS="{{ passwd_ignore_sys | default('true') }}"
+{% if passwd_ignore_sys is defined and passwd_ignore_sys is not none and (passwd_ignore_sys is number or passwd_ignore_sys is boolean or passwd_ignore_sys | length > 0) %}PASSWD_IGNORESYS="{{ passwd_ignore_sys | default('true') }}"{% else %}#PASSWD_IGNORESYS=true{% endif %}
 
 
 # - m_vcf search in vcard files
 #
 # You have to define the vcard files space separated in $VCF_FILES to
 # make this module work:
-VCF_FILES="{{ vcf_files | default('$HOME/my.vcf') }}"
+{% if vcf_files is defined and vcf_files is not none and (vcf_files is number or vcf_files is boolean or vcf_files | length > 0) %}VCF_FILES="{{ vcf_files | default('$HOME/my.vcf') }}"{% else %}#VCF_FILES=$HOME/my.vcf{% endif %}
 
 
 #
@@ -196,13 +196,13 @@ MODULES_PATH="{{ modules_path | default('${prefix}/libexec/lbdb $HOME/.lbdb/modu
 # If you set this to "address", lbdbq sorts the output by addresses
 # (that's the default).
 #
-SORT_OUTPUT="{{ sort_output | default('address') }}"
+{% if sort_output is defined and sort_output is not none and (sort_output is number or sort_output is boolean or sort_output | length > 0) %}SORT_OUTPUT="{{ sort_output | default('address') }}"{% else %}#SORT_OUTPUT=address{% endif %}
 
 #
 # Do you want to see duplicate mail addresses (with multiple real
 # names or different comment fields)?  Default is "no".
 #
-KEEP_DUPES="{{ keep_dupes | default('no') }}"
+{% if keep_dupes is defined and keep_dupes is not none and (keep_dupes is number or keep_dupes is boolean or keep_dupes | length > 0) %}KEEP_DUPES="{{ keep_dupes | default('no') }}"{% else %}#KEEP_DUPES=no{% endif %}
 
 #
 # Do you want to automatically remove outdated and infrequently used
@@ -216,8 +216,8 @@ KEEP_DUPES="{{ keep_dupes | default('no') }}"
 #
 # Note: KEEP_DUPES must be "no"
 #
-MUNGE_LIMITCOUNT={{ munge_limitcount | default(3) }}
-MUNGE_LIMITDATE="{{ munge_limitdate | default("$(date --date='-1 month' +\"%F %R\")") }}"
+{% if munge_limitcount is defined and munge_limitcount is not none and (munge_limitcount is number or munge_limitcount is boolean or munge_limitcount | length > 0) %}MUNGE_LIMITCOUNT={{ munge_limitcount | default(3) }}{% else %}#MUNGE_LIMITCOUNT=3{% endif %}
+{% if munge_limitdate is defined and munge_limitdate is not none and (munge_limitdate is number or munge_limitdate is boolean or munge_limitdate | length > 0) %}MUNGE_LIMITDATE="{{ munge_limitdate | default("$(date --date='-1 month' +\"%F %R\")") }}"{% else %}#MUNGE_LIMITDATE=$(date --date='-1 month' +"%F %R"){% endif %}
 
 #
 # If you only want to find addresses seen in messages where one of
@@ -229,7 +229,7 @@ MUNGE_LIMITDATE="{{ munge_limitdate | default("$(date --date='-1 month' +\"%F %R
 # MU_IGNORE_MISSINGNAME to true or yes.
 # You can override the MU homedir using MU_HOME.
 #
-MU_PERSONAL="{{ mu_personal | default('true') }}"
-MU_AFTER={{ mu_after | default("$(date --date='-1 year' +%s)") }}
-MU_IGNORE_MISSINGNAME="{{ mu_ignore_missingname | default('true') }}"
-MU_HOME="{{ mu_home | default('$HOME/.mu') }}"
+{% if mu_personal is defined and mu_personal is not none and (mu_personal is number or mu_personal is boolean or mu_personal | length > 0) %}MU_PERSONAL="{{ mu_personal | default('true') }}"{% else %}#MU_PERSONAL=true{% endif %}
+{% if mu_after is defined and mu_after is not none and (mu_after is number or mu_after is boolean or mu_after | length > 0) %}MU_AFTER={{ mu_after | default("$(date --date='-1 year' +%s)") }}{% else %}#MU_AFTER=$(date --date='-1 year' +%s){% endif %}
+{% if mu_ignore_missingname is defined and mu_ignore_missingname is not none and (mu_ignore_missingname is number or mu_ignore_missingname is boolean or mu_ignore_missingname | length > 0) %}MU_IGNORE_MISSINGNAME="{{ mu_ignore_missingname | default('true') }}"{% else %}#MU_IGNORE_MISSINGNAME=true{% endif %}
+{% if mu_home is defined and mu_home is not none and (mu_home is number or mu_home is boolean or mu_home | length > 0) %}MU_HOME="{{ mu_home | default('$HOME/.mu') }}"{% else %}#MU_HOME="$HOME/.mu"{% endif %}

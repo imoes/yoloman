@@ -1,0 +1,51 @@
+# Shell completion function for the OpenStack Image Service (Glance) client.
+# This template provides tab-completion capabilities for the `glance` CLI command.
+# It dynamically parses the output of `glance bash-completion` to determine
+# available options and flags.
+
+# Initialize associative-style variables for completion data.
+# Using empty strings as defaults to ensure variables are defined before use.
+_glance_opts="" # Stores parsed long options
+_glance_flags="" # Stores parsed short flags
+_glance_opts_exp="" # Stores expanded regex pattern for options
+
+# Define the completion function _glance
+# This function is called by bash's `complete` mechanism.
+_glance()
+{
+    local cur prev nbc cflags
+    COMPREPLY=()
+
+    # Current word being completed and the previous word
+    # Default to empty string if COMP_WORDS is not set (though it should be)
+    cur="${COMP_WORDS[COMP_CWORD]:-}"
+    prev="${COMP_WORDS[COMP_CWORD-1]:-}"
+
+    # Lazy initialization: only fetch completion data once per shell session
+    if [ "x$_glance_opts" == "x" ] ; then
+        # Fetch raw completion data from the glance binary
+        nbc="`glance bash-completion 2>/dev/null | sed -e "s/  *-h  */ /" -e "s/  *-i  */ /"`
+        
+        # Extract options (long forms like --option)
+        _glance_opts="`echo "$nbc" | sed -e "s/--[a-z0-9_-]*//g" -e "s/  */ /g"`"
+        
+        # Extract flags (short forms like -o)
+        _glance_flags="`echo " $nbc" | sed -e "s/ [^-][^-][a-z0-9_-]*//g" -e "s/  */ /g"`"
+        
+        # Create a regex pattern of options for matching
+        _glance_opts_exp="`echo "$_glance_opts" | sed 's/^ *//' | tr ' ' '|'`"
+    fi
+
+    # Determine whether to complete flags or options based on context
+    if [[ " ${COMP_WORDS[@]} " =~ " "($_glance_opts_exp)" " && "$prev" != "help" ]] ; then
+        # If the previous word matches an option pattern and isn't 'help', complete flags
+        COMPREPLY=($(compgen -W "${_glance_flags}" -- ${cur}))
+    else
+        # Otherwise, complete main options
+        COMPREPLY=($(compgen -W "${_glance_opts}" -- ${cur}))
+    fi
+    return 0
+}
+
+# Register the completion function with bash for the `glance` command
+complete -F _glance glance

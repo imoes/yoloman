@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+    <!--
+      Configuration for Jomolhari Tibetan font integration.
+      Defines aliasing for generic families and locale-specific overrides
+      to ensure Tibetan scripts render correctly in various locales.
+    -->
+
+    <!-- Generic font aliasing -->
+    <!-- Alias the 'default_font_family' (e.g., serif) to point to the 'font_family' (Jomolhari) -->
+    <alias>
+        <!-- The target font family to alias -->
+        <family>{{ font_family | default('Jomolhari') }}</family>
+        <default>
+            <!-- The generic family name to alias (e.g., serif, sans-serif) -->
+            <family>{{ default_font_family | default('serif') }}</family>
+        </default>
+    </alias>
+
+    <!--
+      Locale-specific font substitution rules.
+      For each supported Tibetan locale, if the requested font matches the
+      default generic family, prepend the Jomolhari font so it takes precedence.
+    -->
+
+    <!-- Rule for Tibetan (China) locale: bo-cn -->
+    <match>
+        <!-- Test if the client requests the Tibetan (China) locale -->
+        <test name="lang">
+            <string>{{ locale_bo_cn | default('bo-cn') }}</string>
+        </test>
+        <!-- Test if the requested family is the configured default generic family -->
+        <test name="family">
+            <string>{{ default_font_family | default('serif') }}</string>
+        </test>
+        <!-- Prepend Jomolhari to the list of candidates for this family -->
+        <edit name="family" mode="prepend">
+            <string>{{ font_family | default('Jomolhari') }}</string>
+        </edit>
+    </match>
+
+    <!-- Rule for Tibetan (India) locale: bo-in -->
+    <match>
+        <test name="lang">
+            <string>{{ locale_bo_in | default('bo-in') }}</string>
+        </test>
+        <test name="family">
+            <string>{{ default_font_family | default('serif') }}</string>
+        </test>
+        <edit name="family" mode="prepend">
+            <string>{{ font_family | default('Jomolhari') }}</string>
+        </edit>
+    </match>
+
+    <!-- Rule for general Tibetan locale: bo -->
+    <match>
+        <test name="lang">
+            <string>{{ locale_bo | default('bo') }}</string>
+        </test>
+        <test name="family">
+            <string>{{ default_font_family | default('serif') }}</string>
+        </test>
+        <edit name="family" mode="prepend">
+            <string>{{ font_family | default('Jomolhari') }}</string>
+        </edit>
+    </match>
+
+    <!-- Rule for Dzongkha (Bhutan) locale: dz-bt -->
+    <match>
+        <test name="lang">
+            <string>{{ locale_dz_bt | default('dz-bt') }}</string>
+        </test>
+        <test name="family">
+            <string>{{ default_font_family | default('serif') }}</string>
+        </test>
+        <edit name="family" mode="prepend">
+            <string>{{ font_family | default('Jomolhari') }}</string>
+        </edit>
+    </match>
+
+    <!-- Rule for general Dzongkha locale: dz -->
+    <match>
+        <test name="lang">
+            <string>{{ locale_dz | default('dz') }}</string>
+        </test>
+        <test name="family">
+            <string>{{ default_font_family | default('serif') }}</string>
+        </test>
+        <edit name="family" mode="prepend">
+            <string>{{ font_family | default('Jomolhari') }}</string>
+        </edit>
+    </match>
+
+    <!-- Font rendering options -->
+    <!-- Apply autohinting settings to the Jomolhari font -->
+    <match target="font">
+        <!-- Test if the font being rendered is the Jomolhari font family -->
+        <test name="family" ignore-blanks="true">
+            <string>{{ font_family | default('Jomolhari') }}</string>
+        </test>
+        <!-- Enable or disable autohinting for this font -->
+        <edit name="autohint" mode="assign">
+            <!-- Convert boolean/string to valid XML bool (true/false) -->
+            <bool>{{ autohint | default('true') | lower }}</bool>
+        </edit>
+    </match>
+</fontconfig>

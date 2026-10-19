@@ -1,7 +1,8 @@
 # Global gsocket.conf file.
 # This file is first looked for in /etc/gsocket.conf
-# and then in {{ gs_prefix | default('/usr') }}/etc/gsocket.conf
-
+{% if gs_prefix is defined and gs_prefix is not none and (gs_prefix is number or gs_prefix is boolean or gs_prefix | length > 0) %}and then in {{ gs_prefix | default('/usr') }}/etc/gsocket.conf
+{% else %}# and then in /usr/etc/gsocket.conf
+{% endif %}
 # GS_PREFIX: The installation prefix for gsocket binaries, libraries, and configuration.
 # Default: /usr
 GS_PREFIX={{ gs_prefix | default('/usr') }}

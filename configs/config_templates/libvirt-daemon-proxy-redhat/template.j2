@@ -1,0 +1,606 @@
+# Master libvirt daemon configuration file
+#
+
+#################################################################
+#
+# Network connectivity controls
+#
+
+# Flag listening for secure TLS connections on the public TCP/IP port.
+#
+# To enable listening sockets with the 'libvirtd' daemon it's also required to
+# pass the '--listen' flag on the commandline of the daemon.
+# This is not needed with 'virtproxyd'.
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# It is necessary to setup a CA and issue server certificates before
+# using this capability.
+#
+# This is enabled by default, uncomment this to disable it
+{% if listen_tls is defined and listen_tls is not none and (listen_tls is number or listen_tls is boolean or listen_tls | length > 0) %}listen_tls = {{ listen_tls }}
+{% else %}#listen_tls = 0
+{% endif %}
+# Listen for unencrypted TCP connections on the public TCP/IP port.
+#
+# To enable listening sockets with the 'libvirtd' daemon it's also required to
+# pass the '--listen' flag on the commandline of the daemon.
+# This is not needed with 'virtproxyd'.
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# Using the TCP socket requires SASL authentication by default. Only
+# SASL mechanisms which support data encryption are allowed. This is
+# DIGEST_MD5 and GSSAPI (Kerberos5)
+#
+# This is disabled by default, uncomment this to enable it.
+{% if listen_tcp is defined and listen_tcp is not none and (listen_tcp is number or listen_tcp is boolean or listen_tcp | length > 0) %}listen_tcp = {{ listen_tcp }}
+{% else %}#listen_tcp = 1
+{% endif %}
+
+
+# Override the port for accepting secure TLS connections
+# This can be a port number, or service name
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+{% if tls_port is defined and tls_port is not none and (tls_port is number or tls_port is boolean or tls_port | length > 0) %}tls_port = {{ tls_port }}
+{% else %}#tls_port = "16514"
+{% endif %}
+# Override the port for accepting insecure TCP connections
+# This can be a port number, or service name
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+{% if tcp_port is defined and tcp_port is not none and (tcp_port is number or tcp_port is boolean or tcp_port | length > 0) %}tcp_port = {{ tcp_port }}
+{% else %}#tcp_port = "16509"
+{% endif %}
+
+# Override the default configuration which binds to all network
+# interfaces. This can be a numeric IPv4/6 address, or hostname
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# If the virtproxyd service is started in parallel with network
+# startup (e.g. with systemd), binding to addresses other than
+# the wildcards (0.0.0.0/::) might not be available yet.
+#
+{% if listen_addr is defined and listen_addr is not none and (listen_addr is number or listen_addr is boolean or listen_addr | length > 0) %}listen_addr = {{ listen_addr }}
+{% else %}#listen_addr = "192.168.0.1"
+{% endif %}
+
+#################################################################
+#
+# UNIX socket access controls
+#
+
+# Set the UNIX domain socket group ownership. This can be used to
+# allow a 'trusted' set of users access to management capabilities
+# without becoming root.
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# This is restricted to 'root' by default.
+{% if unix_sock_group is defined and unix_sock_group is not none and (unix_sock_group is number or unix_sock_group is boolean or unix_sock_group | length > 0) %}unix_sock_group = {{ unix_sock_group }}
+{% else %}#unix_sock_group = "libvirt"
+{% endif %}
+# Set the UNIX socket permissions for the R/O socket. This is used
+# for monitoring VM status only
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# Default allows any user. If setting group ownership, you may want to
+# restrict this too.
+{% if unix_sock_ro_perms is defined and unix_sock_ro_perms is not none and (unix_sock_ro_perms is number or unix_sock_ro_perms is boolean or unix_sock_ro_perms | length > 0) %}unix_sock_ro_perms = {{ unix_sock_ro_perms }}
+{% else %}#unix_sock_ro_perms = "0777"
+{% endif %}
+# Set the UNIX socket permissions for the R/W socket. This is used
+# for full management of VMs
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# Default allows only root. If PolicyKit is enabled on the socket,
+# the default will change to allow everyone (eg, 0777)
+#
+# If not using PolicyKit and setting group ownership for access
+# control, then you may want to relax this too.
+{% if unix_sock_rw_perms is defined and unix_sock_rw_perms is not none and (unix_sock_rw_perms is number or unix_sock_rw_perms is boolean or unix_sock_rw_perms | length > 0) %}unix_sock_rw_perms = {{ unix_sock_rw_perms }}
+{% else %}#unix_sock_rw_perms = "0770"
+{% endif %}
+# Set the UNIX socket permissions for the admin interface socket.
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+# Default allows only owner (root), do not change it unless you are
+# sure to whom you are exposing the access to.
+{% if unix_sock_admin_perms is defined and unix_sock_admin_perms is not none and (unix_sock_admin_perms is number or unix_sock_admin_perms is boolean or unix_sock_admin_perms | length > 0) %}unix_sock_admin_perms = {{ unix_sock_admin_perms }}
+{% else %}#unix_sock_admin_perms = "0700"
+{% endif %}
+# Set the name of the directory in which sockets will be found/created.
+#
+# This setting is not required or honoured if using systemd socket
+# activation.
+#
+{% if unix_sock_dir is defined and unix_sock_dir is not none and (unix_sock_dir is number or unix_sock_dir is boolean or unix_sock_dir | length > 0) %}unix_sock_dir = {{ unix_sock_dir }}
+{% else %}#unix_sock_dir = "/run/libvirt"
+{% endif %}
+
+
+#################################################################
+#
+# Authentication.
+#
+# There are the following choices available:
+#
+#  - none: do not perform auth checks. If you can connect to the
+#          socket you are allowed. This is suitable if there are
+#          restrictions on connecting to the socket (eg, UNIX
+#          socket permissions), or if there is a lower layer in
+#          the network providing auth (eg, TLS/x509 certificates)
+#
+#  - sasl: use SASL infrastructure. The actual auth scheme is then
+#          controlled from /etc/sasl2/libvirt.conf. For the TCP
+#          socket only GSSAPI & DIGEST-MD5 mechanisms will be used.
+#          For non-TCP or TLS sockets, any scheme is allowed.
+#
+#  - polkit: use PolicyKit to authenticate. This is only suitable
+#            for use on the UNIX sockets. The default policy will
+#            require a user to supply their own password to gain
+#            full read/write access (aka sudo like), while anyone
+#            is allowed read/only access.
+#
+
+# Set an authentication scheme for UNIX read-only sockets
+#
+# By default socket permissions allow anyone to connect
+#
+# If libvirt was compiled without support for 'polkit', then
+# no access control checks are done, but libvirt still only
+# allows execution of APIs which don't change state.
+#
+# If libvirt was compiled with support for 'polkit', then
+# the libvirt socket will perform a check with polkit after
+# connections. The default policy still allows any local
+# user access.
+#
+# To restrict monitoring of domains you may wish to either
+# enable 'sasl' here, or change the polkit policy definition.
+{% if auth_unix_ro is defined and auth_unix_ro is not none and (auth_unix_ro is number or auth_unix_ro is boolean or auth_unix_ro | length > 0) %}auth_unix_ro = {{ auth_unix_ro }}
+{% else %}#auth_unix_ro = "polkit"
+{% endif %}
+# Set an authentication scheme for UNIX read-write sockets.
+#
+# If libvirt was compiled without support for 'polkit', then
+# the systemd .socket files will use SocketMode=0600 by default
+# thus only allowing root user to connect, and 'auth_unix_rw'
+# will default to 'none'.
+#
+# If libvirt was compiled with support for 'polkit', then
+# the systemd .socket files will use SocketMode=0666 which
+# allows any user to connect and 'auth_unix_rw' will default
+# to 'polkit'. If you disable use of 'polkit' here, then it
+# is essential to change the systemd SocketMode parameter
+# back to 0600, to avoid an insecure configuration.
+#
+{% if auth_unix_rw is defined and auth_unix_rw is not none and (auth_unix_rw is number or auth_unix_rw is boolean or auth_unix_rw | length > 0) %}auth_unix_rw = {{ auth_unix_rw }}
+{% else %}#auth_unix_rw = "polkit"
+{% endif %}
+# Change the authentication scheme for TCP sockets.
+#
+# If you don't enable SASL, then all TCP traffic is cleartext.
+# Don't do this outside of a dev/test scenario. For real world
+# use, always enable SASL and use the GSSAPI or DIGEST-MD5
+# mechanism in /etc/sasl2/libvirt.conf
+{% if auth_tcp is defined and auth_tcp is not none and (auth_tcp is number or auth_tcp is boolean or auth_tcp | length > 0) %}auth_tcp = {{ auth_tcp }}
+{% else %}#auth_tcp = "sasl"
+{% endif %}
+# Change the authentication scheme for TLS sockets.
+#
+# TLS sockets already have encryption provided by the TLS
+# layer, and limited authentication is done by certificates
+#
+# It is possible to make use of any SASL authentication
+# mechanism as well, by using 'sasl' for this option
+{% if auth_tls is defined and auth_tls is not none and (auth_tls is number or auth_tls is boolean or auth_tls | length > 0) %}auth_tls = {{ auth_tls }}
+{% else %}#auth_tls = "none"
+{% endif %}
+# Enforce a minimum SSF value for TCP sockets
+#
+# The default minimum is currently 56 (single-DES) which will
+# be raised to 112 in the future.
+#
+# This option can be used to set values higher than 112
+{% if tcp_min_ssf is defined and tcp_min_ssf is not none and (tcp_min_ssf is number or tcp_min_ssf is boolean or tcp_min_ssf | length > 0) %}tcp_min_ssf = {{ tcp_min_ssf }}
+{% else %}#tcp_min_ssf = 112
+{% endif %}
+
+# Change the API access control scheme
+#
+# By default an authenticated user is allowed access
+# to all APIs. Access drivers can place restrictions
+# on this. By default the 'nop' driver is enabled,
+# meaning no access control checks are done once a
+# client has authenticated with virtproxyd
+#
+{% if access_drivers is defined and access_drivers is not none and (access_drivers is number or access_drivers is boolean or access_drivers | length > 0) %}access_drivers = {{ access_drivers }}
+{% else %}#access_drivers = [ "polkit" ]
+{% endif %}
+#################################################################
+#
+# TLS x509 certificate configuration
+#
+
+# Use of TLS requires that x509 certificates be issued. The default locations
+# for the certificate files is as follows:
+#
+#   /etc/pki/CA/cacert.pem - The CA master certificate
+#   /etc/pki/libvirt/servercert.pem - The server certificate signed by cacert.pem
+#   /etc/pki/libvirt/private/serverkey.pem - The server private key
+#
+# It is possible to override the default locations by altering the 'key_file',
+# 'cert_file', and 'ca_file' values and uncommenting them below.
+#
+# NB, overriding the default of one location requires uncommenting and
+# possibly additionally overriding the other settings.
+#
+
+# Override the default server key file path
+#
+# This parameter is mutually exclusive with 'key_files'
+#
+{% if key_file is defined and key_file is not none and (key_file is number or key_file is boolean or key_file | length > 0) %}key_file = {{ key_file }}
+{% else %}#key_file = "/etc/pki/libvirt/private/serverkey.pem"
+{% endif %}
+# Override the default server key file path(s)
+#
+# This parameter is mutually exclusive with 'key_file'
+#
+{% if key_files is defined and key_files is not none and (key_files is number or key_files is boolean or key_files | length > 0) %}key_files = {{ key_files }}
+{% else %}#key_files = ["/etc/pki/libvirt/private/serverkey-0.pem", "/etc/pki/libvirt/private/serverkey-1.pem"]
+{% endif %}
+# Override the default server certificate file path
+#
+# This parameter is mutually exclusive with 'cert_files'
+#
+{% if cert_file is defined and cert_file is not none and (cert_file is number or cert_file is boolean or cert_file | length > 0) %}cert_file = {{ cert_file }}
+{% else %}#cert_file = "/etc/pki/libvirt/servercert.pem"
+{% endif %}
+# Override the default server certificate file path(s)
+#
+# This parameter is mutually exclusive with 'cert_file'
+#
+{% if cert_files is defined and cert_files is not none and (cert_files is number or cert_files is boolean or cert_files | length > 0) %}cert_files = {{ cert_files }}
+{% else %}#cert_files = ["/etc/pki/libvirt/servercert-0.pem", "/etc/pki/libvirt/servercert-1.pem"]
+{% endif %}
+# Override the default CA certificate path
+#
+{% if ca_file is defined and ca_file is not none and (ca_file is number or ca_file is boolean or ca_file | length > 0) %}ca_file = {{ ca_file }}
+{% else %}#ca_file = "/etc/pki/CA/cacert.pem"
+{% endif %}
+# Specify a certificate revocation list.
+#
+# Defaults to not using a CRL, uncomment to enable it
+{% if crl_file is defined and crl_file is not none and (crl_file is number or crl_file is boolean or crl_file | length > 0) %}crl_file = {{ crl_file }}
+{% else %}#crl_file = "/etc/pki/CA/crl.pem"
+{% endif %}
+
+
+#################################################################
+#
+# Authorization controls
+#
+
+
+# Flag to disable verification of our own server certificates
+#
+# When virtproxyd starts it performs some sanity checks against
+# its own certificates.
+#
+# Default is to always run sanity checks. Uncommenting this
+# will disable sanity checks which is not a good idea
+{% if tls_no_sanity_certificate is defined and tls_no_sanity_certificate is not none and (tls_no_sanity_certificate is number or tls_no_sanity_certificate is boolean or tls_no_sanity_certificate | length > 0) %}tls_no_sanity_certificate = {{ tls_no_sanity_certificate }}
+{% else %}#tls_no_sanity_certificate = 1
+{% endif %}
+# Flag to disable verification of client certificates
+#
+# Client certificate verification is the primary authentication mechanism.
+# Any client which does not present a certificate signed by the CA
+# will be rejected.
+#
+# Default is to always verify. Uncommenting this will disable
+# verification.
+{% if tls_no_verify_certificate is defined and tls_no_verify_certificate is not none and (tls_no_verify_certificate is number or tls_no_verify_certificate is boolean or tls_no_verify_certificate | length > 0) %}tls_no_verify_certificate = {{ tls_no_verify_certificate }}
+{% else %}#tls_no_verify_certificate = 1
+{% endif %}
+
+# An access control list of allowed x509 Distinguished Names
+# This list may contain wildcards such as
+#
+#    "C=GB,ST=London,L=London,O=Red Hat,CN=*"
+#
+# Any * matches any number of consecutive spaces, like a simplified glob(7).
+#
+# The format of the DN for a particular certificate can be queried
+# using:
+#
+#    virt-pki-query-dn clientcert.pem
+#
+# NB If this is an empty list, no client can connect, so comment out
+# entirely rather than using empty list to disable these checks
+#
+# By default, no DN's are checked
+{% if tls_allowed_dn_list is defined and tls_allowed_dn_list is not none and (tls_allowed_dn_list is number or tls_allowed_dn_list is boolean or tls_allowed_dn_list | length > 0) %}tls_allowed_dn_list = {{ tls_allowed_dn_list }}
+{% else %}#tls_allowed_dn_list = ["DN1", "DN2"]
+{% endif %}
+
+# Override the compile time default TLS priority string. The
+# default is usually "NORMAL" unless overridden at build time.
+# Only set this is it is desired for libvirt to deviate from
+# the global default settings.
+#
+{% if tls_priority is defined and tls_priority is not none and (tls_priority is number or tls_priority is boolean or tls_priority | length > 0) %}tls_priority={{ tls_priority }}
+{% else %}#tls_priority="NORMAL"
+{% endif %}
+
+# An access control list of allowed SASL usernames. The format for username
+# depends on the SASL authentication mechanism. Kerberos usernames
+# look like username@REALM
+#
+# This list may contain wildcards such as
+#
+#    "*@EXAMPLE.COM"
+#
+# See the g_pattern_match function for the format of the wildcards.
+#
+# https://developer.gnome.org/glib/stable/glib-Glob-style-pattern-matching.html
+#
+# NB If this is an empty list, no client can connect, so comment out
+# entirely rather than using empty list to disable these checks
+#
+# By default, no Username's are checked
+{% if sasl_allowed_username_list is defined and sasl_allowed_username_list is not none and (sasl_allowed_username_list is number or sasl_allowed_username_list is boolean or sasl_allowed_username_list | length > 0) %}sasl_allowed_username_list = {{ sasl_allowed_username_list }}
+{% else %}#sasl_allowed_username_list = ["joe@EXAMPLE.COM", "fred@EXAMPLE.COM" ]
+{% endif %}
+
+#################################################################
+#
+# Processing controls
+#
+
+# The maximum number of concurrent client connections to allow
+# over all sockets combined.
+{% if max_clients is defined and max_clients is not none and (max_clients is number or max_clients is boolean or max_clients | length > 0) %}max_clients = {{ max_clients }}
+{% else %}#max_clients = 5000
+{% endif %}
+# The maximum length of queue of connections waiting to be
+# accepted by the daemon. Note, that some protocols supporting
+# retransmission may obey this so that a later reattempt at
+# connection succeeds.
+{% if max_queued_clients is defined and max_queued_clients is not none and (max_queued_clients is number or max_queued_clients is boolean or max_queued_clients | length > 0) %}max_queued_clients = {{ max_queued_clients }}
+{% else %}#max_queued_clients = 1000
+{% endif %}
+# The maximum length of queue of accepted but not yet
+# authenticated clients. The default value is 20. Set this to
+# zero to turn this feature off.
+{% if max_anonymous_clients is defined and max_anonymous_clients is not none and (max_anonymous_clients is number or max_anonymous_clients is boolean or max_anonymous_clients | length > 0) %}max_anonymous_clients = {{ max_anonymous_clients }}
+{% else %}#max_anonymous_clients = 20
+{% endif %}
+# The minimum limit sets the number of workers to start up
+# initially. If the number of active clients exceeds this,
+# then more threads are spawned, up to max_workers limit.
+# Typically you'd want max_workers to equal maximum number
+# of clients allowed
+{% if min_workers is defined and min_workers is not none and (min_workers is number or min_workers is boolean or min_workers | length > 0) %}min_workers = {{ min_workers }}
+{% else %}#min_workers = 5
+{% endif %}{% if max_workers is defined and max_workers is not none and (max_workers is number or max_workers is boolean or max_workers | length > 0) %}max_workers = {{ max_workers }}
+{% else %}#max_workers = 20
+{% endif %}
+
+# The number of priority workers. If all workers from above
+# pool are stuck, some calls marked as high priority
+# (notably domainDestroy) can be executed in this pool.
+{% if prio_workers is defined and prio_workers is not none and (prio_workers is number or prio_workers is boolean or prio_workers | length > 0) %}prio_workers = {{ prio_workers }}
+{% else %}#prio_workers = 5
+{% endif %}
+# Limit on concurrent requests from a single client
+# connection. To avoid one client monopolizing the server
+# this should be a small fraction of the global max_workers
+# parameter.
+# Setting this too low may cause keepalive timeouts.
+{% if max_client_requests is defined and max_client_requests is not none and (max_client_requests is number or max_client_requests is boolean or max_client_requests | length > 0) %}max_client_requests = {{ max_client_requests }}
+{% else %}#max_client_requests = 5
+{% endif %}
+# Same processing controls, but this time for the admin interface.
+# For description of each option, be so kind to scroll few lines
+# upwards.
+
+{% if admin_min_workers is defined and admin_min_workers is not none and (admin_min_workers is number or admin_min_workers is boolean or admin_min_workers | length > 0) %}admin_min_workers = {{ admin_min_workers }}
+{% else %}#admin_min_workers = 1
+{% endif %}{% if admin_max_workers is defined and admin_max_workers is not none and (admin_max_workers is number or admin_max_workers is boolean or admin_max_workers | length > 0) %}admin_max_workers = {{ admin_max_workers }}
+{% else %}#admin_max_workers = 5
+{% endif %}{% if admin_max_clients is defined and admin_max_clients is not none and (admin_max_clients is number or admin_max_clients is boolean or admin_max_clients | length > 0) %}admin_max_clients = {{ admin_max_clients }}
+{% else %}#admin_max_clients = 5
+{% endif %}{% if admin_max_queued_clients is defined and admin_max_queued_clients is not none and (admin_max_queued_clients is number or admin_max_queued_clients is boolean or admin_max_queued_clients | length > 0) %}admin_max_queued_clients = {{ admin_max_queued_clients }}
+{% else %}#admin_max_queued_clients = 5
+{% endif %}{% if admin_max_client_requests is defined and admin_max_client_requests is not none and (admin_max_client_requests is number or admin_max_client_requests is boolean or admin_max_client_requests | length > 0) %}admin_max_client_requests = {{ admin_max_client_requests }}
+{% else %}#admin_max_client_requests = 5
+{% endif %}
+#################################################################
+#
+# Logging controls
+#
+
+# Logging level: 4 errors, 3 warnings, 2 information, 1 debug
+# basically 1 will log everything possible
+#
+# WARNING: USE OF THIS IS STRONGLY DISCOURAGED.
+#
+# WARNING: It outputs too much information to practically read.
+# WARNING: The "log_filters" setting is recommended instead.
+#
+# WARNING: Journald applies rate limiting of messages and so libvirt
+# WARNING: will limit "log_level" to only allow values 3 or 4 if
+# WARNING: journald is the current output.
+#
+# WARNING: USE OF THIS IS STRONGLY DISCOURAGED.
+{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}log_level = {{ log_level }}
+{% else %}#log_level = 3
+{% endif %}
+# Logging filters:
+# A filter allows to select a different logging level for a given category
+# of logs. The format for a filter is:
+#
+#    level:match
+#
+# where 'match' is a string which is matched against the category
+# given in the VIR_LOG_INIT() at the top of each libvirt source
+# file, e.g., "remote", "qemu", or "util.json". The 'match' in the
+# filter matches using shell wildcard syntax (see 'man glob(7)').
+# The 'match' is always treated as a substring match. IOW a match
+# string 'foo' is equivalent to '*foo*'.
+#
+# 'level' is the minimal level where matching messages should
+#  be logged:
+#
+#    1: DEBUG
+#    2: INFO
+#    3: WARNING
+#    4: ERROR
+#
+# Multiple filters can be defined in a single @log_filters, they just need
+# to be separated by spaces. Note that libvirt performs "first" match, i.e.
+# if there are concurrent filters, the first one that matches will be applied,
+# given the order in @log_filters.
+#
+# A typical need is to capture information from a hypervisor driver,
+# public API entrypoints and some of the utility code. Some utility
+# code is very verbose and is generally not desired. Taking the QEMU
+# hypervisor as an example, a suitable filter string for debugging
+# might be to turn off object, json & event logging, but enable the
+# rest of the util code:
+#
+{% if log_filters is defined and log_filters is not none and (log_filters is number or log_filters is boolean or log_filters | length > 0) %}log_filters={{ log_filters }}
+{% else %}#log_filters="1:qemu 1:libvirt 4:object 4:json 4:event 1:util"
+{% endif %}
+# Logging outputs:
+# An output is one of the places to save logging information
+# The format for an output can be:
+#    level:stderr
+#      output goes to stderr
+#    level:syslog:name
+#      use syslog for the output and use the given name as the ident
+#    level:file:file_path
+#      output to a file, with the given filepath
+#    level:journald
+#      output to journald logging system
+# In all cases 'level' is the minimal priority, acting as a filter
+#    1: DEBUG
+#    2: INFO
+#    3: WARNING
+#    4: ERROR
+#
+# Multiple outputs can be defined, they just need to be separated by spaces.
+# e.g. to log all warnings and errors to syslog under the virtproxyd ident:
+{% if log_outputs is defined and log_outputs is not none and (log_outputs is number or log_outputs is boolean or log_outputs | length > 0) %}log_outputs={{ log_outputs }}
+{% else %}#log_outputs="3:syslog:virtproxyd"
+{% endif %}
+
+##################################################################
+#
+# Auditing
+#
+# This setting allows usage of the auditing subsystem to be altered:
+#
+#   audit_level == 0  -> disable all auditing
+#   audit_level == 1  -> enable auditing, only if enabled on host (default)
+#   audit_level == 2  -> enable auditing, and exit if disabled on host
+#
+{% if audit_level is defined and audit_level is not none and (audit_level is number or audit_level is boolean or audit_level | length > 0) %}audit_level = {{ audit_level }}
+{% else %}#audit_level = 2
+{% endif %}#
+# If set to 1, then audit messages will also be sent
+# via libvirt logging infrastructure. Defaults to 0
+#
+{% if audit_logging is defined and audit_logging is not none and (audit_logging is number or audit_logging is boolean or audit_logging | length > 0) %}audit_logging = {{ audit_logging }}
+{% else %}#audit_logging = 1
+{% endif %}
+###################################################################
+# UUID of the host:
+# Host UUID is read from one of the sources specified in host_uuid_source.
+#
+# - 'smbios': fetch the UUID from 'dmidecode -s system-uuid'
+# - 'machine-id': fetch the UUID from /etc/machine-id
+#
+# The host_uuid_source default is 'smbios'. If 'dmidecode' does not provide
+# a valid UUID a temporary UUID will be generated.
+#
+# Another option is to specify host UUID in host_uuid.
+#
+# Keep the format of the example UUID below. UUID must not have all digits
+# be the same.
+
+# NB This default all-zeros UUID will not work. Replace
+# it with the output of the 'uuidgen' command and then
+# uncomment this entry
+{% if host_uuid is defined and host_uuid is not none and (host_uuid is number or host_uuid is boolean or host_uuid | length > 0) %}host_uuid = {{ host_uuid }}
+{% else %}#host_uuid = "00000000-0000-0000-0000-000000000000"
+{% endif %}{% if host_uuid_source is defined and host_uuid_source is not none and (host_uuid_source is number or host_uuid_source is boolean or host_uuid_source | length > 0) %}host_uuid_source = {{ host_uuid_source }}
+{% else %}#host_uuid_source = "smbios"
+{% endif %}
+###################################################################
+# Keepalive protocol:
+# This allows virtproxyd to detect broken client connections or even
+# dead clients.  A keepalive message is sent to a client after
+# keepalive_interval seconds of inactivity to check if the client is
+# still responding; keepalive_count is a maximum number of keepalive
+# messages that are allowed to be sent to the client without getting
+# any response before the connection is considered broken.  In other
+# words, the connection is automatically closed approximately after
+# keepalive_interval * (keepalive_count + 1) seconds since the last
+# message received from the client.  If keepalive_interval is set to
+# -1, virtproxyd will never send keepalive requests; however clients
+# can still send them and the daemon will send responses.  When
+# keepalive_count is set to 0, connections will be automatically
+# closed after keepalive_interval seconds of inactivity without
+# sending any keepalive messages.
+#
+{% if keepalive_interval is defined and keepalive_interval is not none and (keepalive_interval is number or keepalive_interval is boolean or keepalive_interval | length > 0) %}keepalive_interval = {{ keepalive_interval }}
+{% else %}#keepalive_interval = 5
+{% endif %}{% if keepalive_count is defined and keepalive_count is not none and (keepalive_count is number or keepalive_count is boolean or keepalive_count | length > 0) %}keepalive_count = {{ keepalive_count }}
+{% else %}#keepalive_count = 5
+{% endif %}
+#
+# These configuration options are no longer used.  There is no way to
+# restrict such clients from connecting since they first need to
+# connect in order to ask for keepalive.
+#
+{% if keepalive_required is defined and keepalive_required is not none and (keepalive_required is number or keepalive_required is boolean or keepalive_required | length > 0) %}keepalive_required = {{ keepalive_required }}
+{% else %}#keepalive_required = 1
+{% endif %}{% if admin_keepalive_required is defined and admin_keepalive_required is not none and (admin_keepalive_required is number or admin_keepalive_required is boolean or admin_keepalive_required | length > 0) %}admin_keepalive_required = {{ admin_keepalive_required }}
+{% else %}#admin_keepalive_required = 1
+{% endif %}
+# Keepalive settings for the admin interface
+{% if admin_keepalive_interval is defined and admin_keepalive_interval is not none and (admin_keepalive_interval is number or admin_keepalive_interval is boolean or admin_keepalive_interval | length > 0) %}admin_keepalive_interval = {{ admin_keepalive_interval }}
+{% else %}#admin_keepalive_interval = 5
+{% endif %}{% if admin_keepalive_count is defined and admin_keepalive_count is not none and (admin_keepalive_count is number or admin_keepalive_count is boolean or admin_keepalive_count | length > 0) %}admin_keepalive_count = {{ admin_keepalive_count }}
+{% else %}#admin_keepalive_count = 5
+{% endif %}
+###################################################################
+# Open vSwitch:
+# This allows to specify a timeout for openvswitch calls made by
+# libvirt. The ovs-vsctl utility is used for the configuration and
+# its timeout option is set by default to 5 seconds to avoid
+# potential infinite waits blocking libvirt.
+#
+{% if ovs_timeout is defined and ovs_timeout is not none and (ovs_timeout is number or ovs_timeout is boolean or ovs_timeout | length > 0) %}ovs_timeout = {{ ovs_timeout }}
+{% else %}#ovs_timeout = 5
+{% endif %}

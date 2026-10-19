@@ -1,0 +1,50 @@
+# idTech3 server AppArmor profile
+# Copyright © 2016-2018 Simon McVittie
+# Copying and distribution of this file, with or without modification, are
+# permitted in any medium without royalty provided this notice is preserved.
+# This file is offered as-is, without any warranty.
+
+#include <tunables/global>
+
+# Profile name for the AppArmor confinement.
+# Default: ioq3ded
+profile {{ profile_name | default('ioq3ded') }} {{ binary_path | default('/usr/lib/ioquake3/ioq3ded') }} flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/private-files-strict>
+
+  # Allow UDP and TCP networking for the game server.
+  network inet dgram,
+  network inet stream,
+  network inet6 dgram,
+  network inet6 stream,
+
+  # Read access to configuration files in /etc.
+  # Uses glob patterns to match directories like 'openarena-server' or 'quake3-server'.
+  # Default: {openarena,quake3}-server
+  /etc/{{ etcdirs | default('{openarena,quake3}-server') }}/** r,
+
+  # Read and execute access to binaries and libraries in /usr/lib.
+  # Uses glob patterns to match directories like 'ioquake3', 'quake3', etc.
+  # Default: {ioquake3,quake3,openarena,openarena-server}
+  /usr/lib/{{ libdirs | default('{ioquake3,quake3,openarena,openarena-server)') }}/{,**} mr,
+
+  # Read access to shared game data (maps, packages) in /usr/share/games.
+  # Uses glob patterns to match directories like 'quake3*', 'openarena'.
+  # Default: {quake3*,openarena}
+  /usr/share/games/{{ share_dirs | default('{quake3*,openarena}') }}/{,**} r,
+
+  # Read, write, and lock access to user home directories containing game saves/configs.
+  # Uses glob patterns to match directories like 'openarena', 'q3a'.
+  # Note: @{HOME} is an AppArmor macro expanding to the user's home.
+  # Default: {openarena,q3a}
+  owner @{HOME}/.{home_dirs | default('{openarena,q3a}')},{,**} rwk,
+
+  # Read, write, and lock access to server data in /var/games.
+  # Uses glob patterns to match directories like 'openarena-server', 'quake3-server'.
+  # Default: {openarena,quake3}-server
+  owner /var/games/{{ var_dirs | default('{openarena,quake3}-server') }}/** rwk,
+
+  # Site-specific additions and overrides. See local/README for details.
+  #include <local/usr.lib.ioquake3.ioq3ded>
+}

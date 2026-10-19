@@ -1,31 +1,36 @@
-# Logrotate configuration for Zabbix Server log files.
-# This file defines how /var/log/zabbix-server/zabbix_server.log is rotated,
-# compressed, and managed by logrotate.
+# Zabbix Server Logrotate Configuration
+# Managed by Ansible. Do not edit manually.
 
-/var/log/zabbix-server/zabbix_server.log {
-    # Rotate log files weekly.
-    weekly
+# Rotate logs weekly to avoid excessive disk usage from frequent rotation.
+weekly
 
-    # Number of rotated log files to keep.
-    rotate {{ logrotate_rotate_count | default(7) }}
+# Number of rotated log files to keep.
+# Schema: logrotate_rotate_count (default: '7')
+rotate {{ logrotate_rotate_count | default('7') }}
 
-    # Compress old log files to save disk space.
-    compress
+# Compress rotated log files to save disk space.
+compress
 
-    # Delay compression of the most recent rotated file to allow applications
-    # to continue writing to it without interruption.
-    delaycompress
+# Delay compression of the most recent rotated file to allow the application to finish writing.
+delaycompress
 
-    # Do not produce an error if the log file is missing.
-    missingok
+# Do not fail if the log file is missing.
+missingok
 
-    # Do not rotate the log if it is empty.
-    notifempty
+# Do not rotate the log if it is empty.
+notifempty
 
-    # Create new log files with this octal permission mode, owned by the
-    # specified user and group.
-    create {{ logrotate_create_mode | default('0640') }} {{ logrotate_create_owner | default('zabbix') }} {{ logrotate_create_group | default('zabbix') }}
+# Octal permission mode for newly created log files.
+# Schema: logrotate_create_mode (default: '0640')
+create {{ logrotate_create_mode | default('0640') }}
 
-    # Run the postrotate/endscript scripts once for the whole group of logs.
-    sharedscripts
-}
+# Owner of newly created log files.
+# Schema: logrotate_create_owner (default: 'zabbix')
+{{ logrotate_create_owner | default('zabbix') }}
+
+# Group of newly created log files.
+# Schema: logrotate_create_group (default: 'zabbix')
+{{ logrotate_create_group | default('zabbix') }}
+
+# Execute the postrotate script once for all rotated logs, rather than once per log file.
+sharedscripts

@@ -1,89 +1,134 @@
+# Swift-Bench Configuration
+# This configuration file controls the behavior of swift-bench, a benchmarking
+# tool for OpenStack Object Storage (Swift).
+#
+# Fields are grouped by function: Authentication, Logging, Concurrency,
+# Object/Container Specs, and Backend Connection Mode.
+#
+# Variable Defaults:
+# - auth: None (must be provided or default to standard local Swift auth URL)
+# - user: None
+# - key: None
+# - auth_version: '1.0'
+# - log_level: None (defaults to INFO if not set)
+# - timeout: None (defaults to 10 seconds)
+# - put_concurrency: None
+# - get_concurrency: None
+# - del_concurrency: None
+# - concurrency: None (overrides individual concurrency settings if set)
+# - object_sources: None
+# - lower_object_size: None
+# - upper_object_size: None
+# - object_size: None
+# - num_objects: None
+# - num_gets: None
+# - num_containers: None
+# - container_name: None (empty string means randomly chosen UUID)
+# - policy_name: None
+# - delete: 'yes'
+# - use_proxy: True
+# - url: None (required if use_proxy=no)
+# - account: None (required if use_proxy=no)
+# - devices: None (required if use_proxy=no)
+
 [bench]
+
 # Swift authentication URL.
-# See also: auth_version, use_proxy, url, account, devices.
-auth = {{ auth | default('http://localhost:8080/auth/v1.0') | string }}
+# desc: 'Swift authentication URL.'
+{% if auth is defined and auth is not none and (auth is number or auth is boolean or auth | length > 0) %}auth = {{ auth | default(None) }}{% else %}# auth = http://localhost:8080/auth/v1.0{% endif %}
 
 # Swift user name in user:key format.
-user = {{ user | default('test:tester') | string }}
+# desc: 'Swift user name in user:key format.'
+{% if user is defined and user is not none and (user is number or user is boolean or user | length > 0) %}user = {{ user | default(None) }}{% else %}# user = test:tester{% endif %}
 
 # Swift user key.
-key = {{ key | default('testing') | string }}
+# desc: 'Swift user key.'
+{% if key is defined and key is not none and (key is number or key is boolean or key | length > 0) %}key = {{ key | default(None) }}{% else %}# key = testing{% endif %}
 
 # Authentication version.
-# Only relevant when use_proxy=true and the Swift auth endpoint expects a versioned path.
-auth_version = {{ auth_version | default('1.0') | string }}
+# desc: 'Authentication version.'
+{% if auth_version is defined and auth_version is not none and (auth_version is number or auth_version is boolean or auth_version | length > 0) %}auth_version = {{ auth_version | default('1.0') }}{% else %}# auth_version = 1.0{% endif %}
 
 # Logging level.
-# Allowed values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
-log_level = {{ log_level | default('INFO') | upper }}
+# desc: 'Logging level.'
+{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}log-level = {{ log_level | default(None) }}{% else %}# log-level = INFO{% endif %}
 
 # Request timeout in seconds.
-timeout = {{ timeout | default(10) | int }}
+# desc: 'Request timeout in seconds.'
+{% if timeout is defined and timeout is not none and (timeout is number or timeout is boolean or timeout | length > 0) %}timeout = {{ timeout | default(None) }}{% else %}# timeout = 10{% endif %}
+
+# You can configure PUT, GET, and DELETE concurrency independently or set all
+# three with "concurrency".
+# Note: If "concurrency" is set, it overrides the individual settings below.
 
 # Number of concurrent PUT operations.
-put_concurrency = {{ put_concurrency | default(10) | int }}
+# desc: 'Number of concurrent PUT operations.'
+{% if put_concurrency is defined and put_concurrency is not none and (put_concurrency is number or put_concurrency is boolean or put_concurrency | length > 0) %}put_concurrency = {{ put_concurrency | default(None) }}{% else %}# put_concurrency = 10{% endif %}
 
 # Number of concurrent GET operations.
-get_concurrency = {{ get_concurrency | default(10) | int }}
+# desc: 'Number of concurrent GET operations.'
+{% if get_concurrency is defined and get_concurrency is not none and (get_concurrency is number or get_concurrency is boolean or get_concurrency | length > 0) %}get_concurrency = {{ get_concurrency | default(None) }}{% else %}# get_concurrency = 10{% endif %}
 
 # Number of concurrent DELETE operations.
-del_concurrency = {{ del_concurrency | default(10) | int }}
+# desc: 'Number of concurrent DELETE operations.'
+{% if del_concurrency is defined and del_concurrency is not none and (del_concurrency is number or del_concurrency is boolean or del_concurrency | length > 0) %}del_concurrency = {{ del_concurrency | default(None) }}{% else %}# del_concurrency = 10{% endif %}
 
 # General concurrency setting, overrides individual concurrency settings if set.
-# Only set this if you want a single value for all operations.
-# When defined and not empty/None, it supersedes put_concurrency, get_concurrency, and del_concurrency.
-{% if concurrency is defined and concurrency is not none and concurrency != '' %}
-concurrency = {{ concurrency | int }}
-{% endif %}
+# desc: 'General concurrency setting, overrides individual concurrency settings if set.'
+{% if concurrency is defined and concurrency is not none and (concurrency is number or concurrency is boolean or concurrency | length > 0) %}concurrency = {{ concurrency | default(None) }}{% else %}# concurrency ={% endif %}
 
 # Space-separated list of files to read for object bodies.
-# If set, these files' contents are used as PUT bodies instead of random data.
-object_sources = {{ (object_sources | default([])) | join(' ') | trim }}
+# desc: 'Space-separated list of files to read for object bodies.'
+{% if object_sources is defined and object_sources is not none and (object_sources is number or object_sources is boolean or object_sources | length > 0) %}object_sources = {{ object_sources | default(None) }}{% else %}# object_sources ={% endif %}
 
 # Lower bound for random object size in bytes.
-# Used when object_sources is not set.
-lower_object_size = {{ lower_object_size | default(10) | int }}
+# desc: 'Lower bound for random object size in bytes.'
+{% if lower_object_size is defined and lower_object_size is not none and (lower_object_size is number or lower_object_size is boolean or lower_object_size | length > 0) %}lower_object_size = {{ lower_object_size | default(None) }}{% else %}# lower_object_size = 10{% endif %}
 
 # Upper bound for random object size in bytes.
-# Used when object_sources is not set.
-upper_object_size = {{ upper_object_size | default(10) | int }}
+# desc: 'Upper bound for random object size in bytes.'
+{% if upper_object_size is defined and upper_object_size is not none and (upper_object_size is number or upper_object_size is boolean or upper_object_size | length > 0) %}upper_object_size = {{ upper_object_size | default(None) }}{% else %}# upper_object_size = 10{% endif %}
 
 # Fixed object size in bytes if lower_object_size equals upper_object_size.
-# When set, lower and upper bounds are ignored in favor of this fixed value.
-object_size = {{ object_size | default(1) | int }}
+# desc: 'Fixed object size in bytes if lower_object_size equals upper_object_size.'
+{% if object_size is defined and object_size is not none and (object_size is number or object_size is boolean or object_size | length > 0) %}object_size = {{ object_size | default(None) }}{% else %}# object_size = 1{% endif %}
 
 # Number of objects to create.
-# Applies to container creation and PUT operations.
-num_objects = {{ num_objects | default(1000) | int }}
+# desc: 'Number of objects to create.'
+{% if num_objects is defined and num_objects is not none and (num_objects is number or num_objects is boolean or num_objects | length > 0) %}num_objects = {{ num_objects | default(None) }}{% else %}# num_objects = 1000{% endif %}
 
 # Number of GET operations to perform.
-num_gets = {{ num_gets | default(10000) | int }}
+# desc: 'Number of GET operations to perform.'
+{% if num_gets is defined and num_gets is not none and (num_gets is number or num_gets is boolean or num_gets | length > 0) %}num_gets = {{ num_gets | default(None) }}{% else %}# num_gets = 10000{% endif %}
 
 # Number of containers to create.
-num_containers = {{ num_containers | default(20) | int }}
+# desc: 'Number of containers to create.'
+{% if num_containers is defined and num_containers is not none and (num_containers is number or num_containers is boolean or num_containers | length > 0) %}num_containers = {{ num_containers | default(None) }}{% else %}# num_containers = 20{% endif %}
 
-# Base name for created containers.
-# Empty string means randomly chosen UUID.
-container_name = {{ container_name | default('') | string }}
+# Base name for created containers. Empty string means randomly chosen UUID.
+# desc: 'Base name for created containers. Empty string means randomly chosen UUID.'
+{% if container_name is defined and container_name is not none and (container_name is number or container_name is boolean or container_name | length > 0) %}container_name = {{ container_name | default(None) }}{% else %}# container_name = (randomly-chosen uuid4){% endif %}
 
 # Storage policy name to use.
-policy_name = {{ policy_name | default('gold') | string }}
+# desc: 'Storage policy name to use.'
+{% if policy_name is defined and policy_name is not none and (policy_name is number or policy_name is boolean or policy_name | length > 0) %}policy_name = {{ policy_name | default(None) }}{% else %}# policy_name = gold{% endif %}
 
 # Whether to benchmark DELETE and cleanup containers.
-delete = {{ delete | default(true) | ternary('true', 'false') }}
+# desc: 'Whether to benchmark DELETE and cleanup containers.'
+{% if delete is defined and delete is not none and (delete is number or delete is boolean or delete | length > 0) %}delete = {{ delete | default('yes') }}{% else %}# delete = yes{% endif %}
 
 # Whether to use the proxy layer or talk directly to backend servers.
-# If false, url, account, and devices become required.
-use_proxy = {{ use_proxy | default(true) | ternary('true', 'false') }}
+# desc: 'Whether to use the proxy layer or talk directly to backend servers.'
+{% if use_proxy is defined and use_proxy is not none and use_proxy != '' %}use_proxy = {{ 'yes' if use_proxy else 'no' }}{% else %}# use_proxy = yes{% endif %}
 
-# Override X-Storage-Url.
-# Required if use_proxy=no.
-url = {{ url | default('') | string }}
+# Override X-Storage-Url. Required if use_proxy=no.
+# desc: 'Override X-Storage-Url. Required if use_proxy=no.'
+{% if url is defined and url is not none and (url is number or url is boolean or url | length > 0) %}url = {{ url | default(None) }}{% else %}# url ={% endif %}
 
-# Account name.
-# Required if use_proxy=no.
-account = {{ account | default('') | string }}
+# Account name. Required if use_proxy=no.
+# desc: 'Account name. Required if use_proxy=no.'
+{% if account is defined and account is not none and (account is number or account is boolean or account | length > 0) %}account = {{ account | default(None) }}{% else %}# account ={% endif %}
 
-# Space-separated list of device names.
-# Required if use_proxy=no.
-devices = {{ (devices | default(['sdb1'])) | join(' ') | trim }}
+# Space-separated list of device names. Required if use_proxy=no.
+# desc: 'Space-separated list of device names. Required if use_proxy=no.'
+{% if devices is defined and devices is not none and (devices is number or devices is boolean or devices | length > 0) %}devices = {{ devices | default(None) }}{% else %}# devices = sdb1{% endif %}

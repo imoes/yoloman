@@ -1,0 +1,75 @@
+# Version of the opencryptoki package.
+# Default: opencryptoki-3.26
+version {{ version | default('opencryptoki-3.26') }}
+
+# The following defaults are defined globally for all slots unless overridden locally:
+#       hwversion = "0.0"
+#       firmwareversion = "0.0"
+#       description = Linux
+#       manufacturer = IBM
+#       usergroup = pkcs11
+#
+# Slot definitions may be overridden and/or customized.
+# Example structure for a slot:
+#       slot <index>
+#       {
+#          stdll = <library_path>
+#          description = "<token_description>"
+#          manufacturer = "<manufacturer_name>"
+#          hwversion = "<hardware_version>"
+#          firmwareversion = "<firmware_version>"
+#          tokname = "<token_name>"
+#          tokversion = <token_version>
+#          confname = "<config_file_name>"
+#          usergroup = "<user_group>"
+#       }
+# See man(5) opencryptoki.conf for further information.
+
+# Slot 0: TPM Token
+slot 0
+{
+    # Standard DLL for TPM hardware abstraction
+    stdll = libpkcs11_tpm.so
+    # Token version identifier
+    tokversion = 3.12
+}
+
+# Slot 1: ICA (Integrated Cryptographic Service) Token
+slot 1
+{
+    # Standard DLL for ICA hardware abstraction
+    stdll = libpkcs11_ica.so
+    # Token version identifier
+    tokversion = 3.12
+}
+
+# Slot 2: CCA (Cryptographic Coprocessor Architecture) Token
+slot 2
+{
+    # Standard DLL for CCA hardware abstraction
+    stdll = libpkcs11_cca.so
+    # Configuration file name for this specific token instance
+    confname = ccatok.conf
+    # Token version identifier
+    tokversion = 3.12
+}
+
+# Slot 3: Software Token
+slot 3
+{
+    # Standard DLL for software-based PKCS#11 operations
+    stdll = libpkcs11_sw.so
+    # Token version identifier
+    tokversion = 3.12
+}
+
+# Slot 4: Enterprise P11 (EP11) Token
+slot 4
+{
+    # Standard DLL for IBM Enterprise P11 hardware abstraction
+    stdll = libpkcs11_ep11.so
+    # Configuration file name for this specific token instance
+    confname = ep11tok.conf
+    # Token version identifier
+    tokversion = 3.12
+}

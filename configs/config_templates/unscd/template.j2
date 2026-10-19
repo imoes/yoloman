@@ -1,141 +1,141 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          {{ name | default('unscd') }}
-# Required-Start:    $remote_fs
-# Required-Stop:    $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: {{ desc | default('Micro Name Service Cache Daemon') }}
-# Description:  This is a daemon which handles passwd and group lookups
-#		for running programs and caches the results for the next
-#		query.  You should start this daemon only if you use
-#		slow Services like NIS or NIS+
-### END INIT INFO
-
-# NB: Because insserv is slightly broken (#606593), we cannot provide
-# nscd, as this would break installs which hadn't already purged nscd.
-# However, if you have init scripts which depend on nscd, feel free to
-# change Provides: unscd to Provides: unscd nscd after purging nscd.
-
+# =============================================================================
+# nscd (Name Service Cache Daemon) Configuration
+# =============================================================================
+# This configuration file controls the behavior of the Name Service Cache Daemon
+# (nscd), which caches frequently used name service information (passwd, group,
+# hosts) to reduce the load on name service backends (like DNS or LDAP) and
+# improve system performance.
 #
-# unscd:	Starts the Micro Name Service Cache Daemon
+# Global Daemon Settings
+# =============================================================================
+
+# debug-level <level>
+# Controls the verbosity of the daemon's log output.
+# Range: 0 (no debug) to 4 (extremely verbose).
+# Default: 0
+debug-level {{ debug_level | default('0') }}
+
+# threads <count>
+# Sets the initial number of worker threads for the daemon.
+# Default: 14
+threads {{ threads | default('14') }}
+
+# max-threads <count>
+# Sets the maximum number of worker threads the daemon can spawn.
+# Default: 32
+max-threads {{ max_threads | default('32') }}
+
+# server-user <username>
+# Specifies the user account under which the nscd server process runs.
+# This is a security measure to run the daemon with minimal privileges.
+# Default: unscd
+server-user {{ server_user | default('unscd') }}
+
+
+# =============================================================================
+# Cache Configuration
+# =============================================================================
+# Each cache section defines how a specific type of name service data is cached.
+# Supported caches: passwd, group, hosts.
 #
-# description:  This is a daemon which handles passwd and group lookups
-#		for running programs and caches the results for the next
-#		query.  You should start this daemon only if you use
-#		slow Services like NIS or NIS+
+# Directives:
+#   enable-cache <service> <yes|no>     : Activate or deactivate the cache.
+#   positive-time-to-live <seconds>     : How long to cache successful lookups.
+#   negative-time-to-live <seconds>     : How long to cache failed lookups.
+#   suggested-size <prime number>       : Initial size of the hash table.
+#   check-files <yes|no>                : Check file modification times (passwd/group).
 
-# Sanity checks.
 
-# The name of the daemon/service as referenced in the init script.
-NAME="{{ name | default('unscd') }}"
+# -----------------------------------------------------------------------------
+# passwd Cache
+# -----------------------------------------------------------------------------
 
-# The human-readable description of the daemon.
-DESC="{{ desc | default('Micro Name Service Cache Daemon') }}"
+# enable-cache passwd <yes|no>
+# Enable caching of password database entries (from /etc/passwd, NIS, LDAP, etc.).
+# Default: yes
+enable-cache passwd yes
 
-# The path to the actual daemon executable binary.
-DAEMON="{{ daemon | default('/usr/sbin/nscd') }}"
+# positive-time-to-live passwd <seconds>
+# Duration (in seconds) to cache successful password lookups.
+# Default: 600
+positive-time-to-live passwd {{ passwd_positive_ttl | default('600') }}
 
-# The file path where the daemon writes its PID.
-PIDFILE="{{ pidfile | default('/var/run/nscd/nscd.pid') }}"
+# negative-time-to-live passwd <seconds>
+# Duration (in seconds) to cache failed password lookups (e.g., non-existent user).
+# Default: 20
+negative-time-to-live passwd {{ passwd_negative_ttl | default('20') }}
 
-# Sanity checks.
-umask 022
-[ -f /etc/nscd.conf ] || exit 0
-[ -x "$DAEMON" ] || exit 0
-[ -d /var/run/nscd ] || mkdir -p /var/run/nscd
-. /lib/lsb/init-functions
+# suggested-size passwd <prime number>
+# Suggested number of entries for the passwd hash table.
+# Should ideally be a prime number for optimal performance.
+# Default: 1001
+suggested-size passwd {{ passwd_suggested_size | default('1001') }}
 
-start_unscd()
-{
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" --test > /dev/null || return 1
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" || return 2
-}
+# check-files passwd <yes|no>
+# If yes, nscd checks the modification time of /etc/passwd and related files.
+# If a file is modified, the cache for that entry is invalidated.
+# Default: yes
+check-files passwd yes
 
-stop_unscd()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
 
-	# we try to stop using unscd --shutdown, that fails also if unscd is not present.
-	# in that case, fallback to "good old methods"
-	RETVAL=0
-	if ! $DAEMON --shutdown; then
-		start-stop-daemon --stop --quiet --pidfile "$PIDFILE" --name "$NAME" --test > /dev/null
-		RETVAL="?"
-		[ "$?" -ne 0  -a  "$?" -ne 1 ] && return 2
-	fi
+# -----------------------------------------------------------------------------
+# group Cache
+# -----------------------------------------------------------------------------
 
-	# Wait for children to finish too
-	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec "$DAEMON" > /dev/null
-	[ "$?" -ne 0  -a  "$?" -ne 1 ] && return 2
-	rm -f "$PIDFILE"
-	return "$RETVAL"
-}
+# enable-cache group <yes|no>
+# Enable caching of group database entries (from /etc/group, NIS, LDAP, etc.).
+# Default: yes
+enable-cache group yes
 
-status()
-{
-	# Return
-	#   0 if daemon is stopped
-	#   1 if daemon is running
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" --test > /dev/null || return 1
-	return 0
-}
+# positive-time-to-live group <seconds>
+# Duration (in seconds) to cache successful group lookups.
+# Default: 3600
+positive-time-to-live group {{ group_positive_ttl | default('3600') }}
 
-case "$1" in
-start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	start_unscd
-	case "$?" in
-		0) log_end_msg 0 ; exit 0 ;;
-		1) log_warning_msg " (already running)." ; exit 0 ;;
-		*) log_end_msg 1 ; exit 1 ;;
-	esac
-	;;
-stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	stop_unscd
-	case "$?" in
-		0) log_end_msg 0 ; exit 0 ;;
-		1) log_warning_msg " (not running)." ; exit 0 ;;
-		*) log_end_msg 1 ; exit 1 ;;
-	esac
-	;;
-restart|force-reload|reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	stop_unscd
-	$DAEMON --invalidate passwd --invalidate group --invalidate hosts
-	case "$?" in
-	0|1)
-		start_unscd
-		case "$?" in
-			0) log_end_msg 0 ; exit 0 ;;
-			1) log_failure_msg " (failed -- old process is still running)." ; exit 1 ;;
-			*) log_failure_msg " (failed to start)." ; exit 1 ;;
-		esac
-		;;
-	*)
-		log_failure_msg " (failed to stop)."
-		exit 1
-		;;
-	esac
-	;;
-status)
-	log_daemon_msg "Status of $DESC service: "
-	status
-	case "$?" in
-		0) log_failure_msg "not running." ; exit 1 ;;
-		1) log_success_msg "running." ; exit 0 ;;
-	esac
-	;;
-*)
-	echo "Usage: /etc/init.d/$NAME {start|stop|reload|force-reload|restart|status}" >&2
-	exit 1
-	;;
-esac
+# negative-time-to-live group <seconds>
+# Duration (in seconds) to cache failed group lookups.
+# Default: 60
+negative-time-to-live group {{ group_negative_ttl | default('60') }}
+
+# suggested-size group <prime number>
+# Suggested number of entries for the group hash table.
+# Default: 1001
+suggested-size group {{ group_suggested_size | default('1001') }}
+
+# check-files group <yes|no>
+# If yes, nscd checks the modification time of /etc/group and related files.
+# Default: yes
+check-files group yes
+
+
+# -----------------------------------------------------------------------------
+# hosts Cache
+# -----------------------------------------------------------------------------
+
+# enable-cache hosts <yes|no>
+# Enable caching of host name lookups (from /etc/hosts, DNS, etc.).
+# Note: Caching hosts via nscd can sometimes cause issues with gethostby*
+# calls not respecting DNS TTLs strictly. Consider using a dedicated
+# caching DNS resolver (like systemd-resolved or dnsmasq) instead.
+# Default: no
+enable-cache hosts no
+
+# positive-time-to-live hosts <seconds>
+# Duration (in seconds) to cache successful host name lookups.
+# Default: 3600
+positive-time-to-live hosts {{ hosts_positive_ttl | default('3600') }}
+
+# negative-time-to-live hosts <seconds>
+# Duration (in seconds) to cache failed host name lookups.
+# Default: 20
+negative-time-to-live hosts {{ hosts_negative_ttl | default('20') }}
+
+# suggested-size hosts <prime number>
+# Suggested number of entries for the hosts hash table.
+# Default: 1001
+suggested-size hosts {{ hosts_suggested_size | default('1001') }}
+
+# check-files hosts <yes|no>
+# If yes, nscd checks the modification time of /etc/hosts.
+# Default: yes
+check-files hosts yes

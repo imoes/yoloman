@@ -1,0 +1,75 @@
+# Reptyr Bash Completion Script Template
+#
+# This template generates the bash completion script for `reptyr`, a tool used to grab
+# a running terminal and attach it to a different terminal.
+#
+# The script defines the `_reptyr` completion function and registers it via `complete`.
+# It handles common flags and attempts to provide process IDs for the target process.
+
+# ==============================================================================
+# Completion Function Definition
+# ==============================================================================
+# The core completion logic for the reptyr command.
+_reptyr()
+{
+    # --------------------------------------------------------------------------
+    # Argument Parsing: Skip completion for flags that do not require arguments.
+    # --------------------------------------------------------------------------
+    # These flags are terminal options or help/version flags. They do not take
+    # a PID or process name as an argument, so we return early to avoid
+    # offering invalid completions.
+    # Supported flags:
+    #   -l, -L : Lock the terminal
+    #   -h     : Help
+    #   -v     : Verbose
+    case $3 in
+        -l|-L|-h|-v) return ;;
+    esac
+
+    # --------------------------------------------------------------------------
+    # Option Handling: Complete flags if the second argument starts with a dash.
+    # --------------------------------------------------------------------------
+    # If the current argument ($2) begins with '-', suggest available command-line
+    # options for reptyr.
+    # Available options:
+    #   -l       : Lock the terminal
+    #   -L       : Lock the terminal (alternate)
+    #   -s       : Skip the terminal setup
+    #   -T       : Type of terminal
+    #   -h       : Help
+    #   -v       : Verbose
+    #   -V       : Version
+    if [[ $2 == -* ]]; then
+        COMPREPLY=( $(compgen -W '-l -L -s -T -h -v -V' -- "$2") )
+        return
+    fi
+
+    # --------------------------------------------------------------------------
+    # PID Completion: Suggest Process IDs for the target argument.
+    # --------------------------------------------------------------------------
+    # If the third argument ($3) looks like a number (starts with 1-9), it is
+    # likely already a PID or user input, so we do not auto-complete.
+    # Otherwise, we suggest running process IDs using `ps`.
+    #
+    # Command used:
+    #   command ps axo pid=
+    #     - `ps axo`: Show all processes with custom format.
+    #     - `pid=`: Print only the PID, with no header.
+    #     - `command`: Uses the built-in/external command without alias expansion.
+    case $3 in
+        [1-9]*)
+            # Argument looks like a PID, do not overwrite user input.
+            ;;
+        *)
+            # Suggest PIDs of all currently running processes.
+            COMPREPLY=( $(compgen -W '$(command ps axo pid=)' -- "$2") )
+            ;;
+    esac
+} &&
+
+# ==============================================================================
+# Completion Registration
+# ==============================================================================
+# Register the `_reptyr` function as the completion handler for the `reptyr` command.
+# This ensures that bash invokes our logic when the user presses Tab.
+complete -F _reptyr reptyr

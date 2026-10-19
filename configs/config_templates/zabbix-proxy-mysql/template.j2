@@ -1,41 +1,35 @@
-# Zabbix Proxy MySQL Configuration Template
-# This template generates a logrotate configuration for the Zabbix Proxy
-# which uses MySQL as its database backend.
+# Zabbix Proxy MySQL - Logrotate Configuration
+# This template generates the logrotate configuration for the Zabbix Proxy MySQL backend.
+# It handles rotation, compression, and file permissions for the proxy's log file.
 
-# {{ log_directory | default('zabbix-proxy') }}: Directory where Zabbix proxy logs are stored
-# This sets the base path for the log files managed by logrotate.
+# Directory where Zabbix proxy logs are stored
 /var/log/{{ log_directory | default('zabbix-proxy') }}/zabbix_proxy.log {
-    # {{ log_rotation_count | default(7) }}: Number of rotated log files to keep
-    # Determines how many old log files are retained before the oldest is deleted.
-    rotate {{ log_rotation_count | default(7) }}
-
-    # weekly: Rotate logs on a weekly basis
-    # This defines the frequency of log rotation.
+    # Rotate logs weekly
     weekly
 
-    # compress: Compress rotated log files using gzip
-    # Reduces disk space usage by compressing old logs.
+    # Number of rotated log files to keep
+    # Defaults to 7, ensuring one week of history is preserved.
+    rotate {{ log_rotation_count | default('7') }}
+
+    # Compress rotated log files to save disk space
     compress
 
-    # delaycompress: Delay compression of the most recent rotated log
-    # Allows the current log file to be written to without compression while the previous one is compressed.
+    # Delay compression of the most recent rotated file until the next rotation cycle.
+    # This allows tools like `logrotate` scripts or monitoring agents to read the just-rotated file if needed.
     delaycompress
 
-    # missingok: Do not error if the log file is missing
-    # Prevents logrotate from failing if the log file does not exist at rotation time.
+    # Do not error out if the log file is missing (e.g., if Zabbix proxy is not running or log path changed)
     missingok
 
-    # notifempty: Do not rotate if the log file is empty
-    # Skips rotation for empty log files to avoid creating unnecessary archive files.
+    # Do not rotate an empty log file
     notifempty
 
-    # {{ log_file_permissions | default('0640') }}: Permissions for new log files
-    # {{ log_owner | default('zabbix') }}: Owner of the log files
-    # {{ log_group | default('zabbix') }}: Group of the log files
-    # Sets the ownership and permissions for newly created log files after rotation.
+    # Create new log files with specified permissions and ownership
+    # Permissions: 0640 (owner read/write, group read, others none)
+    # Owner: zabbix (the service user)
+    # Group: zabbix (the service group)
     create {{ log_file_permissions | default('0640') }} {{ log_owner | default('zabbix') }} {{ log_group | default('zabbix') }}
 
-    # sharedscripts: Run the postrotate script only once
-    # Ensures that any post-rotation commands are executed only once, even if multiple log files match the pattern.
+    # Execute the postrotate script for all log files matched by this block as a single script
     sharedscripts
 }

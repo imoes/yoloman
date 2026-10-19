@@ -13,46 +13,46 @@ pid_file = "{{ pid_file }}"
 
 [server]
 # Hostname or IP to bind the primary listener
-bind_host = "{{ server.bind_host }}"
+bind_host = "{{ (server | default({})).bind_host }}"
 
 # Primary TCP port to listen on
-bind_port = {{ server.bind_port }}
+bind_port = {{ (server | default({})).bind_port }}
 
 # Maximum number of simultaneous connections
-max_connections = {{ server.max_connections }}
+max_connections = {{ (server | default({})).max_connections }}
 
 # Enable TLS (true/false)
-tls_enabled = {{ server.tls_enabled | lower }}
+tls_enabled = {{ (server | default({})).tls_enabled | lower }}
 
-{% if server.tls_enabled %}
+{% if (server | default({})).tls_enabled %}
 # Path to TLS certificate chain
-server_cert = "{{ server.server_cert }}"
+server_cert = "{{ (server | default({})).server_cert }}"
 
 # Path to TLS private key
-server_key = "{{ server.server_key }}"
+server_key = "{{ (server | default({})).server_key }}"
 
 # Minimum TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')
-tls_min_version = "{{ server.tls_min_version }}"
+tls_min_version = "{{ (server | default({})).tls_min_version }}"
 {% endif %}
 
 [worker]
 # Number of worker processes (0 = auto-detect based on CPU cores)
-process_count = {{ worker.process_count }}
+process_count = {{ (worker | default({})).process_count }}
 
 # Maximum jobs per worker before recycling
-max_jobs_per_worker = {{ worker.max_jobs_per_worker }}
+max_jobs_per_worker = {{ (worker | default({})).max_jobs_per_worker }}
 
 # Memory limit per worker in MB (0 = unlimited)
-memory_limit_mb = {{ worker.memory_limit_mb }}
+memory_limit_mb = {{ (worker | default({})).memory_limit_mb }}
 
 # Worker graceful shutdown timeout in seconds
-graceful_timeout = {{ worker.graceful_timeout }}
+graceful_timeout = {{ (worker | default({})).graceful_timeout }}
 
 [queue]
 # Backend queue type (e.g., 'memory', 'redis', 'postgres')
-type = "{{ queue.type }}"
+type = "{{ (queue | default({})).type }}"
 
-{% for backend in queue.backends %}
+{% for backend in (queue | default({})).backends %}
 # Backend configuration for {{ backend.name }}
 [queue.backends.{{ backend.name | replace('.', '_') }}]
 {% for key, value in backend.config.items() %}{{ key }} = "{{ value }}"
@@ -61,10 +61,10 @@ type = "{{ queue.type }}"
 
 [metrics]
 # Enable Prometheus-style metrics endpoint
-enabled = {{ metrics.enabled | lower }}
+enabled = {{ (metrics | default({})).enabled | lower }}
 
 # Port for metrics scraping
-port = {{ metrics.port }}
+port = {{ (metrics | default({})).port }}
 
 # Path for metrics endpoint
-endpoint = "{{ metrics.endpoint }}"
+endpoint = "{{ (metrics | default({})).endpoint }}"

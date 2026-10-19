@@ -188,3 +188,39 @@ def test_a_verdict_about_the_right_package_still_withdraws(tmp_path):
                                            "shipped_by": ["thing"]}})
     assert "/etc/thing" not in r["paths"]
     assert len(r["withdrawn"]) == 1
+
+
+def _wrong_file(tmp_path, families, family=""):
+    """The same fixture, plus stage 5's record that `thing` renders another file at /etc/thing."""
+    (tmp_path / "template_differs_reasons.json").write_text(json.dumps({"units": {
+        f"{f}|thing|/etc/thing": {"template": "thing", "family": f, "path": "/etc/thing", "category": "wrong-file"}
+        for f in families}}))
+    templates = tmp_path / "config_templates"
+    if not templates.exists():
+        _fixture(tmp_path, {})
+    return build_template_index(tmp_path / "package_catalog.json", tmp_path / "config_codecs.json", templates,
+                                family, tmp_path / "config_path_verdicts.json")
+
+
+def test_a_binding_measured_to_render_another_file_is_withdrawn(tmp_path):
+    # Stage 5 found not ONE setting of the template in the shipped file (ssh_config in /etc/default/ssh).
+    # Configure writes the whole file, so the binding goes — named, with the reason.
+    r = _wrong_file(tmp_path, ["debian"], "debian")
+    assert "/etc/thing" not in r["paths"]
+    w = [w for w in r["withdrawn"] if w["verdict"] == "wrong-file"]
+    assert [x["path"] for x in w] == ["/etc/thing"] and "another one" in w[0]["reason"]
+
+
+def test_wrong_file_on_one_family_leaves_the_other_familys_binding(tmp_path):
+    # Measured on RedHat only: a Debian host's binding is a different file, not measured wrong.
+    r = _wrong_file(tmp_path, ["redhat"], "debian")
+    assert r["paths"]["/etc/thing"]["template"] == "thing"
+
+
+def test_a_catalog_binding_is_not_withdrawn_by_the_measurement(tmp_path):
+    # A curated binding that renders the wrong file is a catalog defect to FIX; withdrawing it would hide it.
+    _fixture(tmp_path, {})
+    (tmp_path / "package_catalog.json").write_text(json.dumps(
+        {"thing": {"template": "thing", "families": {"debian": {"config_path": "/etc/thing"}}}}))
+    r = _wrong_file(tmp_path, ["debian"], "debian")
+    assert r["paths"]["/etc/thing"]["source"] == "catalog"

@@ -8,6 +8,7 @@ needs the template files locally)."""
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -55,7 +56,61 @@ def load_template_bodies(settings) -> dict[str, str]:
                 t = _load_template(d)
                 if t is not None:
                     out[t["name"]] = t["template"]
+                    meta = d / "meta.json"
+                    if meta.is_file():
+                        try:
+                            m = json.loads(meta.read_text())
+                        except (OSError, ValueError):
+                            m = {}
+                        # A template made for ONE family's file is also reachable as "@<family>:<path>" — the
+                        # key a `config_template` step asks for first on a host of that family. Without it the
+                        # wizard rendered the role's single (Debian) template on every family: measured in the
+                        # package e2e, a RedHat host would have received Debian's nginx.conf.
+                        if isinstance(m, dict) and m.get("target_path"):
+                            # What this template RENDERS, so a step can refuse to write it over a different file.
+                            out[target_key(t["name"])] = m["target_path"]
+                        if isinstance(m, dict) and m.get("family") and m.get("target_path"):
+                            out[family_key(m["family"], m["target_path"])] = with_own_defaults(
+                                t["template"], t.get("schema") or {})
     return out
+
+
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def with_own_defaults(body: str, schema: dict) -> str:
+    """The body, preceded by `{%- set f = f | default(<schema default>, true) -%}` for each field.
+
+    A family template is rendered with the variables of the ROLE's form — and that form was built from the role's
+    own (Debian) template, whose field names differ. Measured in the package e2e: on a RedHat host the wizard
+    rendered nginx-redhat with `user` unset and wrote `user ;`, which nginx refuses. With its defaults inline the
+    family template renders its own shipped values for every field the form does not name, and an empty value
+    counts as unset (`default(..., true)`). A field the form DOES supply still wins."""
+    lines = []
+    for name, spec in (schema or {}).items():
+        if not isinstance(spec, dict) or not _IDENT.match(str(name)):
+            continue
+        default = spec.get("default")
+        if default is None:
+            continue
+        literal = json.dumps(default)
+        if literal.endswith('\\"'):
+            # The agent's gonja cannot lex a string literal that ends in an escaped backslash ("…\\") — the whole
+            # template failed to parse (exim4-redhat: log_selector "… +smtp_syntax_error \\", a line continuation).
+            # Left to the template's own inline default instead.
+            continue
+        lines.append("{%- set " + name + " = " + name + " | default(" + literal + ", true) -%}")
+    return ("\n".join(lines) + "\n" + body) if lines else body
+
+
+def target_key(name: str) -> str:
+    """The templates-map key holding the file template `name` records it renders (its meta.json target_path)."""
+    return f"@target:{name}"
+
+
+def family_key(family: str, path: str) -> str:
+    """The templates-map key of the template that renders `path` for hosts of `family`."""
+    return f"@{family}:{path}"
 
 
 @router.get("/api/v1/config-templates")

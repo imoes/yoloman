@@ -1,0 +1,69 @@
+# RBTools (rbt) bash completion configuration
+#
+# This template generates a bash completion script for the 'rbt' command-line tool.
+# It dynamically introspects the available subcommands by parsing `rbt --help`
+# and registers them for use with bash's `complete` builtin.
+#
+# This package provides no network services, database connections, or external
+# dependencies. It is a pure client-side shell utility.
+
+# Function: _rbt_get_all_commands
+# Purpose: Extracts all available subcommands from the output of `rbt --help`.
+# Logic:
+#   1. Runs `rbt --help` and filters lines starting with two spaces followed
+#      by an option name (alphanumeric and hyphens only).
+#   2. Filters out lines starting with "command" or "-", keeping only valid subcommand names.
+#   3. Echoes the resulting list of commands.
+_rbt_get_all_commands()
+{
+    # Collect options into a local variable
+    opts=""
+
+    # Parse help output to find subcommands
+    # grep pattern: starts with 2 spaces, followed by non-whitespace chars
+    for opt in `rbt --help | grep -o "^  [A-Za-z\-]*\S"`
+    do
+        # Exclude internal keywords and flag prefixes
+        if [[ $opt != "command"* && $opt != "-"* ]]; then
+            # Append to the options string with a leading space
+            opts+=" ${opt}"
+        fi
+    done
+
+    # Output the collected options
+    echo ${opts}
+}
+
+# Function: _rbt_commands
+# Purpose: The completion function registered with `complete`.
+# Logic:
+#   1. Retrieves the current word being completed (`cur`) and all available subcommands (`opts`).
+#   2. If this is the first word (subcommand selection), offer the list of commands.
+#   3. Otherwise, rely on default completion or do nothing (no specific argument completion implemented).
+_rbt_commands()
+{
+    # Initialize reply array
+    COMPREPLY=()
+
+    # Get the current word being completed
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # Get all available subcommands
+    opts=$(_rbt_get_all_commands)
+
+    # If we are completing the first argument (the subcommand itself)
+    if [ "$COMP_CWORD" -eq 1 ]; then
+        # Generate completions from the list of options
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}))
+    else
+        # For subsequent arguments, no specific completion logic is defined
+        # in this generic template.
+        COMPREPLY=()
+    fi
+
+}
+
+# Register the completion function for the 'rbt' command
+# -o default: allows default completion for arguments not matched by the function
+# -F _rbt_commands: specifies the function to call
+complete -o default -F _rbt_commands rbt

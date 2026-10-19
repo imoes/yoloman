@@ -1,27 +1,39 @@
-# Puppet Hiera ENC (External Nodes Classifier) configuration template.
-# This file defines how Puppet uses Hiera to look up node-specific data.
-# The structure mirrors the standard YAML-based Hiera configuration.
+---
+# Hiera ENC Configuration Template
+# This file configures the Hiera External Node Classifier (ENC) backend settings.
+# It defines which backends are used, where data files are stored, and the
+# hierarchy order for variable lookup during Puppet agent catalog compilation.
 
-# The list of backend engines Hiera should use for data lookup.
-# 'yaml' is the most common and default backend.
+# :backends: Specifies the list of Hiera backends to use for data lookup.
+# The 'yaml' backend is the standard choice for file-based data storage.
 :backends:
   - {{ backends_type | default('yaml') }}
 
-# Configuration specific to the 'yaml' backend.
+# :yaml: Configuration section specific to the YAML backend.
+# Controls where Hiera looks for the YAML data files (nodes, global hiera data, etc.).
 :yaml:
-  # The directory where Hiera looks for YAML data files.
-  # This is the base path; actual files are looked up based on the hierarchy.
+  # :datadir: The directory path containing the Hiera data files.
+  # Defaults to /etc/puppet/hiera-enc/nodes if not specified.
   :datadir: {{ datadir | default('/etc/puppet/hiera-enc/nodes') }}
 
-# The hierarchy of levels used to resolve configuration data.
+# :hierarchy: Defines the ordered list of hierarchy levels for variable lookups.
 # Hiera searches these levels in order; the first match wins.
-# Variables like %{clientcert} are resolved by Puppet at runtime.
 :hierarchy:
-  # 1. Node-specific data identified by the client's certificate name.
+  # 1. Node-specific data based on the Puppet certificate name (clientcert).
+  #    This allows unique configuration per node identified by its certname.
   - "%{clientcert}"
-  # 2. Node-specific data identified by the Fully Qualified Domain Name.
+  
+  # 2. FQDN-based data.
+  #    Matches the fully qualified domain name of the node.
+  #    Useful for grouping nodes by domain or subdomain.
   - "%{fqdn}"
-  # 3. Node-specific data identified by the short hostname.
+  
+  # 3. Hostname-based data.
+  #    Matches the short hostname of the node.
+  #    Useful for legacy systems or non-FQDN environments.
   - "%{hostname}"
-  # 4. The final fallback level for default values.
+  
+  # 4. Default fallback.
+  #    The final catch-all level for global defaults.
+  #    Wrapped in quotes to ensure it is treated as a string literal in the YAML output.
   - {{ default_hierarchy_name | default('"default"') }}

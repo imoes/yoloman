@@ -1,64 +1,33 @@
-# =============================================================================
-# dropbear-initramfs Configuration Template
-# =============================================================================
 #
-# This file configures the Dropbear SSH server used within the initramfs
-# environment. It is sourced by the initramfs scripts during early boot,
-# allowing remote SSH access to unlock disks or troubleshoot boot issues.
+# ==============================================================================
+# dropbear-initramfs Configuration
+# ==============================================================================
+# This file configures the dropbear SSH server running inside the initramfs.
+# Changes require running `update-initramfs -u` to take effect.
 #
-# IMPORTANT: Changes to this file require running `update-initramfs -u`
-# to rebuild the initial ramdisk image for the changes to take effect.
-#
-# Variable assignment follows shell semantics. String values must be
-# quoted if they contain spaces or special characters.
-# =============================================================================
+# Variable assignment follows shell semantics.
+# ==============================================================================
 
-# -----------------------------------------------------------------------------
-# Command line options to pass to dropbear(8)
-#
-# This variable allows passing additional arguments to the dropbear binary.
-# Common options include -p (port), -r (host key), or -I (banner file).
-# See dropbear(8) for available options.
-# -----------------------------------------------------------------------------
-#
-# Schema Default: ''
-# -----------------------------------------------------------------------------
-DROPBEAR_OPTIONS="{{ DROPBEAR_OPTIONS | default('') }}"
+# ------------------------------------------------------------------------------
+# Command line options to pass to dropbear(8).
+# Use this to specify additional arguments for the dropbear binary (e.g., -p for port, -r for host key).
+# Default: No options (uses dropbear defaults).
+# ------------------------------------------------------------------------------
+{% if DROPBEAR_OPTIONS is defined and DROPBEAR_OPTIONS is not none and (DROPBEAR_OPTIONS is number or DROPBEAR_OPTIONS is boolean or DROPBEAR_OPTIONS | length > 0) %}DROPBEAR_OPTIONS={{ DROPBEAR_OPTIONS | default('') }}{% else %}#DROPBEAR_OPTIONS=""{% endif %}
 
-# -----------------------------------------------------------------------------
-# Network interface pattern to bring down after initramfs.
-#
-# This variable specifies a glob pattern for network interfaces that should
-# be brought down when exiting the initramfs environment (on local/non-NFS
-# mounts). This prevents dirty network configuration from persisting into
-# the normal root filesystem environment.
-#
-# Special Value: 'none'
-#   If set to 'none', all interfaces are kept up. This preserves routing
-#   tables and addresses, which may be desirable if the network configuration
-#   was established correctly in initramfs and should be inherited by the
-#   main system.
-# -----------------------------------------------------------------------------
-#
-# Schema Default: '*'
-# -----------------------------------------------------------------------------
-IFDOWN="{{ IFDOWN | default('*') }}"
+# ------------------------------------------------------------------------------
+# Network interface pattern to bring down after initramfs tasks complete.
+# Interfaces matching this glob pattern are shut down before the root filesystem is mounted.
+# Use 'none' to keep all interfaces up (preserves routing/addresses).
+# Default: '*' (brings down all interfaces except the primary one used for init).
+# ------------------------------------------------------------------------------
+{% if IFDOWN is defined and IFDOWN is not none and (IFDOWN is number or IFDOWN is boolean or IFDOWN | length > 0) %}IFDOWN={{ IFDOWN | default('*') }}{% else %}#IFDOWN="*"{% endif %}
 
-# -----------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Maximum seconds to wait for network/dropbear setup at init-bottom.
-#
-# On local (non-NFS) mounts, the network stack and dropbear are started
-# asynchronously during the init-premount stage. This timeout specifies the
-# maximum number of seconds to wait at the init-bottom stage before
-# terminating dropbear and bringing the network down.
-#
-# If this timeout is too short, and the boot process is not blocking on
-# user input via SSH (e.g., no remote LUKS unlocking is required), the
-# initrd might pivot to the real root (init(1)) too early. This can cause
-# a race condition between the network configuration established in
-# initramfs and the network configuration applied by the normal system.
-# -----------------------------------------------------------------------------
-#
-# Schema Default: 60
-# -----------------------------------------------------------------------------
-DROPBEAR_SHUTDOWN_TIMEOUT={{ DROPBEAR_SHUTDOWN_TIMEOUT | default(60) }}
+# If the timeout expires before the network/dropbear are ready or a user inputs credentials,
+# dropbear is terminated and the system may pivot to init(1) early.
+# Increase this if remote unlocking takes longer than expected.
+# Default: 60 seconds.
+# ------------------------------------------------------------------------------
+{% if DROPBEAR_SHUTDOWN_TIMEOUT is defined and DROPBEAR_SHUTDOWN_TIMEOUT is not none and (DROPBEAR_SHUTDOWN_TIMEOUT is number or DROPBEAR_SHUTDOWN_TIMEOUT is boolean or DROPBEAR_SHUTDOWN_TIMEOUT | length > 0) %}DROPBEAR_SHUTDOWN_TIMEOUT={{ DROPBEAR_SHUTDOWN_TIMEOUT | default('60') }}{% else %}#DROPBEAR_SHUTDOWN_TIMEOUT=60{% endif %}

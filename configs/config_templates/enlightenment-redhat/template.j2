@@ -1,0 +1,102 @@
+# Enlightenment System access control file
+#
+# This should be installed as /etc/enlightenment/system.conf if you wish to
+# limit access to enlightenment_system setuid tool. The tool will load this
+# file, if it exists, and abort any kind of execution if the file would not
+# permit the calling user to use it. If this file does not exist, then any
+# user or group will be permitted to run this tool and access its features.
+# This file will be installed
+
+# This file is read in order from top to bottom - the first rule to MATCH
+# will be used for a user or a group, and nothing after that is read.
+
+# Any user or group NOT matched by an allow or a deny will be ALLOWED to
+# perform the action by default (system administrators should be aware of
+# this and implement whatever policies they see fit). Generally speaking
+# a user of a workstation, desktop or laptop is intended to have such abilities
+# to perform these actions, thus the default of allow. For multi-user systems
+# the system administrator is considered capable enough to restrict what they
+# see they need to.
+
+# A WARNING to admins: do NOT allow access for users to this system remotely
+# UNLESS you fully trust them or you have locked down permissions to halt/reboot
+# suspend etc. here first. You have been warned.
+
+# FORMAT:
+#
+# user:  username  allow: rfkill
+# group: groupname deny:  *
+# group: *         deny:  *
+# user:  *         allow: power
+# user:  billy     allow: l2ping
+# group: staff     deny:  backlight
+# ... etc. ...
+#
+# user and group name can use glob matches (* == all for example) like the
+# shell. as can action names allowed or denied.
+#
+# the system to allow at the end is a system name or * for "everything". this
+# is a glob like filenames. systems supported:
+#
+# backlight - core backlight device that maps to a laptop screen or keyboard
+# ddc       - external monitor controls like backlight, color correction etc
+# storage   - handling of removable media devices
+# power     - direct shutdown/reboot/suspend/resume/halt commands
+# rfkill    - rf controls for wireless adaptors
+# l2ping    - bluetooth pings for paired devices (no payload control)
+# cpufreq   - change cpu frequency, governor and similar power controls
+
+# Rule allowing root user unrestricted access.
+{{ root_user_rule | default('user:     root      allow: *') }}
+
+# members of operator, staff and admin groups should be able to do all
+# Rule allowing operator group unrestricted access.
+{{ operator_group_rule | default('group:    operator  allow: *') }}
+# Rule allowing staff group unrestricted access.
+{{ staff_group_rule | default('group:    staff     allow: *') }}
+# Rule allowing admin group unrestricted access.
+{{ admin_group_rule | default('group:    admin     allow: *') }}
+# Rule allowing sys group unrestricted access.
+{{ sys_group_rule | default('group:    sys       allow: *') }}
+# Rule allowing wheel group unrestricted access.
+{{ wheel_group_rule | default('group:    wheel     allow: *') }}
+# Rule allowing adm group unrestricted access.
+{{ adm_group_rule | default('group:    adm       allow: *') }}
+
+# common "user" groups for "console users" on desktops/laptops
+# Rule allowing dialout group unrestricted access.
+{{ dialout_group_rule | default('group:    dialout   allow: *') }}
+# Rule allowing disk group unrestricted access.
+{{ disk_group_rule | default('group:    disk      allow: *') }}
+# Rule allowing cdrom group unrestricted access.
+{{ cdrom_group_rule | default('group:    cdrom     allow: *') }}
+# Rule allowing floppy group unrestricted access.
+{{ floppy_group_rule | default('group:    floppy    allow: *') }}
+# Rule allowing audio group unrestricted access.
+{{ audio_group_rule | default('group:    audio     allow: *') }}
+# Rule allowing dip group unrestricted access.
+{{ dip_group_rule | default('group:    dip       allow: *') }}
+# Rule allowing plugdev group unrestricted access.
+{{ plugdev_group_rule | default('group:    plugdev   allow: *') }}
+# Rule allowing netdev group unrestricted access.
+{{ netdev_group_rule | default('group:    netdev    allow: *') }}
+# Rule allowing bluetooth group unrestricted access.
+{{ bluetooth_group_rule | default('group:    bluetooth allow: *') }}
+# Rule allowing video group unrestricted access.
+{{ video_group_rule | default('group:    video     allow: *') }}
+# Rule allowing voice group unrestricted access.
+{{ voice_group_rule | default('group:    voice     allow: *') }}
+# Rule allowing fax group unrestricted access.
+{{ fax_group_rule | default('group:    fax       allow: *') }}
+# Rule allowing tty group unrestricted access.
+{{ tty_group_rule | default('group:    tty       allow: *') }}
+# Rule allowing colord group unrestricted access.
+{{ colord_group_rule | default('group:    colord    allow: *') }}
+# Rule allowing input group unrestricted access.
+{{ input_group_rule | default('group:    input     allow: *') }}
+# Rule allowing sudo group unrestricted access.
+{{ sudo_group_rule | default('group:    sudo      allow: *') }}
+
+# deny everyone else by default
+# Rule denying all other users by default.
+{{ default_deny_rule | default('user:     *         deny:  *') }}

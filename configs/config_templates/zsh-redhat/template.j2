@@ -1,0 +1,71 @@
+# ==============================================================================
+# /etc/zlogin and .zlogin are sourced in login shells.
+# This file should contain commands that should be executed only in login shells.
+# It is typically used to set the terminal type, environment variables, and
+# run a series of external commands (fortune, msgs, from, etc).
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Terminal Type Configuration
+# Description: Sets the TERM environment variable. This ensures that applications
+# running in the login shell have the correct terminal capabilities.
+# Default: 'xterm' if not specified.
+# -----------------------------------------------------------------------------
+{% if term is defined and term is string %}
+export TERM="{{ term }}"
+{% else %}
+export TERM="{{ 'xterm' }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Environment Variables
+# Description: Allows setting arbitrary environment variables for the login shell.
+# Expected Type: A list of dictionaries or a string representation of key=value pairs.
+# Default: Empty list (no extra variables set).
+# -----------------------------------------------------------------------------
+{% for env_var in env_vars | default([]) | list %}
+export {{ env_var.name }}="{{ env_var.value }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Command Execution: Fortune
+# Description: Runs the 'fortune' command to display a random quote or joke upon
+# login. Requires the 'fortune' package to be installed.
+# Default: false (disabled).
+# -----------------------------------------------------------------------------
+{% if fortune_enabled | default(false) | bool %}
+command -v fortune > /dev/null 2>&1 && fortune
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Command Execution: Messages
+# Description: Runs the 'msgs' command (common on BSD systems) to display
+# system messages. This is a placeholder for system-wide announcements.
+# Default: false (disabled).
+# -----------------------------------------------------------------------------
+{% if msgs_enabled | default(false) | bool %}
+command -v msgs > /dev/null 2>&1 && msgs
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Command Execution: Mail Check
+# Description: Runs the 'from' command to check for new mail. Requires a
+# local MTA or mail spool to be configured.
+# Default: false (disabled).
+# -----------------------------------------------------------------------------
+{% if mail_check_enabled | default(false) | bool %}
+command -v from > /dev/null 2>&1 && from
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Custom Login Scripts
+# Description: Allows execution of arbitrary scripts or commands after standard
+# login tasks.
+# Expected Type: A list of strings (commands) or scripts.
+# Default: Empty list.
+# -----------------------------------------------------------------------------
+{% for script in login_scripts | default([]) | list %}
+{% if script is string %}
+{{ script }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,31 @@
+# numad logrotate configuration
+#
+# This template configures log rotation for the numad daemon logs.
+# The numad daemon manages NUMA (Non-Uniform Memory Access) node placement.
+# Log files are rotated based on age, count, and size criteria defined in the schema.
+
+/var/log/numad.log {
+    # Enable compression for rotated log files to save disk space.
+    compress
+
+    # Copy the log file and immediately truncate the original to zero size.
+    # This ensures the daemon continues writing to the same file descriptor
+    # without needing a restart or signal, preventing log loss during rotation.
+    copytruncate
+
+    # Maximum age of log files in days before rotation.
+    # If a log file is older than this value, it will be rotated regardless of size.
+    maxage {{maxage | default('60')}}
+
+    # If the log file is missing, do not generate an error.
+    # This is useful for daemons that might not have generated logs yet or if the file was deleted manually.
+    missingok
+
+    # Number of rotated log files to keep.
+    # Older files are removed automatically to prevent disk space exhaustion.
+    rotate {{rotate | default('5')}}
+
+    # Rotate log file when it grows bigger than this size.
+    # Allows for more frequent rotation if the log volume is high.
+    size {{size | default('1M')}}
+}

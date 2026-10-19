@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    /etc/fonts/conf.d/20-unhint-small-dejavu-lgc-sans-mono.conf
+
+    Disable hinting manually at smaller sizes (below the configured threshold).
+    This rule applies to the DejaVu LGC Sans Mono family, which is derived from
+    Bitstream Vera. Vera fonts had GASP entries suggesting hinting be disabled
+    below 8 ppem, but FreeType ignores those in favor of instructions in the
+    'prep' table. This configuration explicitly disables hinting for small
+    sizes to improve rendering clarity.
+  -->
+
+  <!-- Match any font where the family name matches the configured family -->
+  <match target="font">
+    <!-- Test if the font's family name equals the specified font_family -->
+    <test name="family">
+      <!-- font_family: The font family name to apply the hinting rule to. -->
+      <string>{{ font_family | default('DejaVu LGC Sans Mono') }}</string>
+    </test>
+
+    <!-- Test if the font's pixel size is less than the configured threshold -->
+    <test compare="less" name="pixelsize">
+      <!-- threshold_pixelsize: The pixel size threshold below which hinting is disabled. -->
+      <double>{{ threshold_pixelsize | default('7.5') }}</double>
+    </test>
+
+    <!-- Edit the hinting property based on the test result -->
+    <edit name="hinting">
+      <!-- disable_hinting: Whether to disable hinting for fonts below the threshold. -->
+      <!-- Note: XML expects "true" or "false" strings for boolean values in this context -->
+      <bool>{{ disable_hinting | default(false) | lower }}</bool>
+    </edit>
+  </match>
+</fontconfig>

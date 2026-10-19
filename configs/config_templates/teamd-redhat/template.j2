@@ -1,0 +1,45 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+	"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+	<!--
+	  D-Bus Policy Configuration for teamd (Red Hat)
+	  This file restricts D-Bus access to the teamd service to authorized users.
+	  See the schema fields for variable definitions.
+	-->
+
+	<!--
+	  Policy for the privileged user.
+	  This user is allowed to own the service's D-Bus name prefix and
+	  send messages to the teamd interface.
+	-->
+	<policy user="{{ dbus_policy_user | default('root') }}">
+		<!--
+		  Allow the user to 'own' (claim) the specified D-Bus object prefix.
+		  Only the user defined in dbus_policy_user should do this.
+		-->
+		<allow own_prefix="{{ dbus_own_prefix | default('org.libteam.teamd') }}"/>
+		<!--
+		  Allow the user to send method calls/signals to the specified D-Bus interface.
+		  This defines the API contract for interacting with teamd via D-Bus.
+		-->
+		<allow send_interface="{{ dbus_send_interface | default('org.libteam.teamd') }}"/>
+	</policy>
+
+	<!--
+	  Default Policy (Catch-all).
+	  Deny access to everyone else for security.
+	-->
+	<policy context="default">
+		<!--
+		  Deny any user from owning the teamd service prefix unless
+		  explicitly allowed above.
+		-->
+		<deny own_prefix="{{ dbus_own_prefix | default('org.libteam.teamd') }}"/>
+		<!--
+		  Note: While 'send_interface' isn't explicitly denied here,
+		  the default D-Bus policy usually denies all unless allowed.
+		  Explicit denial of ownership is the critical security boundary here.
+		-->
+	</policy>
+</busconfig>

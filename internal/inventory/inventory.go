@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mutkluge/agentic-mcp/internal/kernelcaps"
 	"github.com/mutkluge/agentic-mcp/internal/proc"
 )
 
@@ -42,6 +43,8 @@ type Inventory struct {
 	OS          OS     `json:"os"`
 	Disks       []Disk `json:"disks,omitempty"`
 	NICs        []NIC  `json:"nics,omitempty"`
+	// KernelCaps is what this kernel can be tuned with (docs/kernel-tuning.md).
+	KernelCaps *kernelcaps.Caps `json:"kernel_caps,omitempty"`
 }
 
 type System struct {
@@ -130,6 +133,8 @@ type Collector struct {
 	// netNICAddrs, via net.InterfaceByName); tests inject a stub. nil = skip
 	// address collection (older behavior).
 	NICAddrs func(name string) (ipv4, ipv6 []string)
+	// Kernel detects the tuning capabilities; nil omits kernel_caps.
+	Kernel *kernelcaps.Detector
 }
 
 // DefaultCollector reads the real system.
@@ -137,6 +142,7 @@ func DefaultCollector() *Collector {
 	return &Collector{
 		ProcRoot: "/proc", SysRoot: "/sys", OSReleasePath: "/etc/os-release",
 		HostnameFunc: os.Hostname, NICAddrs: netNICAddrs,
+		Kernel: kernelcaps.Default(),
 	}
 }
 
@@ -177,6 +183,10 @@ func (c *Collector) Collect() *Inventory {
 	inv.Disks = c.collectDisks()
 	inv.NICs = c.collectNICs()
 	inv.System.Virtualization = detectVirtualization(inv)
+	if c.Kernel != nil {
+		caps := c.Kernel.Detect()
+		inv.KernelCaps = &caps
+	}
 	return inv
 }
 

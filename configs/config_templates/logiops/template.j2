@@ -1,52 +1,63 @@
 # ==============================================================================
-# logiops Configuration Template
+# Logiops Configuration Template
 # ==============================================================================
-# This template generates the configuration file for logiops, a Linux daemon
-# for configuring Logitech gaming peripherals.
+# This template configures the Logitech Options daemon (logiops) for a
+# specific HID device (e.g., a mouse). It manages button mappings, DPI cycling,
+# and specialized features like SmartShift and HiRes Scroll.
+#
+# Schema Fields:
+# - device_name: The name of the mouse device.
+# - smartshift_on: Enable SmartShift functionality.
+# - smartshift_threshold: SmartShift threshold value.
+# - smartshift_torque: SmartShift torque value.
+# - hiresscroll_hires: Enable high-resolution scrolling.
+# - hiresscroll_invert: Invert scrolling direction.
+# - hiresscroll_target: Target specific window for scrolling.
+# - dpi: Default DPI setting.
+# - cycle_dpis: List of DPIs to cycle through.
+# - button_c4_key: Key mapped to button with CID 0xc4.
 # ==============================================================================
 
-# devices:
-# {
-#     Configuration block for a single mouse/device.
-#     Each device block must contain a unique name and specific feature settings.
+devices: (
+{
+    # Name of the mouse device as detected by the system.
     name: "{{ device_name | default('Wireless Mouse MX Master') }}";
 
-    # SmartShift: An automatic DPI adjustment feature that increases DPI based on scroll speed.
+    # SmartShift configuration (Magnetic gear shifting on MX Master/MX Master 2S/3).
     smartshift:
     {
-        # Enable or disable the SmartShift functionality.
-        on: {{ smartshift_on | default(true) | lower }};
+        # Enable SmartShift functionality.
+        on: {{ smartshift_on | default(true) }};
 
-        # The scroll speed threshold (in arbitrary units) at which SmartShift engages.
+        # SmartShift threshold value (percentage of effort to engage gear).
         threshold: {{ smartshift_threshold | default(30) }};
 
-        # The torque/force required to trigger the SmartShift activation.
+        # SmartShift torque value (force required to shift gears).
         torque: {{ smartshift_torque | default(50) }};
     };
 
-    # HiResScroll: High-resolution scrolling configuration.
+    # HiRes Scroll configuration.
     hiresscroll:
     {
         # Enable high-resolution scrolling mode.
-        hires: {{ hiresscroll_hires | default(true) | lower }};
+        hires: {{ hiresscroll_hires | default(true) }};
 
-        # Invert the direction of the scrolling.
-        invert: {{ hiresscroll_invert | default(false) | lower }};
+        # Invert scrolling direction (natural scrolling).
+        invert: {{ hiresscroll_invert | default(false) }};
 
-        # Target a specific window for scrolling instead of the whole screen.
-        target: {{ hiresscroll_target | default(false) | lower }};
+        # Target specific window for scrolling (focus follows scroll).
+        target: {{ hiresscroll_target | default(false) }};
     };
 
-    # DPI: The default Dots Per Inch setting for the mouse cursor.
+    # Default DPI setting for the device.
     dpi: {{ dpi | default(1000) }};
 
-    # Buttons: Configuration for the mouse buttons and their actions.
+    # Button configurations.
     buttons: (
         {
             cid: 0xc3;
             action =
             {
-                # Type of action: Gestures allow mapping swipe directions to actions.
                 type: "Gestures";
                 gestures: (
                     {
@@ -72,10 +83,9 @@
                         mode: "OnRelease";
                         action =
                         {
-                            # CycleDPI allows switching between preset DPI values.
                             type: "CycleDPI";
-                            # List of DPI values to cycle through. Rendered as a comma-separated list.
-                            dpis: [{{ cycle_dpis | default([400, 600, 800, 1000, 1200, 1400, 1600]) | join(', ') }}];
+                            # List of DPI values to cycle through when swiping left.
+                            dpis: {{ cycle_dpis | default([400, 600, 800, 1000, 1200, 1400, 1600]) }};
                         };
                     },
                     {
@@ -83,12 +93,10 @@
                         mode: "OnRelease";
                         action =
                         {
-                            # ToggleSmartshift toggles the SmartShift state on/off.
                             type = "ToggleSmartshift";
                         }
                     },
                     {
-                        # NoPress mode means no action is taken when the gesture is not pressed.
                         direction: "None"
                         mode: "NoPress"
                     }
@@ -100,10 +108,10 @@
             action =
             {
                 type: "Keypress";
-                # Key mapped to the button with CID 0xc4 (often a side button).
+                # Key mapped to button with CID 0xc4 (typically G4 or similar).
                 keys: ["{{ button_c4_key | default('KEY_A') }}"];
             };
         }
     );
-# }
-# );
+}
+);

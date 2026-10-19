@@ -1,25 +1,70 @@
-# Lighttpd NSS Module Configuration
-# Provides basic SSL/TLS support via mod_nss.
-# Self-documenting template: every setting is described and safely defaulted.
+# =============================================================================
+# Lighttpd mod_nss (NSS SSL Module) Configuration
+# =============================================================================
+#
+# Self-Documenting Template
+# --------------------------
+# This template configures the Lighttpd mod_nss module, enabling HTTPS
+# support via Network Security Services (NSS). It handles the SSL certificate
+# path and binds the server to a specific address and port for encrypted traffic.
+#
+# All variables use inline defaults (| default(...)) to ensure the rendered
+# configuration is valid even if the variable is not provided by the Ansible
+# playbook. Do not remove these defaults.
+# =============================================================================
 
-# Load the NSS module for SSL/TLS handling.
-# This enables Lighttpd to use the Network Security Services library.
-server.modules += ( "mod_nss" )
+# -----------------------------------------------------------------------------
+# Module Loading
+# -----------------------------------------------------------------------------
+# Enable the mod_nss module. This module provides the SSL/TLS engine for
+# Lighttpd using NSS libraries instead of OpenSSL/GnuTLS.
+#
+# Note: In Lighttpd config, module lists are appended to server.modules.
+# Since this is a snippet, we assume the base config initializes it or this
+# snippet is included in a context where module loading is managed.
+# However, to be safe and self-contained, we define the module list here.
+# If other modules are needed, they should be merged in the role's main config.
+# Here we strictly configure mod_nss.
+server.modules = ( "mod_nss" )
 
-# Path to the SSL PEM certificate file.
-# This file typically contains the server certificate and its private key.
-# Default: /etc/lighttpd/server.pem
+# -----------------------------------------------------------------------------
+# SSL Certificate Configuration
+# -----------------------------------------------------------------------------
+# Path to the SSL PEM certificate file. This file must contain the server
+# certificate and, depending on the Lighttpd/NSS build configuration, the
+# private key.
+#
+# Schema Field: ssl.pemfile
+# Default: '/etc/lighttpd/server.pem'
+# -----------------------------------------------------------------------------
 ssl.pemfile = "{{ (ssl | default({})).pemfile | default('/etc/lighttpd/server.pem') }}"
 
-# Configure SSL listening on a specific address and port.
-# The listen_address is the IP to bind to (0.0.0.0 for all interfaces).
-# The listen_port is the port number (443 is standard HTTPS).
-# Note: Lighttpd's mod_nss uses these specific variables for socket configuration.
+# -----------------------------------------------------------------------------
+# SSL Listener Socket Configuration
+# -----------------------------------------------------------------------------
+# Define the IP address and port Lighttpd should listen on for encrypted
+# (HTTPS) connections. This block opens a socket listener.
+#
+# Schema Fields:
+# - listen_address: Default '0.0.0.0' (Listen on all IPv4 interfaces)
+# - listen_port:    Default '443' (Standard HTTPS port)
+#
+# The condition `$SERVER["socket"]` matches the address:port string.
+# Inside the block, we enable the SSL engine for this specific socket.
+# -----------------------------------------------------------------------------
 $SERVER["socket"] == "{{ listen_address | default('0.0.0.0') }}:{{ listen_port | default('443') }}" {
-    # Enable SSL/TLS engine for this socket.
-    ssl.engine  = "enable"
+    # Enable the SSL/TLS engine for this socket.
+    ssl.engine = "enable"
 }
 
-# Automatically include IPv6 configuration if available.
-# This shell script checks for IPv6 support and includes the necessary config.
-include_shell "/usr/share/lighttpd/use-ipv6.pl {{ listen_port | default('443') }}"
+# -----------------------------------------------------------------------------
+# IPv6 Support
+# -----------------------------------------------------------------------------
+# Include a shell command to automatically configure IPv6 listening sockets.
+# Lighttpd provides a helper script 'use-ipv6.pl' to handle dynamic IPv6
+# address detection for standard ports.
+#
+# This ensures that if the system has IPv6 connectivity, Lighttpd will
+# also listen on [::]:443.
+# -----------------------------------------------------------------------------
+include_shell "/usr/share/lighttpd/use-ipv6.pl 443"

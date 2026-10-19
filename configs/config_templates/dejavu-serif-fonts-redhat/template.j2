@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    ============================================================================
+    DejaVu Serif Font Hinting Configuration
+    ============================================================================
+    This configuration file disables font hinting for DejaVu Serif fonts when
+    the rendered pixel size is below a specified threshold. This is often used
+    to improve readability at small sizes where hinting artifacts may degrade
+    the visual quality, mimicking the behavior of the original Bitstream Vera
+    fonts which DejaVu is derived from.
+  -->
+
+  <!--
+    Match rule: Applies to fonts named "DejaVu Serif" rendered at sizes
+    smaller than the defined threshold.
+  -->
+  <match target="font">
+    <!--
+      Test 1: Check if the font family is "DejaVu Serif".
+      This restricts the rule to only affect the Serif variant of DejaVu.
+    -->
+    <test name="family">
+      <string>DejaVu Serif</string>
+    </test>
+
+    <!--
+      Test 2: Check if the pixel size is LESS THAN the threshold.
+      Variable: pixelsize_threshold
+      Description: The pixel size threshold below which hinting is disabled.
+      Default: '7.5'
+    -->
+    <test compare="less" name="pixelsize">
+      <double>{{ pixelsize_threshold | default('7.5') }}</double>
+    </test>
+
+    <!--
+      Edit: Disable hinting if both tests above pass.
+      Variable: disable_hinting
+      Description: Whether to disable hinting for DejaVu Serif fonts below
+                   the specified pixel size threshold.
+      Default: 'false'
+    -->
+    <edit name="hinting">
+      <bool>{{ disable_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+</fontconfig>

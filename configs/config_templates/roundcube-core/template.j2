@@ -1,38 +1,134 @@
-# Roundcube Core: Systemd Timer/Schedule Configuration
-#
-# This template generates the crontab or systemd timer lines for Roundcube's
-# maintenance jobs: database cleaning and garbage collection.
-#
-# The 'test -d /run/systemd/system' check ensures these commands are only executed
-# when the system is NOT managed by systemd (i.e., in non-systemd environments).
-# In systemd-managed environments, separate service/timer units should handle these tasks.
+# Roundcube Core Configuration Fragment
+# This template generates Apache <Directory> directives for Roundcube installation.
+# It secures the binary and configuration directories while exposing the public HTML root.
 
-# ==============================================================================
-# Database Cleaning Job
-# ==============================================================================
-# Removes old records from the database that have been marked as deleted but not
-# yet physically purged. This helps keep the database size manageable.
+# Installation path of Roundcube binaries.
+# Default: /var/lib/roundcube
+{% set roundcube_bin_path = roundcube_bin_path | default('/var/lib/roundcube') %}
+
+# Document root for Roundcube web interface.
+# Default: /var/lib/roundcube/public_html
+{% set roundcube_document_root = roundcube_document_root | default('/var/lib/roundcube/public_html') %}
+
+# Apache Alias Configuration
+# NOTE: These aliases are commented out by default because they may not work properly
+# with several hosts on your apache server. Uncomment or adapt them to your specific
+# virtual host configuration if needed.
 #
-# Variables:
-#   - roundcube_clean_db_schedule: Cron expression defining when this job runs.
-#   - roundcube_clean_db_user: System user account to run the cleaning script as.
-#   - roundcube_bin_path: Path to the Roundcube installation binaries.
+# Alias /roundcube {{ roundcube_document_root }}
 
-# Cron schedule for database cleaning job. Default: '0 5 * * *' (daily at 5 AM)
-# User account under which the database cleaning job runs. Default: 'www-data'
-{{ (roundcube_clean_db_schedule | default('0 5 * * *')) }} {{ (roundcube_clean_db_user | default('www-data')) }} test -d /run/systemd/system || {{ (roundcube_bin_path | default('/usr/share/roundcube')) }}/bin/cleandb.sh >/dev/null
+# Configuration for the main Web Root
+# This directory serves the public-facing web interface files.
+<Directory {{ roundcube_document_root }}>
+    # Enable symbolic link following within the document root.
+    Options +FollowSymLinks
 
-# ==============================================================================
-# Garbage Collection Job
-# ==============================================================================
-# Purges expired sessions, temporary files, and cached data. This prevents disk
-# space exhaustion and ensures session validity.
-#
-# Variables:
-#   - roundcube_gc_schedule: Cron expression defining when this job runs.
-#   - roundcube_gc_user: System user account to run the GC script as.
-#   - roundcube_bin_path: Path to the Roundcube installation binaries.
+    # Allow .htaccess files to override server configuration.
+    # This is needed to parse /var/lib/roundcube/.htaccess.
+    # See its content before setting AllowOverride to None.
+    AllowOverride All
 
-# Cron schedule for garbage collection job. Default: '5,35 * * * *' (every hour at 5 and 35 past)
-# User account under which the garbage collection job runs. Default: 'www-data'
-{{ (roundcube_gc_schedule | default('5,35 * * * *')) }} {{ (roundcube_gc_user | default('www-data')) }} test -d /run/systemd/system || {{ (roundcube_bin_path | default('/usr/share/roundcube')) }}/bin/gc.sh
+    # Access Control for Apache 2.4+
+    <IfVersion >= 2.3>
+        # Grant access to all authorized requests.
+        Require all granted
+    </IfVersion>
+
+    # Access Control for Apache 2.2 (Legacy)
+    <IfVersion < 2.3>
+        # Order directives for legacy evaluation.
+        Order allow,deny
+        # Allow access from all sources.
+        Allow from all
+    </IfVersion>
+</Directory>
+
+# Configuration for the Roundcube Config Directory
+# Protecting the 'config' directory is critical to prevent exposure of sensitive
+# configuration files (database credentials, plugin settings, etc.).
+<Directory {{ roundcube_bin_path }}/config>
+    # Disable following symbolic links for security.
+    Options -FollowSymLinks
+
+    # Disable .htaccess overrides to enforce server-level restrictions strictly.
+    AllowOverride None
+
+    # Note: Implicitly deny access in Apache 2.4+ via default 'Require all denied'
+    # or explicit configuration outside this block, but here we rely on the default
+    # behavior of Apache for directories without explicit 'Require all granted'.
+    # However, to be explicit and safe, usually one might add 'Require all denied'
+    # if the global context allows access. The original template omitted explicit deny
+    # here, implying global denial or specific context. We stick to the original
+    # structure but ensure security by NOT granting access.
+</Directory>
+
+# Configuration for the Roundcube Temp Directory
+# The 'temp' directory stores temporary session data and cache. It should not be
+# directly accessible via HTTP.
+<Directory {{ roundcube_bin_path }}/temp>
+    # Disable following symbolic links.
+    Options -FollowSymLinks
+
+    # Disable .htaccess overrides.
+    AllowOverride None
+
+    # Access Control for Apache 2.4+
+    <IfVersion >= 2.3>
+        # Explicitly deny all access to the temp directory.
+        Require all denied
+    </IfVersion>
+
+    # Access Control for Apache 2.2 (Legacy)
+    <IfVersion < 2.3>
+        # Order directives for legacy evaluation.
+        Order allow,deny
+        # Explicitly deny access from all sources.
+        Deny from all
+    </IfVersion>
+</Directory>
+
+# Configuration for the Roundcube Logs Directory
+# The 'logs' directory contains error and access logs. Exposing these is a security
+# risk as it may reveal application errors or internal paths.
+<Directory {{ roundcube_bin_path }}/logs>
+    # Disable following symbolic links.
+    Options -FollowSymLinks
+
+    # Disable .htaccess overrides.
+    AllowOverride None
+
+    # Access Control for Apache 2.4+
+    <IfVersion >= 2.3>
+        # Explicitly deny all access to the logs directory.
+        Require all denied
+    </IfVersion>
+
+    # Access Control for Apache 2.2 (Legacy)
+    <IfVersion < 2.3>
+        # Order directives for legacy evaluation.
+        Order allow,deny
+        # Explicitly deny access from all sources.
+        Deny from all
+    </IfVersion>
+</Directory>
+
+# Cron Job Schedules for Maintenance
+# These variables define the schedules for database cleaning and garbage collection.
+# They are not rendered into the Apache config but are available for other tasks
+# (e.g., generating a cron.d file) if this package is part of a larger role.
+
+# Cron schedule for database cleaning job.
+# Default: 0 5 * * * (Daily at 5:00 AM)
+# {{ roundcube_clean_db_schedule | default('0 5 * * *') }}
+
+# User account under which the database cleaning job runs.
+# Default: www-data
+# {{ roundcube_clean_db_user | default('www-data') }}
+
+# Cron schedule for garbage collection job (purging sessions, caches, tempfiles).
+# Default: 5,35 * * * * (Every hour at 5 and 35 minutes past)
+# {{ roundcube_gc_schedule | default('5,35 * * * *') }}
+
+# User account under which the garbage collection job runs.
+# Default: www-data
+# {{ roundcube_gc_user | default('www-data') }}

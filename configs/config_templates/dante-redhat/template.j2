@@ -1,0 +1,94 @@
+# Dante SOCKS Proxy Configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# This template generates the socks.conf file for the Dante proxy server.
+# Each configuration directive is documented below with its schema description and default value.
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+
+# Debug level (1 to enable).
+# Default: '1'
+# Enable debugging output. Setting to 1 enables debug logging.
+{% if debug | default('1') == '1' %}
+debug: {{ debug | default('1') }}
+{% endif %}
+
+# Log output destination.
+# Default: 'stdout'
+# Specifies where log messages should be sent (e.g., stdout, syslog, stderr).
+logoutput: {{ logoutput | default('stdout') }}
+
+# Protocol for resolving hostnames (udp, tcp, or fake).
+# Default: 'udp'
+# Defines the protocol Dante uses to resolve DNS queries.
+# - udp: Standard UDP DNS resolution.
+# - tcp: TCP-based DNS resolution (useful if UDP is blocked).
+# - fake: Uses a local fake DNS resolver (no network traffic).
+resolveprotocol: {{ resolveprotocol | default('udp') }}
+
+# -----------------------------------------------------------------------------
+# Routes and Proxy Definitions
+# -----------------------------------------------------------------------------
+# Routes define how traffic is forwarded. The general syntax is:
+# route {
+#     from: [source]   to: [destination]   via: [next_hop]
+#     command: [bind|connect]
+#     protocol: [tcp|udp]
+#     proxyprotocol: [socks_v4|socks_v5|http]
+# }
+#
+# The following routes are configured based on the provided schema defaults.
+
+# Route 1: DNS Resolution via Direct Connection
+# Purpose: Ensures that DNS queries for the configured DNS server are sent
+# directly, avoiding potential circular dependencies where the proxy needs DNS
+# to resolve its own address.
+# Note: This assumes the DNS server is reachable directly from the host.
+#dns_server: {{ dns_server | default('10.1.1.1') }}
+#dns_subnet: {{ dns_subnet | default('32') }}
+#
+# Uncomment the block below to route DNS traffic directly.
+#route {
+#    from: 0.0.0.0/0   to: {{ dns_server | default('10.1.1.1') }}/{{ dns_subnet | default('32') }} port = domain via: direct
+#}
+
+# Route 2: Default Traffic via SOCKS Proxy
+# Purpose: Routes all non-DNS traffic (0.0.0.0/0) through the specified
+# SOCKS proxy server.
+#proxy_host: {{ proxy_host | default('10.1.1.1') }}
+#proxy_port: {{ proxy_port | default('1080') }}
+#
+# This route handles general SOCKSv4/v5 traffic.
+#
+# Uncomment the block below to enable SOCKS proxy routing.
+#route {
+#    from: 0.0.0.0/0   to: 0.0.0.0/0   via: {{ proxy_host | default('10.1.1.1') }} port = {{ proxy_port | default('1080') }}
+#    command: connect
+#    protocol: tcp
+#    proxyprotocol: socks_v5
+#    method: none
+#}
+
+# Route 3: HTTP Proxy Fallback
+# Purpose: If an HTTP proxy is required instead of SOCKS, this route
+# directs traffic to the HTTP proxy endpoint.
+#http_proxy_port: {{ http_proxy_port | default('3128') }}
+#
+# Uncomment the block below if using an HTTP proxy instead of SOCKS.
+#route {
+#    from: 0.0.0.0/0   to: 0.0.0.0/0   via: {{ proxy_host | default('10.1.1.1') }} port = {{ http_proxy_port | default('3128') }}
+#    command: connect
+#    protocol: tcp
+#    proxyprotocol: http
+#}
+
+# Route 4: Remote Bind Connections (Optional)
+# Purpose: Allows the proxy server to accept incoming connections from
+# remote clients by binding to a specific address.
+#
+# Uncomment the block below if you need to support remote bind requests.
+#route {
+#    from: 0.0.0.0/0   to: 0.0.0.0/0   via: {{ proxy_host | default('10.1.1.1') }} port = {{ proxy_port | default('1080') }}
+#    command: bind
+#}

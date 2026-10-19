@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Google Noto Serif Sinhala VF.
+  This template generates a Fontconfig XML file that:
+  1. Substitutes the generic 'serif' family with 'Noto Serif Sinhala' for Sinhala language content.
+  2. Aliases the specific font family to a generic fallback.
+  3. Optionally enables font hinting.
+-->
+<fontconfig>
+  <!--
+    Rule 1: Font Substitution for Sinhala
+    Matches text marked with the Sinhala language code ('si') and a generic serif family,
+    then prepends 'Noto Serif Sinhala' as the primary font choice.
+  -->
+  <match>
+    <!-- Test: Is the language code the specified ISO 639 code? -->
+    <test name="lang" compare="contains">
+      <!--
+        lang_code: ISO 639 language code to match for font substitution (e.g., 'si' for Sinhala).
+        Default: 'si'
+      -->
+      <string>{{ lang_code | default('si') }}</string>
+    </test>
+    <!-- Test: Is the requested family the specified generic family? -->
+    <test name="family">
+      <!--
+        default_family: Generic font family name to match when applying the substitution.
+        Default: 'serif'
+      -->
+      <string>{{ default_family | default('serif') }}</string>
+    </test>
+    <!-- Edit: Prepend the specific font to the family list -->
+    <edit name="family" mode="prepend">
+      <!--
+        font_family: Name of the specific font to prepend as the primary choice.
+        Default: 'Noto Serif Sinhala'
+      -->
+      <string>{{ font_family | default('Noto Serif Sinhala') }}</string>
+    </edit>
+    <!-- Edit: Enable hinting if configured -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        hinting_enabled: Whether to append font hinting settings.
+        Note: Fontconfig expects 'true' or 'false' strings in XML boolean elements.
+        Default: 'true'
+      -->
+      <bool>{{ hinting_enabled | default('true') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Rule 2: Alias Definition
+    Creates an alias for the specific font family to a generic target,
+    ensuring fallback behavior for applications requesting the generic family
+    when the specific font is not explicitly chosen but available.
+  -->
+  <alias>
+    <!-- The specific font being aliased -->
+    <family>{{ font_family | default('Noto Serif Sinhala') }}</family>
+    <!-- The default generic family to fall back to -->
+    <default>
+      <family>
+        <!--
+          alias_target_family: The generic family name that the specific font is aliased to as a fallback.
+          Default: 'serif'
+        -->
+        {{ alias_target_family | default('serif') }}
+      </family>
+    </default>
+  </alias>
+</fontconfig>

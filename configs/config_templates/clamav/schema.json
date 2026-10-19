@@ -1,217 +1,392 @@
 {
-  "listen_host": {
-    "type": "string",
-    "default": "",
-    "description": "IP address to bind the TCP socket; leave empty to use Unix socket only (recommended for local services)"
-  },
-  "listen_port": {
-    "type": "number",
-    "default": 3310,
-    "description": "TCP port for clamd communication (only used if listen_host is set)"
-  },
-  "socket_path": {
+  "LocalSocket": {
     "type": "string",
     "default": "/var/run/clamav/clamd.ctl",
-    "description": "Path to the Unix socket file used by local tools (clamscan, etc.)"
+    "description": "clamd.conf LocalSocket (Debian's generated value: /var/run/clamav/clamd.ctl)."
   },
-  "scan_user": {
+  "FixStaleSocket": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf FixStaleSocket (Debian's generated value: true)."
+  },
+  "LocalSocketGroup": {
     "type": "string",
     "default": "clamav",
-    "description": "System user under which the daemon runs \u2014 must have read access to scanned paths"
+    "description": "clamd.conf LocalSocketGroup (Debian's generated value: clamav)."
   },
-  "max_threads": {
+  "LocalSocketMode": {
     "type": "number",
-    "default": 10,
-    "description": "Maximum number of concurrent scan threads; higher values increase throughput but also CPU/memory usage"
+    "default": 666,
+    "description": "clamd.conf LocalSocketMode (Debian's generated value: 666)."
   },
-  "scan_timeout": {
-    "type": "number",
-    "default": 120,
-    "description": "Maximum seconds to scan a single file; increase for very large files"
+  "User": {
+    "type": "string",
+    "default": "clamav",
+    "description": "clamd.conf User (Debian's generated value: clamav)."
   },
-  "read_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Seconds to wait for data from network connections (e.g., HTTP or FTP scanning)"
-  },
-  "max_recursion": {
-    "type": "number",
-    "default": 16,
-    "description": "Maximum archive nesting depth to scan (0 = unlimited)"
-  },
-  "max_files": {
-    "type": "number",
-    "default": 10000,
-    "description": "Maximum number of files inside archives to scan"
-  },
-  "enable_compression_scan": {
+  "ScanMail": {
     "type": "bool",
     "default": true,
-    "description": "Whether to decompress and scan inside archives like .gz and .bz2"
+    "description": "clamd.conf ScanMail (Debian's generated value: true)."
   },
-  "max_scan_size_mb": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum size (MB) per file to scan; larger files are skipped (0 = unlimited)"
-  },
-  "max_archive_size_mb": {
-    "type": "number",
-    "default": 250,
-    "description": "Maximum total size (MB) of an archive to scan; larger archives are skipped (0 = unlimited)"
-  },
-  "enable_heuristic_scan": {
+  "ScanArchive": {
     "type": "bool",
     "default": true,
-    "description": "Enable heuristic analysis to detect unknown threats (may increase false positives)"
+    "description": "clamd.conf ScanArchive (Debian's generated value: true)."
   },
-  "enable_pua_scan": {
+  "ArchiveBlockEncrypted": {
     "type": "bool",
     "default": false,
-    "description": "Enable detection of Potentially Unwanted Applications (PUAs) \u2014 may cause false positives in development environments"
+    "description": "clamd.conf ArchiveBlockEncrypted (Debian's generated value: false)."
   },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/clamav/clamd.log",
-    "description": "Path to the daemon log file (scan events, errors, startup info)"
-  },
-  "log_verbose": {
+  "MaxDirectoryRecursion": {
     "type": "number",
-    "default": 0,
-    "description": "Log verbosity: 0 = errors only, 5 = debug (avoid 5 in production due to noise)"
+    "default": 15,
+    "description": "clamd.conf MaxDirectoryRecursion (Debian's generated value: 15)."
   },
-  "log_rotate": {
+  "FollowDirectorySymlinks": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf FollowDirectorySymlinks (Debian's generated value: false)."
+  },
+  "FollowFileSymlinks": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf FollowFileSymlinks (Debian's generated value: false)."
+  },
+  "ReadTimeout": {
+    "type": "number",
+    "default": 180,
+    "description": "clamd.conf ReadTimeout (Debian's generated value: 180)."
+  },
+  "MaxThreads": {
+    "type": "number",
+    "default": 12,
+    "description": "clamd.conf MaxThreads (Debian's generated value: 12)."
+  },
+  "MaxConnectionQueueLength": {
+    "type": "number",
+    "default": 15,
+    "description": "clamd.conf MaxConnectionQueueLength (Debian's generated value: 15)."
+  },
+  "LogSyslog": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf LogSyslog (Debian's generated value: false)."
+  },
+  "LogRotate": {
     "type": "bool",
     "default": true,
-    "description": "Enable automatic log rotation when max size is reached"
+    "description": "clamd.conf LogRotate (Debian's generated value: true)."
   },
-  "log_rotate_max_size_mb": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum log file size (MB) before rotation"
-  },
-  "pid_file": {
+  "LogFacility": {
     "type": "string",
-    "default": "/var/run/clamav/clamd.pid",
-    "description": "Path to store the daemon\u2019s PID file"
+    "default": "LOG_LOCAL6",
+    "description": "clamd.conf LogFacility (Debian's generated value: LOG_LOCAL6)."
   },
-  "database_directory": {
+  "LogClean": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf LogClean (Debian's generated value: false)."
+  },
+  "LogVerbose": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf LogVerbose (Debian's generated value: false)."
+  },
+  "PreludeEnable": {
+    "type": "string",
+    "default": "no",
+    "description": "clamd.conf PreludeEnable (Debian's generated value: no)."
+  },
+  "PreludeAnalyzerName": {
+    "type": "string",
+    "default": "ClamAV",
+    "description": "clamd.conf PreludeAnalyzerName (Debian's generated value: ClamAV)."
+  },
+  "DatabaseDirectory": {
     "type": "string",
     "default": "/var/lib/clamav",
-    "description": "Directory where virus signatures (.cld/.cvd) are stored \u2014 must be writable by freshclam"
+    "description": "clamd.conf DatabaseDirectory (Debian's generated value: /var/lib/clamav)."
   },
-  "enable_local_update": {
+  "OfficialDatabaseOnly": {
     "type": "bool",
     "default": false,
-    "description": "If enabled, logs update activity to database_directory (freshclam must run separately)"
+    "description": "clamd.conf OfficialDatabaseOnly (Debian's generated value: false)."
   },
-  "pua_categories": {
-    "type": "list",
-    "default": [],
-    "description": "List of PUA categories to detect (e.g., 'Adware', 'Tool', 'Spyware'); only effective if enable_pua_scan=true",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "A single PUA category name"
-    }
+  "SelfCheck": {
+    "type": "number",
+    "default": 3600,
+    "description": "clamd.conf SelfCheck (Debian's generated value: 3600)."
   },
-  "exclude_paths": {
-    "type": "list",
-    "default": [
-      "/proc",
-      "/sys",
-      "/dev",
-      "/run"
-    ],
-    "description": "List of file or directory paths to skip during scanning (to avoid system directories)",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "A path to exclude (absolute)"
-    }
-  },
-  "include_paths": {
-    "type": "list",
-    "default": [],
-    "description": "Optional list of paths to scan exclusively (if empty, scan entire filesystem under root)",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "An absolute path to scan (e.g., '/home' or '/var/www')"
-    }
-  },
-  "enable_mail_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable scanning of email files (RFC822 parsing, multipart support)"
-  },
-  "enable_embedded_urls": {
+  "Foreground": {
     "type": "bool",
     "default": false,
-    "description": "Detect embedded URLs in documents (useful for phishing detection)"
+    "description": "clamd.conf Foreground (Debian's generated value: false)."
   },
-  "enable_archive_scan": {
+  "Debug": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf Debug (Debian's generated value: false)."
+  },
+  "ScanPE": {
     "type": "bool",
     "default": true,
-    "description": "Scan inside archives (ZIP, RAR, 7z, tar, etc.)"
+    "description": "clamd.conf ScanPE (Debian's generated value: true)."
   },
-  "enable_broken_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable scanning of broken/invalid archives (may catch malformed threats but may cause errors)"
-  },
-  "enable_bytecode": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable bytecode signatures (used by advanced ClamAV signatures)"
-  },
-  "trust_bytecode": {
+  "MaxEmbeddedPE": {
     "type": "string",
-    "default": "none",
-    "description": "Trust level for bytecode: 'all' (unsafe), 'signed' (recommended), 'none'",
-    "enum": [
-      "all",
-      "signed",
-      "none"
-    ]
+    "default": "10M",
+    "description": "clamd.conf MaxEmbeddedPE (Debian's generated value: 10M)."
   },
-  "extra_signatures_path": {
+  "ScanPDF": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf ScanPDF (Debian's generated value: true)."
+  },
+  "ScanHTML": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf ScanHTML (Debian's generated value: true)."
+  },
+  "MaxHTMLNormalize": {
     "type": "string",
-    "default": "",
-    "description": "Optional directory with custom .crb/.ign files (e.g., internal rules)"
+    "default": "10M",
+    "description": "clamd.conf MaxHTMLNormalize (Debian's generated value: 10M)."
   },
-  "enable_pe_scan": {
+  "MaxHTMLNoTags": {
+    "type": "string",
+    "default": "2M",
+    "description": "clamd.conf MaxHTMLNoTags (Debian's generated value: 2M)."
+  },
+  "MaxScriptNormalize": {
+    "type": "string",
+    "default": "5M",
+    "description": "clamd.conf MaxScriptNormalize (Debian's generated value: 5M)."
+  },
+  "MaxZipTypeRcg": {
+    "type": "string",
+    "default": "1M",
+    "description": "clamd.conf MaxZipTypeRcg (Debian's generated value: 1M)."
+  },
+  "ScanSWF": {
     "type": "bool",
     "default": true,
-    "description": "Scan Windows PE executables (essential for detecting malware on mixed platforms)"
+    "description": "clamd.conf ScanSWF (Debian's generated value: true)."
   },
-  "enable_elf_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Scan ELF binaries (Linux/Unix executables)"
-  },
-  "enable_pdf_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Scan PDF documents for malicious JavaScript and embedded files"
-  },
-  "enable_html_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Scan HTML for suspicious scripts and embedded objects"
-  },
-  "enable_office_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Scan Microsoft Office documents for macro viruses"
-  },
-  "enable_swf_scan": {
-    "type": "bool",
-    "default": true,
-    "description": "Scan Flash (SWF) files for exploits"
-  },
-  "enable_hwp_scan": {
+  "ExitOnOOM": {
     "type": "bool",
     "default": false,
-    "description": "Scan Korean HWP documents (required only in Korean environments)"
+    "description": "clamd.conf ExitOnOOM (Debian's generated value: false)."
+  },
+  "LeaveTemporaryFiles": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf LeaveTemporaryFiles (Debian's generated value: false)."
+  },
+  "AlgorithmicDetection": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf AlgorithmicDetection (Debian's generated value: true)."
+  },
+  "ScanELF": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf ScanELF (Debian's generated value: true)."
+  },
+  "IdleTimeout": {
+    "type": "number",
+    "default": 30,
+    "description": "clamd.conf IdleTimeout (Debian's generated value: 30)."
+  },
+  "CrossFilesystems": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf CrossFilesystems (Debian's generated value: true)."
+  },
+  "PhishingSignatures": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf PhishingSignatures (Debian's generated value: true)."
+  },
+  "PhishingScanURLs": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf PhishingScanURLs (Debian's generated value: true)."
+  },
+  "PhishingAlwaysBlockSSLMismatch": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf PhishingAlwaysBlockSSLMismatch (Debian's generated value: false)."
+  },
+  "PhishingAlwaysBlockCloak": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf PhishingAlwaysBlockCloak (Debian's generated value: false)."
+  },
+  "PartitionIntersection": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf PartitionIntersection (Debian's generated value: false)."
+  },
+  "DetectPUA": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf DetectPUA (Debian's generated value: false)."
+  },
+  "ScanPartialMessages": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf ScanPartialMessages (Debian's generated value: false)."
+  },
+  "HeuristicScanPrecedence": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf HeuristicScanPrecedence (Debian's generated value: false)."
+  },
+  "StructuredDataDetection": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf StructuredDataDetection (Debian's generated value: false)."
+  },
+  "CommandReadTimeout": {
+    "type": "number",
+    "default": 30,
+    "description": "clamd.conf CommandReadTimeout (Debian's generated value: 30)."
+  },
+  "SendBufTimeout": {
+    "type": "number",
+    "default": 200,
+    "description": "clamd.conf SendBufTimeout (Debian's generated value: 200)."
+  },
+  "MaxQueue": {
+    "type": "number",
+    "default": 100,
+    "description": "clamd.conf MaxQueue (Debian's generated value: 100)."
+  },
+  "ExtendedDetectionInfo": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf ExtendedDetectionInfo (Debian's generated value: true)."
+  },
+  "AllowAllMatchScan": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf AllowAllMatchScan (Debian's generated value: true)."
+  },
+  "ForceToDisk": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf ForceToDisk (Debian's generated value: false)."
+  },
+  "DisableCertCheck": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf DisableCertCheck (Debian's generated value: false)."
+  },
+  "DisableCache": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf DisableCache (Debian's generated value: false)."
+  },
+  "MaxScanTime": {
+    "type": "number",
+    "default": 120000,
+    "description": "clamd.conf MaxScanTime (Debian's generated value: 120000)."
+  },
+  "MaxScanSize": {
+    "type": "string",
+    "default": "100M",
+    "description": "clamd.conf MaxScanSize (Debian's generated value: 100M)."
+  },
+  "MaxFileSize": {
+    "type": "string",
+    "default": "25M",
+    "description": "clamd.conf MaxFileSize (Debian's generated value: 25M)."
+  },
+  "MaxRecursion": {
+    "type": "number",
+    "default": 16,
+    "description": "clamd.conf MaxRecursion (Debian's generated value: 16)."
+  },
+  "MaxFiles": {
+    "type": "number",
+    "default": 10000,
+    "description": "clamd.conf MaxFiles (Debian's generated value: 10000)."
+  },
+  "MaxPartitions": {
+    "type": "number",
+    "default": 50,
+    "description": "clamd.conf MaxPartitions (Debian's generated value: 50)."
+  },
+  "MaxIconsPE": {
+    "type": "number",
+    "default": 100,
+    "description": "clamd.conf MaxIconsPE (Debian's generated value: 100)."
+  },
+  "PCREMatchLimit": {
+    "type": "number",
+    "default": 10000,
+    "description": "clamd.conf PCREMatchLimit (Debian's generated value: 10000)."
+  },
+  "PCRERecMatchLimit": {
+    "type": "number",
+    "default": 5000,
+    "description": "clamd.conf PCRERecMatchLimit (Debian's generated value: 5000)."
+  },
+  "PCREMaxFileSize": {
+    "type": "string",
+    "default": "25M",
+    "description": "clamd.conf PCREMaxFileSize (Debian's generated value: 25M)."
+  },
+  "ScanXMLDOCS": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf ScanXMLDOCS (Debian's generated value: true)."
+  },
+  "StreamMaxLength": {
+    "type": "string",
+    "default": "25M",
+    "description": "clamd.conf StreamMaxLength (Debian's generated value: 25M)."
+  },
+  "LogFile": {
+    "type": "string",
+    "default": "/var/log/clamav/clamav.log",
+    "description": "clamd.conf LogFile (Debian's generated value: /var/log/clamav/clamav.log)."
+  },
+  "LogTime": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf LogTime (Debian's generated value: true)."
+  },
+  "LogFileUnlock": {
+    "type": "bool",
+    "default": false,
+    "description": "clamd.conf LogFileUnlock (Debian's generated value: false)."
+  },
+  "LogFileMaxSize": {
+    "type": "number",
+    "default": 0,
+    "description": "clamd.conf LogFileMaxSize (Debian's generated value: 0)."
+  },
+  "Bytecode": {
+    "type": "bool",
+    "default": true,
+    "description": "clamd.conf Bytecode (Debian's generated value: true)."
+  },
+  "BytecodeSecurity": {
+    "type": "string",
+    "default": "TrustSigned",
+    "description": "clamd.conf BytecodeSecurity (Debian's generated value: TrustSigned)."
+  },
+  "BytecodeTimeout": {
+    "type": "number",
+    "default": 60000,
+    "description": "clamd.conf BytecodeTimeout (Debian's generated value: 60000)."
+  },
+  "OnAccessMaxFileSize": {
+    "type": "string",
+    "default": "5M",
+    "description": "clamd.conf OnAccessMaxFileSize (Debian's generated value: 5M)."
   }
 }

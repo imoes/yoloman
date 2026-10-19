@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { OrchestrationPlan, PlanLinkTargetType } from '../../../core/models/orchestration.model';
 import { OrchestrationService } from '../../../core/services/orchestration.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface OuLinkPlanDialogData {
   ouId: string;
@@ -32,7 +33,7 @@ export interface OuLinkPlanResult {
 @Component({
   selector: 'app-ou-link-plan-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
+  imports: [BlockedReasonDirective, ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>Bind policy within {{ data.ouPath }}</h2>
     <mat-dialog-content [formGroup]="form">
@@ -78,7 +79,7 @@ export interface OuLinkPlanResult {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="!canSave()" (click)="save()">Bind</button>
+      <button mat-raised-button color="primary" [bmBlocked]="!plans().length ? 'No plans exist yet' : !canSave() ? 'Pick a plan and a valid target' : ''" (click)="save()">Bind</button>
     </mat-dialog-actions>
   `,
   styles: [`.bm-empty { opacity: 0.75; }`],

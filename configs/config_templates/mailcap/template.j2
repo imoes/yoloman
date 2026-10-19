@@ -1,12 +1,12 @@
-# Mailcap configuration for metamail
-# Each entry defines how to handle a specific MIME content type.
+#
+#  Mailcap.order:  This file allows a system-wide override of MIME program
+#  preferences. See the mailcap.order(5) man page for more information.
+#
+#  After modifying this file, be sure to run /usr/sbin/update-mime (as root)
+#  to propagate the changes into the /etc/mailcap file.
+#
 
-{# Iterate over the list of mailcap entries defined in the schema. #}
-{% for entry in mailcap_entries | default([]) %}
-  {# The description field from the schema entry, used for human-readable documentation within the config. #}
-  # {{ entry.description | default('') }}
-  {# The MIME content type (e.g., 'text/html'), a mandatory part of the mailcap format. #}
-  {{ entry.content_type | default('') }}; {{ entry.command | default('') }}
-  {# Optional flags (e.g., 'needseditornotify'), joined with semicolons if present. #}
-  {% if entry.flags | default([]) %}; {{ entry.flags | default([]) | join('; ') }}{% endif %}
+{% for entry in mailcap_entries | default([]) %}# Mailcap entry: {{ entry | default('') }}
+{{ entry | default('') }}
+
 {% endfor %}

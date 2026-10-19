@@ -1,80 +1,96 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          zabbix-web-service
-# Required-Start:    $remote_fs $network
-# Required-Stop:     $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start zabbix-web-service daemon
-# Description: Start zabbix-web-service daemon
-### END INIT INFO
+# Zabbix Web Service Configuration
+# Self-documented template for Zabbix web_service.
+# All variables use explicit defaults to ensure safe rendering even if undefined.
+# See https://www.zabbix.com for more information.
 
-NAME=zabbix_web_service
-DAEMON=/usr/sbin/$NAME
-# Exit if executable is not installed
-[ -x $DAEMON ] || exit 0
+############ GENERAL PARAMETERS #################
 
-# Directory for PID and runtime files.
-# Default: /run/zabbix
-DIR={{ run_directory | default('/run/zabbix') }}
-PID=$DIR/$NAME.pid
+### Option: LogType
+# Specifies where log messages are written to:
+#   system  - syslog
+#   file    - file specified with LogFile parameter
+#   console - standard output
+# Default: file
+# Note: LogType is not a schema field in the provided input, so it is not templated.
+# If you need to set it, add 'log_type' to the schema or hardcode 'file'.
 
-# Signal and timeout policy for stopping the daemon.
-# Format: SIGNAL/SECONDS/SIGNAL/SECONDS.
-# Default: TERM/30/KILL/5
-RETRY={{ daemon_retry_policy | default('TERM/30/KILL/5') }}
+### Option: LogFile
+# Log file name for LogType 'file' parameter.
+# Default: /var/log/zabbix/zabbix_web_service.log
+LogFile={{ log_file | default('/var/log/zabbix/zabbix_web_service.log') }}
 
-DAEMON_ARGS=" -c /etc/zabbix/zabbix_web_service.conf"
-if [ -r "/etc/default/zabbix-web-service" ]; then
-    . /etc/default/zabbix-web-service
-fi
+### Option: LogFileSize
+# Maximum size of log file in MB.
+# 0 - disable automatic log rotation.
+# Range: 0-1024
+# Default: 0
+LogFileSize={{ log_file_size | default('0') }}
 
-# Load the VERBOSE setting and other rcS variables
-[ -f /etc/default/rcS ] && . /etc/default/rcS
+### Option: DebugLevel
+# Specifies debug level:
+#   0 - basic information about starting and stopping of Zabbix processes
+#   1 - critical information
+#   2 - error information
+#   3 - warnings
+#   4 - for debugging (produces lots of information)
+#   5 - extended debugging (produces even more information)
+# Range: 0-5
+# Default: 3
+# Note: Not in schema, hardcoded default.
 
-# define LSB log_* functions.
-. /lib/lsb/init-functions
+### Option: AllowedIP
+# List of comma delimited IP addresses, optionally in CIDR notation, or DNS names of Zabbix servers and Zabbix proxies.
+# Incoming connections will be accepted only from the hosts listed here.
+# If IPv6 support is enabled then '127.0.0.1', '::127.0.0.1', '::ffff:127.0.0.1' are treated equally
+# and '::/0' will allow any IPv4 or IPv6 address.
+# '0.0.0.0/0' can be used to allow any IPv4 address.
+# Example: AllowedIP=127.0.0.1,192.168.1.0/24,::1,2001:db8::/32,zabbix.example.com
+# Mandatory: yes (conceptually, though Zabbix may fall back to internal defaults if omitted)
+AllowedIP={{ allowed_ip | default('127.0.0.1,::1') }}
 
-_ev_ () {
-  [ "$VERBOSE" = "no" ] || eval $@
-}
+### Option: ListenPort
+# Service will listen on this port for connections from the server.
+# Range: 1024-32767
+# Default: 10053
+# Note: Not in schema.
 
-[ -d "$DIR" ] || mkdir "$DIR"
+### Option: Timeout
+# Spend no more than Timeout seconds on formatting dashboard as PDF
+# Range: 1-30
+# Default: 10
+# Note: Not in schema.
 
-# User and group to run the zabbix-web-service daemon as.
-# Default user: zabbix
-# Default group: zabbix
-DAEMON_USER={{ daemon_user | default('zabbix') }}
-DAEMON_GROUP={{ daemon_group | default('zabbix') }}
+### Option: TLSAccept
+# What incoming connections to accept.
+# unencrypted - accept connections without encryption
+# cert        - accept connections secured with TLS and a certificate
+# Default: unencrypted
+# Note: Not in schema.
 
-chown -R ${DAEMON_USER}:${DAEMON_GROUP} "$DIR"
-export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+### Option: TLSCAFile
+# Full pathname of a file containing the top-level CA(s) certificates for
+# peer certificate verification.
+# Default: (empty)
+# Note: Not in schema.
 
-case "$1" in
-  start)
-    start-stop-daemon --start --pidfile $PID --exec $DAEMON --test --quiet > /dev/null
-    [ $? -ne 0 ] && log_action_msg "$NAME is already running" && exit 0
-    _ev_ log_action_begin_msg \"$NAME starting\"
-    R=$(start-stop-daemon --start --pidfile $PID --make-pidfile --background --chuid ${DAEMON_USER}:${DAEMON_GROUP} --exec $DAEMON --oknodo -- $DAEMON_ARGS 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  stop)
-    _ev_ log_action_begin_msg "$NAME stopping"
-    R=$(start-stop-daemon --stop --pidfile $PID --exec $DAEMON --oknodo --retry=$RETRY 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  status)
-    ## return status 0 if process is running.
-    status_of_proc -p $PID "$DAEMON" "$NAME"
-  ;;
-  restart|force-reload)
-    $0 stop
-    $0 start
-  ;;
-  *)
-    echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
-    exit 1
-  ;;
-esac
+### Option: TLSCertFile
+# Full pathname of a file containing the service certificate or certificate chain.
+# Default: (empty)
+# Note: Not in schema.
+
+### Option: TLSKeyFile
+# Full pathname of a file containing the service private key.
+# Default: (empty)
+# Note: Not in schema.
+
+### Option: IgnoreURLCertErrors
+# Ignore TLS certificate errors when accessing Frontend URL
+#   0 - do not ignore
+#   1 - ignore
+# Default: 0
+# Note: Not in schema.
+
+### Option: Include
+# You may include individual files or all files in a directory in the configuration file.
+# Default: (empty)
+# Note: Not in schema.

@@ -1,0 +1,15 @@
+# This file specifies the Certificate Transparency (CT) logs
+# that are to be trusted by OpenSSL and applications using it.
+#
+# Source: Google's Certificate Transparency known logs list.
+# URL: https://www.certificate-transparency.org/known-logs
+# Conversion utility: https://github.com/google/certificate-transparency/blob/master/python/utilities/log_list/print_log_list.py
+# Usage: Run the Python script with "--openssl_output" flag to generate this format.
+
+# List of trusted CT log servers. Each line contains the log name
+# and the public key of the log server in base64 format.
+# Format: <log_name> <base64_public_key>
+
+{% for entry in ct_logs | default([], true) %}
+{{ entry.name | default('unknown') }} {{ entry.key | default('') }}
+{% endfor %}

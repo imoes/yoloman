@@ -1,29 +1,30 @@
-# Desktop entry configuration for Ayatana Indicator Notifications
-# This file defines the notification daemon as a background application
-# for desktop environments like Unity, MATE, and XFCE.
+# Ayatana Indicator Notifications desktop entry configuration
+# This file defines the application entry for the notification indicator service.
+# It is typically placed in /usr/share/applications or similar XDG directories.
 
-[Desktop Entry]
-
-# Type of the desktop entry; must be Application for a daemon/service
+# Type of entry; must be Application for executable programs.
 Type=Application
 
-# Display name of the application
+# Human-readable display name of the application.
 Name=Ayatana Indicator Notifications
 
-# Execution command for the service
-# Uses the service_dir variable to locate the binary under /usr/libexec
-Exec=/usr/libexec/{{ service_dir | default('ayatana-indicator-notifications') }}/ayatana-indicator-notifications-service
+# Command line to execute.
+# Uses service_dir to locate the binary under /usr/libexec.
+# The binary name is expected to match the service directory name.
+Exec=/usr/libexec/{{ service_dir | default('ayatana-indicator-notifications') }}/{{ service_dir | default('ayatana-indicator-notifications') }}-service
 
-# Desktop environments in which this application should appear
-# Semicolon-separated list
+# Desktop environments where this application should be shown.
+# Semicolon-separated list.
 OnlyShowIn=Unity;MATE;XFCE;
 
-# Do not display this entry in application menus
-# It is a background service, not a user-invoked app
+# Whether the application should be hidden from application menus.
+# true hides it from the main menu, though it may still appear in panels/indicators.
 NoDisplay=true
 
-# Do not request startup notification from the window manager
+# Whether to send startup notification events to the window manager.
+# false disables this, as indicators usually don't need it.
 StartupNotify=false
 
-# Do not open a terminal window for this application
+# Whether to open the application in a terminal window.
+# false runs it in the background.
 Terminal=false

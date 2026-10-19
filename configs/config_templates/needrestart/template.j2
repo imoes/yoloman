@@ -1,0 +1,216 @@
+# needrestart configuration file.
+#
+# needrestart restarts daemons after library updates.
+# This is a Perl-style hash configuration for $nrconf.
+# All variables below are self-documenting with their schema defaults.
+
+# Verbosity level.
+# 0 = quiet, 1 = normal, 2 = verbose.
+$nrconf{{ verbosity_var | default('verbosity') }} = {{ verbosity | default(2) }};
+
+# Path of the package manager hook scripts.
+$nrconf{hook_d} = '{{ hook_d | default("/etc/needrestart/hook.d") }}';
+
+# Path of user notification scripts.
+$nrconf{notify_d} = '{{ notify_d | default("/etc/needrestart/notify.d") }}';
+
+# Path of restart scripts.
+$nrconf{restart_d} = '{{ restart_d | default("/etc/needrestart/restart.d") }}';
+
+# Disable sending notifications to user sessions running obsolete binaries.
+# Set to 1 to disable, 0 to enable.
+$nrconf{sendnotify} = {{ sendnotify | default(0) }};
+
+# Systemd PAM detection.
+# Set to 0 (false) if using systemd without pam_systemd.so to enable
+# legacy session detection. Default is 1 (true).
+$nrconf{has_pam_systemd} = {{ has_pam_systemd | default(0) }};
+
+# Restart mode.
+# 'l' = list only, 'i' = interactive, 'a' = automatic.
+$nrconf{restart} = '{{ restart | default("i") }}';
+
+# Preferred UI package.
+$nrconf{ui} = '{{ ui | default("NeedRestart::UI::stdio") }}';
+
+# Default answer in interactive mode.
+# 1 = default to 'no', 0 = default to 'yes'.
+$nrconf{defno} = {{ defno | default(1) }};
+
+# UI mode.
+# 'e' = easy, 'a' = advanced.
+$nrconf{ui_mode} = '{{ ui_mode | default("e") }}';
+
+# Print a combined systemctl restart command line for skipped services.
+# 1 = enabled, 0 = disabled.
+$nrconf{systemctl_combine} = {{ systemctl_combine | default(1) }};
+
+# Persistent cache file for Perl scanning results.
+$nrconf{perlcache} = '{{ perlcache | default("/var/cache/needrestart/perl_scandeps_cache") }}';
+
+# Verify mapped files in filesystem.
+# 0 = enabled, -1 = ignore non-existing (default), 1 = disable check.
+$nrconf{skip_mapfiles} = {{ skip_mapfiles | default(-1) }};
+
+# Kernel upgrade hints.
+# 1 = require ack, 0 = disable, -1 = stderr only.
+$nrconf{kernelhints} = {{ kernelhints | default(-1) }};
+
+# Filter kernel image filenames by regex.
+# Required on Raspbian.
+$nrconf{kernelfilter} = qr({{ kernelfilter | default("kernel7\\\\.img") }});
+
+# CPU microcode update hints.
+# 1 = require ack, 0 = disable.
+$nrconf{ucodehints} = {{ ucodehints | default(0) }};
+
+# Blacklist binaries (list of regexes).
+# These binaries are ignored by needrestart.
+$nrconf{blacklist} = [
+    # ignore sudo (not a daemon)
+    qr(^/usr/bin/sudo(\.dpkg-new)?$$),
+
+    # ignore apt-get (Debian Bug#784237)
+    qr(^/usr/bin/apt-get(\.dpkg-new)?$$),
+
+    # ignore memfd mappings (github issue #283, #287)
+    qr(^/memfd:),
+];
+
+# Blacklist containers by name (list of regexes).
+$nrconf{blacklist_cont} = [
+    # Example: ignore containers like ci-017-222a371c
+    # qr(^ci-),
+];
+
+# Blacklist services (list of regexes).
+# USE WITH CARE. Any service listed here will be ignored completely.
+# Prefer $nrconf{override_rc} for selective disabling.
+$nrconf{blacklist_rc} = [
+#];
+
+# Override service default selection (hash of regex => action).
+# Regexes are checked in lexical order; the first matching regex wins.
+# Action 0 means do not restart.
+$nrconf{override_rc} = {
+    # DBus
+    qr(^dbus) => 0,
+
+    # display managers
+    qr(^gdm) => 0,
+    qr(^greetd) => 0,
+    qr(^kdm) => 0,
+    qr(^nodm) => 0,
+    qr(^sdd) => 0,
+    qr(^wdm) => 0,
+    qr(^xdm) => 0,
+    qr(^lightdm) => 0,
+    qr(^slim) => 0,
+    qr(^lxdm) => 0,
+    qr(^xrdp) => 0,
+
+    # networking stuff
+    qr(^bird) => 0,
+    qr(^network) => 0,
+    qr(^NetworkManager) => 0,
+    qr(^ModemManager) => 0,
+    qr(^wpa_supplicant) => 0,
+    qr(^ifup) => 0,
+    qr(^openvpn) => 0,
+    qr(^quagga) => 0,
+    qr(^frr) => 0,
+    qr(^tinc) => 0,
+    qr(^(open|free|libre|strong)swan) => 0,
+    qr(^bluetooth) => 0,
+
+    # gettys
+    qr(^getty@.+\.service) => 0,
+    qr(^serial-getty@.+\.service) => 0,
+
+    # systemd --user
+    qr(^user@\d+\.service) => 0,
+
+    # misc
+    qr(^usbguard\.service$) => 0,
+    qr(^zfs-fuse) => 0,
+    qr(^mythtv-backend) => 0,
+    qr(^xendomains) => 0,
+    qr(^lxc) => 0,
+    qr(^lxcfs) => 0,
+    qr(^libvirt) => 0,
+    qr(^virtlogd) => 0,
+    qr(^virtlockd) => 0,
+    qr(^docker) => 0,
+    qr(^bacula-) => 0,
+    # see Debian bugs #1095222 & #1095223
+    qr(^qrtr-ns) => 0,
+    qr(^rmtfs) => 0,
+
+    # systemd stuff
+    qr(^emergency\.service$) => 0,
+    qr(^rescue\.service$) => 0,
+    qr(^elogind) => 0,
+
+    # do not restart oneshot services, see also #862840
+    qr(^apt-daily\.service$) => 0,
+    qr(^apt-daily-upgrade\.service$) => 0,
+    qr(^unattended-upgrades\.service$) => 0,
+    # do not restart oneshot services from systemd-cron, see also #917073
+    qr(^cron-.*\.service$) => 0,
+
+    # ignore rc-local.service, see #852864
+    qr(^rc-local\.service$) => 0,
+
+    # don't restart systemd-logind, see #798097
+    qr(^systemd-logind) => 0,
+
+    # don't restart systemd-nspawn containers (Debian Bug #1101553)
+    qr(^systemd-nspawn) => 0,
+};
+
+# Override container default selection (hash of regex => action).
+$nrconf{override_cont} = {
+};
+
+# Ignore script files matching these regexes.
+$nrconf{blacklist_interp} = [
+    # ignore temporary files
+    qr(^/tmp/),
+    qr(^/var/),
+    qr(^/run/),
+];
+
+# Ignore +x mapped files matching one of these regexes.
+$nrconf{blacklist_mappings} = [
+    # special device paths
+    qr(^/(SYSV00000000( \(deleted\))?|drm(\s|$)|dev/)),
+
+    # ignore memfd mappings
+    qr(^/memfd:),
+
+    # aio(7) mapping
+    qr(^/\[aio\]),
+
+    # Oil Runtime Compiler's JIT files
+    qr#/orcexec\.[\w\d]+( \(deleted\))?$#,
+
+    # plasmashell (issue #65)
+    qr(/#\d+( \(deleted\))?$),
+
+    # Java Native Access (issues #142 #185 #267)
+    qr#/jna\d+\.tmp( \(deleted\))?$#,
+    qr#/.cache/JNA/#,
+
+    # temporary stuff
+    qr#^(/var)?/tmp/#,
+    qr#^(/var)?/run/#,
+];
+
+# Read additional config snippets from conf.d directory.
+if(-d q(/etc/needrestart/conf.d)) {
+      foreach my $fn (sort </etc/needrestart/conf.d/*.conf>) {
+	      print STDERR "$LOGPREF eval $fn\n" if($nrconf{{ verbosity_var | default('verbosity') }} > 1);
+	      eval do { local(@ARGV, $/) = $fn; <>};
+	      die "Error parsing $fn: $@" if($@);
+      }
+}

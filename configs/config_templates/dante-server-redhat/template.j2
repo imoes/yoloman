@@ -1,0 +1,143 @@
+# $Id: sockd.conf,V 1.52.10.2.2.2 2017/01/31 07:16:25 karls Exp $
+#
+# Dante SOCKS Proxy Server Configuration
+# Managed by Ansible
+#
+# This configuration defines the behavior of the Dante SOCKS proxy.
+# It is divided into Server Settings, Rules, and Routes.
+
+# ---------------------------------------------------------------------------
+# Server Settings
+# ---------------------------------------------------------------------------
+
+# Where to send log output: 'stderr', 'syslog', 'stdout', or a file path.
+# Default: stderr
+logoutput: {{ log_output_method | default('stderr') }}
+
+# The internal interface and port the SOCKS server listens on.
+# Format: internal: <IP|interface> port = <port>
+# Default: 10.1.1.1 port = 1080
+internal: {{ internal_ip | default('10.1.1.1') }} port = {{ internal_port | default(1080) }}
+
+# The external IP address used for outgoing connections.
+# Format: external: <IP>
+# Default: 192.168.1.1
+external: {{ external_ip | default('192.168.1.1') }}
+
+# List of acceptable SOCKS authentication methods (space-separated).
+# Common values: 'username none', 'rfc931', 'pam', 'none'.
+# Default: username none
+socksmethod: {{ socks_methods | default('username none') }}
+
+# List of acceptable client authentication methods (space-separated).
+# Common values: 'none', 'rfc931'.
+# Default: none
+clientmethod: {{ client_methods | default('none') }}
+
+# User ID used when the server requires privileges (e.g., binding to low ports).
+# Default: root
+user.privileged: {{ privileged_user | default('root') }}
+
+# User ID used for normal, unprivileged operations.
+# Default: sockd
+user.unprivileged: {{ unprivileged_user | default('sockd') }}
+
+# ---------------------------------------------------------------------------
+# Compatibility & Extensions
+# ---------------------------------------------------------------------------
+
+# Compatibility options to help clients connect.
+# 'sameport': Try to use the same port on the external IP as the client used.
+# 'reuseaddr': Allow binding to an address that is still in TIME_WAIT.
+# These are commented by default as they require specific network setups.
+#compatibility: sameport
+#compatibility: reuseaddr
+
+# Extensions to the SOCKS protocol supported by this server.
+# 'bind': Allows clients to request the server to bind and listen for incoming connections.
+# These are commented by default.
+#extension: bind
+
+# ---------------------------------------------------------------------------
+# Timeouts
+# ---------------------------------------------------------------------------
+
+# Seconds to wait for the initial SOCKS negotiation from the client.
+# Default: 30
+#timeout.negotiate: 30
+
+# Seconds a connection can be idle before closing. 0 means forever.
+# Default: 0
+#timeout.io: 0
+
+# DNS host checking behavior.
+# 'nodnsunknown': Do not resolve hostnames for unknown addresses.
+# 'nodnsmismatch': Do not fail if reverse DNS does not match forward DNS.
+#srchost: nodnsunknown nodnsmismatch
+
+# ---------------------------------------------------------------------------
+# Rules
+# ---------------------------------------------------------------------------
+# Rules determine who can use the proxy and what they can do.
+# Order matters: first match wins.
+#
+# Two types of rules:
+# 1. client <action>: Controls access to the SOCKS server itself (authentication).
+# 2. socks <action>: Controls the actual traffic allowed through the proxy.
+
+# ---------------------------------------------------------------------------
+# Client Rules
+# ---------------------------------------------------------------------------
+
+# Allow clients from the internal trusted network.
+# This rule permits connection attempts from the specified network.
+# The syntax { ... } is used here to ensure the target config
+# receives literal curly braces for the Dante rule block, not Jinja templates.
+# Default Network: 10.0.0.0/8
+#
+# Note: If you need to specify specific client methods for this block, add
+#       clientmethod: <method> inside the block.
+client pass {{ internal_network | default('10.0.0.0/8') }} port 1-65535 to: 0.0.0.0/0 {
+}
+
+# Block all other clients. This is the default security posture.
+# Clients not matching previous rules are dropped and logged.
+client block 0.0.0.0/0 to: 0.0.0.0/0 {
+    log: connect error
+}
+
+# ---------------------------------------------------------------------------
+# SOCKS Rules
+# ---------------------------------------------------------------------------
+
+# Block connections to loopback addresses.
+# Prevents users from tunneling traffic to the local machine.
+socks block 0.0.0.0/0 to: 127.0.0.0/8 {
+    log: connect error
+}
+
+# Block connections to common private/internal ranges if not intended.
+# Example: Block 172.16.0.0/12
+#socks block 0.0.0.0/0 to: 172.16.0.0/12 {
+#    log: connect error
+#}
+
+# Allow internal network to use TCP and UDP for all destinations.
+# This is the primary pass rule for general traffic.
+socks pass {{ internal_network | default('10.0.0.0/8') }} to: 0.0.0.0/0 {
+    protocol: tcp udp
+}
+
+# Block all other SOCKS requests.
+socks block 0.0.0.0/0 to: 0.0.0.0/0 {
+    log: connect error
+}
+
+# ---------------------------------------------------------------------------
+# Routes (Optional)
+# ---------------------------------------------------------------------------
+# Routes allow chaining SOCKS servers.
+# Uncomment and configure if you need to forward traffic to another SOCKS proxy.
+#
+# route {{ internal_network | default('10.0.0.0/8') }} to: 0.0.0.0/0 via: socks-proxy.example.net port = 1080 {
+# }

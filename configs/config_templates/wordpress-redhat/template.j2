@@ -1,0 +1,45 @@
+# WordPress RedHat Configuration Template
+# This template generates the Apache VirtualHost alias and directory restrictions
+# for a WordPress installation on Red Hat systems.
+
+# Alias directive: Maps the URL path /wordpress to the document root directory.
+# Schema field: wordpres_docroot
+Alias /wordpress {{ wordpres_docroot | default('/usr/share/wordpress') }}
+
+# Access configuration for the main WordPress directory.
+# By default, access is restricted to local connections (localhost).
+# In a production environment, you should update the Require directive
+# to allow specific IP ranges or use authentication.
+# Schema field: wordpres_docroot
+<Directory {{ wordpres_docroot | default('/usr/share/wordpress') }}>
+    # AllowOverride allows .htaccess files or mod_rewrite to override server config.
+    # 'Options' typically allows enabling/disabling features like Indexes or FollowSymLinks.
+    AllowOverride Options
+
+    # Security Restriction: Only allow access from the local machine.
+    # Change 'Require local' to 'Require all granted' or specific IP/CIDR blocks
+    # if the web server is remote from the client.
+    Require local
+</Directory>
+
+# Specific restriction for the uploads directory to prevent execution of arbitrary PHP scripts.
+# Uploading malicious PHP files is a common attack vector; this ensures they are served as static files or denied.
+# Schema field: wordpres_docroot
+<Directory {{ wordpres_docroot | default('/usr/share/wordpress') }}/wp-content/uploads>
+    # Deny execution of PHP files in the uploads directory.
+    # If a file with .php or .phar extension is uploaded, it is denied.
+    <FilesMatch "\.(php|phar)$">
+        Require all denied
+    </FilesMatch>
+</Directory>
+
+# Specific restriction for the Akismet plugin directory.
+# Akismet may contain txt files used for configuration or logging; denying execution here adds defense-in-depth.
+# Schema field: wordpres_docroot
+<Directory {{ wordpres_docroot | default('/usr/share/wordpress') }}/wp-content/plugins/akismet>
+    # Deny execution of PHP and TXT files in the Akismet directory.
+    # This prevents accidental exposure of sensitive text files or PHP scripts if present.
+    <FilesMatch "\.(php|txt)$">
+        Require all denied
+    </FilesMatch>
+</Directory>

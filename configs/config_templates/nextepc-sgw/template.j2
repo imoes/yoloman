@@ -1,29 +1,49 @@
-# NextEPc SGW Configuration Template
-# This file configures the Serving Gateway (SGW) for the NextEPC LTE core network.
-# It uses YAML format similar to the main nextepc.conf.
+# NextEPC SGW (Serving Gateway) configuration
+# Auto-generated from Ansible schema. Do not edit manually.
 
-# === Logger Configuration ===
+# --- Logger Configuration ---
+
+# Path to the SGW log file
+# Schema: sgw_log_file (default='/var/log/nextepc/sgw.log')
+# This sets the primary log file destination for the SGW process.
 logger:
-    # Path to the SGW log file
     file: {{ sgw_log_file | default('/var/log/nextepc/sgw.log') }}
     trace:
-        # Application trace level for logger
-        app: {{ logger_trace_app | default(1) }}
-        # GTPv2 trace level for logger
-        gtpv2: {{ logger_trace_gtpv2 | default(1) }}
-        # GTP trace level for logger
-        gtp: {{ logger_trace_gtp | default(1) }}
+        # Application trace level for logger (0=off, 1=on)
+        # Schema: logger_trace_app (default='1')
+        # Controls verbosity of general application logging.
+        app: {{ logger_trace_app | default('1') }}
+        
+        # GTPv2 trace level for logger (0=off, 1=on)
+        # Schema: logger_trace_gtpv2 (default='1')
+        # Controls verbosity of GTPv2-C (Control) plane message logging.
+        gtpv2: {{ logger_trace_gtpv2 | default('1') }}
+        
+        # GTP trace level for logger (0=off, 1=on)
+        # Schema: logger_trace_gtp (default='1')
+        # Controls verbosity of GTP-U (User) plane message logging.
+        gtp: {{ logger_trace_gtp | default('1') }}
 
-# === Global Parameters ===
+# --- General Parameters ---
+
+# Disable IPv6 support (true/false)
+# Schema: parameter_no_ipv6 (default='true')
+# If set to true, the SGW will bind exclusively to IPv4 addresses.
 parameter:
-    # Disable IPv6 support
-    no_ipv6: {{ parameter_no_ipv6 | default(true) | lower }}
+    no_ipv6: {{ parameter_no_ipv6 | default('true') }}
 
-# === SGW Configuration ===
+# --- SGW Service Configuration ---
+
 sgw:
     gtpc:
         # Address of the GTP-C peer (PGW/MME)
+        # Schema: sgw_gtpc_addr (default='127.0.0.2')
+        # Specifies the IP address of the connected GTP Control plane peers
+        # (typically the MME or PGW).
         addr: {{ sgw_gtpc_addr | default('127.0.0.2') }}
+    
     gtpu:
-        # GTP-U settings (reserved for future expansion or dynamic binding)
-        # No default fields defined in schema.
+        # GTP-U configuration block (placeholder for future fields)
+        # No schema fields defined for gtpu subsection yet.
+        # This section is reserved for GTP User plane specific settings.
+        pass

@@ -2,7 +2,11 @@ package modules
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -224,5 +228,100 @@ func TestSystemd_EnableFailurePropagatesError(t *testing.T) {
 	_, err := s.Run(context.Background(), map[string]any{"name": "nginx", "state": "started", "enabled": true}, false)
 	if err == nil {
 		t.Fatal("expected error when systemctl enable fails")
+	}
+}
+
+// scriptedSystemctl answers is-enabled / show from fixed strings — the states fakeSystemctl cannot express.
+func scriptedSystemctl(enabledState, show string, calls *[]string) CommandRunner {
+	return func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		*calls = append(*calls, joinArgs(args))
+		switch args[0] {
+		case "is-enabled":
+			if enabledState == "enabled" || enabledState == "static" {
+				return []byte(enabledState + "\n"), nil
+			}
+			return []byte(enabledState + "\n"), &exec.ExitError{}
+		case "is-active":
+			return []byte("inactive\n"), &exec.ExitError{}
+		case "show":
+			return []byte(show), nil
+		case "unmask":
+			enabledState = "disabled"
+		}
+		return nil, nil
+	}
+}
+
+func TestSystemd_UnmasksBeforeStarting(t *testing.T) {
+	var calls []string
+	s := &Systemd{Runner: scriptedSystemctl("masked", "", &calls)}
+	res, err := s.Run(context.Background(), map[string]any{"name": "hostapd", "state": "restarted", "masked": false}, false)
+	if err != nil || !res.Changed {
+		t.Fatalf("res=%+v err=%v", res, err)
+	}
+	if len(calls) < 3 || calls[1] != "unmask hostapd.service" || calls[2] != "restart hostapd.service" {
+		t.Fatalf("unmask must precede restart: %v", calls)
+	}
+}
+
+func TestSystemd_StaticUnitCountsAsEnabled(t *testing.T) {
+	var calls []string
+	s := &Systemd{Runner: scriptedSystemctl("static", "", &calls)}
+	res, err := s.Run(context.Background(), map[string]any{"name": "x", "enabled": true}, true)
+	if err != nil || res.Changed {
+		t.Fatalf("a static unit cannot be enabled further — no change: res=%+v err=%v", res, err)
+	}
+}
+
+func TestSystemd_FinishedOneshotIsStarted(t *testing.T) {
+	var calls []string
+	show := "Type=oneshot\nRemainAfterExit=no\nResult=success\nExecMainStartTimestampMonotonic=123456\n"
+	s := &Systemd{Runner: scriptedSystemctl("enabled", show, &calls)}
+	res, err := s.Run(context.Background(), map[string]any{"name": "chkboot", "state": "started"}, true)
+	if err != nil || res.Changed {
+		t.Fatalf("a oneshot that ran successfully satisfies started: res=%+v err=%v", res, err)
+	}
+	never := "Type=oneshot\nRemainAfterExit=no\nResult=success\nExecMainStartTimestampMonotonic=0\n"
+	s = &Systemd{Runner: scriptedSystemctl("enabled", never, &calls)}
+	if res, _ := s.Run(context.Background(), map[string]any{"name": "chkboot", "state": "started"}, true); !res.Changed {
+		t.Fatalf("a oneshot that never ran must be started")
+	}
+}
+
+// auditd refuses `systemctl restart` (RefuseManualStop=yes) on every host; the package's legacy restart action is
+// used instead, and without one the error says what the refusal means.
+func TestSystemd_RestartOfAUnitThatRefusesManualStop(t *testing.T) {
+	dir := t.TempDir()
+	old := legacyActionDir
+	legacyActionDir = dir
+	defer func() { legacyActionDir = old }()
+	var ran []string
+	s := &Systemd{Runner: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		ran = append(ran, name+" "+strings.Join(args, " "))
+		if name == "systemctl" && len(args) > 0 && args[0] == "restart" {
+			return nil, fmt.Errorf("exit status 4: Failed to restart auditd.service: Operation refused, unit auditd.service may be requested by dependency only")
+		}
+		if name == "systemctl" && len(args) > 0 && args[0] == "show" {
+			return []byte("LoadState=loaded\nActiveState=active\nUnitFileState=enabled\n"), nil
+		}
+		return nil, nil
+	}}
+	_, err := s.Run(context.Background(), map[string]any{"name": "auditd", "state": "restarted"}, false)
+	if err == nil || !strings.Contains(err.Error(), "RefuseManualStop") {
+		t.Fatalf("without a legacy action: err = %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "auditd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "auditd", "restart"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ran = nil
+	res, err := s.Run(context.Background(), map[string]any{"name": "auditd", "state": "restarted"}, false)
+	if err != nil {
+		t.Fatalf("with a legacy action: %v (ran %v)", err, ran)
+	}
+	if res.Data.(map[string]any)["restarted_via"] != filepath.Join(dir, "auditd", "restart") {
+		t.Errorf("restarted_via = %v", res.Data)
 	}
 }

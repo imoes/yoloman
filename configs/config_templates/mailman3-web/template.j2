@@ -1,13 +1,24 @@
-# Cronjobs for the Mailman3 Django project (mailman3-web)
-#
-# This template generates a crontab entry for the Mailman3 web application.
-# It ensures that Django management commands are only executed if the web service
-# is active and lock files prevent overlapping execution.
+# Base directory for the Mailman3 web interface static files.
+# @type string
+# @default /var/lib/mailman3/web
+Alias /mailman3/favicon.ico {{ (mailman_web_static_dir | default('/var/lib/mailman3/web')) }}/static/postorius/img/favicon.ico
+Alias /mailman3/static      {{ (mailman_web_static_dir | default('/var/lib/mailman3/web')) }}/static
 
-# User account under which the cron jobs run.
-# Default: www-data
-# Format: crontab username field
-{% for interval in ['minutely', 'quarter_hourly', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'] %}
-{% if interval == 'minutely' %}* *     * * *{% elif interval == 'quarter_hourly' %}2,17,32,47 * * * *{% elif interval == 'hourly' %}@hourly{% elif interval == 'daily' %}@daily{% elif interval == 'weekly' %}@weekly{% elif interval == 'monthly' %}@monthly{% elif interval == 'yearly' %}@yearly{% endif %}     {{ cron_user | default('www-data') }}     [ -f /usr/bin/django-admin ] && systemctl is-active --quiet mailman3-web && flock -n {{ cron_lock_dir | default('/var/run/mailman3-web') }}/cron.{{ interval }} /usr/share/mailman3-web/manage.py runjobs {{ interval }}
+# Restrict access to the static content directory, granting access to all
+# @type directory_block
+<Directory "{{ (mailman_web_static_dir | default('/var/lib/mailman3/web')) }}/static">
+	Require all granted
+</Directory>
 
-{% endfor %}
+# Configure uWSGI proxy settings if the module is available
+# @module mod_proxy_uwsgi
+<IfModule mod_proxy_uwsgi.c>
+	# Do not proxy static assets (favicon and static files) to the backend; serve them directly via Apache
+	ProxyPass /mailman3/favicon.ico !
+	ProxyPass /mailman3/static !
+
+	# Proxy all other /mailman3 requests to the Mailman3 Web uWSGI socket
+	# @backend uwsgi
+	# @socket /run/mailman3-web/uwsgi.sock
+	ProxyPass /mailman3 unix:/run/mailman3-web/uwsgi.sock|uwsgi://localhost/
+</IfModule>

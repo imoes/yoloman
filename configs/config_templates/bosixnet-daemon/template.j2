@@ -1,67 +1,63 @@
-# ==============================================================================
-# BosixNet Daemon Configuration Template
-# ==============================================================================
-# This template generates the configuration file for the bosixnet-daemon.
-# bosixnet is a utility for automatic IPv6 address announcement and /etc/hosts synchronization.
-# ==============================================================================
+# =============================================================================
+# bosixnet-daemon Configuration Template
+# =============================================================================
+# This configuration file manages the `bosixnet-daemon` service, which updates
+# the system's `/etc/hosts` file with the current IPv6 address fetched from a
+# remote URL.
+# =============================================================================
 
 # ------------------------------------------------------------------------------
 # Host name
-# The hostname to identify this machine within the network.
+# Description: The hostname to use for identification.
 # ------------------------------------------------------------------------------
-# Host name:
-HOST_NAME={{ host_name | default('my-laptop') }}
+{% if host_name is defined and host_name is not none and (host_name is number or host_name is boolean or host_name | length > 0) %}HOST_NAME={{ host_name | default('') }}{% else %}# HOST_NAME=my-laptop{% endif %}
 
 # ------------------------------------------------------------------------------
 # Period of updating IPv6 address and /etc/hosts [seconds]
-# Interval in seconds at which the daemon checks and updates the IPv6 address
-# and synchronizes the local /etc/hosts file.
+# Description: The interval in seconds between updates.
+# Default: 300
 # ------------------------------------------------------------------------------
-# Period of updating IPv6 address and /etc/hosts [seconds]:
-UPD_PERIOD={{ upd_period | default(300) }}
+{% if upd_period is defined and upd_period is not none and (upd_period is number or upd_period is boolean or upd_period | length > 0) %}UPD_PERIOD={{ upd_period | default(300) }}{% else %}# UPD_PERIOD=300{% endif %}
 
 # ------------------------------------------------------------------------------
 # Directory with auxiliary scripts
-# Path to the directory containing helper scripts used by the daemon.
+# Description: Path to the directory containing auxiliary scripts used by the daemon.
+# Default: /usr/lib/bosixnet
 # ------------------------------------------------------------------------------
-# Directory with auxiliary scripts:
-DIR_UTIL="{{ dir_util | default('/usr/lib/bosixnet') }}"
+{% if dir_util is defined and dir_util is not none and (dir_util is number or dir_util is boolean or dir_util | length > 0) %}DIR_UTIL="{{ dir_util | default('/usr/lib/bosixnet') }}"{% else %}# DIR_UTIL="/usr/lib/bosixnet"{% endif %}
 
 # ------------------------------------------------------------------------------
 # Directory where generated host file is stored
-# Local directory where the daemon stores the generated hosts list file.
-# This may be useful when you use daemon on the same server as web ui.
+# Description: Path to the directory where the generated hosts file is stored.
+# Default: /var/tmp/bosixnet
 # ------------------------------------------------------------------------------
-# Directory where generated host file is stored:
-LOG_DIR={{ log_dir | default('/var/tmp/bosixnet') }}
+{% if log_dir is defined and log_dir is not none and (log_dir is number or log_dir is boolean or log_dir | length > 0) %}LOG_DIR={{ log_dir | default('/var/tmp/bosixnet') }}{% else %}# LOG_DIR=/var/tmp/bosixnet{% endif %}
 
 # ------------------------------------------------------------------------------
 # Network device
-# The network interface name through which the IPv6 address is managed.
+# Description: The network interface device to monitor for IPv6 address changes.
+# Default: teredo
 # ------------------------------------------------------------------------------
-# Network device:
-NETWORK_DEVICE={{ network_device | default('teredo') }}
+{% if network_device is defined and network_device is not none and (network_device is number or network_device is boolean or network_device | length > 0) %}NETWORK_DEVICE={{ network_device | default('teredo') }}{% else %}# NETWORK_DEVICE=teredo{% endif %}
 
 # ------------------------------------------------------------------------------
 # Address sub-string
-# A substring used to filter/identify the specific IPv6 address on the device.
-# This may be useful when your network device has few registered IPv6 addresses.
-# For example, see: https://en.wikipedia.org/wiki/Unique_local_address
+# Description: An address sub-string for IPv6 filtering. Useful when the network
+# device has multiple registered IPv6 addresses (e.g., filtering for Unique Local
+# Addresses or specific prefixes).
+# Default: 2a02
 # ------------------------------------------------------------------------------
-# Address sub-string:
-ADDRESS_SUB_STRING={{ address_sub_string | default('2a02') }}
+{% if address_sub_string is defined and address_sub_string is not none and (address_sub_string is number or address_sub_string is boolean or address_sub_string | length > 0) %}ADDRESS_SUB_STRING={{ address_sub_string | default('2a02') }}{% else %}# ADDRESS_SUB_STRING=2a02{% endif %}
 
 # ------------------------------------------------------------------------------
 # Website URL
-# URL(s) to send the IPv6 address to and fetch the synchronized hosts list from.
-# You may use multiple servers. For example:
+# Description: The URL(s) to send the current IPv6 address to and fetch the hosts
+# list from. Multiple URLs can be specified, one per line or as a list.
+# The daemon sends the IPv6 address to all provided servers and retrieves the
+# hosts list from the first server that replies.
+# Example:
 # URL="http://home-server/bosixnet
 #      http://remote-server:8098/bosixnet
 #      https://common-backup-server/secret-prefix-string"
-#
-# In this case:
-# - IPv6 address is sent to all available servers
-# - hosts list is got from the first server which replied to request
 # ------------------------------------------------------------------------------
-# Website URL:
 URL="{{ url | default('http://ipv6.example.com/bosixnet') }}"

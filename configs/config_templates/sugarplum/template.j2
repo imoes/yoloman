@@ -1,36 +1,46 @@
-# ==============================================================================
-# Apache configuration for sugarplum
-# ==============================================================================
-# This file configures the Apache web server to serve the sugarplum application.
-# It defines a base path alias for CGI scripts and sets up URL rewriting rules
-# to direct requests to the application's vision endpoint.
-#
-# Original author: sean finney, Thu, 30 Jun 2005 00:33:57 -0400
-# ==============================================================================
+# Apache configuration for the Sugarplum application.
+# This file configures the ScriptAlias directives and URL rewriting rules
+# required to serve Sugarplum's CGI scripts via the web server.
 
-# Include /usr/share/sugarplum/apache-hostile-agents.conf
-# Description: Includes a pre-defined list of hostile user-agents/agents configuration
-# for sugarplum. Do not put anything in between these three lines or things may break.
+# ==============================================================================
+# Include file for hostile agents configuration.
+# This file typically contains rules to block or handle malicious user agents.
+# Do not place anything between this Include directive and the following
+# RewriteCond directives, as it may break the configuration parsing.
+# ==============================================================================
 Include /usr/share/sugarplum/apache-hostile-agents.conf
 
-# RewriteCond %{REQUEST_URI} !^/{{ (script_alias_path | default('sugarplum')) }}/
-# Description: Rewrites the request URI if it does NOT start with the script alias path.
-# This ensures that requests not targeting the sugarplum base path are handled differently.
-# Variable: script_alias_path - default: 'sugarplum'
-RewriteCond %{REQUEST_URI} !^/{{ (script_alias_path | default('sugarplum')) }}/
+# ==============================================================================
+# URL Rewriting Rules
+# These rules ensure that requests to the script alias path are correctly
+# proxied to the CGI visions module.
+# ==============================================================================
 
-# RewriteRule .* /{{ (script_alias_path | default('sugarplum')) }}/visions [PT]
-# Description: If the condition above is met, rewrite ANY request to the "visions"
-# endpoint within the script alias path. The [PT] flag passes the result through
-# other handlers (pass through).
-# Variable: script_alias_path - default: 'sugarplum'
-RewriteRule .* /{{ (script_alias_path | default('sugarplum')) }}/visions [PT]
+# RewriteCond: Skip rewriting if the request URI does not start with the
+# script alias path. This prevents unnecessary processing for other URLs.
+# Variable: script_alias_path
+RewriteCond %{REQUEST_URI} !^/{{ (script_alias_path | default('sugarplum')) }}/{{ (script_alias_path | default('sugarplum')) }}
 
-# ScriptAlias /{{ (script_alias_path | default('sugarplum')) }}/ /{{ (script_alias_cgi_root | default('/usr/lib/cgi-bin/sugarplum')) }}/poison/
-# Description: Maps the URL path defined by script_alias_path to the filesystem
-# path defined by script_alias_cgi_root + "/poison/". This allows Apache to
-# execute CGI scripts located in that directory.
+# RewriteRule: Redirect any request matching the pattern to the 'visions'
+# endpoint within the script alias path, preserving the path info ([PT] flag
+# passes the request to the next handler, typically CGI).
+# Variables: script_alias_path
+RewriteRule .* /{{ (script_alias_path | default('sugarplum')) }}/{{ (script_alias_path | default('sugarplum')) }}/visions [PT]
+
+# ==============================================================================
+# CGI Alias Configuration
+# Maps a URL path to the filesystem directory containing the CGI scripts.
+# ==============================================================================
+
+# ScriptAlias: Defines the base URL path (/script_alias_path/) that maps
+# to the CGI scripts directory (script_alias_cgi_root/poison/).
+#
 # Variables:
-#   script_alias_path - default: 'sugarplum'
-#   script_alias_cgi_root - default: '/usr/lib/cgi-bin/sugarplum'
-ScriptAlias /{{ (script_alias_path | default('sugarplum')) }}/ /{{ (script_alias_cgi_root | default('/usr/lib/cgi-bin/sugarplum')) }}/poison/
+#   - script_alias_path: The URL prefix (e.g., 'sugarplum').
+#   - script_alias_cgi_root: The absolute path to the CGI binary directory
+#                            (e.g., '/usr/lib/cgi-bin/sugarplum').
+#
+# Example output:
+# ScriptAlias /sugarplum/ /usr/lib/cgi-bin/sugarplum/poison/
+#
+ScriptAlias /{{ (script_alias_path | default('sugarplum')) }}/ {{ (script_alias_cgi_root | default('/usr/lib/cgi-bin/sugarplum')) }}/poison/

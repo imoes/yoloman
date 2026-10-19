@@ -263,12 +263,11 @@ async def test_poll_once_only_polls_enrolled_agents(db_session, session_factory)
         seen_addresses.append(agent.address)
         return FakeAgentClient()
 
-    results = await poll_once(session_factory, _settings(), factory)
-
-    # Assert about the two agents this test created, not a global count:
-    # poll_once operates on every enrolled agent in the (shared) DB, so a
-    # count assertion is fragile against residue from other tests. The
-    # invariant under test is "enrolled polled, pending skipped".
+    # Scoped to this test's two agents: unscoped, the fake client "polled" every enrolled host in the shared DB
+    # and stamped it seen with version 0.0.0-test, which a waiting netinstall took for its first report and
+    # marked a VM still being installed as done (measured 2026-10-18). The invariant under test is unchanged:
+    # enrolled polled, pending skipped.
+    results = await poll_once(session_factory, _settings(), factory, only={enrolled.id, pending.id})
     result_ids = {r.agent_id for r in results}
     assert str(enrolled.id) in result_ids
     assert str(pending.id) not in result_ids

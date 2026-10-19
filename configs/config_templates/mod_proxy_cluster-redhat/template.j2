@@ -1,0 +1,26 @@
+# mod_proxy_balancer should be disabled when mod_cluster is used
+LoadModule proxy_cluster_module /usr/lib64/httpd/modules/mod_proxy_cluster.so
+LoadModule cluster_slotmem_module /usr/lib64/httpd/modules/mod_cluster_slotmem.so
+LoadModule manager_module /usr/lib64/httpd/modules/mod_manager.so
+LoadModule advertise_module /usr/lib64/httpd/modules/mod_advertise.so
+
+# Path to the shared memory manager file for mod_proxy_cluster.
+MemManagerFile {{ mem_manager_file | default('/var/cache/httpd/mod_proxy_cluster') }}
+
+<IfModule manager_module>
+  # Port on which the mod_cluster manager listens.
+  Listen {{ listen_port | default('6666') }}
+  <VirtualHost *:{{ listen_port | default('6666') }}>
+    DirectoryIndex disabled
+    <Location />
+      # IP address allowed to access the mod_cluster manager and configuration.
+      Require ip {{ admin_access_ip | default('127.0.0.1') }}
+    </Location>
+    ServerAdvertise on
+    EnableMCPMReceive
+    <Location /mod_cluster_manager>
+      SetHandler mod_cluster-manager
+      Require ip {{ admin_access_ip | default('127.0.0.1') }}
+    </Location>
+  </VirtualHost>
+</IfModule>

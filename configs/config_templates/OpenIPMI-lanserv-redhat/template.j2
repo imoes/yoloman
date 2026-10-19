@@ -1,0 +1,109 @@
+# ============================================================================
+# OpenIPMI lanserv Configuration Template
+# ============================================================================
+# This template generates the configuration file for ipmi_sim (IPMI Simulator).
+# It defines Management Controller (MC) addresses and sensor configurations
+# for BMC (Baseboard Management Controller) and Satellite BMC instances.
+#
+# Variables are mapped from the Ansible role schema.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Main BMC Configuration
+# ----------------------------------------------------------------------------
+# The MC (Management Controller) address for the main BMC.
+# Default: 0x20
+mc_setbmc {{ bmc_mc_address | default('0x20') }}
+
+# Add the BMC device definition.
+# Parameters: MC address, LUN, SDR repository flag, Device ID, Revision,
+#             Manufacturer ID (low), Manufacturer ID (mid), Manufacturer ID (high),
+#             Product ID, Auxiliary Info (persist SDR)
+mc_add {{ bmc_mc_address | default('0x20') }} 0 no-device-sdrs 0x23 9 8 0x9f 0x1291 0xf02 persist_sdr
+
+# Enable SEL (System Event Log) recording for this MC.
+# Parameters: MC address, Log Size, Event Message Command
+sel_enable {{ bmc_mc_address | default('0x20') }} 1000 0x0a
+
+# ----------------------------------------------------------------------------
+# Watchdog Sensor (Sensor 0)
+# ----------------------------------------------------------------------------
+# This must be sensor zero for the BMC.
+# Types: 0x35 = Watchdog Timer, 0x6f = Event-only sensor
+sensor_add {{ bmc_mc_address | default('0x20') }} 0 0 0x35 0x6f event-only
+
+# Configure event support for the watchdog sensor.
+# Enables scanning and per-state event generation.
+sensor_set_event_support {{ bmc_mc_address | default('0x20') }} 0 0 enable scanning per-state \
+	000000000001111 000000000000000 \
+	000000000001111 000000000000000
+
+# ----------------------------------------------------------------------------
+# Temperature Sensor (Sensor 1)
+# ----------------------------------------------------------------------------
+# Add a temperature sensor.
+# Note: Sensor 0 is already taken by the watchdog.
+sensor_add {{ bmc_mc_address | default('0x20') }} 0 1 0x01 0x01
+
+# Set the initial sensor value (hex 0x60).
+sensor_set_value {{ bmc_mc_address | default('0x20') }} 0 1 0x60 0
+
+# Set upper thresholds for the temperature sensor.
+# Values: Critical, Critical, Warning, No Threshold, No Threshold, No Threshold
+# Hex values: 0xa0, 0x90, 0x70
+sensor_set_threshold {{ bmc_mc_address | default('0x20') }} 0 1 settable 111000 0xa0 0x90 0x70 00 00 00
+
+# Enable all upper threshold events.
+sensor_set_event_support {{ bmc_mc_address | default('0x20') }} 0 1 enable scanning per-state \
+	000111111000000 000111111000000 \
+	000111111000000 000111111000000
+
+# ----------------------------------------------------------------------------
+# Memory Module Presence Sensor (Sensor 2)
+# ----------------------------------------------------------------------------
+# Add a sensor for memory module presence.
+sensor_add {{ bmc_mc_address | default('0x20') }} 0 2 0x37 0x6f
+
+# Clear the presence bit if the memory is not present.
+sensor_set_bit_clr_rest {{ bmc_mc_address | default('0x20') }} 0 2 1 1
+{% if bmc_mc_address is defined %}sensor_set_bit_clr_rest {{ bmc_mc_address }} 0 2 0 1{% else %}#sensor_set_bit_clr_rest 0x20 0 2 0 1{% endif %}
+
+# Enable event support for the memory sensor.
+sensor_set_event_support {{ bmc_mc_address | default('0x20') }} 0 2 enable scanning per-state \
+	000000000000011 000000000000011 \
+	000000000000011 000000000000011
+
+# ----------------------------------------------------------------------------
+# FRU Data Configuration
+# ----------------------------------------------------------------------------
+# Add FRU (Field Replaceable Unit) data for entity 8.2 on the satellite MC.
+# Note: The MC address here corresponds to the satellite MC address defined below.
+mc_add_fru_data {{ satellite_mc_address | default('0x30') }} 3 128 data 0
+
+# ----------------------------------------------------------------------------
+# Satellite BMC Configuration
+# ----------------------------------------------------------------------------
+# The MC address for the satellite BMC.
+# Default: 0x30
+mc_add {{ satellite_mc_address | default('0x30') }} {{ satellite_mc_lun | default(2) }} no-device-sdrs 0x98 0x10 1 0xa0 0x1291 0xf03
+
+# Add a sensor to the satellite BMC.
+# This sensor can be configured to poll from a file.
+{% if satellite_mc_address is defined %}sensor_add {{ satellite_mc_address }} 0 1 0x01 0x01 poll 1000 file "/tmp/file1.ipm"{% else %}#sensor_add 0x30 0 1 0x01 0x01 poll 1000 file "/tmp/file1.ipm"{% endif %}
+
+# Set thresholds for the satellite BMC sensor.
+sensor_set_threshold {{ satellite_mc_address | default('0x30') }} 0 1 settable 111000 0xa0 0x90 0x70 00 00 00
+
+# Enable event support for the satellite BMC sensor.
+sensor_set_event_support {{ satellite_mc_address | default('0x30') }} 0 1 enable scanning per-state \
+	000111111000000 000111111000000 \
+	000111111000000 000111111000000
+
+# Enable the satellite MC.
+mc_enable {{ satellite_mc_address | default('0x30') }}
+
+# ----------------------------------------------------------------------------
+# Finalize
+# ----------------------------------------------------------------------------
+# Turn on the main BMC to start the simulation.
+mc_enable {{ bmc_mc_address | default('0x20') }}

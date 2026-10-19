@@ -1,0 +1,54 @@
+# ============================================================================
+# Rpmlint configuration for MinGW (Cross-Compilation for Windows) packages.
+#
+# This file suppresses specific rpmlint warnings that are expected or false
+# positives for MinGW cross-compilation packages (e.g., mingw32-*).
+# It is typically placed in /etc/rpmlint or similar config directory.
+#
+# Reference: http://fedoraproject.org/wiki/MinGW/Rpmlint
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Filter: devel-file-in-non-devel
+# Description: Suppresses warnings about devel files appearing in non-devel
+#              packages. This is common in MinGW packaging where some
+#              intermediate artifacts might trigger this check.
+# ----------------------------------------------------------------------------
+# Note: The original template contained duplicate entries. Keeping one per
+# pattern for cleaner output, though multiple calls are harmless.
+addFilter ("{{ mingw_devel_filter_pattern | default('^mingw32-.*devel-file-in-non-devel') }}")
+
+# ----------------------------------------------------------------------------
+# Filter: non-standard-dir-in-usr
+# Description: Suppresses warnings about files being installed in non-standard
+#              directories under /usr, specifically for i686-w64-mingw32
+#              builds. The MinGW guidelines permit /usr/x86_64-pc-mingw32
+#              and similar targets.
+# ----------------------------------------------------------------------------
+addFilter ("{{ mingw_nonstandard_dir_filter_pattern | default('^mingw32-.*non-standard-dir-in-usr i686-w64-mingw32') }}")
+
+# ----------------------------------------------------------------------------
+# Filter: script-without-shebang
+# Description: Suppresses warnings about .la (libtool archive) files missing
+#              a shebang line. While .la files are not executable scripts,
+#              rpmlint sometimes flags them if they contain text that looks
+#              like shebangs or if the checker is overly aggressive.
+# ----------------------------------------------------------------------------
+addFilter ("{{ mingw_script_shebang_filter_pattern | default('^mingw32-.*script-without-shebang.*\\.la$') }}")
+
+# ----------------------------------------------------------------------------
+# Filter: spurious-executable-perm
+# Description: Suppresses warnings about .dll.a (import library) files having
+#              executable permissions. These are archives created by GCC/libtool
+#              and do not need the executable bit; however, we permit them to
+#              avoid noise in the CI/build pipeline.
+# ----------------------------------------------------------------------------
+addFilter ("{{ mingw_spurious_exec_perm_filter_pattern | default('^mingw32-.*spurious-executable-perm.*\\.dll\\.a$') }}")
+
+# ----------------------------------------------------------------------------
+# Filter: arch-independent-package-contains-binary-or-object
+# Description: Suppresses warnings about arch-independent source packages
+#              containing binary or object files (like .a archives). MinGW
+#              packages often distribute pre-compiled .a files.
+# ----------------------------------------------------------------------------
+addFilter ("{{ mingw_arch_indep_binary_filter_pattern | default('^mingw32-.*arch-independent-package-contains-binary-or-object.*\\.a$') }}")

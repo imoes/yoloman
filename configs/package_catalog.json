@@ -84,18 +84,17 @@
     "families": {
       "debian": {
         "config_path": "/etc/apache2/conf-available/adminer.conf",
+        "init": "a2enconf adminer",
         "packages": [
-          "adminer"
+          "adminer",
+          "apache2",
+          "libapache2-mod-php"
         ],
         "service": "apache2"
       },
       "redhat": {
-        "config_path": "",
-        "packages": [
-          "adminer"
-        ],
-        "service": "httpd",
-        "source": "verified"
+        "source": "verified",
+        "unavailable": "adminer is not packaged for Enterprise Linux 9 (not in BaseOS, AppStream, CRB or EPEL)."
       }
     },
     "icon": "storage",
@@ -131,7 +130,7 @@
         "packages": [
           "anacron"
         ],
-        "service": "anacron.service"
+        "service": "anacron.timer"
       }
     },
     "icon": "description",
@@ -274,7 +273,7 @@
         "packages": [
           "apparmor"
         ],
-        "service": ""
+        "service": "apparmor"
       },
       "redhat": {
         "instead": "SELinux (selinux-policy, enabled by default)",
@@ -460,24 +459,12 @@
   },
   "apt.conf": {
     "category": "system",
-    "description": "Configure apt.conf (provided by appstream, apt, apt-config-icons).",
+    "description": "Configure /etc/apt/apt.conf.",
     "families": {
       "debian": {
-        "config_path": "/etc/apt/apt.conf.d/01-vendor-ubuntu",
+        "config_path": "/etc/apt/apt.conf",
         "packages": [
-          "appstream",
-          "apt",
-          "apt-config-icons",
-          "apt-config-icons-hidpi",
-          "apt-config-icons-large",
-          "apt-config-icons-large-hidpi",
-          "aptdaemon",
-          "command-not-found",
-          "debconf",
-          "packagekit",
-          "snapd",
-          "ubuntu-pro-client",
-          "update-notifier-common"
+          "apt"
         ],
         "service": ""
       }
@@ -492,7 +479,7 @@
     "description": "Configure /etc/apticron/README (shipped by apticron).",
     "families": {
       "debian": {
-        "config_path": "/etc/apticron/README",
+        "config_path": "",
         "packages": [
           "apticron"
         ],
@@ -511,7 +498,7 @@
     "description": "Configure /etc/cron.daily/aptitude (shipped by aptitude).",
     "families": {
       "debian": {
-        "config_path": "/etc/cron.daily/aptitude",
+        "config_path": "",
         "packages": [
           "aptitude"
         ],
@@ -629,7 +616,7 @@
         "packages": [
           "auditd"
         ],
-        "service": ""
+        "service": "auditd"
       },
       "redhat": {
         "config_path": "/etc/audit/auditd.conf",
@@ -669,7 +656,7 @@
     "description": "Configure /etc/logcheck/ignore.d.workstation/autossh (shipped by autossh).",
     "families": {
       "debian": {
-        "config_path": "/etc/logcheck/ignore.d.workstation/autossh",
+        "config_path": "",
         "packages": [
           "autossh"
         ],
@@ -719,7 +706,7 @@
     "label": "avahi-daemon",
     "service_evidence": "systemd unit shipped by the package, with an [Install] section",
     "source": "index-promoted",
-    "template": "avahi-daemon"
+    "template": null
   },
   "avahi-dnsconfd": {
     "category": "",
@@ -764,7 +751,7 @@
     "description": "Configure /etc/cron.daily/awffull (shipped by awffull).",
     "families": {
       "debian": {
-        "config_path": "/etc/cron.daily/awffull",
+        "config_path": "",
         "packages": [
           "awffull"
         ],
@@ -916,11 +903,11 @@
     "description": "Central management component of the Bacula backup system that coordinates backup, restore, and verification operations across client and storage daemons.",
     "families": {
       "debian": {
-        "config_path": "/etc/bacula/bacula-dir.conf",
+        "config_path": "",
         "packages": [
           "bacula-director"
         ],
-        "service": ""
+        "service": "bacula-director"
       },
       "redhat": {
         "config_path": "",
@@ -1017,6 +1004,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/biboumi/biboumi.cfg",
+        "init": "install -d -o _biboumi -g _biboumi /var/lib/biboumi/.config/biboumi",
         "packages": [
           "biboumi"
         ],
@@ -1074,19 +1062,15 @@
     "kind": "role",
     "label": "BIND DNS Server",
     "template": "bind9",
-    "validate_cmd": "named-checkconf /etc/bind/named.conf"
+    "validate_cmd": "named-checkconf"
   },
   "bind9-redhat": {
     "category": "",
     "description": "Configure /etc/named.conf (shipped by bind9, bind).",
     "families": {
       "debian": {
-        "config_path": "/etc/named.conf",
-        "packages": [
-          "bind9",
-          "bind"
-        ],
-        "service": ""
+        "source": "curated",
+        "unavailable": "This entry is the RedHat build of BIND; on Debian use the bind9 role."
       }
     },
     "icon": "description",
@@ -1102,6 +1086,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/bip/bip.conf",
+        "init": "[ -n \"$(systemctl show -p PIDFile --value bip)\" ] || { mkdir -p /etc/systemd/system/bip.service.d && printf '[Service]\\nPIDFile=/var/lib/bip/bip.pid\\n' > /etc/systemd/system/bip.service.d/pidfile.conf && systemctl daemon-reload; }",
         "packages": [
           "bip"
         ],
@@ -1253,7 +1238,7 @@
     "description": "Configure /etc/btrbk/btrbk.conf.example (shipped by btrbk).",
     "families": {
       "debian": {
-        "config_path": "/etc/btrbk/btrbk.conf.example",
+        "config_path": "/etc/btrbk/btrbk.conf",
         "packages": [
           "btrbk"
         ],
@@ -1602,7 +1587,7 @@
     "description": "Configure /etc/cron.monthly/check-dfsg-status (shipped by check-dfsg-status).",
     "families": {
       "debian": {
-        "config_path": "/etc/cron.monthly/check-dfsg-status",
+        "config_path": "",
         "packages": [
           "check-dfsg-status"
         ],
@@ -1779,18 +1764,25 @@
     "description": "A command-line virus scanner engine for detecting trojans, viruses, malware & other malicious threats.",
     "families": {
       "debian": {
-        "config_path": "",
+        "config_path": "/etc/clamav/clamd.conf",
+        "init": "test -e /var/lib/clamav/main.cvd || test -e /var/lib/clamav/main.cld || { systemctl stop clamav-freshclam; freshclam; rc=$?; systemctl start clamav-freshclam; exit $rc; }",
         "packages": [
-          "clamav"
+          "clamav",
+          "clamav-daemon",
+          "clamav-freshclam"
         ],
-        "service": ""
+        "service": "clamav-daemon"
       },
       "redhat": {
+        "config_path": "/etc/clamd.d/scan.conf",
+        "init": "test -e /var/lib/clamav/main.cvd || test -e /var/lib/clamav/main.cld || freshclam",
         "packages": [
-          "clamav"
+          "clamav",
+          "clamd",
+          "clamav-freshclam"
         ],
         "service": "clamd@scan",
-        "source": "curated"
+        "source": "verified"
       }
     },
     "icon": "security",
@@ -1862,7 +1854,7 @@
         "packages": [
           "cloud-init"
         ],
-        "service": "cloud-init.service"
+        "service": ""
       }
     },
     "icon": "description",
@@ -1938,7 +1930,7 @@
         "packages": [
           "collectd"
         ],
-        "service": ""
+        "service": "collectd"
       },
       "redhat": {
         "config_path": "/etc/collectd.conf",
@@ -1952,7 +1944,7 @@
     "icon": "speed",
     "kind": "feature",
     "label": "Collectd",
-    "template": "collectd"
+    "template": "collectd.conf"
   },
   "collectl": {
     "category": "",
@@ -2016,7 +2008,7 @@
     "description": "Configure /etc/comgt/README (shipped by comgt).",
     "families": {
       "debian": {
-        "config_path": "/etc/comgt/README",
+        "config_path": "",
         "packages": [
           "comgt"
         ],
@@ -2075,7 +2067,6 @@
       "debian": {
         "config_path": "/etc/conky/conky.conf",
         "packages": [
-          "conky",
           "conky-all"
         ],
         "service": ""
@@ -2287,7 +2278,7 @@
         "packages": [
           "cron"
         ],
-        "service": ""
+        "service": "cron"
       },
       "redhat": {
         "config_path": "",
@@ -2366,6 +2357,14 @@
     "families": {
       "debian": {
         "config_path": "/etc/ctdb/ctdb.conf",
+        "files": [
+          {
+            "description": "The cluster's node addresses, one per line (ctdb refuses to start without them: ConditionFileNotEmpty=/etc/ctdb/nodes)",
+            "field": "ctdb_nodes",
+            "mode": "0644",
+            "path": "/etc/ctdb/nodes"
+          }
+        ],
         "packages": [
           "ctdb"
         ],
@@ -2404,7 +2403,7 @@
     "icon": "print",
     "kind": "role",
     "label": "CUPS Print Server",
-    "template": "cups"
+    "template": "cupsd.conf"
   },
   "cups-browsed.conf": {
     "category": "",
@@ -2928,7 +2927,7 @@
         "packages": [
           "dlt-daemon"
         ],
-        "service": "dlt-daemon.service"
+        "service": "dlt"
       }
     },
     "icon": "description",
@@ -2963,6 +2962,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/default/dns-flood-detector",
+        "init": "test -x /usr/sbin/dns-flood-detector || { mkdir -p /etc/systemd/system/dns-flood-detector.service.d && printf '[Service]\\nType=forking\\nExecStart=\\nExecStart=/usr/bin/dns-flood-detector $DAEMON_OPTS\\n' > /etc/systemd/system/dns-flood-detector.service.d/unit-fix.conf && systemctl daemon-reload; }",
         "packages": [
           "dns-flood-detector"
         ],
@@ -2981,7 +2981,8 @@
     "description": "Configure /etc/init.d/dnscache (shipped by dnscache).",
     "families": {
       "debian": {
-        "config_path": "/etc/init.d/dnscache",
+        "config_path": "",
+        "enable": false,
         "packages": [
           "dnscache"
         ],
@@ -3085,18 +3086,13 @@
       "debian": {
         "config_path": "/etc/docker/daemon.json",
         "packages": [
-          "docker-ce",
           "docker.io"
         ],
         "service": "docker"
       },
       "redhat": {
-        "config_path": "",
-        "packages": [
-          "docker-ce"
-        ],
-        "service": "docker",
-        "source": "verified"
+        "source": "verified",
+        "unavailable": "docker-ce comes from Docker's own repository, which is not enabled; EL9 ships podman instead."
       }
     },
     "icon": "inventory_2",
@@ -3165,9 +3161,10 @@
       "debian": {
         "config_path": "/etc/dovecot/dovecot.conf",
         "packages": [
-          "dovecot"
+          "dovecot-core",
+          "dovecot-imapd"
         ],
-        "service": "",
+        "service": "dovecot",
         "user": "dovecot"
       },
       "redhat": {
@@ -3175,7 +3172,7 @@
         "packages": [
           "dovecot"
         ],
-        "service": "",
+        "service": "dovecot",
         "source": "verified",
         "user": "dovecot"
       }
@@ -3285,7 +3282,7 @@
     "description": "Configure /etc/epic4/epic4.irc (shipped by epic4).",
     "families": {
       "debian": {
-        "config_path": "/etc/epic4/epic4.irc",
+        "config_path": "",
         "packages": [
           "epic4"
         ],
@@ -3344,16 +3341,13 @@
       "debian": {
         "config_path": "",
         "packages": [
-          "etcd"
+          "etcd-server"
         ],
-        "service": ""
+        "service": "etcd"
       },
       "redhat": {
-        "packages": [
-          "etcd"
-        ],
-        "service": "etcd",
-        "source": "curated"
+        "source": "verified",
+        "unavailable": "etcd is not packaged for Enterprise Linux 9 (not in BaseOS, AppStream, CRB or EPEL)."
       }
     },
     "icon": "dns",
@@ -3366,11 +3360,11 @@
     "description": "Installs and configures Exim to handle incoming and outgoing email delivery for the host.",
     "families": {
       "debian": {
-        "config_path": "/etc/exim4",
+        "config_path": "/etc/exim4/update-exim4.conf.conf",
         "packages": [
           "exim4"
         ],
-        "service": ""
+        "service": "exim4"
       },
       "redhat": {
         "config_path": "/etc/exim/exim.conf",
@@ -3418,18 +3412,18 @@
         "service": "fail2ban"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/fail2ban/jail.local",
         "packages": [
           "fail2ban"
         ],
         "service": "fail2ban",
-        "source": "verified"
+        "source": "curated"
       }
     },
     "icon": "gpp_good",
     "kind": "role",
     "label": "Fail2ban",
-    "template": "fail2ban"
+    "template": "fail2ban-jail"
   },
   "fair": {
     "category": "",
@@ -3588,7 +3582,7 @@
     "description": "Configure /etc/fcm/admin.cfg.example (shipped by fcm).",
     "families": {
       "debian": {
-        "config_path": "/etc/fcm/admin.cfg.example",
+        "config_path": "/etc/fcm/admin.cfg",
         "packages": [
           "fcm"
         ],
@@ -3901,6 +3895,7 @@
       },
       "redhat": {
         "config_path": "/etc/raddb/radiusd.conf",
+        "init": "test -e /etc/raddb/certs/server.pem || { cd /etc/raddb/certs && ./bootstrap && chgrp -R radiusd /etc/raddb/certs; }",
         "packages": [
           "freeradius"
         ],
@@ -3922,21 +3917,21 @@
         "packages": [
           "frr"
         ],
-        "service": ""
+        "service": "frr"
       },
       "redhat": {
         "config_path": "/etc/frr/daemons",
         "packages": [
           "frr"
         ],
-        "service": "",
+        "service": "frr",
         "source": "verified"
       }
     },
     "icon": "router",
     "kind": "role",
     "label": "FRRouting (FRR)",
-    "template": "frr"
+    "template": null
   },
   "ftp-proxy": {
     "category": "",
@@ -4229,6 +4224,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/gnunet.conf",
+        "init": "touch /var/log/gnunet.log && chown gnunet:gnunet /var/log/gnunet.log && A=$(ls /usr/lib/*/gnunet/libexec/gnunet-service-arm | head -1) && mkdir -p /etc/systemd/system/gnunet.service.d && printf '[Service]\\nType=simple\\nExecStart=\\nExecStart=%s -c /etc/gnunet.conf\\nExecStop=\\n' \"$A\" > /etc/systemd/system/gnunet.service.d/foreground.conf && systemctl daemon-reload",
         "packages": [
           "gnunet"
         ],
@@ -4304,7 +4300,7 @@
     "description": "Configure /etc/logcheck/ignore.d.server/gpg-agent (shipped by gpg-agent).",
     "families": {
       "debian": {
-        "config_path": "/etc/logcheck/ignore.d.server/gpg-agent",
+        "config_path": "",
         "packages": [
           "gpg-agent"
         ],
@@ -4670,7 +4666,7 @@
     "description": "Configure /etc/network/if-up.d/ifmetric (shipped by ifmetric).",
     "families": {
       "debian": {
-        "config_path": "/etc/network/if-up.d/ifmetric",
+        "config_path": "",
         "packages": [
           "ifmetric"
         ],
@@ -4826,7 +4822,7 @@
         "packages": [
           "influxdb"
         ],
-        "service": ""
+        "service": "influxdb"
       }
     },
     "icon": "storage",
@@ -4908,14 +4904,14 @@
     "label": "insserv.conf",
     "service_evidence": "the package ships no single unit that can be identified as its service",
     "source": "index-promoted",
-    "template": "insserv.conf"
+    "template": null
   },
   "iodined": {
     "category": "",
-    "description": "Configure /etc/logcheck/ignore.d.server/iodined (shipped by iodine).",
+    "description": "Configure /etc/default/iodine.",
     "families": {
       "debian": {
-        "config_path": "/etc/logcheck/ignore.d.server/iodined",
+        "config_path": "/etc/default/iodine",
         "packages": [
           "iodine"
         ],
@@ -4927,7 +4923,7 @@
     "label": "iodined",
     "service_evidence": "systemd unit shipped by the package, with an [Install] section",
     "source": "index-promoted",
-    "template": "iodined"
+    "template": "iodine-default"
   },
   "ipband": {
     "category": "",
@@ -5049,18 +5045,19 @@
     "families": {
       "debian": {
         "config_path": "/etc/dhcp/dhcpd.conf",
+        "init": "grep -q '^INTERFACESv4=\"\"' /etc/default/isc-dhcp-server && sed -i \"s/^INTERFACESv4=\\\"\\\"/INTERFACESv4=\\\"$(ls /sys/class/net | grep -vx lo | tr '\\n' ' ' | sed 's/ $//')\\\"/\" /etc/default/isc-dhcp-server || true",
         "packages": [
           "isc-dhcp-server"
         ],
-        "service": ""
+        "service": "isc-dhcp-server"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/dhcp/dhcpd.conf",
         "packages": [
           "dhcp-server"
         ],
         "service": "dhcpd",
-        "source": "curated"
+        "source": "verified"
       }
     },
     "icon": "dns",
@@ -5211,17 +5208,18 @@
     "description": "Provides DHCP and DNS service to network clients.",
     "families": {
       "debian": {
-        "config_path": "/etc/kea/kea.conf",
+        "config_path": "/etc/kea/kea-dhcp4.conf",
         "packages": [
-          "kea"
+          "kea-dhcp4-server"
         ],
-        "service": ""
+        "service": "kea-dhcp4-server"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/kea/kea-dhcp4.conf",
         "packages": [
           "kea"
         ],
+        "service": "kea-dhcp4",
         "source": "verified"
       }
     },
@@ -5239,14 +5237,14 @@
         "packages": [
           "keepalived"
         ],
-        "service": ""
+        "service": "keepalived"
       },
       "redhat": {
         "config_path": "/etc/keepalived/keepalived.conf",
         "packages": [
           "keepalived"
         ],
-        "service": "",
+        "service": "keepalived",
         "source": "verified"
       }
     },
@@ -5340,7 +5338,7 @@
         "packages": [
           "krb5-kdc"
         ],
-        "service": ""
+        "service": "krb5-kdc"
       },
       "redhat": {
         "config_path": "",
@@ -5550,7 +5548,7 @@
         "packages": [
           "lighttpd"
         ],
-        "service": "",
+        "service": "lighttpd",
         "user": "www-data"
       },
       "redhat": {
@@ -5577,7 +5575,7 @@
         "packages": [
           "linuxptp"
         ],
-        "service": "timemaster.service"
+        "service": ""
       }
     },
     "icon": "description",
@@ -5766,7 +5764,7 @@
     "label": "mailto",
     "service_evidence": "the package ships no single unit that can be identified as its service",
     "source": "index-promoted",
-    "template": "mailto"
+    "template": null
   },
   "mandos": {
     "category": "",
@@ -5774,6 +5772,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/default/mandos",
+        "init": "systemctl enable --now avahi-daemon",
         "packages": [
           "mandos"
         ],
@@ -5813,31 +5812,6 @@
     "kind": "role",
     "label": "MariaDB / MySQL Database",
     "template": "mariadb"
-  },
-  "mariadb-server": {
-    "category": "database",
-    "description": "Provides a relational database service for other hosts to store and retrieve data.",
-    "families": {
-      "debian": {
-        "config_path": "/etc/mysql/mariadb.conf.d/50-server.cnf",
-        "packages": [
-          "mariadb-server"
-        ],
-        "service": ""
-      },
-      "redhat": {
-        "config_path": "",
-        "packages": [
-          "mariadb-server"
-        ],
-        "service": "",
-        "source": "verified"
-      }
-    },
-    "icon": "storage",
-    "kind": "role",
-    "label": "MariaDB Database Server",
-    "template": "mariadb-server"
   },
   "mbpfan": {
     "category": "",
@@ -5883,7 +5857,7 @@
     "icon": "memory",
     "kind": "role",
     "label": "Memcached",
-    "template": "memcached"
+    "template": "memcached.conf"
   },
   "memlockd": {
     "category": "",
@@ -5963,10 +5937,10 @@
   },
   "miredo": {
     "category": "",
-    "description": "Configure /etc/default/miredo (shipped by miredo).",
+    "description": "Configure /etc/miredo.conf.",
     "families": {
       "debian": {
-        "config_path": "/etc/default/miredo",
+        "config_path": "/etc/miredo.conf",
         "packages": [
           "miredo"
         ],
@@ -5978,7 +5952,7 @@
     "label": "miredo",
     "service_evidence": "systemd unit shipped by the package, with an [Install] section",
     "source": "index-promoted",
-    "template": "miredo"
+    "template": "miredo.conf"
   },
   "mlmmj": {
     "category": "",
@@ -6023,11 +5997,9 @@
     "description": "A NoSQL document-oriented database service providing data storage and retrieval for client applications.",
     "families": {
       "debian": {
-        "config_path": "/etc/mongodb",
-        "packages": [
-          "mongodb"
-        ],
-        "service": ""
+        "config_path": "/etc/mongod.conf",
+        "source": "curated",
+        "unavailable": "MongoDB is not packaged in Debian (licence); install it from MongoDB's own repository."
       }
     },
     "icon": "storage",
@@ -6063,7 +6035,7 @@
         "packages": [
           "mosquitto"
         ],
-        "service": "",
+        "service": "mosquitto",
         "user": "mosquitto"
       },
       "redhat": {
@@ -6079,25 +6051,6 @@
     "kind": "role",
     "label": "Mosquitto MQTT Broker",
     "template": "mosquitto"
-  },
-  "mpd": {
-    "category": "",
-    "description": "Configure /etc/default/mpd (shipped by mpd).",
-    "families": {
-      "debian": {
-        "config_path": "/etc/default/mpd",
-        "packages": [
-          "mpd"
-        ],
-        "service": "mpd.service"
-      }
-    },
-    "icon": "description",
-    "kind": "feature",
-    "label": "mpd",
-    "service_evidence": "systemd unit shipped by the package, with an [Install] section",
-    "source": "index-promoted",
-    "template": "mpd"
   },
   "mpd.conf": {
     "category": "",
@@ -6313,25 +6266,25 @@
     "description": "Provides the MySQL relational database management system as a primary network service for hosting and managing database instances.",
     "families": {
       "debian": {
-        "config_path": "/etc/mysql/mysql.conf.d/mysqld.cnf",
         "packages": [
-          "mysql-server"
+          "default-mysql-server"
         ],
-        "service": ""
+        "source": "curated",
+        "unavailable": "Debian's MySQL server is MariaDB (default-mysql-server); use the mariadb role. This entry wrote /etc/mysql/mysql.conf.d/mysqld.cnf, which MariaDB never reads."
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/my.cnf.d/mysql-server.cnf",
         "packages": [
           "mysql-server"
         ],
-        "service": "",
+        "service": "mysqld",
         "source": "verified"
       }
     },
     "icon": "database",
     "kind": "role",
     "label": "MySQL Database Server",
-    "template": "mysql"
+    "template": "mysql_server"
   },
   "mythtv-status": {
     "category": "",
@@ -6395,7 +6348,7 @@
     "description": "Configure /etc/netscript/README (shipped by netscript-ipfilter).",
     "families": {
       "debian": {
-        "config_path": "/etc/netscript/README",
+        "config_path": "",
         "packages": [
           "netscript-ipfilter"
         ],
@@ -6442,7 +6395,7 @@
         "packages": [
           "nftables"
         ],
-        "service": ""
+        "service": "nftables"
       },
       "redhat": {
         "config_path": "/etc/sysconfig/nftables.conf",
@@ -6603,10 +6556,10 @@
   },
   "nsd": {
     "category": "",
-    "description": "Configure /etc/init.d/nsd (shipped by nsd).",
+    "description": "Configure /etc/nsd/nsd.conf.",
     "families": {
       "debian": {
-        "config_path": "/etc/init.d/nsd",
+        "config_path": "/etc/nsd/nsd.conf",
         "packages": [
           "nsd"
         ],
@@ -6620,28 +6573,6 @@
     "source": "index-promoted",
     "template": "nsd"
   },
-  "ntp": {
-    "category": "network",
-    "description": "Provides time synchronization to keep the system clock accurate and consistent.",
-    "families": {
-      "debian": {
-        "config_path": "/etc/ntpsec/ntp.conf",
-        "packages": [
-          "ntp"
-        ],
-        "service": ""
-      },
-      "redhat": {
-        "instead": "chrony",
-        "source": "curated",
-        "unavailable": "The ntp daemon was dropped after RHEL 7; chrony replaces it and is a separate role in this catalog."
-      }
-    },
-    "icon": "update",
-    "kind": "feature",
-    "label": "NTP Clock Synchronization",
-    "template": "ntp"
-  },
   "ntpsec": {
     "category": "network",
     "description": "Provides secure NTP client and server functionality for time synchronization.",
@@ -6651,20 +6582,21 @@
         "packages": [
           "ntpsec"
         ],
-        "service": ""
+        "service": "ntpsec"
       },
       "redhat": {
         "config_path": "/etc/ntp.conf",
         "packages": [
           "ntpsec"
         ],
+        "service": "ntpd",
         "source": "verified"
       }
     },
     "icon": "schedule",
     "kind": "feature",
     "label": "NTPsec Time Synchronization",
-    "template": "ntpsec"
+    "template": "ntp.conf"
   },
   "ocserv": {
     "category": "",
@@ -6795,20 +6727,23 @@
         "packages": [
           "opendkim"
         ],
-        "service": ""
+        "service": "opendkim"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/opendkim.conf",
+        "init": "test -e /etc/opendkim/keys/default.private || { opendkim-genkey -D /etc/opendkim/keys -s default && chown opendkim:opendkim /etc/opendkim/keys/default.*; }",
         "packages": [
-          "opendkim"
+          "opendkim",
+          "opendkim-tools"
         ],
+        "service": "opendkim",
         "source": "verified"
       }
     },
     "icon": "lock",
     "kind": "role",
     "label": "OpenDKIM",
-    "template": null
+    "template": "opendkim.conf"
   },
   "opendmarc": {
     "category": "mail",
@@ -6819,27 +6754,28 @@
         "packages": [
           "opendmarc"
         ],
-        "service": ""
+        "service": "opendmarc"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/opendmarc.conf",
         "packages": [
           "opendmarc"
         ],
+        "service": "opendmarc",
         "source": "verified"
       }
     },
     "icon": "email",
     "kind": "role",
     "label": "OpenDMARC",
-    "template": "opendmarc"
+    "template": "opendmarc.conf"
   },
   "openiked": {
     "category": "",
     "description": "Configure /etc/iked.conf (shipped by openiked).",
     "families": {
       "debian": {
-        "config_path": "/etc/iked.conf",
+        "config_path": "",
         "packages": [
           "openiked"
         ],
@@ -6891,62 +6827,38 @@
     "source": "index-promoted",
     "template": "opensc"
   },
-  "openssh-server": {
-    "category": "services",
-    "description": "Provides secure remote login capabilities for accessing the host itself rather than serving network functions to other hosts.",
+  "openvpn": {
+    "category": "network",
+    "description": "Establishes a secure encrypted network tunnel to allow remote devices to connect to a private network.",
     "families": {
       "debian": {
-        "config_path": "/etc/ssh/sshd_config",
+        "config_path": "",
         "packages": [
-          "openssh-server"
+          "openvpn"
         ],
         "service": ""
       },
       "redhat": {
         "config_path": "",
         "packages": [
-          "openssh-server"
+          "openvpn"
         ],
         "service": "",
         "source": "verified"
       }
     },
     "icon": "vpn_key",
-    "kind": "feature",
-    "label": "OpenSSH Server",
-    "template": "sshd_config"
-  },
-  "openvpn": {
-    "category": "network",
-    "description": "Establishes a secure encrypted network tunnel to allow remote devices to connect to a private network.",
-    "families": {
-      "debian": {
-        "config_path": "/etc/openvpn/crls",
-        "packages": [
-          "openvpn"
-        ],
-        "service": ""
-      },
-      "redhat": {
-        "config_path": "",
-        "packages": [
-          "openvpn"
-        ],
-        "service": "openvpn-server@server",
-        "source": "curated"
-      }
-    },
-    "icon": "vpn_key",
     "kind": "role",
     "label": "OpenVPN Server",
-    "template": "openvpn"
+    "template": null,
+    "template_withdrawn": "The template reads 13 `server.*` values its schema does not declare, and Debian ships no server.conf to rebuild it from (the role's path /etc/openvpn/crls is a directory). Configure OpenVPN per instance (/etc/openvpn/server/<name>.conf) until a template exists."
   },
   "osc": {
     "category": "",
     "description": "Configure /etc/profile.d/osc.csh (shipped by osc).",
     "families": {
       "debian": {
-        "config_path": "/etc/profile.d/osc.csh",
+        "config_path": "",
         "packages": [
           "osc"
         ],
@@ -6966,6 +6878,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/osmocom/osmo-hlr.cfg",
+        "init": "getent passwd osmocom >/dev/null || adduser --system --group --no-create-home osmocom",
         "packages": [
           "osmo-hlr"
         ],
@@ -6985,6 +6898,7 @@
     "families": {
       "debian": {
         "config_path": "/etc/osmocom/osmo-stp.cfg",
+        "init": "getent passwd osmocom >/dev/null || adduser --system --group --no-create-home osmocom",
         "packages": [
           "osmo-stp"
         ],
@@ -7030,13 +6944,8 @@
         "service": "pacemaker"
       },
       "redhat": {
-        "config_path": "",
-        "packages": [
-          "pacemaker",
-          "corosync",
-          "pcs"
-        ],
-        "service": "pacemaker"
+        "source": "verified",
+        "unavailable": "pacemaker, corosync and pcs live in the EL9 HighAvailability repository, which is not enabled."
       }
     },
     "icon": "hub",
@@ -7091,7 +7000,7 @@
         "packages": [
           "pdns-server"
         ],
-        "service": ""
+        "service": "pdns"
       },
       "redhat": {
         "config_path": "",
@@ -7169,11 +7078,11 @@
     "description": "PHP FastCGI Process Manager.",
     "families": {
       "debian": {
-        "config_path": "/etc/php/*/fpm/pool.d/www.conf",
+        "config_path": "/etc/php/8.4/fpm/pool.d/www.conf",
         "packages": [
           "php-fpm"
         ],
-        "service": "php-fpm",
+        "service": "php8.4-fpm",
         "user": "www-data"
       },
       "redhat": {
@@ -7257,7 +7166,7 @@
         "packages": [
           "podman"
         ],
-        "service": ""
+        "service": "podman"
       },
       "redhat": {
         "packages": [
@@ -7342,7 +7251,7 @@
     "description": "Advanced open-source relational database.",
     "families": {
       "debian": {
-        "config_path": "/etc/postgresql/*/main/postgresql.conf",
+        "config_path": "/etc/postgresql/17/main/postgresql.conf",
         "packages": [
           "postgresql"
         ],
@@ -7351,6 +7260,7 @@
       },
       "redhat": {
         "config_path": "",
+        "init": "test -f /var/lib/pgsql/data/PG_VERSION || postgresql-setup --initdb",
         "packages": [
           "postgresql-server"
         ],
@@ -7409,7 +7319,7 @@
       "debian": {
         "config_path": "/etc/proftpd/proftpd.conf",
         "packages": [
-          "proftpd-basic"
+          "proftpd-core"
         ],
         "service": "proftpd"
       },
@@ -7437,13 +7347,14 @@
         "packages": [
           "prometheus"
         ],
-        "service": ""
+        "service": "prometheus"
       },
       "redhat": {
         "config_path": "/etc/prometheus/prometheus.yml",
         "packages": [
           "prometheus"
         ],
+        "service": "prometheus",
         "source": "verified"
       }
     },
@@ -7591,6 +7502,17 @@
     "families": {
       "debian": {
         "config_path": "/etc/default/prometheus-mysqld-exporter",
+        "files": [
+          {
+            "description": "The [client] section the exporter connects with (user, password, host). Point the exporter at it with args `--config.my-cnf /var/lib/prometheus/.my.cnf` — its built-in default is a RELATIVE `.my.cnf`, which the unit (no WorkingDirectory) never finds (measured)",
+            "field": "mysqld_exporter_my_cnf",
+            "group": "prometheus",
+            "mode": "0600",
+            "owner": "prometheus",
+            "path": "/var/lib/prometheus/.my.cnf",
+            "secret": true
+          }
+        ],
         "packages": [
           "prometheus-mysqld-exporter"
         ],
@@ -7613,15 +7535,11 @@
         "packages": [
           "prometheus-node-exporter"
         ],
-        "service": ""
+        "service": "prometheus-node-exporter"
       },
       "redhat": {
-        "config_path": "",
-        "packages": [
-          "golang-github-prometheus-node-exporter"
-        ],
-        "service": "node_exporter",
-        "source": "curated"
+        "source": "verified",
+        "unavailable": "node_exporter is not packaged for Enterprise Linux 9 (not in EPEL 9)."
       }
     },
     "icon": "monitoring",
@@ -7777,15 +7695,12 @@
         "packages": [
           "rabbitmq-server"
         ],
-        "service": "",
+        "service": "rabbitmq-server",
         "user": "rabbitmq"
       },
       "redhat": {
-        "packages": [
-          "rabbitmq-server"
-        ],
-        "service": "rabbitmq-server",
-        "source": "curated",
+        "source": "verified",
+        "unavailable": "rabbitmq-server is not in the EL9 repositories; it comes from the RabbitMQ/PackageCloud repository.",
         "user": "rabbitmq"
       }
     },
@@ -7796,10 +7711,11 @@
   },
   "radicale": {
     "category": "",
-    "description": "Configure /etc/default/radicale (shipped by radicale).",
+    "description": "Configure /etc/radicale/config.",
     "families": {
       "debian": {
-        "config_path": "/etc/default/radicale",
+        "config_path": "/etc/radicale/config",
+        "init": "chown radicale:radicale /var/lib/radicale/collections",
         "packages": [
           "radicale"
         ],
@@ -7811,7 +7727,7 @@
     "label": "radicale",
     "service_evidence": "systemd unit shipped by the package, with an [Install] section",
     "source": "index-promoted",
-    "template": "radicale"
+    "template": "radicale-config"
   },
   "radvd": {
     "category": "",
@@ -7856,7 +7772,7 @@
     "description": "Configure /etc/init.d/rbldns (shipped by rbldns).",
     "families": {
       "debian": {
-        "config_path": "/etc/init.d/rbldns",
+        "config_path": "",
         "packages": [
           "rbldns"
         ],
@@ -7872,10 +7788,11 @@
   },
   "rbootd": {
     "category": "",
-    "description": "Configure /etc/rbootd.conf (shipped by rbootd).",
+    "description": "Configure /etc/default/rbootd.",
     "families": {
       "debian": {
-        "config_path": "/etc/rbootd.conf",
+        "config_path": "/etc/default/rbootd",
+        "init": "mkdir -p /var/lib/rbootd",
         "packages": [
           "rbootd"
         ],
@@ -7949,32 +7866,6 @@
     "icon": "memory",
     "kind": "role",
     "label": "Redis In-Memory Store",
-    "template": "redis"
-  },
-  "redis-server": {
-    "category": "database",
-    "description": "An in-memory data structure store used as a database, cache, and message broker.",
-    "families": {
-      "debian": {
-        "config_path": "/etc/redis/redis.conf",
-        "packages": [
-          "redis-server"
-        ],
-        "service": ""
-      },
-      "redhat": {
-        "config_path": "/etc/redis/redis.conf",
-        "packages": [
-          "redis"
-        ],
-        "service": "redis",
-        "source": "curated",
-        "user": "redis"
-      }
-    },
-    "icon": "storage",
-    "kind": "role",
-    "label": "Redis Server",
     "template": "redis"
   },
   "redsocks": {
@@ -8065,7 +7956,7 @@
         "packages": [
           "rspamd"
         ],
-        "service": ""
+        "service": "rspamd"
       }
     },
     "icon": "filter_alt",
@@ -8075,10 +7966,10 @@
   },
   "rsync": {
     "category": "",
-    "description": "Configure /etc/default/rsync (shipped by rsync).",
+    "description": "Configure /etc/rsyncd.conf.",
     "families": {
       "debian": {
-        "config_path": "/etc/default/rsync",
+        "config_path": "/etc/rsyncd.conf",
         "packages": [
           "rsync"
         ],
@@ -8090,7 +7981,7 @@
     "label": "rsync",
     "service_evidence": "systemd unit shipped by the package, with an [Install] section",
     "source": "index-promoted",
-    "template": "rsync"
+    "template": "rsyncd.conf"
   },
   "rsyslog": {
     "category": "services",
@@ -8101,14 +7992,14 @@
         "packages": [
           "rsyslog"
         ],
-        "service": ""
+        "service": "rsyslog"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/rsyslog.conf",
         "packages": [
           "rsyslog"
         ],
-        "service": "",
+        "service": "rsyslog",
         "source": "verified"
       }
     },
@@ -8180,7 +8071,7 @@
     "icon": "folder_shared",
     "kind": "role",
     "label": "Samba File Sharing",
-    "template": "samba",
+    "template": "smb.conf",
     "validate_cmd": "testparm -s"
   },
   "sarg": {
@@ -8287,7 +8178,7 @@
         "packages": [
           "slapd"
         ],
-        "service": ""
+        "service": "slapd"
       },
       "redhat": {
         "config_path": "",
@@ -8406,7 +8297,7 @@
     "label": "sniproxy",
     "service_evidence": "systemd unit shipped by the package, with an [Install] section",
     "source": "index-promoted",
-    "template": "sniproxy"
+    "template": "sniproxy.conf"
   },
   "snmp.conf": {
     "category": "system",
@@ -8567,15 +8458,15 @@
         "packages": [
           "squid"
         ],
-        "service": "",
+        "service": "squid",
         "user": "proxy"
       },
       "redhat": {
-        "config_path": "",
+        "config_path": "/etc/squid/squid.conf",
         "packages": [
           "squid"
         ],
-        "service": "",
+        "service": "squid",
         "source": "verified",
         "user": "squid"
       }
@@ -8693,6 +8584,7 @@
       },
       "redhat": {
         "config_path": "/etc/ssh/sshd_config",
+        "init": "ssh-keygen -A",
         "packages": [
           "openssh-server"
         ],
@@ -8703,15 +8595,15 @@
     "icon": "vpn_key",
     "kind": "role",
     "label": "OpenSSH Server",
-    "template": null,
+    "template": "sshd_config",
     "validate_cmd": "sshd -t"
   },
   "ssmtp": {
     "category": "",
-    "description": "Configure /etc/logcheck/ignore.d.server/ssmtp (shipped by ssmtp).",
+    "description": "Configure /etc/ssmtp/ssmtp.conf.",
     "families": {
       "debian": {
-        "config_path": "/etc/logcheck/ignore.d.server/ssmtp",
+        "config_path": "/etc/ssmtp/ssmtp.conf",
         "packages": [
           "ssmtp"
         ],
@@ -8731,10 +8623,11 @@
     "families": {
       "debian": {
         "config_path": "/etc/sssd/sssd.conf",
+        "init": "test -e /etc/sssd/sssd.conf || install -m 0600 -o root -g root /dev/null /etc/sssd/sssd.conf",
         "packages": [
           "sssd"
         ],
-        "service": ""
+        "service": "sssd"
       }
     },
     "icon": "security",
@@ -8977,15 +8870,15 @@
   },
   "syslog-ng-core": {
     "category": "",
-    "description": "Configure /etc/syslog-ng/syslog-ng.conf (shipped by syslog-ng, syslog-ng-core).",
+    "description": "Configure /etc/default/syslog-ng.",
     "families": {
       "debian": {
-        "config_path": "/etc/syslog-ng/syslog-ng.conf",
+        "config_path": "/etc/default/syslog-ng",
         "packages": [
           "syslog-ng",
           "syslog-ng-core"
         ],
-        "service": ""
+        "service": "syslog-ng.service"
       }
     },
     "icon": "description",
@@ -9101,7 +8994,7 @@
     "description": "Configure /etc/logcheck/ignore.d.server/talkd (shipped by talkd).",
     "families": {
       "debian": {
-        "config_path": "/etc/logcheck/ignore.d.server/talkd",
+        "config_path": "",
         "packages": [
           "talkd"
         ],
@@ -9259,19 +9152,12 @@
     "description": "Cloud-native edge router / reverse proxy (file provider).",
     "families": {
       "debian": {
-        "config_path": "/etc/traefik/traefik.yml",
-        "packages": [
-          "traefik"
-        ],
-        "service": "traefik"
+        "source": "curated",
+        "unavailable": "Traefik is not packaged in Debian 13; it ships as a binary or container image upstream."
       },
       "redhat": {
-        "config_path": "",
-        "packages": [
-          "traefik"
-        ],
-        "service": "traefik",
-        "source": "verified"
+        "source": "verified",
+        "unavailable": "Traefik is not packaged for Enterprise Linux 9; it ships as a binary or container image upstream."
       }
     },
     "icon": "hub",
@@ -9381,7 +9267,7 @@
         "packages": [
           "ufw"
         ],
-        "service": ""
+        "service": "ufw"
       },
       "redhat": {
         "instead": "firewalld",
@@ -9479,7 +9365,7 @@
         "packages": [
           "varnish"
         ],
-        "service": "",
+        "service": "varnish",
         "user": "varnish"
       },
       "redhat": {
@@ -9795,7 +9681,7 @@
     "description": "Configure /etc/X11/Xsession.d/90xbrlapi (shipped by xbrlapi).",
     "families": {
       "debian": {
-        "config_path": "/etc/X11/Xsession.d/90xbrlapi",
+        "config_path": "",
         "packages": [
           "xbrlapi"
         ],

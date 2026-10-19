@@ -9,6 +9,7 @@ import uuid
 from tests.naming import owned_name
 from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, text
 
@@ -19,6 +20,29 @@ from bossman.services.imaging import layout_to_dict, parse_layout
 
 GiB = 1024**3
 SECRET = "netboot-test-secret"
+
+
+@pytest.fixture(autouse=True)
+async def _netboot_settings_isolated(db_session):
+    """These tests drive /netboot/* with the env secret, which only governs while the DB holds NO secret. The
+    settings row is the shared, LIVE one, so it is blanked for the test and restored exactly afterwards — not
+    left as found by accident (measured 2026-10-18: a live secret made seven of these fail, and the toggle test
+    used to switch the real netboot off)."""
+    from uuid import UUID as _UUID
+
+    from bossman.db.models import SYSTEM_SETTINGS_ID, SystemSettings
+
+    row = await db_session.get(SystemSettings, _UUID(SYSTEM_SETTINGS_ID))
+    before = (row.netboot_secret, row.netboot_enabled) if row is not None else None
+    if row is not None:
+        row.netboot_secret = ""
+        await db_session.commit()
+    yield
+    if before is not None:
+        row = await db_session.get(SystemSettings, _UUID(SYSTEM_SETTINGS_ID))
+        await db_session.refresh(row)
+        row.netboot_secret, row.netboot_enabled = before
+        await db_session.commit()
 
 SDA = {
     "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None, "rm": False,
@@ -574,25 +598,30 @@ async def test_netboot_toggle_disables_checkin_even_with_a_db_secret(db_session,
     if row is None:
         row = SystemSettings(id=_UUID(SYSTEM_SETTINGS_ID), yolo_mode=False)
         db_session.add(row)
+    # This is the shared, LIVE settings row (the PXE container gates DHCP on it). Measured 2026-10-18: the old
+    # version ended by clearing the secret and switching netboot off — every test run disabled the real
+    # netboot — and a failed assertion left the repo's test secret in place as the live one. So the previous
+    # values are restored whatever happens.
+    before = (row.netboot_secret, row.netboot_enabled)
     row.netboot_secret = SECRET
     row.netboot_enabled = False
     await db_session.commit()
-
-    with TestClient(create_app()) as client:
-        off = client.get("/api/v1/netboot/pending", headers=_secret_headers())
-        assert off.status_code == 403 and "disabled" in off.text
-        # Flip it on → the same correct secret now passes.
-        row.netboot_enabled = True
+    try:
+        with TestClient(create_app()) as client:
+            off = client.get("/api/v1/netboot/pending", headers=_secret_headers())
+            assert off.status_code == 403 and "disabled" in off.text
+            # Flip it on → the same correct secret now passes.
+            row.netboot_enabled = True
+            await db_session.commit()
+            on = client.get("/api/v1/netboot/pending", headers=_secret_headers())
+            # dhcp itself depends on whatever jobs the shared DB holds; the gate opening is what is tested.
+            assert on.status_code == 200 and on.json()["dhcp_mode"] in ("off", "restricted", "open")
+            # A wrong secret is still rejected while enabled.
+            bad = client.get("/api/v1/netboot/pending", headers={"X-Netboot-Secret": "nope"})
+            assert bad.status_code == 403 and "bad netboot secret" in bad.text
+    finally:
+        row.netboot_secret, row.netboot_enabled = before
         await db_session.commit()
-        on = client.get("/api/v1/netboot/pending", headers=_secret_headers())
-        assert on.status_code == 200 and on.json()["dhcp"] is False  # no armed jobs
-        # A wrong secret is still rejected while enabled.
-        bad = client.get("/api/v1/netboot/pending", headers={"X-Netboot-Secret": "nope"})
-        assert bad.status_code == 403 and "bad netboot secret" in bad.text
-
-    row.netboot_secret = ""
-    row.netboot_enabled = False
-    await db_session.commit()
 
 
 async def test_deployment_template_save_list_and_delete(db_session):

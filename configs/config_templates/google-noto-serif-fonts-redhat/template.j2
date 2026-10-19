@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Google Noto Serif Fonts Configuration for Red Hat.
+    This file injects Noto Serif as a preferred fallback for generic 'serif' families.
+  -->
+
+  <!--
+    Match generic 'serif' family and prepend Noto Serif to the list of available serif fonts.
+    This ensures applications requesting 'serif' will try Noto Serif first.
+  -->
+  <match>
+    <test name="family">
+      <string>serif</string>
+    </test>
+
+    <!--
+      The name of the Noto Serif font family to be added as a serif font.
+      Default: 'Noto Serif'
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ notoserif_family | default('Noto Serif') }}</string>
+    </edit>
+
+    <!--
+      Whether to disable font hinting for Noto Serif.
+      Note: In fontconfig, 'append' to a boolean edit typically means setting the value.
+      The schema variable 'notoserif_fonthashint' is expected to be a boolean string ('true' or 'false').
+      Default: 'false' (Hinting is enabled by default)
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ notoserif_fonthashint | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias definition: Maps the generic 'serif' family to Noto Serif as the primary choice.
+    This reinforces the fallback logic above.
+  -->
+  <alias>
+    <!--
+      The family to be aliased (generic serif).
+    -->
+    <family>serif</family>
+    <default>
+      <!--
+        The preferred font family name. Must match the family defined in the match/edit block above.
+      -->
+      <family>{{ notoserif_family | default('Noto Serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

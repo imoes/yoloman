@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Khmer OS Bokor Font Configuration
+    Maps the Khmer OS Bokor font to specific families and locales.
+    This template generates a fontconfig alias and match rule.
+  -->
+
+  <!-- Generic name aliasing: Maps a generic family to the specific font -->
+  <alias>
+    <!-- The font family to use as the default for generic families -->
+    <default>
+      <!-- Default generic font family (e.g., monospace, sans-serif) -->
+      <family>{{ default_family | default('monospace') }}</family>
+    </default>
+
+    <!-- The specific font family name to inject -->
+    <family>{{ font_family | default('Khmer OS Bokor') }}</family>
+  </alias>
+
+  <!--
+    Locale-specific override:
+    When the current locale matches `locale_code`,
+    and the target family is `match_family`,
+    prepend `edit_family` to the list of available fonts.
+  -->
+  <match>
+    <!-- Test if the current locale language contains the specified code -->
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+
+    <!-- Test if the target font family matches the specified family name -->
+    <test name="family">
+      <string>{{ match_family | default('monospace') }}</string>
+    </test>
+
+    <!-- Edit operation: Prepend the specific font to the family list -->
+    <edit name="family" mode="prepend">
+      <string>{{ edit_family | default('Khmer OS Bokor') }}</string>
+    </edit>
+  </match>
+</fontconfig>

@@ -1,0 +1,25 @@
+# atuin initialization script for all users
+# Currently only bash and zsh is supported
+
+# Check for bash environment
+if [ -n "${BASH_VERSION-}" ]; then
+  # Skip noninteractive shells.
+  [[ $- != *i* ]] && return
+
+  # Use the statically written atuin init script
+  # Path to the bash initialization script for atuin.
+  source {{ atuin_init_bash_path | default('/usr/libexec/atuin/atuin-init.bash') }}
+
+# Check for zsh environment
+elif [ -n "${ZSH_VERSION-}" ]; then
+  # Skip noninteractive shells.
+  [[ $- != *i* ]] && return
+
+  # The /etc/zprofile script calls 'emulate -L ksh', to make zsh
+  # happier when sourcing files in /etc/profile.d. However, atuin
+  # needs some zsh-specific functions (i.e. compinit), so we emulate
+  # zsh when sourcing the statically written atuin init script. See
+  # /etc/zprofile or 'man zshbuiltins' for more details.
+  # Path to the zsh initialization script for atuin.
+  emulate zsh -c "source {{ atuin_init_zsh_path | default('/usr/libexec/atuin/atuin-init.zsh') }}"
+fi

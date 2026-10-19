@@ -1,0 +1,81 @@
+#
+#  subunit.sh: shell functions to report test status via the subunit protocol.
+#  Copyright (C) 2006  Robert Collins <robertc@robertcollins.net>
+#
+#  Licensed under either the Apache License, Version 2.0 or the BSD 3-clause
+#  license at the users choice. A copy of both licenses are available in the
+#  project source as Apache-2.0 and BSD. You may not use this file except in
+#  compliance with one of these two licences.
+#  
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under these licenses is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+#  license you chose for the specific language governing permissions and
+#  limitations under that license.
+#
+
+# Function: subunit_start_test
+# Description: Emit the current protocol start-marker for the specified test.
+# Parameter: $1 - The name of the test being started.
+subunit_start_test () {
+  # Emit the UTC timestamp in ISO 8601 format compatible with subunit protocol
+  echo "time: `date -u '+%Y-%m-%d %H:%M:%SZ'`"
+  # Emit the test name identifier
+  echo "test: $1"
+}
+
+# Function: subunit_pass_test
+# Description: Emit the current protocol test passed marker for the specified test.
+# Parameter: $1 - The name of the test that passed.
+subunit_pass_test () {
+  # Emit the UTC timestamp in ISO 8601 format compatible with subunit protocol
+  echo "time: `date -u '+%Y-%m-%d %H:%M:%SZ'`"
+  # Emit the success marker with the test name
+  echo "success: $1"
+}
+
+# Function: subunit_fail_test
+# Description: Emit the current protocol fail-marker for the specified test, and emit stdin as
+# the error text.
+# Parameter: $1 - The name of the test that failed.
+# Standard Input: The failure message or error output.
+subunit_fail_test () {
+  # Emit the UTC timestamp in ISO 8601 format compatible with subunit protocol
+  echo "time: `date -u '+%Y-%m-%d %H:%M:%SZ'`"
+  # Emit the failure marker with the test name and opening bracket for the body
+  echo "failure: $1 ["
+  # Read and emit the body of the failure message from stdin
+  # stdin is used because the failure message can be arbitrarily long, and this
+  # makes it convenient to write in scripts (using <<END syntax).
+  cat -
+  # Close the failure body bracket
+  echo "]"
+}
+
+# Function: subunit_error_test
+# Description: Emit the current protocol error-marker for the specified test, and emit stdin as
+# the error text.
+# Parameter: $1 - The name of the test that errored.
+# Standard Input: The error output.
+subunit_error_test () {
+  # Emit the UTC timestamp in ISO 8601 format compatible with subunit protocol
+  echo "time: `date -u '+%Y-%m-%d %H:%M:%SZ'`"
+  # Emit the error marker with the test name and opening bracket for the body
+  echo "error: $1 ["
+  # Read and emit the body of the error message from stdin
+  # stdin is used because the error message can be arbitrarily long, and this
+  # makes it convenient to write in scripts (using <<END syntax).
+  cat -
+  # Close the error body bracket
+  echo "]"
+}
+
+# Function: subunit_skip_test
+# Description: Emit the current protocol test skipped marker for the specified test.
+# Parameter: $1 - The name of the test that was skipped.
+subunit_skip_test () {
+  # Emit the UTC timestamp in ISO 8601 format compatible with subunit protocol
+  echo "time: `date -u '+%Y-%m-%d %H:%M:%SZ'`"
+  # Emit the skip marker with the test name
+  echo "skip: $1"
+}

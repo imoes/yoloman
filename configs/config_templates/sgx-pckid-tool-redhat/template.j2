@@ -1,0 +1,78 @@
+# #############################################################
+# Configuration for sgx-pckid-tool
+# This file configures the connection to the Platform Certification Service (PCCS)
+# and proxy settings required for SGX attestation certificate retrieval.
+# #############################################################
+
+# #############################################################
+# PCCS Server Address Configuration
+# Specifies the endpoint for the PCCS API used to retrieve platform certificates.
+# Only one version (V3 or V4) should be active at a time.
+# ############################################################
+
+# PCCS V3 API Endpoint
+# Description: PCCS server address for V3 API version. Used in commented default example.
+# Default: localhost:8081/sgx/certification/v3/platforms
+# Note: The URL scheme (https://) is often prepended externally; this variable holds the host/path.
+#PCCS_URL=https://{{ pccs_url_v3 | default('localhost:8081/sgx/certification/v3/platforms') }}
+
+# PCCS V4 API Endpoint
+# Description: PCCS server address for V4 API version. Used in commented default example.
+# Default: localhost:8081/sgx/certification/v4/platforms
+# Note: The URL scheme (https://) is often prepended externally; this variable holds the host/path.
+#PCCS_URL=https://{{ pccs_url_v4 | default('localhost:8081/sgx/certification/v4/platforms') }}
+
+# #############################################################
+# HTTPS Certificate Verification
+# Description: Whether to use secure HTTPS certificate. TRUE or FALSE.
+# Default: Empty (defaults to TRUE/secure in many implementations, or explicitly set)
+# Note: Setting to FALSE disables certificate verification (insecure).
+# ############################################################
+{% if use_secure_cert | default('') %}USE_SECURE_CERT={{ use_secure_cert | default('') }}
+{% else %}#USE_SECURE_CERT=TRUE
+{% endif %}
+
+# #############################################################
+# TCB Update Type (REQ Mode Only)
+# Description: TCB update type when PCCS is running in REQ mode. Options: STANDARD, EARLY, ALL.
+# Default: STANDARD
+# Note: This setting is ignored if PCCS is not in REQ mode.
+# ############################################################
+{% if tcb_update_type | default('STANDARD') %}TCB_UPDATE_TYPE={{ tcb_update_type | default('STANDARD') }}
+{% else %}#TCB_UPDATE_TYPE=EARLY
+{% endif %}
+
+###############################################################
+
+# #############################################################
+# PCCS Authentication Token
+# Description: User token required to access PCCS. Empty string if not used.
+# Note: This token is used for authentication/authorization with the PCCS service.
+# ############################################################
+{% if user_token | default('') %}user_token = {{ user_token | default('') }}
+{% else %}#user_token =
+{% endif %}
+
+###############################################################
+
+# #############################################################
+# Proxy Settings
+# Configures the HTTP/HTTPS proxy used to reach the PCCS server.
+# Proxy types: direct, default, manual.
+# ############################################################
+
+# Proxy Type
+# Description: Proxy type. Options: direct, default, manual.
+# Default: manual
+# Note: 'direct' means no proxy. 'default' uses system environment variables. 'manual' requires proxy_url.
+#proxy_type    = {{ proxy_type | default('manual') }}
+
+# Proxy URL
+# Description: Proxy URL used when proxy_type is set to manual.
+# Default: Empty
+# Note: Required only if proxy_type is 'manual'. Format: http://username:password@host:port
+{% if proxy_url | default('') %}proxy_url   = {{ proxy_url | default('') }}
+{% else %}#proxy_url   = http://proxy_url:proxy_port
+{% endif %}
+
+###############################################################

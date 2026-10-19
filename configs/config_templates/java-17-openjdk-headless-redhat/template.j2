@@ -1,0 +1,85 @@
+############################################################
+#  	Default Logging Configuration File
+#
+# You can use a different file by specifying a filename
+# with the java.util.logging.config.file system property.
+# For example, java -Djava.util.logging.config.file=myfile
+############################################################
+
+############################################################
+#  	Global properties
+############################################################
+
+# handlers: Comma-separated list of log Handler classes.
+# Default: java.util.logging.ConsoleHandler
+handlers={{ java_logging_handlers | default(' java.util.logging.ConsoleHandler') }}
+
+# To also add the FileHandler, use the following line instead.
+#handlers= java.util.logging.FileHandler, java.util.logging.ConsoleHandler
+
+# .level: Default global logging level.
+# This specifies which kinds of events are logged across
+# all loggers. For any given facility this global level
+# can be overridden by a facility-specific level.
+# Note that the ConsoleHandler also has a separate level
+# setting to limit messages printed to the console.
+# Default: INFO
+.level={{ java_logging_level | default(' INFO') }}
+
+############################################################
+# Handler specific properties.
+# Describes specific configuration info for Handlers.
+############################################################
+
+# default file output is in user's home directory.
+
+# java.util.logging.FileHandler.pattern: Pattern for the FileHandler output file.
+# Supports special tokens like %h (user.home), %u (unique number), etc.
+# Default: %h/java%u.log
+java.util.logging.FileHandler.pattern = {{ java_logging_file_handler_pattern | default('%h/java%u.log') }}
+
+# java.util.logging.FileHandler.limit: Maximum size in bytes for a single log file.
+# If the log file exceeds this size, it will be rotated (if count > 1).
+# Default: 50000
+java.util.logging.FileHandler.limit = {{ java_logging_file_handler_limit | default('50000') }}
+
+# java.util.logging.FileHandler.count: Number of log files to use.
+# If set to 1, no rotation occurs; if > 1, files are rotated up to this count.
+# Default: 1
+java.util.logging.FileHandler.count = {{ java_logging_file_handler_count | default('1') }}
+
+# java.util.logging.FileHandler.maxLocks: Maximum number of attempts to obtain lock file by FileHandler.
+# This specifies maximum number of attempts to obtain lock file by FileHandler
+# implemented by incrementing the unique field %u as per FileHandler API documentation.
+# Default: 100
+java.util.logging.FileHandler.maxLocks = {{ java_logging_file_handler_max_locks | default('100') }}
+
+# java.util.logging.FileHandler.formatter: Formatter class for the FileHandler.
+# Determines the output format of log records written to the file.
+# Default: java.util.logging.XMLFormatter
+java.util.logging.FileHandler.formatter = {{ java_logging_file_handler_formatter | default('java.util.logging.XMLFormatter') }}
+
+# java.util.logging.ConsoleHandler.level: Logging level for the ConsoleHandler.
+# Limits the messages that are printed on the console.
+# Default: INFO
+java.util.logging.ConsoleHandler.level = {{ java_logging_console_handler_level | default('INFO') }}
+
+# java.util.logging.ConsoleHandler.formatter: Formatter class for the ConsoleHandler.
+# Determines the output format of log records written to the console.
+# Default: java.util.logging.SimpleFormatter
+java.util.logging.ConsoleHandler.formatter = {{ java_logging_console_handler_formatter | default('java.util.logging.SimpleFormatter') }}
+
+# Example to customize the SimpleFormatter output format
+# to print one-line log message like this:
+#     <level>: <log message> [<date/time>]
+#
+# java.util.logging.SimpleFormatter.format=%4$s: %5$s [%1$tc]%n
+
+############################################################
+# Facility-specific properties.
+# Provides extra control for each logger.
+############################################################
+
+# For example, set the com.xyz.foo logger to only log SEVERE
+# messages:
+# com.xyz.foo.level = SEVERE

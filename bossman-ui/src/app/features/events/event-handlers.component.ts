@@ -17,6 +17,7 @@ import {
 } from '../../core/models/event-handler.model';
 import { EventHandlerService } from '../../core/services/event-handler.service';
 import { WizardService } from '../../core/services/wizard.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 function emptyDraft(): EventHandlerInput {
   return {
@@ -52,7 +53,7 @@ function emptyDraft(): EventHandlerInput {
 @Component({
   selector: 'app-event-handlers',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatIconModule, MatButtonModule, MatCheckboxModule,
   ],
@@ -248,11 +249,10 @@ function emptyDraft(): EventHandlerInput {
               <mat-checkbox [checked]="d.enabled" (change)="patch({ enabled: !d.enabled })">Enabled</mat-checkbox>
 
               <div class="bm-save-row">
-                <button mat-flat-button [disabled]="!canSave() || saving()" (click)="save()">
+                <button mat-flat-button [disabled]="saving()" [bmBlocked]="blocker()" (click)="save()">
                   <mat-icon>save</mat-icon> {{ isNew() ? 'Create' : 'Save' }}
                 </button>
                 <button mat-button (click)="cancel()">Cancel</button>
-                @if (blocker(); as b) { <span class="bm-dim">{{ b }}</span> }
               </div>
 
               <!-- availability: only meaningful for a local body -->
@@ -335,8 +335,8 @@ function emptyDraft(): EventHandlerInput {
                 border-radius: 8px; padding: 10px 12px; }
       .bm-code { font-family: monospace; font-size: 12.5px; }
       .bm-table { width: 100%; border-collapse: collapse; max-width: 900px; }
-      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: 3px 12px 3px 0; }
-      .bm-table td { padding: 4px 12px 4px 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; }
+      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; }
+      .bm-table td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
       .bm-in { width: 100%; max-width: 200px; background: transparent; color: inherit; font: inherit;
                font-size: 12.5px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; padding: 4px 6px; }
       .bm-sel { max-width: 120px; }

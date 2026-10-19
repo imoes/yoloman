@@ -69,13 +69,17 @@ class ChatClient:
         # against this endpoint measured ~79 tokens/sec on a trivial
         # completion, so a multi-hundred-token structured translation is
         # comfortably a tens-of-seconds affair; 300s leaves real headroom.
-        timeout: float = 300.0,
+        timeout: float | None = 300.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        # None = keep retrying transient failures for as long as it takes. The qualify batch runs unattended while
+        # the GPU may be shared with another job; giving up after 7 tries dropped a package it would have finished.
+        max_attempts: int | None = _MAX_ATTEMPTS,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.token = token
         self._timeout = timeout
+        self._max_attempts = max_attempts
         # Only ever set by tests (httpx.MockTransport) — None means "use
         # httpx's normal network transport", the same test seam
         # EmbeddingClient/AgentClient use.
@@ -93,7 +97,10 @@ class ChatClient:
         exhausting retries."""
         url = f"{self.base_url}/v1/chat/completions"
         last = "no attempt made"
-        for attempt in range(_MAX_ATTEMPTS):
+        attempts = self._max_attempts
+        attempt = -1
+        while attempts is None or attempt < attempts - 1:
+            attempt += 1
             rate_limited = False
             try:
                 async with self._client() as client:
@@ -110,15 +117,15 @@ class ChatClient:
                     raise ChatClientError(f"{self.base_url}: unexpected status {resp.status_code}: {resp.text[:4096]}")
                 last = f"status {resp.status_code}: {resp.text[:200]}"
                 rate_limited = resp.status_code == 429
-            if attempt < _MAX_ATTEMPTS - 1:
+            if attempts is None or attempt < attempts - 1:
                 ceiling = _RATE_LIMIT_MAX_DELAY if rate_limited else _MAX_DELAY
                 delay = min(_BASE_DELAY * (attempt + 1), ceiling)
                 logger.warning(
-                    "%s: transient (%s); retry %d/%d in %.0fs",
-                    self.base_url, last, attempt + 1, _MAX_ATTEMPTS - 1, delay,
+                    "%s: transient (%s); retry %d/%s in %.0fs",
+                    self.base_url, last, attempt + 1, "∞" if attempts is None else attempts - 1, delay,
                 )
                 await asyncio.sleep(delay)
-        raise ChatClientError(f"{self.base_url}: giving up after {_MAX_ATTEMPTS} attempts: {last}")
+        raise ChatClientError(f"{self.base_url}: giving up after {attempts} attempts: {last}")
 
     async def complete_json(
         self,

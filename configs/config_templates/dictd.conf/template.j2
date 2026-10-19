@@ -1,43 +1,58 @@
-# dictd.conf - Configuration for the dictd dictionary server
-# This file defines the network port, idle timeout, access control lists,
-# and available dictionary databases.
+# /etc/dictd/dictd.conf
 
-# Global settings
+# This is the configuration file for /usr/sbin/dictd.  The access
+# specification included in this file allows access only from the
+# localhost.  If this machine is acting as a server for a network you
+# will probably want to add additional access specifications in this
+# file.  See the dictd manpage - man dictd.
 
-# TCP port for the dictd server to listen on.
-# Default: 2628
-port: {{ port | default(2628) }}
+# A sample database section is generated automatically upon
+# installation or removal of the dictd package or any dictionary
+# database package.  Replace the ``include /var/lib/dictd/db.list''
+# line below if you wish to provide a custom database section.
+# Customization may also be achieved via the optional dictdconfig
+# order override file /etc/dictd/dictd.order.  See the dictdconfig
+# manpage - man dictdconfig.
 
-# Idle timeout in seconds before disconnecting a client.
-# A value of 0 means no limit.
-# Default: 0
-delay: {{ delay | default(0) }}
+# Older dictionary database packages did not automatically
+# invoke /usr/sbin/dictdconfig upon installation and removal,
+# so you may need to do so manually.
 
-# List of allowed client hosts/networks (CIDR or IP).
-# If empty, all hosts are allowed.
-# Format matches dictd.conf allow directive (e.g., '10.0.0.0/8').
-# Default: [] (empty list)
-{% for item in allow | default([]) %}
-allow {{ item }}
-{% endfor %}
+# Site section here:
 
-# List of denied client hosts/networks (overrides `allow`).
-# Format matches `allow`.
-# Default: [] (empty list)
-{% for item in deny | default([]) %}
-deny {{ item }}
-{% endfor %}
+global {
+# Address dictd binds to (listen_to). Default: 127.0.0.1
+listen_to {{ listen_to | default('127.0.0.1') }}
+# bind to local interfacea only
+# TCP port dictd listens on (port). Unset = the built-in 2628.
+{% if port is defined and port is not none and (port is number or port | length > 0) %}port {{ port }}
+{% else %}# port 2628
+{% endif %}# Idle timeout in seconds before a client is disconnected (delay). Unset = no limit.
+{% if delay is defined and delay is not none and (delay is number or delay | length > 0) %}delay {{ delay }}
+{% else %}# delay 0
+{% endif %}}
 
-# List of dictionary databases to make available.
-# Each entry maps a database name to its data and index files.
-# Default: [] (empty list)
-{% for dict_source in dictionaries | default([]) %}
-# Dictionary: {{ dict_source.name | default('') }}
-database {{ dict_source.name | default('') }} {
-  data {{ dict_source.datafile | default('') }}
-  index {{ dict_source.index | default('') }}
-{% if dict_source.short_name is defined %}  name "{{ dict_source.short_name }}"
-{% endif %}{% if dict_source.desc is defined %}  info "{{ dict_source.desc }}"
-{% endif %}
-}
+# Access section here:
+
+access {
+# Hosts/networks allowed to connect (allow), one per line: a name, an IP, a pattern
+# (192.168.1.*) or "inetd" for the inetd server. Default: localhost, 127.0.0.1, inetd
+{% for item in allow | default(['localhost', '127.0.0.1', 'inetd']) %}allow {{ item }}
+{% endfor %}# Hosts/networks refused even when an allow matches (deny). Default: none
+{% for item in deny | default([]) %}deny {{ item }}
+{% endfor %}}
+
+# Database section here:
+
+include /var/lib/dictd/db.list
+
+# User section here:
+# Extra databases beyond db.list (dictionaries): each entry needs name, datafile and
+# index; short_name and desc are optional. Default: none
+{% for d in dictionaries | default([]) %}database {{ d.name }} {
+  data "{{ d.datafile }}"
+  index "{{ d.index }}"
+{% if d.short_name is defined %}  name "{{ d.short_name }}"
+{% endif %}{% if d.desc is defined %}  info "{{ d.desc }}"
+{% endif %}}
 {% endfor %}

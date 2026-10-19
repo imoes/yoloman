@@ -1,0 +1,173 @@
+{
+  "_comment": "Kubernetes `reason` strings → what they mean and what to do. Read by bossman/services/kubernetes.py (explain) and shown wherever a state pill, a pod row or a Warning event carries the reason. The rule it serves: nothing is red without the reader being able to reach WHY (sufficient reason). `doc` points at the kubernetes.io page the explanation is taken from. Add a reason = add an entry; unknown reasons are still shown, just without the explanation.",
+  "reasons": {
+    "ImagePullBackOff": {
+      "title": "Image cannot be pulled",
+      "explanation": "The node tried to pull the container image and failed; it now retries with a growing delay (up to 5 minutes). The usual causes: the image name or tag is wrong, the image was never pushed, or the registry is private and the pod has no matching imagePullSecret.",
+      "fix": "Check the image name and tag in the workload's container (a typo or a tag that does not exist is the most common cause). For a private registry add an image pull secret and reference it in the pod or its ServiceAccount.",
+      "doc": "https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy"
+    },
+    "ErrImagePull": {
+      "title": "Image pull failed",
+      "explanation": "The most recent attempt to pull the image failed. ImagePullBackOff follows once the retries back off.",
+      "fix": "Same as ImagePullBackOff: verify the image reference, the registry's reachability from the node, and pull credentials.",
+      "doc": "https://kubernetes.io/docs/concepts/containers/images/"
+    },
+    "InvalidImageName": {
+      "title": "Image reference is not valid",
+      "explanation": "The image string cannot be parsed as [registry/]name[:tag][@digest].",
+      "fix": "Correct the image reference; uppercase letters and spaces are not allowed in the repository name.",
+      "doc": "https://kubernetes.io/docs/concepts/containers/images/#image-names"
+    },
+    "ErrImageNeverPull": {
+      "title": "Image not present and pulls are disabled",
+      "explanation": "imagePullPolicy is Never and the node does not have the image locally.",
+      "fix": "Pre-load the image on every node, or set imagePullPolicy to IfNotPresent.",
+      "doc": "https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy"
+    },
+    "CrashLoopBackOff": {
+      "title": "Container keeps crashing",
+      "explanation": "The container starts, exits, and is restarted by the kubelet with a growing delay (10 s, 20 s, 40 s … up to 5 min). The exit code and the previous container's log say why it exits: a missing config or environment variable, a wrong command, a port already in use, or a failing liveness probe.",
+      "fix": "Open the Logs tab with 'previous' to read the crashed container's output. Check the exit code: 1 = application error, 137 = killed (often OOM), 139 = segfault. If a liveness probe is failing, give the app a startup probe or loosen the probe.",
+      "doc": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/"
+    },
+    "OOMKilled": {
+      "title": "Killed for exceeding its memory limit",
+      "explanation": "The container used more memory than its limit, so the kernel killed it (exit code 137). The kubelet then restarts it.",
+      "fix": "Raise the memory limit, or fix the leak. Check the unit: '400m' means 0.4 BYTES of memory, a classic typo for '400Mi'.",
+      "doc": "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#how-pods-with-resource-limits-are-run"
+    },
+    "CreateContainerConfigError": {
+      "title": "Container configuration cannot be built",
+      "explanation": "The kubelet could not assemble the container: a referenced ConfigMap or Secret (for env, envFrom or a volume) does not exist in this namespace, or a key is missing.",
+      "fix": "Create the missing ConfigMap/Secret in the pod's namespace, or mark the reference optional.",
+      "doc": "https://kubernetes.io/docs/concepts/configuration/configmap/#configmaps-and-pods"
+    },
+    "CreateContainerError": {
+      "title": "Runtime could not create the container",
+      "explanation": "The container runtime refused to create the container — usually an invalid command/args, a missing executable in the image, or an unsupported security setting.",
+      "fix": "Check the container's command and args exist inside the image, and the securityContext is supported by the runtime.",
+      "doc": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/"
+    },
+    "RunContainerError": {
+      "title": "Container failed to start",
+      "explanation": "The runtime created the container but it could not be started — for example a volume mount path that is a file, or an entrypoint that is not executable.",
+      "fix": "Compare volumeMounts against the image's filesystem and verify the entrypoint.",
+      "doc": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/"
+    },
+    "Unschedulable": {
+      "title": "No node can take this pod",
+      "explanation": "The scheduler found no node that satisfies the pod: not enough free CPU/memory for its requests, a nodeSelector/affinity that matches no node, a taint without a toleration, a hostPort already in use, or a volume that is bound to another zone.",
+      "fix": "Read the FailedScheduling event: it names each node and why it was rejected. Lower the requests, add nodes, fix the selector, or add the toleration.",
+      "doc": "https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/"
+    },
+    "FailedScheduling": {
+      "title": "Scheduling failed",
+      "explanation": "The event behind an Unschedulable pod. Its message lists every node and the reason it was rejected (Insufficient cpu, node(s) had untolerated taint, didn't match Pod's node affinity …).",
+      "fix": "Act on the per-node reason in the message.",
+      "doc": "https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/"
+    },
+    "FailedMount": {
+      "title": "A volume could not be mounted",
+      "explanation": "A volume the pod needs is not available: a PersistentVolumeClaim that is not bound, a ConfigMap/Secret that does not exist, or a storage backend that refused the mount.",
+      "fix": "Check the PVC is Bound (Storage → PersistentVolumeClaims) and that referenced ConfigMaps/Secrets exist in the namespace.",
+      "doc": "https://kubernetes.io/docs/concepts/storage/persistent-volumes/"
+    },
+    "FailedAttachVolume": {
+      "title": "A volume could not be attached to the node",
+      "explanation": "The storage driver could not attach the volume to the node — often because it is still attached elsewhere (ReadWriteOnce volumes attach to ONE node).",
+      "fix": "Wait for the old pod to terminate, or use a ReadWriteMany-capable storage class if several pods on different nodes must share the volume.",
+      "doc": "https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes"
+    },
+    "Evicted": {
+      "title": "Evicted from the node",
+      "explanation": "The kubelet removed this pod because the node ran out of a resource (memory, disk, PIDs). BestEffort pods (no requests) go first, then Burstable pods exceeding their requests.",
+      "fix": "Set resource requests so the pod has a guaranteed share, and give nodes headroom. The workload controller creates a replacement.",
+      "doc": "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/"
+    },
+    "ProgressDeadlineExceeded": {
+      "title": "Rollout stalled",
+      "explanation": "The Deployment did not make progress for progressDeadlineSeconds (default 10 min). Kubernetes does NOT roll back by itself; the Deployment stays in this state until you act. The new pods are usually failing — see the Pods tab.",
+      "fix": "Fix the pods' problem (image, config, probes) or roll back to the previous revision.",
+      "doc": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#failed-deployment"
+    },
+    "BackOff": {
+      "title": "Restart back-off",
+      "explanation": "The kubelet is waiting before restarting a container that keeps failing (the event behind CrashLoopBackOff).",
+      "fix": "See CrashLoopBackOff.",
+      "doc": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-restarts"
+    },
+    "Unhealthy": {
+      "title": "A probe is failing",
+      "explanation": "A liveness, readiness or startup probe returned failure. A failing readiness probe removes the pod from its Service; a failing liveness probe restarts the container.",
+      "fix": "Check the probe's path/port against what the app actually serves, and its timing (timeoutSeconds 1 s is often too short). Use a startup probe for slow-starting apps.",
+      "doc": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/"
+    },
+    "FailedCreate": {
+      "title": "Pods could not be created",
+      "explanation": "The controller asked for pods and the API server refused — typically a ResourceQuota that is exhausted, a LimitRange violation, or a Pod Security admission rejection.",
+      "fix": "Read the event message: it quotes the quota/limit/policy that refused. Raise the quota, set requests/limits, or make the pod spec comply with the namespace's Pod Security level.",
+      "doc": "https://kubernetes.io/docs/concepts/policy/resource-quotas/"
+    },
+    "NotReady": {
+      "title": "Node is not ready",
+      "explanation": "The kubelet reported Ready=False: the node's container runtime, network, or kubelet itself is unhealthy. Pods on it are evicted after the eviction timeout.",
+      "fix": "Check the node's kubelet and runtime logs and its network.",
+      "doc": "https://kubernetes.io/docs/reference/node/node-status/#condition"
+    },
+    "MemoryPressure": {
+      "title": "Node is low on memory",
+      "explanation": "The node's available memory fell below the eviction threshold; new pods are not scheduled here and BestEffort/Burstable pods may be evicted.",
+      "fix": "Reduce the workload on this node or add memory/nodes; set requests so scheduling stays balanced.",
+      "doc": "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/"
+    },
+    "DiskPressure": {
+      "title": "Node is low on disk",
+      "explanation": "The node's root or image filesystem is above the eviction threshold. Image garbage collection runs; pods may be evicted.",
+      "fix": "Free disk on the node (old images, logs, emptyDir data) or enlarge it.",
+      "doc": "https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/"
+    },
+    "Cordoned": {
+      "title": "Node is cordoned",
+      "explanation": "spec.unschedulable is set: no new pods are placed on this node; running pods stay. This is the state `kubectl cordon` / a drain leaves the node in.",
+      "fix": "Uncordon the node once maintenance is done.",
+      "doc": "https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/"
+    },
+    "LoadBalancerPending": {
+      "title": "Waiting for an external address",
+      "explanation": "A Service of type LoadBalancer needs a cloud or on-prem load-balancer controller to assign an address. Without one it stays pending forever.",
+      "fix": "On minikube run `minikube tunnel`; on bare metal install MetalLB or use NodePort/Ingress instead.",
+      "doc": "https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer"
+    },
+    "NoAddress": {
+      "title": "No ingress controller has taken this Ingress",
+      "explanation": "An Ingress only has effect when an ingress controller watches it. No controller has reported an address, so the rules are not served.",
+      "fix": "Install an ingress controller and set ingressClassName to its class (or mark the class default).",
+      "doc": "https://kubernetes.io/docs/concepts/services-networking/ingress/#prerequisites"
+    },
+    "Terminating": {
+      "title": "Being deleted",
+      "explanation": "deletionTimestamp is set. The object disappears once its finalizers are cleared and its pods have stopped. A Namespace or object stuck here usually has a finalizer whose controller is not running.",
+      "fix": "Wait for the grace period; if it never finishes, check the object's finalizers and the controller responsible for them.",
+      "doc": "https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/"
+    },
+    "ScaledToZero": {
+      "title": "Scaled to zero",
+      "explanation": "The workload asks for 0 replicas, so there are no pods by design. Nothing is wrong, nothing is running.",
+      "fix": "Scale up to run it again.",
+      "doc": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#scaling-a-deployment"
+    },
+    "Paused": {
+      "title": "Rollout paused",
+      "explanation": "spec.paused is true: template changes are recorded but not rolled out until the Deployment is resumed.",
+      "fix": "Resume the rollout.",
+      "doc": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#pausing-and-resuming-a-deployment"
+    },
+    "ScalingInactive": {
+      "title": "Autoscaler cannot compute a target",
+      "explanation": "The HPA cannot read the metric — usually no metrics-server, or the pods have no CPU/memory REQUESTS (utilization is a percentage of the request).",
+      "fix": "Install metrics-server and set resource requests on the target's containers.",
+      "doc": "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/"
+    }
+  }
+}

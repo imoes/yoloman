@@ -1,0 +1,246 @@
+# vnStat 2.13 configuration file
+#
+# lines starting with # or ; are comments, everything has default
+# values, remove ; before each option to change its value
+
+
+# default interface (leave empty for automatic selection)
+{% if Interface %}Interface "{{ Interface }}"{% else %};Interface ""{% endif %}
+
+# location of the database directory
+{% if DatabaseDir %}DatabaseDir "{{ DatabaseDir }}"{% else %};DatabaseDir "/var/lib/vnstat"{% endif %}
+
+# locale (LC_ALL) ("-" = use system locale)
+{% if Locale %}Locale "{{ Locale }}"{% else %};Locale "-"{% endif %}
+
+# date output formats for -d, -m, -t and -w
+{% if DayFormat %}DayFormat    "{{ DayFormat }}"{% else %};DayFormat    "%Y-%m-%d"{% endif %}
+{% if MonthFormat %}MonthFormat  "{{ MonthFormat }}"{% else %};MonthFormat  "%Y-%m"{% endif %}
+{% if TopFormat %}TopFormat    "{{ TopFormat }}"{% else %};TopFormat    "%Y-%m-%d"{% endif %}
+
+# characters used for visuals
+{% if RXCharacter %}RXCharacter       "{{ RXCharacter }}"{% else %};RXCharacter       "%"{% endif %}
+{% if TXCharacter %}TXCharacter       "{{ TXCharacter }}"{% else %};TXCharacter       ":"{% endif %}
+{% if RXHourCharacter %}RXHourCharacter   "{{ RXHourCharacter }}"{% else %};RXHourCharacter   "r"{% endif %}
+{% if TXHourCharacter %}TXHourCharacter   "{{ TXHourCharacter }}"{% else %};TXHourCharacter   "t"{% endif %}
+
+# how units are prefixed when traffic is shown
+# 0 = IEC standard prefixes (KiB/MiB/GiB...)
+# 1 = old style binary prefixes (KB/MB/GB...)
+# 2 = SI decimal prefixes (kB/MB/GB...)
+{% if UnitMode %}UnitMode {{ UnitMode }}{% else %};UnitMode 0{% endif %}
+
+# used rate unit (0 = bytes, 1 = bits)
+{% if RateUnit %}RateUnit {{ RateUnit }}{% else %};RateUnit 1{% endif %}
+
+# how units are prefixed when traffic rate is shown in bits
+# 0 = IEC binary prefixes (Kibit/s...)
+# 1 = SI decimal prefixes (kbit/s...)
+{% if RateUnitMode %}RateUnitMode {{ RateUnitMode }}{% else %};RateUnitMode 1{% endif %}
+
+# output style
+# 0 = minimal & narrow, 1 = bar column visible
+# 2 = same as 1 except rate in summary
+# 3 = rate column visible
+{% if OutputStyle %}OutputStyle {{ OutputStyle }}{% else %};OutputStyle 3{% endif %}
+{% if EstimateBarVisible %}EstimateBarVisible {{ EstimateBarVisible }}{% else %};EstimateBarVisible 1{% endif %}
+
+# number of decimals to use in outputs
+{% if DefaultDecimals %}DefaultDecimals {{ DefaultDecimals }}{% else %};DefaultDecimals 2{% endif %}
+{% if HourlyDecimals %}HourlyDecimals {{ HourlyDecimals }}{% else %};HourlyDecimals 1{% endif %}
+
+# spacer for separating hourly sections (0 = none, 1 = '|', 2 = '][', 3 = '[ ]')
+{% if HourlySectionStyle %}HourlySectionStyle {{ HourlySectionStyle }}{% else %};HourlySectionStyle 2{% endif %}
+
+# how many seconds should sampling for -tr take by default
+{% if Sampletime %}Sampletime {{ Sampletime }}{% else %};Sampletime 5{% endif %}
+
+# show animation at the beginning of -l / --live line (1 = enabled, 0 = disabled)
+{% if LiveSpinner %}LiveSpinner {{ LiveSpinner }}{% else %};LiveSpinner 1{% endif %}
+
+# default query mode
+# 0 = summary, 1 = days, 2 = months, 3 = top, 4 = single summary, 5 = short
+# 7 = hours graph, 8 = xml, 9 = one line, 10 = json, 11 = hours, 12 = 5 minute
+{% if QueryMode %}QueryMode {{ QueryMode }}{% else %};QueryMode 0{% endif %}
+
+# default list output entry limits (0 = all)
+{% if List5Mins %}List5Mins      {{ List5Mins }}{% else %};List5Mins      24{% endif %}
+{% if ListHours %}ListHours      {{ ListHours }}{% else %};ListHours      24{% endif %}
+{% if ListDays %}ListDays       {{ ListDays }}{% else %};ListDays       30{% endif %}
+{% if ListMonths %}ListMonths     {{ ListMonths }}{% else %};ListMonths     12{% endif %}
+{% if ListYears %}ListYears       {{ ListYears }}{% else %};ListYears       0{% endif %}
+{% if ListTop %}ListTop        {{ ListTop }}{% else %};ListTop        10{% endif %}
+
+# how to match interface given for query to interface in database
+# 0 = case sensitive exact match to interface name
+# 1 = method 0 followed by case sensitive exact match of alias
+# 2 = method 1 followed by case insensitive exact match of alias
+# 3 = method 2 followed by case insensitive beginning match of alias
+{% if InterfaceMatchMethod %}InterfaceMatchMethod {{ InterfaceMatchMethod }}{% else %};InterfaceMatchMethod 3{% endif %}
+
+# visibility of estimate line and text used in it
+{% if EstimateVisible %}EstimateVisible {{ EstimateVisible }}{% else %};EstimateVisible 1{% endif %}
+{% if EstimateText %}EstimateText "{{ EstimateText }}"{% else %};EstimateText "estimated"{% endif %}
+
+# interface order (0 = alphabetical by name, 1 = alphabetical by alias)
+{% if InterfaceOrder %}InterfaceOrder {{ InterfaceOrder }}{% else %};InterfaceOrder 0{% endif %}
+
+
+# vnstatd
+##
+
+# switch to given user when started as root (leave empty to disable)
+{% if DaemonUser %}DaemonUser "{{ DaemonUser }}"{% else %};DaemonUser ""{% endif %}
+
+# switch to given group when started as root (leave empty to disable)
+{% if DaemonGroup %}DaemonGroup "{{ DaemonGroup }}"{% else %};DaemonGroup ""{% endif %}
+
+# try to detect interface maximum bandwidth, 0 = disable feature
+# MaxBandwidth will be used as fallback value when enabled
+{% if BandwidthDetection %}BandwidthDetection {{ BandwidthDetection }}{% else %};BandwidthDetection 1{% endif %}
+
+# maximum bandwidth (Mbit) for all interfaces, 0 = disable feature
+# (unless interface specific limit is given)
+{% if MaxBandwidth %}MaxBandwidth {{ MaxBandwidth }}{% else %};MaxBandwidth 1000{% endif %}
+
+# interface specific limits
+#  example 8Mbit limit for eth0 (remove # to activate):
+#MaxBWeth0 8
+
+# data retention durations (-1 = unlimited, 0 = feature disabled)
+;5MinuteHours   {{ '{{' }} 5MinuteHours {{ '}}' }}
+{% if HourlyDays %}HourlyDays      {{ HourlyDays }}{% else %};HourlyDays      4{% endif %}
+{% if DailyDays %}DailyDays      {{ DailyDays }}{% else %};DailyDays      62{% endif %}
+{% if MonthlyMonths %}MonthlyMonths  {{ MonthlyMonths }}{% else %};MonthlyMonths  25{% endif %}
+{% if YearlyYears %}YearlyYears    {{ YearlyYears }}{% else %};YearlyYears    -1{% endif %}
+{% if TopDayEntries %}TopDayEntries  {{ TopDayEntries }}{% else %};TopDayEntries  20{% endif %}
+
+# how often (in seconds) interface data is updated
+{% if UpdateInterval %}UpdateInterval {{ UpdateInterval }}{% else %};UpdateInterval 20{% endif %}
+
+# how often (in seconds) interface status changes are checked
+{% if PollInterval %}PollInterval {{ PollInterval }}{% else %};PollInterval 5{% endif %}
+
+# how often (in minutes) data is saved to database
+{% if SaveInterval %}SaveInterval {{ SaveInterval }}{% else %};SaveInterval 5{% endif %}
+
+# how often (in minutes) data is saved when all interface are offline
+{% if OfflineSaveInterval %}OfflineSaveInterval {{ OfflineSaveInterval }}{% else %};OfflineSaveInterval 30{% endif %}
+
+# rescan database after save for new interfaces to be monitored (1 = enabled, 0 = disabled)
+{% if RescanDatabaseOnSave %}RescanDatabaseOnSave {{ RescanDatabaseOnSave }}{% else %};RescanDatabaseOnSave 1{% endif %}
+
+# automatically start monitoring all interfaces not found in the database
+# (1 = enabled, 0 = disabled)
+{% if AlwaysAddNewInterfaces %}AlwaysAddNewInterfaces {{ AlwaysAddNewInterfaces }}{% else %};AlwaysAddNewInterfaces 0{% endif %}
+
+# on which day should months change
+{% if MonthRotate %}MonthRotate {{ MonthRotate }}{% else %};MonthRotate 1{% endif %}
+{% if MonthRotateAffectsYears %}MonthRotateAffectsYears {{ MonthRotateAffectsYears }}{% else %};MonthRotateAffectsYears 0{% endif %}
+
+# filesystem disk space check (1 = enabled, 0 = disabled)
+{% if CheckDiskSpace %}CheckDiskSpace {{ CheckDiskSpace }}{% else %};CheckDiskSpace 1{% endif %}
+
+# how much the boot time can variate between updates (seconds)
+{% if BootVariation %}BootVariation {{ BootVariation }}{% else %};BootVariation 15{% endif %}
+
+# create database entries even when there is no traffic (1 = enabled, 0 = disabled)
+{% if TrafficlessEntries %}TrafficlessEntries {{ TrafficlessEntries }}{% else %};TrafficlessEntries 1{% endif %}
+
+# how many minutes to wait during daemon startup for system clock to
+# sync time if most recent database update appears to be in the future
+{% if TimeSyncWait %}TimeSyncWait {{ TimeSyncWait }}{% else %};TimeSyncWait 5{% endif %}
+
+# how often (in minutes) bandwidth detection is done when
+# BandwidthDetection is enabled (0 = disabled)
+{% if BandwidthDetectionInterval %}BandwidthDetectionInterval {{ BandwidthDetectionInterval }}{% else %};BandwidthDetectionInterval 5{% endif %}
+
+# force data save when interface status changes (1 = enabled, 0 = disabled)
+{% if SaveOnStatusChange %}SaveOnStatusChange {{ SaveOnStatusChange }}{% else %};SaveOnStatusChange 1{% endif %}
+
+# enable / disable logging (0 = disabled, 1 = logfile, 2 = syslog)
+{% if UseLogging %}UseLogging {{ UseLogging }}{% else %};UseLogging 2{% endif %}
+
+# create dirs if needed (1 = enabled, 0 = disabled)
+{% if CreateDirs %}CreateDirs {{ CreateDirs }}{% else %};CreateDirs 1{% endif %}
+
+# update ownership of files if needed (1 = enabled, 0 = disabled)
+{% if UpdateFileOwner %}UpdateFileOwner {{ UpdateFileOwner }}{% else %};UpdateFileOwner 1{% endif %}
+
+# file used for logging if UseLogging is set to 1
+{% if LogFile %}LogFile "{{ LogFile }}"{% else %};LogFile "/var/log/vnstat/vnstat.log"{% endif %}
+
+# file used as daemon pid / lock file
+{% if PidFile %}PidFile "{{ PidFile }}"{% else %};PidFile "/run/vnstat/vnstat.pid"{% endif %}
+
+# 1 = 64-bit, 0 = 32-bit, -1 = old style logic, -2 = automatic detection
+;64bitInterfaceCounters {{ '{{' }} 64bitInterfaceCounters {{ '}}' }}
+
+# use SQLite Write-Ahead Logging mode (1 = enabled, 0 = disabled)
+{% if DatabaseWriteAheadLogging %}DatabaseWriteAheadLogging {{ DatabaseWriteAheadLogging }}{% else %};DatabaseWriteAheadLogging 0{% endif %}
+
+# change the setting of the SQLite "synchronous" flag
+# (-1 = auto, 0 = off, 1, = normal, 2 = full, 3 = extra)
+{% if DatabaseSynchronous %}DatabaseSynchronous {{ DatabaseSynchronous }}{% else %};DatabaseSynchronous -1{% endif %}
+
+# database uses UTC instead of local timezone (1 = enabled, 0 = disabled)
+{% if UseUTC %}UseUTC {{ UseUTC }}{% else %};UseUTC 0{% endif %}
+
+# database maintenance (1 = enabled, 0 = disabled)
+{% if VacuumOnStartup %}VacuumOnStartup {{ VacuumOnStartup }}{% else %};VacuumOnStartup 1{% endif %}
+{% if VacuumOnHUPSignal %}VacuumOnHUPSignal {{ VacuumOnHUPSignal }}{% else %};VacuumOnHUPSignal 1{% endif %}
+
+
+# vnstati
+##
+
+# title timestamp format
+{% if HeaderFormat %}HeaderFormat "{{ HeaderFormat }}"{% else %};HeaderFormat "%Y-%m-%d %H:%M"{% endif %}
+
+# show hours with rate (1 = enabled, 0 = disabled)
+{% if HourlyRate %}HourlyRate {{ HourlyRate }}{% else %};HourlyRate 1{% endif %}
+
+# show rate in summary (1 = enabled, 0 = disabled)
+{% if SummaryRate %}SummaryRate {{ SummaryRate }}{% else %};SummaryRate 1{% endif %}
+
+# transparent background (1 = enabled, 0 = disabled)
+{% if TransparentBg %}TransparentBg {{ TransparentBg }}{% else %};TransparentBg 0{% endif %}
+
+# image size control
+{% if LargeFonts %}LargeFonts {{ LargeFonts }}{% else %};LargeFonts 0{% endif %}
+{% if LineSpacingAdjustment %}LineSpacingAdjustment {{ LineSpacingAdjustment }}{% else %};LineSpacingAdjustment 0{% endif %}
+{% if ImageScale %}ImageScale {{ ImageScale }}{% else %};ImageScale 100{% endif %}
+
+# 5 minutes graph size control
+;5MinuteGraphResultCount {{ '{{' }} 5MinuteGraphResultCount {{ '}}' }}
+;5MinuteGraphHeight {{ '{{' }} 5MinuteGraphHeight {{ '}}' }}
+
+# hourly graph mode (0 = 24 hour sliding window, 1 = begins from midnight)
+{% if HourlyGraphMode %}HourlyGraphMode {{ HourlyGraphMode }}{% else %};HourlyGraphMode 0{% endif %}
+
+# horizontal/vertical summary graph (0 = hours, 1 = 5 minutes)
+{% if SummaryGraph %}SummaryGraph {{ SummaryGraph }}{% else %};SummaryGraph 0{% endif %}
+
+# traffic estimate bar style
+# (0 = not shown, 1 = continuation of existing bar, 2 = separate bar)
+{% if EstimateStyle %}EstimateStyle {{ EstimateStyle }}{% else %};EstimateStyle 1{% endif %}
+
+# bar column in list outputs shows rate if OutputStyle is 3
+# (1 = enabled, 0 = disabled)
+{% if BarColumnShowsRate %}BarColumnShowsRate {{ BarColumnShowsRate }}{% else %};BarColumnShowsRate 0{% endif %}
+
+# image colors
+{% if CBackground %}CBackground     "{{ CBackground }}"{% else %};CBackground     "FFFFFF"{% endif %}
+{% if CEdge %}CEdge           "{{ CEdge }}"{% else %};CEdge           "AEAEAE"{% endif %}
+{% if CHeader %}CHeader         "{{ CHeader }}"{% else %};CHeader         "606060"{% endif %}
+{% if CHeaderTitle %}CHeaderTitle    "{{ CHeaderTitle }}"{% else %};CHeaderTitle    "FFFFFF"{% endif %}
+{% if CHeaderDate %}CHeaderDate     "{{ CHeaderDate }}"{% else %};CHeaderDate     "FFFFFF"{% endif %}
+{% if CText %}CText           "{{ CText }}"{% else %};CText           "000000"{% endif %}
+{% if CLine %}CLine           "{{ CLine }}"{% else %};CLine           "B0B0B0"{% endif %}
+{% if CLineL %}CLineL          "{{ CLineL }}"{% else %};CLineL          "-"{% endif %}
+{% if CPercentileLine %}CPercentileLine "{{ CPercentileLine }}"{% else %};CPercentileLine "CF0045"{% endif %}
+{% if CRx %}CRx             "{{ CRx }}"{% else %};CRx             "92CF00"{% endif %}
+{% if CTx %}CTx             "{{ CTx }}"{% else %};CTx             "606060"{% endif %}
+{% if CRxD %}CRxD            "{{ CRxD }}"{% else %};CRxD            "-"{% endif %}
+{% if CTxD %}CTxD            "{{ CTxD }}"{% else %};CTxD            "-"{% endif %}
+{% if CTotal %}CTotal          "{{ CTotal }}"{% else %};CTotal          "0098CF"{% endif %}

@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
 import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** Virtualization section: which hypervisor stack(s) the host runs (Proxmox /
  * libvirt) and their guests, from virt_facts. Per-guest start/stop go through
@@ -10,7 +11,7 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
 @Component({
   selector: 'app-host-virt',
   standalone: true,
-  imports: [MatButtonModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, MatButtonModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-mgmt-section">
       <div class="bm-mgmt-toolbar">
@@ -61,7 +62,7 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
           <input type="text" placeholder="user (monitoring@pam)" [value]="srcUser()" (input)="srcUser.set($any($event.target).value)" />
           <input type="password" placeholder="password" [value]="srcPass()" (input)="srcPass.set($any($event.target).value)" />
           <label class="bm-chk"><input type="checkbox" [checked]="srcInsecure()" (change)="srcInsecure.set($any($event.target).checked)" /> insecure TLS</label>
-          <button mat-flat-button color="primary" (click)="addSource()" [disabled]="srcBusy() || !srcHost().trim()">
+          <button mat-flat-button color="primary" (click)="addSource()" [disabled]="srcBusy()" [bmBlocked]="!srcHost().trim() ? 'Enter a host' : ''">
             {{ srcBusy() ? 'Adding…' : 'Add source' }}
           </button>
           @if (srcMsg()) { <span [class.bm-svc-ok]="srcOk()" [class.bm-svc-err]="!srcOk()">{{ srcMsg() }}</span> }
@@ -111,9 +112,9 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
           <div class="bm-acct-new">
             <input type="text" placeholder="vmid" [value]="pxId()" (input)="pxId.set($any($event.target).value)" />
             <input type="text" placeholder="snapshot name" [value]="pxSnap()" (input)="pxSnap.set($any($event.target).value)" />
-            <button mat-button (click)="qmSnapshot()" [disabled]="busy() || !pxId().trim() || !pxSnap().trim()">Snapshot</button>
+            <button mat-button (click)="qmSnapshot()" [disabled]="busy()" [bmBlocked]="!pxId().trim() || !pxSnap().trim() ? 'Enter a VM id and a snapshot name' : ''" bmBlockedMode="tip">Snapshot</button>
             <input type="text" placeholder="migrate to node" [value]="pxTarget()" (input)="pxTarget.set($any($event.target).value)" />
-            <button mat-button (click)="qmMigrate()" [disabled]="busy() || !pxId().trim() || !pxTarget().trim()">Migrate</button>
+            <button mat-button (click)="qmMigrate()" [disabled]="busy()" [bmBlocked]="!pxId().trim() || !pxTarget().trim() ? 'Enter a VM id and a target node' : ''" bmBlockedMode="tip">Migrate</button>
           </div>
         }
 
@@ -136,9 +137,9 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
           <div class="bm-acct-new">
             <input type="text" placeholder="domain" [value]="lvDomain()" (input)="lvDomain.set($any($event.target).value)" />
             <input type="text" placeholder="snapshot name" [value]="lvSnap()" (input)="lvSnap.set($any($event.target).value)" />
-            <button mat-button (click)="virshSnapshot()" [disabled]="busy() || !lvDomain().trim() || !lvSnap().trim()">Snapshot</button>
+            <button mat-button (click)="virshSnapshot()" [disabled]="busy()" [bmBlocked]="!lvDomain().trim() || !lvSnap().trim() ? 'Enter a domain and a snapshot name' : ''" bmBlockedMode="tip">Snapshot</button>
             <input type="text" placeholder="dest URI (qemu+ssh://node2/system)" [value]="lvDest()" (input)="lvDest.set($any($event.target).value)" />
-            <button mat-button (click)="virshMigrate()" [disabled]="busy() || !lvDomain().trim() || !lvDest().trim()">Migrate</button>
+            <button mat-button (click)="virshMigrate()" [disabled]="busy()" [bmBlocked]="!lvDomain().trim() || !lvDest().trim() ? 'Enter a domain and a destination URI' : ''" bmBlockedMode="tip">Migrate</button>
           </div>
         }
       }
@@ -151,8 +152,8 @@ import { PiggybackSource, VirtResponse } from '../../../core/models/agent.model'
       .bm-mgmt-count { color: var(--bm-muted, #888); font-size: 12px; }
       .bm-mgmt-loading { display: flex; justify-content: center; padding: 24px; }
       h4 { margin: 16px 0 6px; }
-      .bm-mgmt-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 6px; }
-      .bm-mgmt-table th, .bm-mgmt-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--bm-border, #eee); }
+      .bm-mgmt-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); margin-bottom: 6px; }
+      .bm-mgmt-table th, .bm-mgmt-table td { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--bm-border, #eee); }
       .bm-mgmt-unit { font-family: monospace; }
       .bm-mgmt-actions { white-space: nowrap; }
       .bm-active { color: #2e7d32; }

@@ -1,3 +1,31 @@
-# Path to the file that, if present, prevents hibernation.
-# pm-utils checks for this file before attempting to hibernate the system.
-touch {{ do_not_hibernate_path | default('/var/run/do-not-hibernate') }}
+# Log rotation configuration for pm-utils logging files.
+# Managed by Ansible role: pm-utils
+# Original directive: /var/log/pm-suspend.log /var/log/pm-powersave.log { ... }
+
+# Apply logrotate rules to pm-suspend and pm-powersave logs.
+# Schema: do_not_hibernate_path (default: /var/run/do-not-hibernate)
+# This variable controls hibernation behavior and does not affect log rotation.
+# The logrotate block remains static as pm-utils does not expose dynamic
+# log rotation parameters in its standard schema.
+
+{#
+  The logrotate configuration for pm-utils is generally static in the
+  upstream package. However, to make this template self-documenting and
+  robust, we include the standard directives.
+
+  - monthly: Rotate logs once a month.
+  - rotate 4: Keep 4 weeks of log history.
+  - delaycompress: Defer compression of the most recent rotated log to the next cycle.
+  - compress: Compress rotated logs using gzip.
+  - notifempty: Do not rotate the log if it is empty.
+  - missingok: Do not error if the log file is missing.
+#}
+
+/var/log/pm-suspend.log /var/log/pm-powersave.log {
+    monthly
+    rotate 4
+    delaycompress
+    compress
+    notifempty
+    missingok
+}

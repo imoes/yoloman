@@ -19,7 +19,7 @@
 # and identifies the client uniquely.
 # If left empty, the source name is derived from
 # the client's hostname.
-SourceName = {{ source_name | default('') }}
+{% if source_name is defined and source_name is not none and (source_name is number or source_name is boolean or source_name | length > 0) %}SourceName = {{ source_name | default('') }}{% else %}#SourceName	= iqn.2006-01.com.example.host1{% endif %}
 
 # Name and port of the iSNS server.
 # Possible formats:
@@ -30,7 +30,7 @@ SourceName = {{ source_name | default('') }}
 #	SLP:
 # If the special string "SLP:" is given, Open-iSNS will
 # query the SLP directory service to find the iSNS server.
-ServerAddress = {{ server_address | default('') }}
+{% if server_address is defined and server_address is not none and (server_address is number or server_address is boolean or server_address | length > 0) %}ServerAddress = {{ server_address | default('') }}{% else %}#ServerAddress	= isns.example.com{% endif %}
 
 # Authentication enable/disable.
 # When set to 1, the client will sign
@@ -44,17 +44,17 @@ ServerAddress = {{ server_address | default('') }}
 # The default is to use authentication if the
 # requires keys are installed, and use unauthenticated
 # iSNS otherwise.
-Security = {{ security | default(1) }}
+{% if security is defined and security is not none and (security is number or security is boolean or security | length > 0) %}Security = {{ security | default(1) }}{% else %}#Security	= 1{% endif %}
 
 # Location of the client's private key.
 # The file must contain a PEM encoded DSA key.
 # The default is /etc/isns/auth_key
-AuthKeyFile = {{ auth_key_file | default('/etc/isns/auth_key') }}
+{% if auth_key_file is defined and auth_key_file is not none and (auth_key_file is number or auth_key_file is boolean or auth_key_file | length > 0) %}AuthKeyFile = {{ auth_key_file | default('/etc/isns/auth_key') }}{% else %}#AuthKeyFile	= /etc/isns/auth_key{% endif %}
 
 # Location of the servers's public key.
 # The file must contain a PEM encoded DSA key.
 # The default is /etc/isns/server_key.pub
-ServerKeyFile = {{ server_key_file | default('/etc/isns/server_key.pub') }}
+{% if server_key_file is defined and server_key_file is not none and (server_key_file is number or server_key_file is boolean or server_key_file | length > 0) %}ServerKeyFile = {{ server_key_file | default('/etc/isns/server_key.pub') }}{% else %}#ServerKeyFile	= /etc/isns/server_key.pub{% endif %}
 
 # In order to prevent replay attacks, the
 # authentication blocks carried by iSNS

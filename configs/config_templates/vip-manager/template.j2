@@ -1,52 +1,151 @@
-# ==============================================================================
-# vip-manager configuration template
-# Self-documenting Jinja2 template for ansible-role-vip-manager
-# ==============================================================================
+# ============================================================================
+# vip-manager Configuration Template
+# ============================================================================
+# This template configures vip-manager, a tool for managing Virtual IPs
+# in high-availability setups (typically with Patroni).
+# ============================================================================
 
-# --- Mandatory Configuration Keys ---
+# ----------------------------------------------------------------------------
+# Mandatory Settings
+# ----------------------------------------------------------------------------
 
-# IP address for the VIP. Default: 10.1.2.3
-#VIP_IP="{{ vip_ip | default('10.1.2.3') }}"
+# The virtual IP address that will be managed
+# Schema: vip_ip (string)
+# Default: '@VIP_IP@'
+VIP_IP="{{ vip_ip | default('@VIP_IP@') }}"
 
-# Netmask for the IP address. Default: 24
-#VIP_MASK={{ vip_mask | default(24) }}
+# The netmask that is associated with the subnet that the virtual IP vip is
+# part of.
+# Schema: vip_mask (string)
+# Default: '@VIP_MASK@'
+VIP_MASK="{{ vip_mask | default('@VIP_MASK@') }}"
+VIP_NETMASK="{{ vip_mask | default('@VIP_MASK@') }}"
 
-# Primary network interface name. Default: eth0
-#VIP_IFACE="{{ vip_iface | default('eth0') }}"
+# A local network interface on the machine that runs vip-manager. Required when
+# using manager-type=basic. The vip will be added to and removed from this
+# interface.
+# Schema: vip_iface (string)
+# Default: '@VIP_IFACE@'
+VIP_IFACE="{{ vip_iface | default('@VIP_IFACE@') }}"
 
-# Etcd/Consul key matching Patroni scope. Default: /service/batman/leader
-# This must match scope from Patroni postgres.yml
-#VIP_KEY="{{ vip_key | default('/service/batman/leader') }}"
+# The key in the DCS (Distributed Configuration Store) that will be monitored
+# by vip-manager. Must match <namespace>/<scope>/leader from Patroni config.
+# When the value returned by the DCS equals trigger-value, vip-manager will
+# make sure that the virtual IP is registered to this machine. If it does
+# not match, vip-manager makes sure that the virtual IP is not registered
+# to this machine.
+# Schema: vip_key (string)
+# Default: '@VIP_KEY@'
+VIP_KEY="{{ vip_key | default('@VIP_KEY@') }}"
+VIP_TRIGGER_KEY="{{ vip_key | default('@VIP_KEY@') }}"
 
-# Hostname for the VIP. Default: serverX
-# This value must match the value used in Patroni postgres.yml
-#VIP_HOST="{{ vip_host | default('serverX') }}"
+# ----------------------------------------------------------------------------
+# Optional Settings
+# ----------------------------------------------------------------------------
 
-# Type of endpoint: etcd or consul. Default: etcd
-# Specify the type of endpoint (etcd|consul)
-#VIP_TYPE="{{ vip_type | default('etcd') }}"
+# The value that the DCS' answer for trigger-key will be matched to. Must
+# match <name> from Patroni config. This is usually set to the name of the
+# patroni cluster member that this vip-manager instance is associated with.
+# Defaults to the machine's hostname.
+# Schema: vip_host (string)
+# Default: '@VIP_HOST@'
+VIP_HOST="{{ vip_host | default('@VIP_HOST@') }}"
+VIP_TRIGGER_VALUE="{{ vip_host | default('@VIP_HOST@') }}"
 
-# Endpoint URL for the service discovery backend. Default: http://10.1.2.3:2379
-#VIP_ENDPOINT="{{ vip_endpoint | default('http://10.1.2.3:2379') }}"
+# Either basic or hetzner. This describes the mechanism that is used to
+# manage the virtual IP. Defaults to basic.
+# (Commented out to use default or environment variable)
+#VIP_MANAGER_TYPE=basic
 
-# --- Optional Configuration Keys ---
+# The type of DCS that vip-manager will use to monitor the trigger-key.
+# Supported values: etcd, consul.
+# Defaults to etcd.
+# Schema: vip_type (string)
+# Default: '@VIP_TYPE@'
+VIP_TYPE="{{ vip_type | default('@VIP_TYPE@') }}"
 
-# Hosting type for the VIP. Default: basic
-#VIP_HOSTINGTYPE="{{ vip_hostingtype | default('basic') }}"
+# A url that defines where to reach the DCS. Multiple endpoints can be passed
+# to the flag or env variable using a comma-separated-list. In the config
+# file, a list can be specified, see the sample config for an example.
+# Defaults to http://127.0.0.1:2379 for dcs-type=etcd and
+# http://127.0.0.1:8500 for dcs-type=consul.
+# Schema: vip_endpoint (string)
+# Default: '@VIP_ENDPOINT@'
+VIP_DCS_ENDPOINTS="{{ vip_endpoint | default('@VIP_ENDPOINT@') }}"
+VIP_ENDPOINT="{{ vip_endpoint | default('@VIP_ENDPOINT@') }}"
 
-# Etcd username for authentication. Default: ''
-#VIP_ETCD_USER={{ vip_etcd_user | default('') }}
+# A username that is allowed to look at the trigger-key in an etcd DCS.
+# Optional when using dcs-type=etcd.
+# Schema: vip_etcd_user (string)
+# Default: ''
+{% if vip_etcd_user | default('') %}
+VIP_ETCD_USER={{ vip_etcd_user | default('') }}
+{% else %}
+#VIP_ETCD_USER=patroni
+{% endif %}
 
-# Etcd password for authentication. Default: ''
-#VIP_ETCD_PASSWORD={{ vip_etcd_password | default('') }}
+# The password for etcd-user. Optional when using dcs-type=etcd. Requires
+# that etcd-user is also set.
+# Schema: vip_etcd_password (string)
+# Default: ''
+{% if vip_etcd_password | default('') %}
+VIP_ETCD_PASSWORD={{ vip_etcd_password | default('') }}
+{% else %}
+#VIP_ETCD_PASSWORD=
+{% endif %}
 
-# These keys are optional if VIP_TYPE="etcd" is chosen
+# A token that can be used with the consul-API for authentication.
+# Optional when using dcs-type=consul.
+# (Commented out - use vip_consul_token variable if needed)
+#VIP_CONSUL_TOKEN=
 
-# Path to Etcd CA certificate file. Default: /etc/etcd/ca.cert.pem
-#VIP_ETCD_CA_FILE="{{ vip_etcd_ca_file | default('/etc/etcd/ca.cert.pem') }}"
+# The time vip-manager main loop sleeps before checking for changes.
+# Measured in ms. Defaults to 1000.
+# (Commented out - use default)
+#VIP_INTERVAL=1000
 
-# Path to Etcd client certificate file. Default: /etc/etcd/host.cert.pem
-#VIP_ETCD_CERT_FILE="{{ vip_etcd_cert_file | default('/etc/etcd/host.cert.pem') }}"
+# The time to wait before retrying interactions with components outside of
+# vip-manager. Measured in ms. Defaults to 250.
+# (Commented out - use default)
+#VIP_RETRY_AFTER=250
 
-# Path to Etcd client key file. Default: /etc/etcd/host.key.pem
-#VIP_ETCD_KEY_FILE="{{ vip_etcd_key_file | default('/etc/etcd/host.key.pem') }}"
+# The number of times interactions with components outside of vip-manager
+# are retried. Defaults to 3.
+# (Commented out - use default)
+#VIP_RETRY_NUM=3
+
+# A certificate authority file that can be used to verify the certificate
+# provided by etcd endpoints. Make sure to change dcs-endpoints to reflect
+# that https is used.
+# Schema: vip_etcd_ca_file (string)
+# Default: ''
+{% if vip_etcd_ca_file | default('') %}
+VIP_ETCD_CA_FILE={{ vip_etcd_ca_file | default('') }}
+{% else %}
+#VIP_ETCD_CA_FILE=/etc/etcd/ca.cert.pem
+{% endif %}
+
+# A client certificate that is used to authenticate against etcd endpoints.
+# Requires etcd-ca-file to be set as well.
+# Schema: vip_etcd_cert_file (string)
+# Default: ''
+{% if vip_etcd_cert_file | default('') %}
+VIP_ETCD_CERT_FILE={{ vip_etcd_cert_file | default('') }}
+{% else %}
+#VIP_ETCD_CERT_FILE=/etc/etcd/client.cert.pem
+{% endif %}
+
+# A private key for the client certificate, used to decrypt messages sent
+# by etcd endpoints. Required when etcd-cert-file is specified.
+# Schema: vip_etcd_key_file (string)
+# Default: ''
+{% if vip_etcd_key_file | default('') %}
+VIP_ETCD_KEY_FILE={{ vip_etcd_key_file | default('') }}
+{% else %}
+#VIP_ETCD_KEY_FILE=/etc/etcd/client.key.pem
+{% endif %}
+
+# Enable more verbose logging. Currently only the manager-type=hetzner
+# provides additional logs.
+# (Commented out - use default)
+#VIP_VERBOSE=false

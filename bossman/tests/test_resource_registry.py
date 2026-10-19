@@ -17,7 +17,7 @@ from bossman.services import resources as reg
 def test_registry_lists_every_kind_the_api_exposes():
     # The kinds are the legal URL segment values; keep this list explicit so adding a
     # kind to the registry without deciding on its URL name fails here.
-    assert reg.kinds() == ["config", "docker", "helm", "package", "role", "service"]
+    assert reg.kinds() == ["config", "docker", "helm", "k8s", "package", "role", "service", "tunable"]
 
 
 @pytest.mark.parametrize("kind", reg.kinds())
@@ -76,6 +76,10 @@ def test_quirks_are_declared_where_they_belong():
     assert reg.spec_for("helm").query_params == ("namespace",)
     assert reg.spec_for("role").extra_verbs == ("binding",)
     assert reg.spec_for("role").needs_identity is True
+    # k8s: identified by cluster + namespace + apiVersion + kind, deletable, audited
+    assert reg.spec_for("k8s").query_params == ("cluster", "namespace", "api_version", "object_kind")
+    assert reg.spec_for("k8s").extra_verbs == ("object",)
+    assert reg.spec_for("k8s").needs_identity is True
     # and nowhere else, so a quirk cannot spread unnoticed
     for kind in ("docker", "config", "package", "service"):
         s = reg.spec_for(kind)
@@ -113,8 +117,8 @@ def test_which_kinds_state_their_schema_statically():
     must look at the DB/host first (config has no schema route at all)."""
     static = [k for k in reg.kinds() if reg.spec_for(k).has_schema and not reg.spec_for(k).schema_is_async]
     derived = [k for k in reg.kinds() if reg.spec_for(k).has_schema and reg.spec_for(k).schema_is_async]
-    assert static == ["docker", "package", "service"]
-    assert derived == ["helm", "role"]
+    assert static == ["docker", "package", "service", "tunable"]
+    assert derived == ["helm", "k8s", "role"]
 
 
 def test_role_is_the_only_kind_that_works_without_a_host_address():

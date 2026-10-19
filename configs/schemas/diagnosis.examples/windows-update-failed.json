@@ -1,0 +1,78 @@
+{
+  "schema": "yoloman.diagnosis/v1",
+  "diagnosis_id": "7c1a2b3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d",
+  "host": "bossman-wintest",
+  "platform": "windows",
+  "target": {
+    "kind": "updates",
+    "name": "bossman-wintest",
+    "display_name": null
+  },
+  "collected_at": "2026-10-18T16:00:00Z",
+  "status": "behind",
+  "summary": "The last update installation on bossman-wintest failed with HRESULT 0x8024200D (WU_E_UH_NEEDANOTHERDOWNLOAD).",
+  "evidence": [
+    {
+      "id": "wu:search:bossman-wintest",
+      "source": "windows_update_facts",
+      "observed": "2026-10-18T15:58:00Z",
+      "fact": "The last Windows Update search succeeded; 4 updates are pending, 1 of them Critical.",
+      "raw": {"search_result": "Succeeded", "pending_count": 4, "critical_count": 1, "use_wsus": 0}
+    },
+    {
+      "id": "wu:history:2026-10-18T15:00:00Z",
+      "source": "windows_update_facts",
+      "observed": "2026-10-18T15:00:00Z",
+      "fact": "The most recent update operation (Install of KB5126655) ended Failed with HRESULT 0x8024200D (WU_E_UH_NEEDANOTHERDOWNLOAD).",
+      "raw": {"operation": "Installation", "result_code": "Failed", "hresult": "0x8024200D", "kb": "KB5126655", "title": "2026-10 Cumulative Update for Windows Server 2022"}
+    },
+    {
+      "id": "wu:reboot:bossman-wintest",
+      "source": "windows_update_facts",
+      "observed": null,
+      "fact": "A reboot is pending (Component Based Servicing RebootPending), which blocks further installations.",
+      "raw": {"reboot_cbs": true, "reboot_wu": false}
+    },
+    {
+      "id": "wu:pending:bossman-wintest",
+      "source": "windows_update_facts",
+      "observed": null,
+      "fact": "4 updates are pending: 1 Critical, 2 Security, 1 UpdateRollup.",
+      "raw": {"pending": [{"kb": "KB5126655", "severity": "Critical"}, {"kb": "KB5128928", "severity": "Important"}, {"kb": "KB5125000", "severity": "Important"}, {"kb": "KB5124000", "severity": null}]}
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "upd.install_failed",
+      "claim": "The last update installation on bossman-wintest failed with HRESULT 0x8024200D (WU_E_UH_NEEDANOTHERDOWNLOAD).",
+      "certainty": "Proven",
+      "evidence_ids": ["wu:history:2026-10-18T15:00:00Z", "wu:search:bossman-wintest"],
+      "precedent": null,
+      "remedy": null,
+      "gap": null
+    },
+    {
+      "rule_id": "upd.reboot_pending",
+      "claim": "A reboot is pending (Component Based Servicing), which blocks further installations until the host is restarted.",
+      "certainty": "Proven",
+      "evidence_ids": ["wu:reboot:bossman-wintest"],
+      "precedent": null,
+      "remedy": null,
+      "gap": null
+    },
+    {
+      "rule_id": "upd.behind",
+      "claim": "bossman-wintest is behind on updates: 4 pending, 1 of them Critical.",
+      "certainty": "Proven",
+      "evidence_ids": ["wu:pending:bossman-wintest", "wu:search:bossman-wintest"],
+      "precedent": null,
+      "remedy": null,
+      "gap": null
+    }
+  ],
+  "timeline": [
+    {"observed": "2026-10-18T15:00:00Z", "evidence_id": "wu:history:2026-10-18T15:00:00Z"},
+    {"observed": "2026-10-18T15:58:00Z", "evidence_id": "wu:search:bossman-wintest"}
+  ],
+  "gaps": []
+}

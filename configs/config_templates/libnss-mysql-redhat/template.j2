@@ -1,0 +1,97 @@
+# ============================================================================
+# libnss-mysql-redhat Configuration Template
+# ============================================================================
+# This configuration defines the NSS (Name Service Switch) queries for
+# retrieving user and group information from a MySQL/MariaDB database.
+# It replaces traditional /etc/passwd and /etc/group lookups with SQL queries.
+# ============================================================================
+
+# --- NSS Query Definitions ---
+
+# Query to look up a user by username (getpwnam)
+# Returns: username, password_placeholder, uid, gid, gecos, homedir, shell
+getpwnam    SELECT username,'x',{{ uid_placeholder | default('uid') }},gid,gecos,homedir,shell \
+            FROM users \
+            WHERE username='%1$s' \
+            LIMIT 1
+
+# Query to look up a user by numeric UID (getpwuid)
+# Returns: username, password_placeholder, uid, gid, gecos, homedir, shell
+getpwuid    SELECT username,'x',{{ uid_placeholder | default('uid') }},gid,gecos,homedir,shell \
+            FROM users \
+            WHERE uid='%1$u' \
+            LIMIT 1
+
+# Query to look up shadow password data by username (getspnam)
+# Returns: username, password_hash, last_changed, min_age, max_age, warn_period, inactive, expire, flag
+getspnam    SELECT username,password,lstchg,min,max,warn,inact,expire,flag \
+            FROM users \
+            WHERE username='%1$s' \
+            LIMIT 1
+
+# Query to list all users (getpwent)
+# Returns: username, password_placeholder, uid, gid, gecos, homedir, shell
+getpwent    SELECT username,'x',{{ uid_placeholder | default('uid') }},gid,gecos,homedir,shell \
+            FROM users
+
+# Query to list all user shadow data (getspent)
+# Returns: username, password_hash, last_changed, min_age, max_age, warn_period, inactive, expire, flag
+getspent    SELECT username,password,lstchg,min,max,warn,inact,expire,flag \
+            FROM users
+
+# Query to look up a group by group name (getgrnam)
+# Returns: group_name, password_placeholder, gid
+getgrnam    SELECT name,password,gid \
+            FROM groups \
+            WHERE name='%1$s' \
+            LIMIT 1
+
+# Query to look up a group by numeric GID (getgrgid)
+# Returns: group_name, password_placeholder, gid
+getgrgid    SELECT name,password,gid \
+            FROM groups \
+            WHERE gid='%1$u' \
+            LIMIT 1
+
+# Query to list all groups (getgrent)
+# Returns: group_name, password_placeholder, gid
+getgrent    SELECT name,password,gid \
+            FROM groups
+
+# Query to list members of a group by GID (memsbygid)
+# Returns: username
+memsbygid   SELECT username \
+            FROM grouplist \
+            WHERE gid='%1$u'
+
+# Query to list GIDs for a specific member (gidsbymem)
+# Returns: gid
+gidsbymem   SELECT gid \
+            FROM grouplist \
+            WHERE username='%1$s'
+
+# --- Database Connection Settings ---
+
+# The MySQL/MariaDB server hostname.
+# Can be 'localhost', an IP address, or a fully qualified domain name.
+host        {{ host | default('localhost') }}
+
+# The name of the database containing the user/group tables.
+database    {{ database | default('auth') }}
+
+# The username for the database connection.
+# This user must have SELECT privileges on the 'users' and 'groups' tables.
+username    {{ username | default('nss-user') }}
+
+# The password for the database connection.
+password    {{ password | default('userpass') }}
+
+# --- Optional Connection Settings (Commented Out) ---
+
+# Specify a Unix socket file for local connections instead of TCP.
+# Uncomment and set path if connecting via socket is preferred or required.
+#socket      /var/lib/mysql/mysql.sock
+
+# Specify the port number for the MySQL/MariaDB server.
+# Defaults to 3306 if not specified.
+#port        3306

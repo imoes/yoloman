@@ -1,0 +1,72 @@
+# Salt Cloud Configuration
+# Location: /etc/salt/cloud
+#
+# This template configures the Salt Cloud proxy/master settings for Red Hat based systems.
+# It handles VM defaults, logging configuration, and miscellaneous provisioning behaviors.
+#
+# All variables are populated with schema defaults if not provided by the Ansible play.
+
+##########################################
+#####          VM Defaults           #####
+##########################################
+
+# Set the size of minion keys to generate.
+# Controls the RSA key strength for new Salt minions created via cloud profiles.
+# Common values: 1024, 2048, 4096. 2048 is the standard secure default.
+#keysize: {{ keysize | default('2048') }}
+
+
+# Set the default OS deployment script to apply.
+# This determines which bootstrap script Salt Cloud uses to install the Salt minion
+# on the new cloud instance. Usually corresponds to the OS family or specific script name.
+#script: {{ script | default('bootstrap-salt') }}
+
+
+##########################################
+#####         Logging Settings       #####
+##########################################
+
+# The location of the master log file for Salt Cloud operations.
+# Salt Cloud writes its operational logs here. Ensure the directory exists and is writable.
+#log_file: {{ log_file | default('/var/log/salt/cloud') }}
+
+
+# The level of messages to send to the console (stdout).
+# Valid levels (in increasing order of severity): garbage, trace, debug, info, warning, error, critical.
+# Note: 'garbage', 'trace', and 'debug' may log sensitive data and should be avoided in production.
+#log_level: {{ log_level | default('info') }}
+
+
+# The level of messages to send to the log file (defined by log_file).
+# Independent of console logging level. Allows verbose console but selective file logging, or vice-versa.
+# Valid levels: garbage, trace, debug, info, warning, error, critical.
+#log_level_logfile: {{ log_level_logfile | default('info') }}
+
+
+# The date and time format used in log messages.
+# Uses Python strftime directives. Example: '%Y-%m-%d %H:%M:%S' for ISO-like timestamps.
+#log_datefmt: '{{ log_datefmt | default("%Y-%m-%d %H:%M:%S") }}'
+
+
+# Logger levels for specific sub-modules or libraries.
+# Expects a JSON object string (as per schema default) mapping logger names to levels.
+# Allows granular control, e.g., silencing noisy modules while keeping others verbose.
+# Example structure: '{"salt.cloud.clouds.ec2": "debug", "salt.utils.network": "warning"}'
+#log_granular_levels: {{ log_granular_levels | default('{}') }}
+
+
+##########################################
+#####         Misc Defaults          #####
+##########################################
+
+# Whether or not to remove the accompanying SSH key from the known_hosts file
+# when an instance is destroyed.
+# If True, Salt Cloud attempts to clean up stale keys for deleted VMs.
+# If False, keys remain in known_hosts, which may cause SSH warnings for reused IPs.
+#delete_sshkeys: {{ delete_sshkeys | default('False') }}
+
+# Whether or not to include grains information in the /etc/salt/minion file
+# which is generated when the minion is provisioned.
+# Enables automatic population of minion grains (like cloud provider, instance ID, region)
+# into the minion's config, allowing states and formulas to target based on cloud metadata.
+#enable_cloud_grains: {{ enable_cloud_grains | default("'True'") }}

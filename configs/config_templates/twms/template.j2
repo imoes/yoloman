@@ -1,0 +1,172 @@
+# -*- coding: utf-8 -*-
+#    This file is part of tWMS.
+#
+#    This program is free software. It comes without any warranty, to
+#    the extent permitted by applicable law. You can redistribute it
+#    and/or modify it under the terms specified in COPYING.
+
+import fetchers
+
+
+# Enable debug mode
+debug = {{ debug | default('True') }}
+
+# Maximum number of tiles to cache in RAM
+max_ram_cached_tiles = {{ max_ram_cached_tiles | default('1024') }}
+
+# Path where to put cache
+tiles_cache = "{{ tiles_cache | default('/var/cache/twms/tiles') | trim }}/
+
+# Path where to look for broken tiles and other stuff
+install_path = "{{ install_path | default('/usr/share/twms') | trim }}/
+
+# Path where to store cached OSM GPX files
+gpx_cache = "{{ gpx_cache | default('/var/cache/twms/traces') | trim }}/
+
+# Number of seconds given to make up an image
+deadline = {{ deadline | default('45') }}
+
+# Default maximum zoom level, can be overridden per layer
+default_max_zoom = {{ default_max_zoom | default('18') }}
+
+# Default color for overlayed vectors
+geometry_color = {
+        "LINESTRING": "{{ geometry_color_LINESTRING | default('#ff0000') }}",
+        "POLYGON": "{{ geometry_color_POLYGON | default('#0000ff') }}",
+        "POINT": "{{ geometry_color_POINT | default('#00ff00') }}",
+        "TEXT": "{{ geometry_color_TEXT | default('#000000') }}",
+}
+
+# Width of linestrings
+linestring_width = {{ linestring_width | default('3') }}
+
+# Default font for Cairo rendering
+cairo_font = "{{ cairo_font | default('Sans 25') }}"
+
+# Path and size for PIL font
+pil_font = ("{{ pil_font_path | default('/usr/share/fonts/truetype/freefont/FreeSans.ttf') }}", {{ pil_font_size | default(25) }})
+
+# Layer(s) to show when no layers given explicitly. if False, overview is shown.
+default_layers = "{{ default_layers | default('') }}"
+
+# Maximal image height in pixels
+max_height = {{ max_height | default('4095') }}
+
+# Maximal image width in pixels
+max_width = {{ max_width | default('4095') }}
+
+# Output image quality (matters for JPEG)
+output_quality = {{ output_quality | default('75') }}
+
+# Should image be progressive? (matters for JPEG)
+output_progressive = {{ output_progressive | default('True') }}
+
+# Should image be optimized? (matters for PNG)
+output_optimize = {{ output_optimize | default('False') }}
+
+# Default background color for empty space
+default_background = "{{ default_background | default('#ffffff') }}"
+
+# Vector renderer to use: 'PIL' or 'cairo'
+default_vector_renderer = "{{ default_vector_renderer | default('cairo') }}"
+
+## stuff used for GetCapabilities
+# URL service is installed at
+service_url = "{{ service_url | default('http://localhost:8080') }}"
+
+# Name of the WMS service
+wms_name = "{{ wms_name | default('twms based web map service') }}"
+
+# Spherical mercator maximum bounding box
+default_bbox = ({{ default_bbox_min_lon | default(-180.0) }},{{ default_bbox_min_lat | default(-85.0511287798) }},{{ default_bbox_max_lon | default(180.0) }},{{ default_bbox_max_lat | default(85.0511287798) }})
+
+# Default image format
+default_format = "{{ default_format | default('image/jpeg') }}"
+
+# Contact person details
+contact_person = {
+"mail": "{{ contact_person_mail | default('') }}",
+"real_name": "{{ contact_person_real_name | default('') }}",
+"organization": "{{ contact_person_organization | default('') }}"
+}
+
+# Cache paths and extensions for base tiles
+cache_tile_responses = {
+  # (projection, layers, filters, width, height, force, format): (path, ext)
+  ("EPSG:3857", ("base",), (), 256, 256, (), "image/jpeg"): ("{{ cache_tile_responses_base3857_jpg_path | default('/disk/base3857/') | trim }}", "{{ cache_tile_responses_base3857_jpg_ext | default('jpg') }}"),
+  ("EPSG:3857", ("base",), (), 256, 256, (), "image/png"): ("{{ cache_tile_responses_base3857_png_path | default('/disk/base3857/') | trim }}", "{{ cache_tile_responses_base3857_png_ext | default('png') }}"),
+  }
+
+
+## Available layers.
+layers = {
+"yhsat": {
+     "name": "Yahoo Satellite",
+     "prefix": "yhsat",
+     "ext": "{{ yhsat_ext | default('jpg') }}",
+     "scalable": {{ yhsat_scalable | default('False') }},
+     "fetch": fetchers.Tile,
+     "remote_url": "{{ yhsat_remote_url | default('http://aerial.maps.yimg.com/ximg?v=1.8&t=a&s=256&r=1&x=%s&y=%s&z=%s') }}",
+     "transform_tile_number": lambda z,x,y: (x,((2**(z-1)/2)-1)-y,z),
+     "dead_tile": install_path + "{{ yhsat_dead_tile | default('yahoo_nxt.jpg') }}",
+     "min_zoom": {{ yhsat_min_zoom | default('2') }},
+     "max_zoom": {{ yhsat_max_zoom | default(18) }},
+     "proj": "{{ yhsat_proj | default('EPSG:3857') }}",
+},
+"yasat": {
+     "name": "Yandex Satellite",
+     "prefix": "yasat",
+     "ext": "{{ yasat_ext | default('jpg') }}",
+     "scalable": {{ yasat_scalable | default('False') }},
+     "fetch": fetchers.Tile,
+     "remote_url": "{{ yasat_remote_url | default('http://sat01.maps.yandex.net/tiles?l=sat&v=1.22.0&x=%s&y=%s&z=%s') }}",
+     "transform_tile_number": lambda z,x,y: (x,y,z-1),
+     "dead_tile": install_path + "{{ yasat_dead_tile | default('yandex_nxt.jpg') }}",
+     "proj": "{{ yasat_proj | default('EPSG:3395') }}",
+},
+"osm": {
+     "name": "OpenStreetMap mapnik",
+     "prefix": "osm",
+     "ext": "{{ osm_ext | default('png') }}",
+     "scalable": {{ osm_scalable | default('False') }},
+     "fetch": fetchers.Tile,
+     "remote_url": "{{ osm_remote_url | default('http://c.tile.openstreetmap.org/%s/%s/%s.png') }}",
+     "transform_tile_number": lambda z,x,y: (z-1,x,y),
+     "proj": "{{ osm_proj | default('EPSG:3857') }}",
+     "empty_color": "{{ osm_empty_color | default('#F1EEE8') }}",
+     "cache_ttl": {{ osm_cache_ttl | default('864000') }},
+},
+"osm-be": {
+     "name": "OpenStreetMap mapnik - Belarus",
+     "cached": False,
+     "scalable": False,
+     "fetch": fetchers.Tile,
+     "remote_url": "{{ osm_be_remote_url | default('http://tile.latlon.org/tiles/%s/%s/%s.png') }}",
+     "transform_tile_number": lambda z,x,y: (z-1,x,y),
+     "proj": "{{ osm_be_proj | default('EPSG:3857') }}",
+     "empty_color": "{{ osm_be_empty_color | default('#f2efe9') }}",
+     "data_bounding_box": ({{ osm_be_bbox_min_lon | default(23.16722) }},{{ osm_be_bbox_min_lat | default(51.2593) }},{{ osm_be_bbox_max_lon | default(32.82244) }},{{ osm_be_bbox_max_lat | default(56.18162) }}),
+},
+"landsat":  {
+     "name": "Landsat from onearth.jpl.nasa.gov",
+     "prefix": "landsat",
+     "ext": "{{ landsat_ext | default('jpg') }}",
+     "scalable": False,
+     "fetch": fetchers.WMS,
+     "remote_url": "{{ landsat_remote_url | default('http://onearth.jpl.nasa.gov/wms.cgi?request=GetMap&layers=global_mosaic&styles=&format=image/jpeg&') }}",
+     "max_zoom": {{ landsat_max_zoom | default(14) }},
+     "proj": "{{ landsat_proj | default('EPSG:4326') }}",
+     "wms_proj": "{{ landsat_wms_proj | default('EPSG:4326') }}",
+},
+"latlonsat":  {
+     "name": "Imagery from latlon.org",
+     "prefix": "latlonsat",
+     "ext": "{{ latlonsat_ext | default('jpg') }}",
+     "scalable": False,
+     "fetch": fetchers.WMS,
+     "remote_url": "{{ latlonsat_remote_url | default('http://dev.latlon.org/cgi-bin/ms?FORMAT=image/jpeg&VERSION=1.1.1&SERVICE=WMS&REQUEST=GetMap&Layers=sat,plane&') }}",
+     "max_zoom": {{ latlonsat_max_zoom | default(19) }},
+     "proj": "{{ latlonsat_proj | default('EPSG:3857') }}",
+     "wms_proj": "{{ latlonsat_wms_proj | default('EPSG:3857') }}",
+},
+}

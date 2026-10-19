@@ -1,0 +1,569 @@
+########################################################################################
+#
+# Common Settings
+#
+########################################################################################
+
+# (Mandatory)
+# The redirect_uri for this OpenID Connect client; this is a vanity URL
+# that must ONLY point to a path on your server protected by this module
+# but it must NOT point to any actual content that needs to be served.
+# You can use a relative URL like /protected/redirect_uri if you want to
+# support multiple vhosts that belong to the same security domain in a dynamic way
+{# The redirect_uri for this OpenID Connect client. #}
+{# Default: '' (empty, requiring explicit configuration) #}
+{% if oidc_redirect_uri is defined and oidc_redirect_uri | default('') %}OIDCRedirectURI {{ oidc_redirect_uri | default('') }}{% else %}#OIDCRedirectURI https://www.example.com/protected/redirect_uri{% endif %}
+
+{# Password for crypto purposes (encryption of state cookie and cache entries). #}
+{# Default: 'changeme' #}
+{# Note: In production, ensure this is a strong, random passphrase. #}
+OIDCCryptoPassphrase {{ oidc_crypto_passphrase | default('changeme') }}
+
+#
+# All other entries below this are optional though some may be required in a
+# particular setup e.g. OAuth 2.0 Resource Server vs. OpenID Connect Relying Party
+#
+
+{# Directory that holds metadata files for multiple OpenID Connect Providers. #}
+{# Default: '' (empty, implying single provider configuration via URL) #}
+{# Must be writable for the Apache process/user. #}
+{% if oidc_metadata_dir is defined and oidc_metadata_dir | default('') %}OIDCMetadataDir {{ oidc_metadata_dir | default('') }}{% else %}#OIDCMetadataDir /var/cache/httpd/mod_auth_openidc/metadata{% endif %}
+
+########################################################################################
+#
+# OpenID Connect Provider
+#
+# For configuration of a single static provider, not using OpenID Connect Provider Discovery.
+#
+########################################################################################
+
+{# URL where OpenID Connect Provider metadata can be found. #}
+{# Default: '' (empty) #}
+{# If set, individual entries below (issuer, endpoints, etc.) are optional as they #}
+{# will be fetched from this metadata URL. #}
+{% if oidc_provider_metadata_url is defined and oidc_provider_metadata_url | default('') %}OIDCProviderMetadataURL {{ oidc_provider_metadata_url | default('') }}{% else %}#OIDCProviderMetadataURL <url>{% endif %}
+
+{# OpenID Connect Provider issuer identifier. #}
+{# Default: '' (empty) #}
+{# Used when OIDCProviderMetadataURL is not defined or missing from metadata. #}
+{% if oidc_provider_issuer is defined and oidc_provider_issuer | default('') %}OIDCProviderIssuer {{ oidc_provider_issuer | default('') }}{% else %}#OIDCProviderIssuer <issuer>{% endif %}
+
+{# OpenID Connect Provider Authorization Endpoint URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_authorization_endpoint is defined and oidc_provider_authorization_endpoint | default('') %}OIDCProviderAuthorizationEndpoint {{ oidc_provider_authorization_endpoint | default('') }}{% else %}#OIDCProviderAuthorizationEndpoint <authorization_endpoint>{% endif %}
+
+{# OpenID Connect Provider JWKS URL. #}
+{# Default: '' (empty) #}
+{# URL on which the signing keys for this OP are hosted, in JWK formatting. #}
+{% if oidc_provider_jwks_uri is defined and oidc_provider_jwks_uri | default('') %}OIDCProviderJwksUri {{ oidc_provider_jwks_uri | default('') }}{% else %}#OIDCProviderJwksUri <jwks_url>{% endif %}
+
+{# OpenID Connect Provider Signed JWKS URL. #}
+{# Default: '' (empty) #}
+{# Used to verify the provided JWKs value. Takes precedence over OIDCProviderJwksUri. #}
+{# Example: OIDCProviderSignedJwksUri <url> "{\"keys\":[...]}" #}
+OIDCProviderSignedJwksUri {{ oidc_provider_signed_jwks_uri | default('') }}
+
+{# Files containing X.509 certificates for ID Token verification. #}
+{# Default: 'sig' #}
+{# Format: ["sig:"|"enc:"][<kid>#]<filename> #}
+{% if oidc_provider_verify_cert_files is defined and oidc_provider_verify_cert_files | default('sig') %}OIDCProviderVerifyCertFiles {{ oidc_provider_verify_cert_files | default('sig') }}{% else %}#OIDCProviderVerifyCertFiles (["sig:"|"enc:"][<kid>#]<filename>)+{% endif %}
+
+{# OpenID Connect Provider Token Endpoint URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_token_endpoint is defined and oidc_provider_token_endpoint | default('') %}OIDCProviderTokenEndpoint {{ oidc_provider_token_endpoint | default('') }}{% else %}#OIDCProviderTokenEndpoint <token_endpoint>{% endif %}
+
+{# Authentication method for the Token Endpoint. #}
+{# Default: 'client_secret_basic' #}
+{% if oidc_provider_token_endpoint_auth is defined and oidc_provider_token_endpoint_auth | default('client_secret_basic') %}OIDCProviderTokenEndpointAuth {{ oidc_provider_token_endpoint_auth | default('client_secret_basic') }}{% else %}#OIDCProviderTokenEndpointAuth [ client_secret_basic | client_secret_post | client_secret_jwt | private_key_jwt | none ]{% endif %}
+
+{# Extra parameters for the Token Endpoint POST request. #}
+{# Default: '' (empty) #}
+{# URL-encoded form: name1=value1&name2=value2 #}
+{% if oidc_provider_token_endpoint_params is defined and oidc_provider_token_endpoint_params | default('') %}OIDCProviderTokenEndpointParams {{ oidc_provider_token_endpoint_params | default('') }}{% else %}#OIDCProviderTokenEndpointParams <urlencoded-name1>=<urlencoded-value1>[&<urlencoded-nameN>=<urlencoded-valueN>]* {% endif %}
+
+{# OpenID Connect Provider UserInfo Endpoint URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_userinfo_endpoint is defined and oidc_provider_userinfo_endpoint | default('') %}OIDCProviderUserInfoEndpoint {{ oidc_provider_userinfo_endpoint | default('') }}{% else %}#OIDCProviderUserInfoEndpoint <user_info_endpoint>{% endif %}
+
+{# OpenID OP Check Session iFrame URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_check_session_iframe is defined and oidc_provider_check_session_iframe | default('') %}OIDCProviderCheckSessionIFrame {{ oidc_provider_check_session_iframe | default('') }}{% else %}#OIDCProviderCheckSessionIFrame <url>{% endif %}
+
+{# OpenID OP End Session Endpoint URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_end_session_endpoint is defined and oidc_provider_end_session_endpoint | default('') %}OIDCProviderEndSessionEndpoint {{ oidc_provider_end_session_endpoint | default('') }}{% else %}#OIDCProviderEndSessionEndpoint <url>{% endif %}
+
+{# Extra parameters for the Logout Request. #}
+{# Default: '' (empty) #}
+{# URL-query-encoded: client_id=myclient&prompt=none #}
+{% if oidc_logout_request_params is defined and oidc_logout_request_params | default('') %}OIDCLogoutRequestParams {{ oidc_logout_request_params | default('') }}{% else %}#OIDCLogoutRequestParams <query-encoded-string>{% endif %}
+
+{# The RFC 7009 Token Revocation Endpoint URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_revocation_endpoint is defined and oidc_provider_revocation_endpoint | default('') %}OIDCProviderRevocationEndpoint {{ oidc_provider_revocation_endpoint | default('') }}{% else %}#OIDCProviderRevocationEndpoint <url>{% endif %}
+
+{# The RFC 9126 Pushed Authorization Request endpoint URL. #}
+{# Default: '' (empty) #}
+{% if oidc_provider_pushed_authorization_request_endpoint is defined and oidc_provider_pushed_authorization_request_endpoint | default('') %}OIDCProviderPushedAuthorizationRequestEndpoint {{ oidc_provider_pushed_authorization_request_endpoint | default('') }}{% else %}#OIDCProviderPushedAuthorizationRequestEndpoint <url>{% endif %}
+
+{# Define whether the OP supports OpenID Connect Back Channel Logout. #}
+{# Default: 'On' #}
+{% if oidc_provider_back_channel_logout_supported is defined and oidc_provider_back_channel_logout_supported | default('On') %}OIDCProviderBackChannelLogoutSupported {{ oidc_provider_back_channel_logout_supported | default('On') }}{% else %}#OIDCProviderBackChannelLogoutSupported [On|Off]{% endif %}
+
+{# Extra JSON parameters for the registration request. #}
+{# Default: '' (empty) #}
+{# JSON form, merged into the request. #}
+{% if oidc_provider_registration_endpoint_json is defined and oidc_provider_registration_endpoint_json | default('') %}OIDCProviderRegistrationEndpointJson {{ oidc_provider_registration_endpoint_json | default('') }}{% else %}#OIDCProviderRegistrationEndpointJson <json-string>{% endif %}
+
+{# The OpenID Connect scope requested from the OP. #}
+{# Default: '' (empty, defaults to "openid") #}
+{# Multiple scopes must be enclosed in double quotes: "openid email profile" #}
+{% if oidc_scope is defined and oidc_scope | default('') %}OIDCScope "{{ oidc_scope | default('') }}"{% else %}#OIDCScope "<scope(s)-separated-by-spaces-and-enclosed-in-double-quotes>"{% endif %}
+
+{# Extra parameters for the Authorization Request. #}
+{# Default: '' (empty) #}
+{# URL-query-encoded: display=popup&prompt=consent #}
+{% if oidc_auth_request_params is defined and oidc_auth_request_params | default('') %}OIDCAuthRequestParams {{ oidc_auth_request_params | default('') }}{% else %}#OIDCAuthRequestParams <query-encoded-string>{% endif %}
+
+{# Require a valid SSL server certificate when communicating with the OP. #}
+{# Default: 'On' #}
+{% if oidc_ssl_validate_server is defined and oidc_ssl_validate_server | default('On') %}OIDCSSLValidateServer {{ oidc_ssl_validate_server | default('On') }}{% else %}#OIDCSSLValidateServer [On|Off]{% endif %}
+
+{# Path to the CA bundle to be used by cURL. #}
+{# Default: '' (empty, uses platform default) #}
+{% if oidc_ca_bundle_path is defined and oidc_ca_bundle_path | default('') %}OIDCCABundlePath {{ oidc_ca_bundle_path | default('') }}{% else %}#OIDCCABundlePath <path>{% endif %}
+
+{# Require configured issuer to match the issuer returned in id_token. #}
+{# Default: 'On' #}
+{% if oidc_validate_issuer is defined and oidc_validate_issuer | default('On') %}OIDCValidateIssuer {{ oidc_validate_issuer | default('On') }}{% else %}#OIDCValidateIssuer [On|Off]{% endif %}
+
+{# Refresh interval in seconds for claims from the userinfo endpoint. #}
+{# Default: '' (empty, retrieve only once at session creation) #}
+{% if oidc_userinfo_refresh_interval is defined and oidc_userinfo_refresh_interval | default('') %}OIDCUserInfoRefreshInterval {{ oidc_userinfo_refresh_interval | default('') }}{% else %}#OIDCUserInfoRefreshInterval <seconds> [ logout_on_error | authenticate_on_error | 502_on_error ]{% endif %}
+
+{# Refresh interval in seconds for the JWKs key set. #}
+{# Default: '' (empty, defaults to 3600 seconds) #}
+{% if oidc_jwks_refresh_interval is defined and oidc_jwks_refresh_interval | default('') %}OIDCJWKSRefreshInterval {{ oidc_jwks_refresh_interval | default('') }}{% else %}#OIDCJWKSRefreshInterval <seconds>{% endif %}
+
+{# Way in which the access token is presented to the userinfo endpoint. #}
+{# Default: 'authz_header' #}
+{% if oidc_userinfo_token_method is defined and oidc_userinfo_token_method | default('authz_header') %}OIDCUserInfoTokenMethod {{ oidc_userinfo_token_method | default('authz_header') }}{% else %}#OIDCUserInfoTokenMethod [authz_header|post_param]{% endif %}
+
+{# HTTP method used to pass parameters in the Authentication Request. #}
+{# Default: 'GET' #}
+{% if oidc_provider_auth_request_method is defined and oidc_provider_auth_request_method | default('GET') %}OIDCProviderAuthRequestMethod {{ oidc_provider_auth_request_method | default('GET') }}{% else %}#OIDCProviderAuthRequestMethod [ GET | POST | PAR ]{% endif %}
+
+{# Files containing PEM-formatted public keys for JWT encryption. #}
+{# Default: 'enc' #}
+{# Format: ["sig:"|"enc:"][<kid>#]<filename> #}
+{% if oidc_public_key_files is defined and oidc_public_key_files | default('enc') %}OIDCPublicKeyFiles {{ oidc_public_key_files | default('enc') }}{% else %}#OIDCPublicKeyFiles (["sig:"|"enc:"][<kid>#]<filename>)+{% endif %}
+
+{# Files containing PEM-formatted private keys for JWT decryption. #}
+{# Default: '' (empty) #}
+{# Format: ["sig:"|"enc:"][<kid>#]<filename> #}
+{% if oidc_private_key_files is defined and oidc_private_key_files | default('') %}OIDCPrivateKeyFiles {{ oidc_private_key_files | default('') }}{% else %}#OIDCPrivateKeyFiles (["sig:"|"enc:"][<kid>#]<filename>)+{% endif %}
+
+########################################################################################
+#
+# OpenID Connect Client
+#
+# Settings used by the client in communication with the OpenID Connect Provider(s).
+#
+########################################################################################
+
+{# The response type (or OpenID Connect Flow) used. #}
+{# Default: 'code' #}
+{% if oidc_response_type is defined and oidc_response_type | default('code') %}OIDCResponseType {{ oidc_response_type | default('code') }}{% else %}#OIDCResponseType ["code"|"id_token"|"id_token token"|"code id_token"|"code token"|"code id_token token"]{% endif %}
+
+{# The response mode used. #}
+{# Default: 'fragment' #}
+{% if oidc_response_mode is defined and oidc_response_mode | default('fragment') %}OIDCResponseMode {{ oidc_response_mode | default('fragment') }}{% else %}#OIDCResponseMode [fragment|query|form_post]{% endif %}
+
+{# Client identifier used in calls to the OP. #}
+{# Default: '' (empty) #}
+{% if oidc_client_id is defined and oidc_client_id | default('') %}OIDCClientID {{ oidc_client_id | default('') }}{% else %}#OIDCClientID <client_id>{% endif %}
+
+{# Client secret used in calls to the OP. #}
+{# Default: '' (empty) #}
+{% if oidc_client_secret is defined and oidc_client_secret | default('') %}OIDCClientSecret {{ oidc_client_secret | default('') }}{% else %}#OIDCClientSecret [ <client_secret> | "exec:/path/to/otherProgram argument1" ]{% endif %}
+
+{# Filename with the PEM-formatted client certificate for token endpoint authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_client_token_endpoint_cert is defined and oidc_client_token_endpoint_cert | default('') %}OIDCClientTokenEndpointCert {{ oidc_client_token_endpoint_cert | default('') }}{% else %}#OIDCClientTokenEndpointCert <filename>{% endif %}
+
+{# Filename with the PEM-formatted private key for token endpoint authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_client_token_endpoint_key is defined and oidc_client_token_endpoint_key | default('') %}OIDCClientTokenEndpointKey {{ oidc_client_token_endpoint_key | default('') }}{% else %}#OIDCClientTokenEndpointKey <filename>{% endif %}
+
+{# Password for the PEM-formatted private key for token endpoint authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_client_token_endpoint_key_password is defined and oidc_client_token_endpoint_key_password | default('') %}OIDCClientTokenEndpointKeyPassword {{ oidc_client_token_endpoint_key_password | default('') }}{% else %}#OIDCClientTokenEndpointKeyPassword [ <passphrase> | "exec:/path/to/otherProgram arg1" ]{% endif %}
+
+{# The client name registered in dynamic registration. #}
+{# Default: '' (empty) #}
+{% if oidc_client_name is defined and oidc_client_name | default('') %}OIDCClientName {{ oidc_client_name | default('') }}{% else %}#OIDCClientName <client_name>{% endif %}
+
+{# The contacts registered in dynamic registration. #}
+{# Default: '' (empty) #}
+{% if oidc_client_contact is defined and oidc_client_contact | default('') %}OIDCClientContact {{ oidc_client_contact | default('') }}{% else %}#OIDCClientContact <contact>{% endif %}
+
+{# The PKCE method used. #}
+{# Default: 'S256' #}
+{% if oidc_pkce_method is defined and oidc_pkce_method | default('S256') %}OIDCPKCEMethod {{ oidc_pkce_method | default('S256') }}{% else %}#OIDCPKCEMethod [ S256 | plain | |none ]{% endif %}
+
+{# The DPoP mode used. #}
+{# Default: 'off' #}
+{% if oidc_dpop_mode is defined and oidc_dpop_mode | default('off') %}OIDCDPoPMode {{ oidc_dpop_mode | default('off') }}{% else %}#OIDCDPoPMode [off|optional|required] [on|off]{% endif %}
+
+{# The Client JWKs URL used during client registration. #}
+{# Default: '' (empty) #}
+{% if oidc_client_jwks_uri is defined and oidc_client_jwks_uri | default('') %}OIDCClientJwksUri {{ oidc_client_jwks_uri | default('') }}{% else %}#OIDCClientJwksUri <url>{% endif %}
+
+{# The algorithm that the OP should use to sign the id_token. #}
+{# Default: 'RS256' #}
+{% if oidc_id_token_signed_response_alg is defined and oidc_id_token_signed_response_alg | default('RS256') %}OIDCIDTokenSignedResponseAlg {{ oidc_id_token_signed_response_alg | default('RS256') }}{% else %}#OIDCIDTokenSignedResponseAlg [RS256|RS384|RS512|PS256|PS384|PS512|HS256|HS384|HS512|ES256|ES384|ES512]{% endif %}
+
+{# The algorithm that the OP should use to encrypt the Content Encryption Key for the id_token. #}
+{# Default: 'RSA-OAEP' #}
+{% if oidc_id_token_encrypted_response_alg is defined and oidc_id_token_encrypted_response_alg | default('RSA-OAEP') %}OIDCIDTokenEncryptedResponseAlg {{ oidc_id_token_encrypted_response_alg | default('RSA-OAEP') }}{% else %}#OIDCIDTokenEncryptedResponseAlg [RSA1_5|A128KW|A256KW|RSA-OAEP]{% endif %}
+
+{# The algorithm that the OP should use to encrypt the id_token with the Content Encryption Key. #}
+{# Default: 'A256CBC-HS512' #}
+{% if oidc_id_token_encrypted_response_enc is defined and oidc_id_token_encrypted_response_enc | default('A256CBC-HS512') %}OIDCIDTokenEncryptedResponseEnc {{ oidc_id_token_encrypted_response_enc | default('A256CBC-HS512') }}{% else %}#OIDCIDTokenEncryptedResponseEnc [A128CBC-HS256|A256CBC-HS512|A256GCM]{% endif %}
+
+{# The accepted value(s) of the "aud" claim in the ID token. #}
+{# Default: '' (empty) #}
+{% if oidc_id_token_aud_values is defined and oidc_id_token_aud_values | default('') %}OIDCIDTokenAudValues {{ oidc_id_token_aud_values | default('') }}{% else %}#OIDCIDTokenAudValues <value>+{% endif %}
+
+{# The algorithm that the OP should use to sign the UserInfo response. #}
+{# Default: 'RS256' #}
+{% if oidc_userinfo_signed_response_alg is defined and oidc_userinfo_signed_response_alg | default('RS256') %}OIDCUserInfoSignedResponseAlg {{ oidc_userinfo_signed_response_alg | default('RS256') }}{% else %}#OIDCUserInfoSignedResponseAlg RS256|RS384|RS512|PS256|PS384|PS512|HS256|HS384|HS512|ES256|ES384|ES512]{% endif %}
+
+{# The algorithm that the OP should use to encrypt the Content Encryption Key for the UserInfo response. #}
+{# Default: 'RSA-OAEP' #}
+{% if oidc_userinfo_encrypted_response_alg is defined and oidc_userinfo_encrypted_response_alg | default('RSA-OAEP') %}OIDCUserInfoEncryptedResponseAlg {{ oidc_userinfo_encrypted_response_alg | default('RSA-OAEP') }}{% else %}#OIDCUserInfoEncryptedResponseAlg [RSA1_5|A128KW|A256KW|RSA-OAEP]{% endif %}
+
+{# The algorithm that the OP should use to encrypt the UserInfo response with the Content Encryption Key. #}
+{# Default: 'A256CBC-HS512' #}
+{% if oidc_userinfo_encrypted_response_enc is defined and oidc_userinfo_encrypted_response_enc | default('A256CBC-HS512') %}OIDCUserInfoEncryptedResponseEnc {{ oidc_userinfo_encrypted_response_enc | default('A256CBC-HS512') }}{% else %}#OIDCUserInfoEncryptedResponseEnc [A128CBC-HS256|A256CBC-HS512|A256GCM]{% endif %}
+
+{# The OpenID Connect (client) profile to adhere to. #}
+{# Default: '' (empty, defaults to OIDC10) #}
+{% if oidc_profile is defined and oidc_profile | default('') %}OIDCProfile {{ oidc_profile | default('') }}{% else %}#OIDCProfile [ OIDC10 | FAPI20 ]{% endif %}
+
+########################################################################################
+#
+# WARNING:
+#
+# THE OAUTH 2.0 RESOURCE SERVER FUNCTIONALITY IS DEPRECATED NOW AND SUPERSEDED
+# BY A SEPARATE MODULE, SEE: https://github.com/OpenIDC/mod_oauth2
+#
+# OAuth 2.0 Resource Server Settings
+#
+########################################################################################
+
+{# URL where Authorization Provider metadata can be found (RFC 8414). #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_server_metadata_url is defined and oidc_oauth_server_metadata_url | default('') %}OIDCOAuthServerMetadataURL {{ oidc_oauth_server_metadata_url | default('') }}{% else %}#OIDCOAuthServerMetadataURL <url>{% endif %}
+
+{# OAuth 2.0 Authorization Server token introspection endpoint. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_introspection_endpoint is defined and oidc_oauth_introspection_endpoint | default('') %}OIDCOAuthIntrospectionEndpoint {{ oidc_oauth_introspection_endpoint | default('') }}{% else %}#OIDCOAuthIntrospectionEndpoint <token-introspection-endpoint>{% endif %}
+
+{# Client identifier used in token introspection calls. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_client_id is defined and oidc_oauth_client_id | default('') %}OIDCOAuthClientID {{ oidc_oauth_client_id | default('') }}{% else %}#OIDCOAuthClientID <client_id>{% endif %}
+
+{# Client secret used in token introspection calls. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_client_secret is defined and oidc_oauth_client_secret | default('') %}OIDCOAuthClientSecret {{ oidc_oauth_client_secret | default('') }}{% else %}#OIDCOAuthClientSecret <client_secret>{% endif %}
+
+{# Authentication method for the OAuth 2.0 Authorization Server introspection endpoint. #}
+{# Default: 'client_secret_basic' #}
+{% if oidc_oauth_introspection_endpoint_auth is defined and oidc_oauth_introspection_endpoint_auth | default('client_secret_basic') %}OIDCOAuthIntrospectionEndpointAuth {{ oidc_oauth_introspection_endpoint_auth | default('client_secret_basic') }}{% else %}#OIDCOAuthIntrospectionEndpointAuth [ client_secret_basic | client_secret_post | client_secret_jwt | private_key_jwt | bearer_access_token | none ]{% endif %}
+
+{# Static token for authorizing the call to the introspection endpoint. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_introspection_client_auth_bearer_token is defined and oidc_oauth_introspection_client_auth_bearer_token | default('') %}OIDCOAuthIntrospectionClientAuthBearerToken {{ oidc_oauth_introspection_client_auth_bearer_token | default('') }}{% else %}#OIDCOAuthIntrospectionClientAuthBearerToken [ a-static-bearer-token | ]{% endif %}
+
+{# Filename with the PEM-formatted client certificate for introspection authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_introspection_endpoint_cert is defined and oidc_oauth_introspection_endpoint_cert | default('') %}OIDCOAuthIntrospectionEndpointCert {{ oidc_oauth_introspection_endpoint_cert | default('') }}{% else %}#OIDCOAuthIntrospectionEndpointCert <filename>{% endif %}
+
+{# Filename with the PEM-formatted private key for introspection authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_introspection_endpoint_key is defined and oidc_oauth_introspection_endpoint_key | default('') %}OIDCOAuthIntrospectionEndpointKey {{ oidc_oauth_introspection_endpoint_key | default('') }}{% else %}#OIDCOAuthIntrospectionEndpointKey <filename>{% endif %}
+
+{# Password for the PEM-formatted private key for introspection authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_introspection_endpoint_key_password is defined and oidc_oauth_introspection_endpoint_key_password | default('') %}OIDCOAuthIntrospectionEndpointKeyPassword {{ oidc_oauth_introspection_endpoint_key_password | default('') }}{% else %}#OIDCOAuthIntrospectionEndpointKeyPassword [ <passphrase> | "exec:/path/to/otherProgram arg1" ]{% endif %}
+
+{# HTTP method to use for the introspection call. #}
+{# Default: 'POST' #}
+{% if oidc_oauth_introspection_endpoint_method is defined and oidc_oauth_introspection_endpoint_method | default('POST') %}OIDCOAuthIntrospectionEndpointMethod {{ oidc_oauth_introspection_endpoint_method | default('POST') }}{% else %}#OIDCOAuthIntrospectionEndpointMethod [POST|GET]{% endif %}
+
+{# Extra parameters for the Introspection Endpoint POST request. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_introspection_endpoint_params is defined and oidc_oauth_introspection_endpoint_params | default('') %}OIDCOAuthIntrospectionEndpointParams {{ oidc_oauth_introspection_endpoint_params | default('') }}{% else %}#OIDCOAuthIntrospectionEndpointParams <urlencoded-name1>=<urlencoded-value1>[&<urlencoded-nameN>=<urlencoded-valueN>]* {% endif %}
+
+{# Name of the parameter carrying the access token value in introspection. #}
+{# Default: '' (empty, defaults to "token") #}
+{% if oidc_oauth_introspection_token_param_name is defined and oidc_oauth_introspection_token_param_name | default('') %}OIDCOAuthIntrospectionTokenParamName {{ oidc_oauth_introspection_token_param_name | default('') }}{% else %}#OIDCOAuthIntrospectionTokenParamName <param_name>{% endif %}
+
+{# Claim containing the token expiry timestamp. #}
+{# Default: '' (empty, defaults to "expires_in") #}
+{% if oidc_oauth_token_expiry_claim is defined and oidc_oauth_token_expiry_claim | default('') %}OIDCOAuthTokenExpiryClaim {{ oidc_oauth_token_expiry_claim | default('') }}{% else %}#OIDCOAuthTokenExpiryClaim <claim-name> [absolute|relative] [mandatory|optional]{% endif %}
+
+{# Interval in seconds after which a cached introspected access token needs to be refreshed. #}
+{# Default: '' (empty, defaults to 0: only expires after `exp` hint) #}
+{% if oidc_oauth_token_introspection_interval is defined and oidc_oauth_token_introspection_interval | default('') %}OIDCOAuthTokenIntrospectionInterval {{ oidc_oauth_token_introspection_interval | default('') }}{% else %}#OIDCOAuthTokenIntrospectionInterval <seconds>{% endif %}
+
+{# Require a valid SSL server certificate when communicating with the Authorization Server. #}
+{# Default: 'On' #}
+{% if oidc_oauth_ssl_validate_server is defined and oidc_oauth_ssl_validate_server | default('On') %}OIDCOAuthSSLValidateServer {{ oidc_oauth_ssl_validate_server | default('On') }}{% else %}#OIDCOAuthSSLValidateServer [On|Off]{% endif %}
+
+{# Symmetric shared key(s) for local JWT access token validation. #}
+{# Default: '' (empty) #}
+{# Format: ["sig:"|"enc:"]plain|b64|hex#[<kid>#]<key> #}
+{% if oidc_oauth_verify_shared_keys is defined and oidc_oauth_verify_shared_keys | default('') %}OIDCOAuthVerifySharedKeys {{ oidc_oauth_verify_shared_keys | default('') }}{% else %}#OIDCOAuthVerifySharedKeys (["sig:"|"enc:"]plain|b64|hex#[<kid>#]<key>)+{% endif %}
+
+{# Files containing X.509 certificates for local JWT access token verification. #}
+{# Default: '' (empty) #}
+{# Format: ["sig:"|"enc:"][<kid>#]<filename> #}
+{% if oidc_oauth_verify_cert_files is defined and oidc_oauth_verify_cert_files | default('') %}OIDCOAuthVerifyCertFiles {{ oidc_oauth_verify_cert_files | default('') }}{% else %}#OIDCOAuthVerifyCertFiles (["sig:"|"enc:"][<kid>#]<filename>)+{% endif %}
+
+{# The JWKs URL on which the Authorization Server publishes keys for JWT access tokens. #}
+{# Default: '' (empty) #}
+{% if oidc_oauth_verify_jwks_uri is defined and oidc_oauth_verify_jwks_uri | default('') %}OIDCOAuthVerifyJwksUri {{ oidc_oauth_verify_jwks_uri | default('') }}{% else %}#OIDCOAuthVerifyJwksUri <jwks_url>{% endif %}
+
+{# Claim used when setting the REMOTE_USER variable on OAuth 2.0 protected paths. #}
+{# Default: '' (empty, defaults to "sub") #}
+{% if oidc_oauth_remote_user_claim is defined and oidc_oauth_remote_user_claim | default('') %}OIDCOAuthRemoteUserClaim {{ oidc_oauth_remote_user_claim | default('') }}{% else %}#OIDCOAuthRemoteUserClaim <claim-name> [<regular-expression>] [substitution-string]{% endif %}
+
+{# Way(s) in which bearer OAuth 2.0 access tokens can be passed. #}
+{# Default: 'header' #}
+{% if oidc_oauth_accept_token_as is defined and oidc_oauth_accept_token_as | default('header') %}OIDCOAuthAcceptTokenAs {{ oidc_oauth_accept_token_as | default('header') }}{% else %}#OIDCOAuthAcceptTokenAs [header|post|query|cookie[:<cookie-name>|basic]+{% endif %}
+
+########################################################################################
+#
+# Cookie Settings
+#
+########################################################################################
+
+{# Cookie path for the "state" and "session" cookies. #}
+{# Default: '' (empty, defaults to server-wide "/") #}
+{% if oidc_cookie_path is defined and oidc_cookie_path | default('') %}OIDCCookiePath {{ oidc_cookie_path | default('') }}{% else %}#OIDCCookiePath <cookie-path>{% endif %}
+
+{# Domain for which the "state" and "session" cookies will be set. #}
+{# Default: '' (empty, defaults to current hostname) #}
+OIDCCookieDomain {{ oidc_cookie_domain | default('') }}
+
+{# Cookie name for the session cookie. #}
+{# Default: '' (empty, defaults to "mod_auth_openidc_session") #}
+{% if oidc_cookie is defined and oidc_cookie | default('') %}OIDCCookie {{ oidc_cookie | default('') }}{% else %}#OIDCCookie <cookie-name>{% endif %}
+
+{# OpenID Connect session cookie chunk size. #}
+{# Default: '' (empty, defaults to 4000 bytes) #}
+{% if oidc_session_cookie_chunk_size is defined and oidc_session_cookie_chunk_size | default('') %}OIDCSessionCookieChunkSize {{ oidc_session_cookie_chunk_size | default('') }}{% else %}#OIDCSessionCookieChunkSize <bytes>{% endif %}
+
+{# Defines whether the HttpOnly flag will be set on cookies. #}
+{# Default: 'On' #}
+{% if oidc_cookie_http_only is defined and oidc_cookie_http_only | default('On') %}OIDCCookieHTTPOnly {{ oidc_cookie_http_only | default('On') }}{% else %}#OIDCCookieHTTPOnly [On|Off]{% endif %}
+
+{# Defines the SameSite flag that will be set on cookies. #}
+{# Default: 'Lax' #}
+{% if oidc_cookie_same_site is defined and oidc_cookie_same_site | default('Lax') %}OIDCCookieSameSite {{ oidc_cookie_same_site | default('Lax') }}{% else %}#OIDCCookieSameSite [ On | Off | Strict | Lax | None | Disabled ]{% endif %}
+
+{# Names of cookies to pick up from the browser and send along on backchannel calls. #}
+{# Default: '' (empty) #}
+{% if oidc_pass_cookies is defined and oidc_pass_cookies | default('') %}OIDCPassCookies {{ oidc_pass_cookies | default('') }}{% else %}#OIDCPassCookies [<cookie-name>]+{% endif %}
+
+{# Names of cookies to strip from the incoming request. #}
+{# Default: '' (empty) #}
+{% if oidc_strip_cookies is defined and oidc_strip_cookies | default('') %}OIDCStripCookies {{ oidc_strip_cookies | default('') }}{% else %}#OIDCStripCookies [<cookie-name>]+{% endif %}
+
+{# Maximum number of state cookies. #}
+{# Default: '' (empty, defaults to 7) #}
+{% if oidc_state_max_number_of_cookies is defined and oidc_state_max_number_of_cookies | default('') %}OIDCStateMaxNumberOfCookies {{ oidc_state_max_number_of_cookies | default('') }}{% else %}#OIDCStateMaxNumberOfCookies <number> [false|true]{% endif %}
+
+{# Cookie prefix for the state cookie. #}
+{# Default: '' (empty, defaults to "mod_auth_openidc_state_") #}
+{% if oidc_state_cookie_prefix is defined and oidc_state_cookie_prefix | default('') %}OIDCStateCookiePrefix {{ oidc_state_cookie_prefix | default('') }}{% else %}#OIDCStateCookiePrefix <cookie-prefix>{% endif %}
+
+########################################################################################
+#
+# Session Settings
+#
+########################################################################################
+
+{# Interval in seconds after which the session will be invalidated when no interaction has occurred. #}
+{# Default: '' (empty, defaults to 300 seconds) #}
+{% if oidc_session_inactivity_timeout is defined and oidc_session_inactivity_timeout | default('') %}OIDCSessionInactivityTimeout {{ oidc_session_inactivity_timeout | default('') }}{% else %}#OIDCSessionInactivityTimeout <seconds>{% endif %}
+
+{# Maximum duration of the application session. #}
+{# Default: '' (empty, defaults to 8 hours / 28800 seconds) #}
+{% if oidc_session_max_duration is defined and oidc_session_max_duration | default('') %}OIDCSessionMaxDuration {{ oidc_session_max_duration | default('') }}{% else %}#OIDCSessionMaxDuration <seconds>{% endif %}
+
+{# OpenID Connect session storage type. #}
+{# Default: 'cookie' #}
+{% if oidc_session_type is defined and oidc_session_type | default('cookie') %}OIDCSessionType {{ oidc_session_type | default('cookie') }}{% else %}#OIDCSessionType server-cache[:persistent] | client-cookie[:persistent | :store_id_token | :persistent:store_id_token ]{% endif %}
+
+{# Fallback to "client-cookie" when server-cache fails. #}
+{# Default: 'On' #}
+{% if oidc_session_cache_fallback_to_cookie is defined and oidc_session_cache_fallback_to_cookie | default('On') %}OIDCSessionCacheFallbackToCookie {{ oidc_session_cache_fallback_to_cookie | default('On') }}{% else %}#OIDCSessionCacheFallbackToCookie [On|Off]{% endif %}
+
+########################################################################################
+#
+# Cache Settings
+#
+########################################################################################
+
+{# Cache type used for temporary storage. #}
+{# Default: 'file' #}
+{% if oidc_cache_type is defined and oidc_cache_type | default('file') %}OIDCCacheType {{ oidc_cache_type | default('file') }}{% else %}#OIDCCacheType [shm|memcache|file[|redis]]{% endif %}
+
+{# Indicate whether data in the cache backend should be encrypted. #}
+{# Default: 'On' #}
+{% if oidc_cache_encrypt is defined and oidc_cache_encrypt | default('On') %}OIDCCacheEncrypt {{ oidc_cache_encrypt | default('On') }}{% else %}#OIDCCacheEncrypt [On|Off]{% endif %}
+
+{# Maximum number of name/value pair entries that can be cached (shm). #}
+{# Default: '' (empty, defaults to 10000) #}
+{% if oidc_cache_shm_max is defined and oidc_cache_shm_max | default('') %}OIDCCacheShmMax {{ oidc_cache_shm_max | default('') }}{% else %}#OIDCCacheShmMax <number>{% endif %}
+
+{# Maximum size for a single cache entry in bytes (shm). #}
+{# Default: '' (empty, defaults to 16928) #}
+{% if oidc_cache_shm_entry_size_max is defined and oidc_cache_shm_entry_size_max | default('') %}OIDCCacheShmEntrySizeMax {{ oidc_cache_shm_entry_size_max | default('') }}{% else %}#OIDCCacheShmEntrySizeMax <bytes>{% endif %}
+
+{# Directory that holds cache files (file). #}
+{# Default: '' (empty, defaults to system temp) #}
+{% if oidc_cache_dir is defined and oidc_cache_dir | default('') %}OIDCCacheDir {{ oidc_cache_dir | default('') }}{% else %}#OIDCCacheDir /var/cache/httpd/mod_auth_openidc/cache{% endif %}
+
+{# Cache file clean interval in seconds (file). #}
+{# Default: '' (empty, defaults to 60) #}
+{% if oidc_cache_file_clean_interval is defined and oidc_cache_file_clean_interval | default('') %}OIDCCacheFileCleanInterval {{ oidc_cache_file_clean_interval | default('') }}{% else %}#OIDCCacheFileCleanInterval <seconds>{% endif %}
+
+{# Memcache servers used for caching. #}
+{# Default: '' (empty) #}
+{% if oidc_mem_cache_servers is defined and oidc_mem_cache_servers | default('') %}OIDCMemCacheServers {{ oidc_mem_cache_servers | default('') }}{% else %}#OIDCMemCacheServers "(<hostname>[:<port>])+"{% endif %}
+
+{# Minimum number of connections to each Memcache server per process. #}
+{# Default: '' (empty) #}
+{% if oidc_mem_cache_connections_min is defined and oidc_mem_cache_connections_min | default('') %}OIDCMemCacheConnectionsMin {{ oidc_mem_cache_connections_min | default('') }}{% else %}#OIDCMemCacheConnectionsMin <number>{% endif %}
+
+{# Maximum number of idle connections before closing (SMax). #}
+{# Default: '' (empty) #}
+{% if oidc_mem_cache_connections_s_max is defined and oidc_mem_cache_connections_s_max | default('') %}OIDCMemCacheConnectionsSMax {{ oidc_mem_cache_connections_s_max | default('') }}{% else %}#OIDCMemCacheConnectionsSMax <number>{% endif %}
+
+{# Maximum number of connections to each Memcache server per process (HMax). #}
+{# Default: '' (empty) #}
+{% if oidc_mem_cache_connections_h_max is defined and oidc_mem_cache_connections_h_max | default('') %}OIDCMemCacheConnectionsHMax {{ oidc_mem_cache_connections_h_max | default('') }}{% else %}#OIDCMemCacheConnectionsHMax <number>{% endif %}
+
+{# Maximum time in seconds a connection can be idle before being closed. #}
+{# Default: '' (empty, defaults to 60) #}
+{% if oidc_mem_cache_connections_ttl is defined and oidc_mem_cache_connections_ttl | default('') %}OIDCMemCacheConnectionsTTL {{ oidc_mem_cache_connections_ttl | default('') }}{% else %}#OIDCMemCacheConnectionsTTL <seconds>{% endif %}
+
+{# Redis/Valkey server used for caching. #}
+{# Default: '' (empty) #}
+{% if oidc_redis_cache_server is defined and oidc_redis_cache_server | default('') %}OIDCRedisCacheServer {{ oidc_redis_cache_server | default('') }}{% else %}#OIDCRedisCacheServer <hostname>[:<port>]{% endif %}
+
+{# Password for Redis/Valkey authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_redis_cache_password is defined and oidc_redis_cache_password | default('') %}OIDCRedisCachePassword {{ oidc_redis_cache_password | default('') }}{% else %}#OIDCRedisCachePassword <password>{% endif %}
+
+{# Username for Redis/Valkey authentication. #}
+{# Default: '' (empty) #}
+{% if oidc_redis_cache_username is defined and oidc_redis_cache_username | default('') %}OIDCRedisCacheUsername {{ oidc_redis_cache_username | default('') }}{% else %}#OIDCRedisCacheUsername <username>{% endif %}
+
+{# Logical database to select on the Redis/Valkey server. #}
+{# Default: '' (empty, defaults to 0) #}
+{% if oidc_redis_cache_database is defined and oidc_redis_cache_database | default('') %}OIDCRedisCacheDatabase {{ oidc_redis_cache_database | default('') }}{% else %}#OIDCRedisCacheDatabase <number>{% endif %}
+
+{# Timeout for connecting to the Redis/Valkey server. #}
+{# Default: '' (empty, defaults to 5) #}
+{% if oidc_redis_cache_connect_timeout is defined and oidc_redis_cache_connect_timeout | default('') %}OIDCRedisCacheConnectTimeout {{ oidc_redis_cache_connect_timeout | default('') }}{% else %}#OIDCRedisCacheConnectTimeout <connect-timeout> [0|<keep-alive-interval>]{% endif %}
+
+{# Timeout waiting for a response of the Redis/Valkey server. #}
+{# Default: '' (empty, defaults to 5) #}
+{% if oidc_redis_cache_timeout is defined and oidc_redis_cache_timeout | default('') %}OIDCRedisCacheTimeout {{ oidc_redis_cache_timeout | default('') }}{% else %}#OIDCRedisCacheTimeout <seconds>{% endif %}
+
+########################################################################################
+#
+# Advanced Settings
+#
+########################################################################################
+
+{# Defines an external OP Discovery page. #}
+{# Default: '' (empty) #}
+{% if oidc_discover_url is defined and oidc_discover_url | default('') %}OIDCDiscoverURL {{ oidc_discover_url | default('') }}{% else %}#OIDCDiscoverURL <discovery-url>{% endif %}
+
+{# Defines a default URL for 3rd-party-init-SSO or invalid authorization response. #}
+{# Default: '' (empty) #}
+{% if oidc_default_url is defined and oidc_default_url | default('') %}OIDCDefaultURL {{ oidc_default_url | default('') }}{% else %}#OIDCDefaultURL <relative-or-absolute-url>{% endif %}
+
+{# Defines a default URL where the user is sent to after logout. #}
+{# Default: '' (empty) #}
+{% if oidc_default_logged_out_url is defined and oidc_default_logged_out_url | default('') %}OIDCDefaultLoggedOutURL {{ oidc_default_logged_out_url | default('') }}{% else %}#OIDCDefaultLoggedOutURL <relative-or-absolute-url>{% endif %}
+
+{# OpenID Connect scope(s) requested from the OP on a per-path basis. #}
+{# Default: '' (empty) #}
+{% if oidc_path_scope is defined and oidc_path_scope | default('') %}OIDCPathScope "{{ oidc_path_scope | default('') }}"{% else %}#OIDCPathScope "<scope(s)-separated-by-spaces-and-enclosed-in-double-quotes>"{% endif %}
+
+{# Extra parameters for the Authorization Request on a per-path basis. #}
+{# Default: '' (empty) #}
+{% if oidc_path_auth_request_params is defined and oidc_path_auth_request_params | default('') %}OIDCPathAuthRequestParams {{ oidc_path_auth_request_params | default('') }}{% else %}#OIDCPathAuthRequestParams <query-encoded-string>{% endif %}
+
+{# Acceptable offset for checking the "iat" timestamp in the id_token. #}
+{# Default: '' (empty, defaults to 600 seconds) #}
+{% if oidc_id_token_iat_slack is defined and oidc_id_token_iat_slack | default('') %}OIDCIDTokenIatSlack {{ oidc_id_token_iat_slack | default('') }}{% else %}#OIDCIDTokenIatSlack <seconds>{% endif %}
+
+{# Prefix to use when setting claims in HTTP headers/environment variables. #}
+{# Default: '' (empty, defaults to "OIDC_CLAIM_") #}
+{% if oidc_claim_prefix is defined and oidc_claim_prefix | default('') %}OIDCClaimPrefix {{ oidc_claim_prefix | default('') }}{% else %}#OIDCClaimPrefix <prefix>{% endif %}
+
+{# Delimiter to use when setting multi-valued claims. #}
+{# Default: '' (empty, defaults to ",") #}
+{% if oidc_claim_delimiter is defined and oidc_claim_delimiter | default('') %}OIDCClaimDelimiter {{ oidc_claim_delimiter | default('') }}{% else %}#OIDCClaimDelimiter <char>{% endif %}
+
+{# Claim used when setting the REMOTE_USER variable on OpenID Connect protected paths. #}
+{# Default: '' (empty, defaults to "sub@") #}
+{% if oidc_remote_user_claim is defined and oidc_remote_user_claim | default('') %}OIDCRemoteUserClaim {{ oidc_remote_user_claim | default('') }}{% else %}#OIDCRemoteUserClaim <claim-name>[@] [<regular-expression>] [substitution-string]{% endif %}
+
+{# Way(s) in which the id_token contents are passed to the application. #}
+{# Default: 'header' #}
+{% if oidc_pass_id_token_as is defined and oidc_pass_id_token_as | default('header') %}OIDCPassIDTokenAs {{ oidc_pass_id_token_as | default('header') }}{% else %}#OIDCPassIDTokenAs [claims|payload|serialized]+{% endif %}
+
+{# Way(s) in which the claims resolved from the userinfo endpoint are passed to the application. #}
+{# Default: 'claims' #}
+{% if oidc_pass_userinfo_as is defined and oidc_pass_userinfo_as | default('claims') %}OIDCPassUserInfoAs {{ oidc_pass_userinfo_as | default('claims') }}{% else %}#OIDCPassUserInfoAs [claims|json[:<name>]|jwt[:<name>]|signed_jwt[:<name>]]+{% endif %}
+
+{# JQ-based expression to process claims from the userinfo endpoint. #}
+{# Default: '' (empty) #}
+{% if oidc_userinfo_claims_expr is defined and oidc_userinfo_claims_expr | default('') %}OIDCUserInfoClaimsExpr {{ oidc_userinfo_claims_expr | default('') }}{% else %}#OIDCUserInfoClaimsExpr <jq-filter>{% endif %}
+
+{# JQ filter to apply to claims before storing them in the session. #}
+{# Default: '' (empty) #}
+{% if oidc_filter_claims_expr is defined and oidc_filter_claims_expr | default('') %}OIDCFilterClaimsExpr {{ oidc_filter_claims_expr | default('') }}{% else %}#OIDCFilterClaimsExpr <jq-filter>{% endif %}
+
+{# Way in which claims and tokens are passed to the application environment. #}
+{# Default: 'claims' #}
+{% if oidc_pass_claims_as is defined and oidc_pass_claims_as | default('claims') %}OIDCPassClaimsAs {{ oidc_pass_claims_as | default('claims') }}{% else %}#OIDCPassClaimsAs [none|headers|environment|both] [latin1|base64url|none]{% endif %}
+
+{# HTTP header variable name to set with the name of the authenticated user. #}
+{# Default: '' (empty) #}
+{% if oidc_authn_header is defined and oidc_authn_header | default('') %}OIDCAuthNHeader {{ oidc_authn_header | default('') }}{% else %}#OIDCAuthNHeader <header-name>{% endif %}
+
+{# Timeout in seconds for long duration HTTP calls. #}
+{# Default: '' (empty, defaults to 30) #}
+{% if oidc_http_timeout_long is defined and oidc_http_timeout_long | default('') %}OIDCHTTPTimeoutLong {{ oidc_http_timeout_long | default('') }}{% else %}#OIDCHTTPTimeoutLong <seconds> [<connect-timeout>] [<retries>[:<retry-interval-ms>]]{% endif %}
+
+{# Timeout in seconds for short duration HTTP calls. #}
+{# Default: '' (empty, defaults to 5) #}
+{% if oidc_http_timeout_short is defined and oidc_http_timeout_short | default('') %}OIDCHTTPTimeoutShort  {{ oidc_http_timeout_short | default('') }}{% else %}#OIDCHTTPTimeoutShort  <seconds> [<connect-timeout>] [<retries>[:<retry-interval-ms>]]{% endif %}
+
+{# Time to live in seconds for state parameter. #}
+{# Default: '' (empty, defaults to 300) #}
+{% if oidc_state_timeout is defined and oidc_state_timeout | default('') %}OIDCStateTimeout {{ oidc_state_timeout | default('') }}{% else %}#OIDCStateTimeout <seconds>{% endif %}
+
+{# Specify an outgoing proxy for your network. #}
+{# Default: '' (empty) #}
+{% if oidc_outgoing_proxy is defined and oidc_outgoing_proxy | default('') %}OIDCOutgoingProxy {{ oidc_outgoing_proxy | default('') }}{% else %}#OIDCOutgoingProxy [<scheme>://]<host>[:<port>] [<username>:<password>] [basic|digest|negotiate|ntlm|any]{% endif %}

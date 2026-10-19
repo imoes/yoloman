@@ -1,279 +1,140 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          {{ service_name | default('blazar-api') }}
-# Required-Start:    $network $local_fs $remote_fs $syslog
-# Required-Stop:     $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: {{ service_desc | default('Blazar API') }}
-# Description:       {{ service_long_desc | default('Blazar OpenStack Reservation API server') }}
-### END INIT INFO
+[uwsgi]
+############################
+### Generic UWSGI config ###
+############################
+# uWSGI configuration for Blazar API (WSGI application)
 
-# Author: {{ maintainer | default('Thomas Goirand <zigo@debian.org>') }}
-DESC="{{ desc | default('OpenStack Blazar API (blazar-api-wsgi)') }}"
-PROJECT_NAME={{ project_name | default('blazar') }}
-NAME=${PROJECT_NAME}-api
+# uWSGI is an application server/container manager for Python WSGI applications.
+# This section handles basic server behavior and plugin loading.
 
-# UWSGI_PORT is the listening port for the uWSGI HTTP socket.
-# Defaults to 8004.
-UWSGI_PORT={{ uwsgi_port | default(8004) }}
+# Override the default size for headers from the 4k default to handle large metadata.
+# Schema: buffer-size (fixed value)
+buffer-size = 65535
 
-# Path to the uWSGI configuration INI file.
-# Defaults to /etc/blazar/blazar-api-uwsgi.ini.
-UWSGI_INI_PATH={{ uwsgi_ini_path | default('/etc/blazar/blazar-api-uwsgi.ini') }}
+# This avoids error 104: "Connection reset by peer" by stripping Content-Length headers
+# which can cause issues with some HTTP clients/proxies.
+# Schema: rem-header (fixed value)
+rem-header = Content-Length
 
-# Path to the WSGI application executable/script.
-# Defaults to /usr/bin/blazar-api-wsgi.
-UWSGI_INI_APP={{ uwsgi_ini_app | default('/usr/bin/blazar-api-wsgi') }}
+# This is running standalone (not behind a proxy like nginx/apache yet).
+# master process manages the workers.
+# Schema: master (fixed value)
+master = true
 
-#!/bin/sh
-# The content after this line comes from openstack-pkg-tools
-# and has been automatically added to a .init.in script, which
-# contains only the descriptive part for the daemon. Everything
-# else is standardized as a single unique script.
+# uwsgi recommends this to prevent thundering herd on accept.
+# Only one worker accepts new connections at a time.
+# Schema: thunder-lock (fixed value)
+thunder-lock = true
 
-# Author: {{ maintainer | default('Thomas Goirand <zigo@debian.org>') }}
-# Author: Ondřej Nový <novy@ondrej.org>
+# Enable the Python 3 plugin to run WSGI applications.
+# Schema: plugins (fixed value)
+plugins = python3
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# This ensures that file descriptors aren't shared between the WSGI application processes.
+# This is important for proper isolation of worker processes and memory management.
+# Schema: lazy-apps (fixed value)
+lazy-apps = true
 
-if [ -n "${UWSGI_PORT}" ] && [ -n "${UWSGI_INI_PATH}" ] && [ -n "${UWSGI_INI_APP}" ] ; then
-	if ! [ -f "${UWSGI_INI_APP}" ] ; then
-		exit 0
-	fi
-	if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
-		KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
-	fi
+# Log from the wsgi application: needs python3-pastescript as runtime depends.
+# Enables Paste's logging framework if available.
+# Schema: paste-logger (fixed value)
+paste-logger = true
 
-	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
-		# This is needed for puppet...
-		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
-	else
-		if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
-			CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
-		fi
-	fi
+# automatically kill workers if master dies
+# Prevents orphaned worker processes if the master process crashes.
+# Schema: no-orphans (fixed value)
+no-orphans = true
 
-	# Sid doesn't have /usr/bin/uwsgi_python3, so we need
-	# to search for a more specific daemon name. For stretch
-	# /usr/bin/uwsgi_python3 is fine.
-	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
-		if [ -x /usr/bin/uwsgi_python${i} ] ; then
-			DAEMON=/usr/bin/uwsgi_python${i}
-		fi
-	done
+# exit instead of brutal reload on SIGTERM
+# Ensures clean shutdown on service stop/restart.
+# Schema: die-on-term (fixed value)
+die-on-term = true
 
-	if [ -n "${UWSGI_BIND_CONFIG_FILE}" ] && [ -r "${UWSGI_BIND_CONFIG_FILE}" ] && [ -n "${UWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${UWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
-		. /usr/share/openstack-pkg-tools/pkgos_func
-		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_IP_DIRECTIVE}
-	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-			UWSGI_BIND_IP=${RET}
-		fi
-		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}
-	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-			UWSGI_PORT=${RET}
-		fi
-		if [ -n "${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
-			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
-		        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-				UWSGI_PROCESSES=" --processes ${RET}"
-			else
-				# If we can't find the directive in the config file,
-				# we fallback to the number of thread / 2.
-				UWSGI_PROCESSES=" --processes "$(($(nproc) / 2 ))
-			fi
-		fi
-		if [ "${UWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
-			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} devices
-			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-				DEVICES_PATH=${RET}
-				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
-				COUNT=0
-				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
-					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
-					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
-					COUNT=$(( ${COUNT} + 1 ))
-				done
-			fi
-		fi
-	else
-		UWSGI_BIND_IP=""
-	fi
+# Avoid memcached connections to remain opened
+# Closes file descriptors on exec to prevent connection leaks.
+# Schema: close-on-exec (fixed value)
+close-on-exec = true
+# Schema: close-on-exec2 (fixed value)
+close-on-exec2 = true
 
-	if [ -n "${BIND_PARAMS}" ] ; then
-		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
-	else
-		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
-			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
-		else
-			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
-		fi
-	fi
+##########################
+### Performance tuning ###
+##########################
+# Threads and processes configuration.
 
-	DAEMON_ARGS="${DAEMON_ARGS} --ini ${UWSGI_INI_PATH}"
-	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
-	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
-fi
+# Enable threads within uWSGI workers for concurrent request handling.
+# Schema: enable-threads (fixed value)
+enable-threads = true
 
-if [ -z "${DAEMON}" ] ; then
-	DAEMON=/usr/bin/${NAME}
-fi
-PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
-if [ -z "${SCRIPTNAME}" ] ; then
-	SCRIPTNAME=/etc/init.d/${NAME}
-fi
-if [ -z "${SYSTEM_USER}" ] ; then
-	SYSTEM_USER=${PROJECT_NAME}
-fi
-if [ -z "${SYSTEM_GROUP}" ] ; then
-	SYSTEM_GROUP=${PROJECT_NAME}
-fi
-if [ "${SYSTEM_USER}" != "root" ] ; then
-	STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
-fi
-if [ -z "${CONFIG_FILE}" ] ; then
-	CONFIG_FILE=/etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
-fi
-LOGFILE=/var/log/${PROJECT_NAME}/${NAME}.log
-if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
-	DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
-fi
+# Number of uWSGI worker processes.
+# Adjust based on CPU cores and memory availability.
+# Schema: uwsgi_processes_default
+processes = {{ uwsgi_processes_default | default('8') }}
 
-# Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
+# Number of threads per uWSGI worker.
+# Higher values increase concurrency per worker.
+# Schema: uwsgi_threads_default
+threads = {{ uwsgi_threads_default | default('32') }}
 
-# If ran as root, create /var/lock/X, /var/run/X and /var/cache/X as needed
-if [ `whoami` = "root" ] ; then
-	for i in lock run cache ; do
-		mkdir -p /var/$i/${PROJECT_NAME}
-		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
-	done
-fi
+# This is the number of sockets in the queue.
+# It improves a lot performances. This is comparable
+# to the Apache ServerLimit/MaxClients option.
+# Schema: uwsgi_listen_default
+listen = {{ uwsgi_listen_default | default('100') }}
 
-# This defines support functions which we use later on
-. /lib/lsb/init-functions
+##################################
+### OpenStack service specific ###
+##################################
+# Environment variables for the WSGI application.
 
-RET=0
+# Set the OS_OSL0_MESSAGING_RABBIT__PROCESSNAME environment variable
+# for RabbitMQ messaging identification.
+# Schema: service_name
+env OS_OSLO_MESSAGING_RABBIT__PROCESSNAME={{ service_name | default('blazar-api') }}
 
-# Manage log options: logfile and/or syslog, depending on user's choosing
-[ -r /etc/default/openstack ] && . /etc/default/openstack
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
-if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
-	[ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
-fi
+# Path to the log file for this service instance.
+# Logs are stored in /var/log/blazar/.
+# Schema: service_name
+logto = /var/log/blazar/{{ service_name | default('blazar-api') }}.log
 
-do_start() {
-	start-stop-daemon \
-		--start \
-		--quiet \
-		--background ${STARTDAEMON_CHUID} \
-		--make-pidfile --pidfile ${PIDFILE} \
-		--chdir /var/lib/${PROJECT_NAME} \
-		--startas $DAEMON \
-		--test > /dev/null \
-		|| return 1
-	if [ -n "${PYARGV}" ] ; then
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background ${STARTDAEMON_CHUID} \
-			--make-pidfile --pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $DAEMON_ARGS --pyargv "${PYARGV}" \
-			|| return 2
-	else
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background ${STARTDAEMON_CHUID} \
-			--make-pidfile --pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $DAEMON_ARGS \
-			|| return 2
-	fi
-}
+# The name of this uWSGI server instance.
+# Used for identification in logs and status.
+# Schema: service_name
+name = {{ service_name | default('blazar-api') }}
 
-do_stop() {
-	start-stop-daemon \
-		--stop \
-		--quiet \
-		--retry=TERM/30/KILL/5 \
-		--pidfile $PIDFILE
-	RETVAL=$?
-	rm -f $PIDFILE
-	return "$RETVAL"
-}
+# The Linux user to run the worker processes as.
+# Running as a dedicated user enhances security.
+# Schema: project_name
+uid = {{ project_name | default('blazar') }}
 
-do_systemd_start() {
-	# Set umask to ensure log files are created with 0644 mode bits
-	# Note we can't set 0026 to have files 0640, because that's going
-	# to be in use in for example neutron-dhcp-agent, which makes it
-	# so it wont be able to read /var/lib/neutron/external/pids/*.pid.haproxy
-	# and then fail hardly. However, 0022 is enough, since the log
-	# folders are owned by <project>:adm, so users don't have access
-	# to it unless they are on the adm group, which is what we want.
-	umask 0022
-	if [ -n "${PYARGV}" ] ; then
-		exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
-	else
-		exec $DAEMON $DAEMON_ARGS
-	fi
-}
+# The Linux group to run the worker processes as.
+# Schema: project_name
+gid = {{ project_name | default('blazar') }}
 
-case "$1" in
-start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-status)
-	status_of_proc "$DAEMON" "$NAME"
-	RET=$?
-;;
-systemd-start)
-	do_systemd_start
-;;
-show-args)
-	if [ -n "${PYARGV}" ] ; then
-		echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}"
-	else
-		echo $DAEMON $DAEMON_ARGS
-	fi
-;;
-restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1)
-			do_start
-			case $? in
-				0) log_end_msg 0 ; RET=$? ;;
-				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
-				*) log_end_msg 1 ; RET=$? ;; # Failed to start
-			esac
-		;;
-		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
-	esac
-;;
-*)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
-	RET=3
-;;
-esac
+# The working directory for the WSGI application.
+# This is the base directory for relative paths in the app.
+# Schema: project_name
+chdir = /var/lib/{{ project_name | default('blazar') }}
 
-exit $RET
+# The WSGI application entry point file.
+# Points to the WSGI callable script.
+# Schema: uwsgi_ini_app
+wsgi-file = {{ uwsgi_ini_app | default('/usr/bin/blazar-api-wsgi') }}
+
+# This is controled by the init script using the --http-socket
+# or using the --https thing. https will be activated if a file
+# /etc/blazar/ssl/private/*.pem is found. In both case, port 9292
+# on all IPs will be used.
+# The partern to search for the private key file is:
+# find /etc/blazar/ssl/private -type f -iname '*.pem' | head -n 1
+# and for the certificate:
+# find /etc/blazar/ssl/private -type f -iname '*.crt' | head -n 1
+# just drop files there and restart the daemon, and you will have
+# SSL up and running.
+#http-socket = :1234
+#https-socket = 0.0.0.0:1234,foobar.crt,foobar.key
+
+# HTTP socket for the WSGI application.
+# By default, the service listens on:
+# Schema: uwsgi_port
+{% if uwsgi_port is defined and uwsgi_port is not none and (uwsgi_port is number or uwsgi_port is boolean or uwsgi_port | length > 0) %}http-socket = 0.0.0.0:{{ uwsgi_port | default(8004) }}{% else %}#http-socket = :1234{% endif %}

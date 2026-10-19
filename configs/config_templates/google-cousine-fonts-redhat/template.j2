@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+	{# 
+	  Configuration for Fontconfig to handle font aliasing.
+	  This snippet creates a bidirectional alias between a source font 
+	  and a target font.
+	#}
+
+	{# 
+	  Alias 1: Map the source font to the target font.
+	  When an application requests the `default_source_font`, it will 
+	  receive `default_target_font` instead.
+	#}
+	<alias binding="same">
+          {# The font family name to be replaced or defaulted. Defaults to 'Courier New'. #}
+          <family>{{ default_source_font | default('Courier New') }}</family>
+            <accept>
+              {# The target font family that acts as the alias or fallback. Defaults to 'Cousine'. #}
+              <family>{{ default_target_font | default('Cousine') }}</family>
+            </accept>
+        </alias>
+
+	{# 
+	  Alias 2: Map the target font to the source font.
+	  When an application requests the `default_target_font`, it will 
+	  receive `default_source_font` instead.
+	#}
+        <alias binding="same">
+          {# The target font family that acts as the alias or fallback. Defaults to 'Cousine'. #}
+          <family>{{ default_target_font | default('Cousine') }}</family>
+            <default>
+               {# The source font family to be replaced or defaulted. Defaults to 'Courier New'. #}
+               <family>{{ default_source_font | default('Courier New') }}</family>
+            </default>
+        </alias>
+</fontconfig>

@@ -1,0 +1,224 @@
+; ============================================================================
+; Asterisk res_calendar Configuration
+; ============================================================================
+; This file configures up to four calendar instances for the Asterisk res_calendar
+; module. Each block defines a separate calendar source (ICAL, CalDAV, Exchange, EWS)
+; and the action taken when an "Busy" status is detected.
+;
+; See the schema documentation for detailed descriptions of each parameter.
+; ============================================================================
+
+; ----------------------------------------------------------------------------
+; [{{ calendar1_name | default('calendar1') }}]
+; Name of the first calendar instance section.
+; ----------------------------------------------------------------------------
+[{{ calendar1_name | default('calendar1') }}]
+
+; Type of the first calendar (ical, caldav, exchange, or ews).
+type = {{ calendar1_type | default('ical') }}
+
+; URL to the first shared calendar.
+url = {{ calendar1_url | default('https://example.com/home/jdoe/Calendar/') }}
+
+; Web username for the first calendar.
+user = {{ calendar1_user | default('jdoe') }}
+
+; Web password for the first calendar.
+secret = {{ calendar1_secret | default('supersecret') }}
+
+; Refresh interval in minutes for the first calendar.
+refresh = {{ calendar1_refresh | default('15') }}
+
+; Timeframe in minutes of calendar data to pull for each refresh period for the first calendar.
+; Note: This should always be >= refresh.
+timeframe = {{ calendar1_timeframe | default('60') }}
+
+{%- if calendar1_fetch_again_at_reload is defined and calendar1_fetch_again_at_reload is not none and calendar1_fetch_again_at_reload != '' %}
+; Reload calendar content when the module is reloaded for the first calendar.
+fetch_again_at_reload = {{ calendar1_fetch_again_at_reload }}
+{%- else %}
+; Reload calendar content when the module is reloaded (Disabled).
+; fetch_again_at_reload = no
+{%- endif %}
+
+; You can set up res_calendar to execute a call upon an upcoming busy status.
+; The following fields are available from the ${CALENDAR_EVENT(<field>)} dialplan function:
+;   summary     : The VEVENT Summary property or Exchange subject
+;   description : The text description of the event
+;   organizer   : The organizer of the event
+;   location    : The location field of the event
+;   calendar    : The name of the calendar tied to the event
+;   uid         : The unique ID for this event
+;   start       : Start time of the event
+;   end         : The end time of the event
+;   busystate   : 0=FREE, 1=TENTATIVE, 2=BUSY
+
+; Override event-defined reminder before each busy status (in mins) for the first calendar.
+; autoreminder = {{ calendar1_autoreminder | default('10') }}
+
+; Channel to dial for the first calendar.
+; channel = {{ calendar1_channel | default('SIP/60001') }}
+
+; Context to connect to on answer for the first calendar.
+; context = {{ calendar1_context | default('default') }}
+
+; Extension to connect to on answer for the first calendar.
+; extension = {{ calendar1_extension | default('123') }}
+
+; OR
+
+; Application to execute on answer (instead of context/extension) for the first calendar.
+; app = {{ calendar1_app | default('Playback') }}
+
+; Data part of application to execute on answer for the first calendar.
+; appdata = {{ calendar1_appdata | default('tt-weasels') }}
+
+; How long to wait for an answer, defaults to 30 seconds for the first calendar.
+; waittime = {{ calendar1_waittime | default('30') }}
+
+; Channel variable name to set on the notification channel for the first calendar.
+{%- if calendar1_setvar is defined and calendar1_setvar is not none and calendar1_setvar != '' %}
+; Set channel variable for the notification.
+setvar = {{ calendar1_setvar }} =${CALENDAR_EVENT(summary)}
+{%- else %}
+; Default variable setting if none specified.
+; setvar = CALLERID(name)=${CALENDAR_EVENT(summary)}
+{%- endif %}
+
+; ----------------------------------------------------------------------------
+; [{{ calendar2_name | default('calendar2') }}]
+; Name of the second calendar instance section.
+; ----------------------------------------------------------------------------
+[{{ calendar2_name | default('calendar2') }}]
+
+; Note: Support for Exchange Server 2003
+; Type of the second calendar (ical, caldav, exchange, or ews).
+type = {{ calendar2_type | default('exchange') }}
+
+; URL to MS Exchange OWA for user for the second calendar.
+url = {{ calendar2_url | default('https://example.com/exchange/jdoe') }}
+
+; Exchange username for the second calendar.
+user = {{ calendar2_user | default('jdoe') }}
+
+; Exchange password for the second calendar.
+secret = {{ calendar2_secret | default('mysecret') }}
+
+; Refresh interval in minutes for the second calendar.
+refresh = {{ calendar2_refresh | default('15') }}
+
+; Timeframe in minutes of calendar data to pull for each refresh period for the second calendar.
+; Note: This should always be >= refresh.
+timeframe = {{ calendar2_timeframe | default('60') }}
+
+; You can set up res_calendar to execute a call upon an upcoming busy status.
+; Override event-defined reminder before each busy status (in mins) for the second calendar.
+; autoreminder = {{ calendar2_autoreminder | default('10') }}
+
+; Channel to dial for the second calendar.
+; channel = {{ calendar2_channel | default('SIP/1234') }}
+
+; Context to connect to on answer for the second calendar.
+; context = {{ calendar2_context | default('default') }}
+
+; Extension to connect to on answer for the second calendar.
+; extension = {{ calendar2_extension | default('1234') }}
+
+; ----------------------------------------------------------------------------
+; [{{ calendar3_name | default('calendar3') }}]
+; Name of the third calendar instance section.
+; ----------------------------------------------------------------------------
+[{{ calendar3_name | default('calendar3') }}]
+
+; Note: Support for Exchange Server 2007+
+; Type of the third calendar (ical, caldav, exchange, or ews).
+type = {{ calendar3_type | default('ews') }}
+
+; URL to MS Exchange EWS for the third calendar.
+url = {{ calendar3_url | default('https://example.com/ews/Exchange.asmx') }}
+
+; Exchange username for the third calendar.
+user = {{ calendar3_user | default('jdoe') }}
+
+; Exchange password for the third calendar.
+secret = {{ calendar3_secret | default('mysecret') }}
+
+; Refresh interval in minutes for the third calendar.
+refresh = {{ calendar3_refresh | default('15') }}
+
+; Timeframe in minutes of calendar data to pull for each refresh period for the third calendar.
+; Note: This should always be >= refresh.
+timeframe = {{ calendar3_timeframe | default('60') }}
+
+; You can set up res_calendar to execute a call upon an upcoming busy status.
+; Override event-defined reminder before each busy status (in mins) for the third calendar.
+; autoreminder = {{ calendar3_autoreminder | default('10') }}
+
+; Channel to dial for the third calendar.
+; channel = {{ calendar3_channel | default('SIP/1234') }}
+
+; Context to connect to on answer for the third calendar.
+; context = {{ calendar3_context | default('default') }}
+
+; Extension to connect to on answer for the third calendar.
+; extension = {{ calendar3_extension | default('1234') }}
+
+; OR
+
+; Application to execute on answer (instead of context/extension) for the third calendar.
+; app = {{ calendar3_app | default('Playback') }}
+
+; Data part of application to execute on answer for the third calendar.
+; appdata = {{ calendar3_appdata | default('tt-weasels') }}
+
+; How long to wait for an answer, defaults to 30 seconds for the third calendar.
+; waittime = {{ calendar3_waittime | default('30') }}
+
+; ----------------------------------------------------------------------------
+; [{{ calendar4_name | default('calendar4') }}]
+; Name of the fourth calendar instance section.
+; ----------------------------------------------------------------------------
+[{{ calendar4_name | default('calendar4') }}]
+
+; Type of the fourth calendar (ical, caldav, exchange, or ews).
+type = {{ calendar4_type | default('caldav') }}
+
+; URL to the fourth calendar (e.g., Google Calendar). The trailing slash is significant!
+url = {{ calendar4_url | default('https://www.google.com/calendar/dav/username@gmail.com/events/') }}
+
+; Username for the fourth calendar.
+user = {{ calendar4_user | default('jdoe@gmail.com') }}
+
+; Password for the fourth calendar.
+secret = {{ calendar4_secret | default('mysecret') }}
+
+; Refresh interval in minutes for the fourth calendar.
+refresh = {{ calendar4_refresh | default('15') }}
+
+; Timeframe in minutes of calendar data to pull for each refresh period for the fourth calendar.
+; Note: This should always be >= refresh.
+timeframe = {{ calendar4_timeframe | default('60') }}
+
+; You can set up res_calendar to execute a call upon an upcoming busy status.
+; Override event-defined reminder before each busy status (in mins) for the fourth calendar.
+; autoreminder = {{ calendar4_autoreminder | default('10') }}
+
+; Channel to dial for the fourth calendar.
+; channel = {{ calendar4_channel | default('SIP/1234') }}
+
+; Context to connect to on answer for the fourth calendar.
+; context = {{ calendar4_context | default('default') }}
+
+; Extension to connect to on answer for the fourth calendar.
+; extension = {{ calendar4_extension | default('1234') }}
+
+; OR
+
+; Application to execute on answer (instead of context/extension) for the fourth calendar.
+; app = {{ calendar4_app | default('Playback') }}
+
+; Data part of application to execute on answer for the fourth calendar.
+; appdata = {{ calendar4_appdata | default('tt-weasels') }}
+
+; How long to wait for an answer, defaults to 30 seconds for the fourth calendar.
+; waittime = {{ calendar4_waittime | default('30') }}

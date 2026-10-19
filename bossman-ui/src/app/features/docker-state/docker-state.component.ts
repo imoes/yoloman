@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { environment } from '../../../environments/environment';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface HostRow { id: string; name: string; }
 interface ContainerSpec {
@@ -26,19 +27,19 @@ interface ConvergePlan { target_generation: number; create: string[]; remove: st
 @Component({
   selector: 'app-docker-state',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule],
   template: `
     <div class="ds">
       <div class="ds-hd">
         <h1>Docker desired state</h1>
         <div class="ds-tools">
-          <select [ngModel]="hostId()" (ngModelChange)="selectHost($event)">
+          <select [ngModel]="hostId()" (ngModelChange)="selectHost($event)" aria-label="Host">
             <option value="" disabled selected>Choose host…</option>
             @for (h of hosts(); track h.id) { <option [value]="h.id">{{ h.name }}</option> }
           </select>
-          <button mat-flat-button color="primary" (click)="discover()" [disabled]="!hostId() || busy()">
+          <span class="bm-why"><button mat-flat-button color="primary" (click)="discover()" [bmBlocked]="discoverBlocked()">
             <mat-icon>cameraswitch</mat-icon> {{ busy() ? 'Discovering…' : 'Discover / snapshot' }}
-          </button>
+          </button></span>
         </div>
       </div>
       <p class="ds-dim">Discovering recovers every container via <code>docker inspect</code> as a re-appliable spec and stores it as a new generation only when the set changed. Roll back to any earlier snapshot; convergence to it is a separate, explicit apply.</p>
@@ -163,6 +164,11 @@ export class DockerStateComponent {
   diffTo = signal(1);
   plan = signal<ConvergePlan | null>(null);
   busy = signal(false);
+  /** Why Discover is refused ('' = allowed) — the button's [disabled] and its tooltip read this one answer. */
+  discoverBlocked(): string {
+    if (this.busy()) return 'Working…';
+    return this.hostId() ? '' : 'Select a host';
+  }
   msg = signal('');
 
   constructor() {

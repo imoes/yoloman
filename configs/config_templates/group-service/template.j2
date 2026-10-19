@@ -1,56 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!--
+  D-Bus Bus Configuration for Group Service
+  Managed by Ansible. Do not edit manually.
+
+  This configuration defines security policies for the D-Bus system bus
+  (or session bus, depending on context) to allow the specified user
+  to own and communicate with the group service.
+-->
+
 <!DOCTYPE busconfig PUBLIC
  "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <!--
-    policy_user: User allowed to own the service (typically 'root').
-    Defines the user identity authorized to claim the D-Bus service name.
+    Policy for the user account allowed to own the D-Bus service name.
+    Typically 'root' for system services.
   -->
   <policy user="{{ policy_user | default('root') }}">
     <!--
-      service_name: Primary D-Bus service name.
-      Grants ownership of the primary service name to the policy user.
+      Allow the user to own the primary service bus name.
+      This prevents other users from claiming 'org.group.admin'.
     -->
     <allow own="{{ service_name | default('org.group.admin') }}"/>
   </policy>
 
   <!--
-    Policy context for all other connections (default deny/reject unless allowed).
-    Defines what clients are permitted to send messages to the services.
+    Default policy block: defines access rules for all other users/contexts
+    not explicitly matched by earlier <policy> blocks.
   -->
   <policy context="default">
     <!--
-      Grants permission to send messages to the primary service name.
+      Allow any authenticated user to send messages to the primary service.
+      This enables clients to invoke methods on the service.
     -->
     <allow send_destination="{{ service_name | default('org.group.admin') }}"/>
-    
+
     <!--
-      Grants permission to send messages to the primary service name for
-      standard D-Bus property introspection and modification.
+      Allow reading the primary service's properties via D-Bus Properties API.
     -->
     <allow send_destination="{{ service_name | default('org.group.admin') }}"
            send_interface="org.freedesktop.DBus.Properties"/>
-    
+
     <!--
-      Grants permission to send messages to the primary service name for
-      standard D-Bus interface introspection (XML description).
+      Allow introspecting the primary service's XML interface definition.
     -->
     <allow send_destination="{{ service_name | default('org.group.admin') }}"
            send_interface="org.freedesktop.DBus.Introspectable"/>
-    
+
     <!--
-      list_service_name: Secondary D-Bus service name (for list operations).
-      Grants permission to send messages to the secondary service name
-      for standard D-Bus property introspection and modification.
+      Allow reading properties of the secondary list service.
     -->
     <allow send_destination="{{ list_service_name | default('org.group.admin.list') }}"
            send_interface="org.freedesktop.DBus.Properties"/>
-    
+
     <!--
-      Grants permission to send messages to the secondary service name
-      for standard D-Bus interface introspection (XML description).
+      Allow introspecting the secondary list service's interface.
     -->
     <allow send_destination="{{ list_service_name | default('org.group.admin.list') }}"
            send_interface="org.freedesktop.DBus.Introspectable"/>

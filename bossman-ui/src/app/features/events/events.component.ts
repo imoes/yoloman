@@ -78,9 +78,9 @@ import { EventService, EventItem, EventStats } from '../../core/services/event.s
     .bm-filters select { padding: 6px 9px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
     .bm-card { border: 1px solid var(--mat-sys-outline-variant); border-radius: 12px; padding: 8px 12px;
       background: var(--mat-sys-surface-container-low, rgba(127,127,127,0.04)); }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th { text-align: left; font-size: 12px; opacity: 0.6; padding: 6px 10px; }
-    .bm-table td { padding: 7px 10px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th { text-align: left; font-size: 12px; opacity: 0.6; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; white-space: nowrap; }
     .bm-msg { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-ack { opacity: 0.45; }

@@ -1,0 +1,46 @@
+#
+# Open MPI Hostfile Template
+#
+# This file defines the cluster topology for Open MPI job launches.
+# It maps hostnames or IP addresses to specific MPI process slots and
+# optional resource parameters (like CPU cores or slots per node).
+#
+# This file is NOT used when running in managed environments (e.g.,
+# under SLURM, PBS/Torque, or other job schedulers). In those cases,
+# the scheduler provides the host list dynamically.
+#
+# For standalone launches (e.g., `mpirun -hostfile /path/to/hostfile ...`),
+# this file provides the default list of nodes.
+#
+# Syntax:
+#   hostname_or_ip [slots=N] [slot_list=...] [hostfile=...] [ppn=N] [weight=N]
+#
+# - hostname_or_ip: The target node.
+# - slots: Number of slots (processes) allowed on this host (default: 1).
+# - ppn: Processes per node (legacy alias for slots, often used in PBS/Torque contexts but kept here for compatibility).
+#
+# If no variables are defined, defaults to a single entry with 1 slot.
+
+{# Initialize empty list if not provided #}
+{% set hosts = openmpi_hosts | default([]) %}
+
+{% if hosts | length > 0 %}
+{%- for host_entry in hosts %}
+{#
+  Render each host entry.
+  host_entry is expected to be a mapping with keys like 'name', 'slots', 'ppn', etc.
+#}
+{% set h_name = host_entry.name | default('localhost') %}
+{% set h_slots = host_entry.slots | default(1) %}
+{% set h_ppn = host_entry.ppn | default(h_slots) %}
+
+{{ h_name }} slots={{ h_slots }} ppn={{ h_ppn }}
+{% endfor %}
+{% else %}
+{#
+  Default fallback: If no explicit hosts are defined in the schema,
+  provide a commented-out localhost entry as a starting point,
+  consistent with the original comment behavior.
+#}
+# localhost slots=1
+{% endif %}

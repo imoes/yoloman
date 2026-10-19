@@ -469,17 +469,35 @@ async def import_plans_bulk(
             try:
                 doc = parse_playbook(f.text).to_dict()
                 doc["name"] = name
+                folder = (body.folder or "").strip("/")
+                existing = await session.scalar(
+                    select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID, Runbook.name == name))
+                # Re-importing the same tree (same folder) updates in place — no 409, no duplicate. A runbook of
+                # that name ELSEWHERE is a different document: every role has a `tasks/main.yml`, so a second
+                # role imported into another folder would silently overwrite the first. Refuse that by name,
+                # with the place the name is taken, instead of losing a runbook.
+                if existing is not None and (existing.kind != "runbook" or (existing.folder or "") != folder):
+                    where = f"folder '{existing.folder}'" if existing.folder else "the root folder"
+                    out.failed.append({"path": f.path, "error": (
+                        f"the name {name!r} is already taken by a {existing.kind} in {where}; importing would "
+                        "overwrite it. Re-import into that folder to update it, or rename the directory")})
+                    continue
+                if existing is None:
+                    status = "created"
+                elif existing.doc == doc:
+                    status = "unchanged"
+                else:
+                    status = "updated"
                 if not body.dry_run:
-                    existing = await session.scalar(
-                        select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID, Runbook.name == name))
                     if existing is None:
                         session.add(Runbook(tenant_id=DEFAULT_TENANT_ID, name=name, kind="runbook",
-                                            folder=(body.folder or "").strip("/"), doc=doc,
-                                            created_by=identity.name))
-                    else:
-                        existing.doc = doc          # re-importing the same tree updates, it does not 409
+                                            folder=folder, doc=doc, created_by=identity.name))
+                    elif status == "updated":
+                        existing.doc = doc
+                # `status` is what this import does (or, in a preview, would do) to the store — created,
+                # updated or unchanged — so a re-import shows it changed nothing rather than "imported" again.
                 out.imported.append({"path": f.path, "prefix": prefix, "name": name, "version": 1,
-                                     "kind": "runbook"})
+                                     "kind": "runbook", "status": status, "folder": folder})
             except Exception as exc:  # noqa: BLE001 — per-file isolation, see below
                 out.failed.append({"path": f.path, "error": f"{type(exc).__name__}: {exc}"[:300]})
             continue

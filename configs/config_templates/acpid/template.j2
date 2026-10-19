@@ -1,13 +1,13 @@
-# Configuration for the ACPI event daemon (acpid)
-# This file is sourced by the acpid init script/systemd service.
-# Each variable controls specific behavior of the daemon.
-
-# --- Additional command-line options ---
-# OPTIONS: Additional command-line options to pass to acpid (as a string to be appended to the acpid command).
-# This allows tuning the daemon's behavior (e.g., debugging, specific interfaces).
-OPTIONS="{{ options | default('') }}"
-
-# --- Kernel modules to load ---
-# MODULES: Space-separated list of kernel modules to load before starting acpid; use "all" to load all acpi drivers, or leave empty/commented to load no module.
-# Common modules include battery, ac, processor, button, fan, thermal, video.
-MODULES="{{ modules | default('battery ac processor button fan thermal video') | join(' ') }}"
+# Options to pass to acpid
+#
+# OPTIONS are appended to the acpid command-line
+{% if options is defined and options is not none and (options is number or options is boolean or options | length > 0) %}OPTIONS={{ options }}
+{% else %}#OPTIONS=""
+{% endif %}
+# Linux kernel modules to load before starting acpid
+#
+# MODULES is a space separated list of modules to load, or "all" to load all
+# acpi drivers, or commented out to load no module
+{% if modules is defined and modules is not none and (modules is number or modules is boolean or modules | length > 0) %}MODULES={{ modules }}
+{% else %}#MODULES="battery ac processor button fan thermal video"
+{% endif %}#MODULES="all"

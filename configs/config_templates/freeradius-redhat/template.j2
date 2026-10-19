@@ -80,27 +80,27 @@
 
 ######################################################################
 
-prefix = {{ prefix }}
-exec_prefix = {{ exec_prefix }}
-sysconfdir = {{ sysconfdir }}
-localstatedir = {{ localstatedir }}
-sbindir = {{ sbindir }}
-logdir = ${localstatedir}/log/radius
-raddbdir = ${sysconfdir}/raddb
-radacctdir = ${logdir}/radacct
+prefix = {{ FREERADIUS_PREFIX | default('/usr') }}
+exec_prefix = {{ FREERADIUS_EXEC_PREFIX | default('/usr') }}
+sysconfdir = {{ FREERADIUS_SYSCONFDIR | default('/etc') }}
+localstatedir = {{ FREERADIUS_LOCALSTATEDIR | default('/var') }}
+sbindir = {{ sbindir | default('/usr/sbin') }}
+logdir = {{ FREERADIUS_LOGDIR | default('${localstatedir}/log/radius') }}
+raddbdir = {{ FREERADIUS_RADDDBDIR | default('${sysconfdir}/raddb') }}
+radacctdir = {{ radacctdir | default('${logdir}/radacct') }}
 
 #
 #  name of the running server.  See also the "-n" command-line option.
-name = {{ name }}
+name = {{ FREERADIUS_NAME | default('radiusd') }}
 
 #  Location of config and logfiles.
-confdir = ${raddbdir}
-modconfdir = ${confdir}/mods-config
-certdir = ${confdir}/certs
-cadir   = ${confdir}/certs
-run_dir = ${localstatedir}/run/${name}
+confdir = {{ confdir | default('${raddbdir}') }}
+modconfdir = {{ modconfdir | default('${confdir}/mods-config') }}
+certdir = {{ certdir | default('${confdir}/certs') }}
+cadir   = {{ cadir | default('${confdir}/certs') }}
+run_dir = {{ run_dir | default('${localstatedir}/run/${name}') }}
 
-db_dir = ${localstatedir}/lib/radiusd
+db_dir = {{ db_dir | default('${localstatedir}/lib/radiusd') }}
 
 #
 # libdir: Where to find the rlm_* modules.
@@ -134,7 +134,7 @@ db_dir = ${localstatedir}/lib/radiusd
 #	make
 #	make install
 #
-libdir = {{ libdir }}
+libdir = {{ FREERADIUS_LIBDIR | default('/usr/lib64/freeradius') }}
 
 #  pidfile: Where to place the PID of the RADIUS server.
 #
@@ -145,7 +145,7 @@ libdir = {{ libdir }}
 #
 #  e.g.:  kill -HUP `cat /var/run/radiusd/radiusd.pid`
 #
-pidfile = ${run_dir}/${name}.pid
+pidfile = {{ pidfile | default('${run_dir}/${name}.pid') }}
 
 #
 #  correct_escapes: use correct backslash escaping
@@ -174,7 +174,7 @@ pidfile = ${run_dir}/${name}.pid
 #
 #	$ grep '\\\\' $(find raddb -type f -print)
 #
-correct_escapes = {{ correct_escapes | lower }}
+correct_escapes = {{ correct_escapes | default('true') }}
 
 #  panic_action: Command to execute if the server dies unexpectedly.
 #
@@ -234,7 +234,7 @@ correct_escapes = {{ correct_escapes | lower }}
 #
 #  Useful range of values: 5 to 120
 #
-max_request_time = {{ max_request_time }}
+max_request_time = {{ FREERADIUS_MAX_REQUEST_TIME | default('30') }}
 
 #  cleanup_delay: The time to wait (in seconds) before cleaning up
 #  a reply which was sent to the NAS.
@@ -253,7 +253,7 @@ max_request_time = {{ max_request_time }}
 #
 #  Useful range of values: 2 to 30
 #
-cleanup_delay = {{ cleanup_delay }}
+cleanup_delay = {{ FREERADIUS_CLEANUP_DELAY | default('5') }}
 
 #  max_requests: The maximum number of requests which the server keeps
 #  track of.  This should be 256 multiplied by the number of clients.
@@ -272,7 +272,7 @@ cleanup_delay = {{ cleanup_delay }}
 #
 #  Useful range of values: 256 to infinity
 #
-max_requests = {{ max_requests }}
+max_requests = {{ FREERADIUS_MAX_REQUESTS | default('16384') }}
 
 #  hostname_lookups: Log the names of clients or just their IP addresses
 #  e.g., www.freeradius.org (on) or 206.47.27.232 (off).
@@ -290,7 +290,7 @@ max_requests = {{ max_requests }}
 #
 #  allowed values: {no, yes}
 #
-hostname_lookups = {{ hostname_lookups }}
+hostname_lookups = {{ FREERADIUS_HOSTNAME_LOOKUPS | default('no') }}
 
 #
 #  Run a "Post-Auth-Type Client-Lost" section.  This ONLY happens when
@@ -301,13 +301,14 @@ hostname_lookups = {{ hostname_lookups }}
 #  See sites-available/default, "Post-Auth-Type Client-Lost" for more
 #  information.
 #
-#postauth_client_lost = no
-
+{% if postauth_client_lost is defined and postauth_client_lost is not none and (postauth_client_lost is number or postauth_client_lost is boolean or postauth_client_lost | length > 0) %}postauth_client_lost = {{ postauth_client_lost }}
+{% else %}#postauth_client_lost = no
+{% endif %}
 #
 #  Logging section.  The various "log_*" configuration items
 #  will eventually be moved here.
 #
-log {
+log {{ log | default('{') }}
 	#
 	#  Destination for log messages.  This can be one of:
 	#
@@ -319,7 +320,7 @@ log {
 	#  The command-line option "-X" over-rides this option, and forces
 	#  logging to go to stdout.
 	#
-	destination = {{ log_destination }}
+	destination = {{ FREERADIUS_LOG_DESTINATION | default('files') }}
 
 	#
 	#  Highlight important messages sent to stderr and stdout.
@@ -327,7 +328,7 @@ log {
 	#  Option will be ignored (disabled) if output if TERM is not
 	#  an xterm or output is not to a TTY.
 	#
-	colourise = {{ log_colourise | lower }}
+	colourise = {{ FREERADIUS_LOG_COLOURISE | default('yes') }}
 
 	#
 	#  The logging messages for the server are appended to the
@@ -336,7 +337,7 @@ log {
 	#  If the server is running in debugging mode, this file is
 	#  NOT used.
 	#
-	file = ${logdir}/radius.log
+	file = {{ file | default('${logdir}/radius.log') }}
 
 	#
 	#  Which syslog facility to use, if ${destination} == "syslog"
@@ -344,13 +345,13 @@ log {
 	#  The exact values permitted here are OS-dependent.  You probably
 	#  don't want to change this.
 	#
-	syslog_facility = {{ log_syslog_facility }}
+	syslog_facility = {{ FREERADIUS_LOG_SYSLOG_FACILITY | default('daemon') }}
 
 	#  Log the full User-Name attribute, as it was found in the request.
 	#
 	# allowed values: {no, yes}
 	#
-	stripped_names = {{ log_stripped_names | lower }}
+	stripped_names = {{ FREERADIUS_LOG_STRIPPED_NAMES | default('no') }}
 
 	#  Log all (accept and reject) authentication results to the log file.
 	#
@@ -359,7 +360,7 @@ log {
 	#
 	#  allowed values: {no, yes}
 	#
-	auth = {{ log_auth | lower }}
+	auth = {{ FREERADIUS_LOG_AUTH | default('no') }}
 
 	#  Log Access-Accept results to the log file.
 	#
@@ -383,8 +384,8 @@ log {
 	#
 	#  allowed values: {no, yes}
 	#
-	auth_badpass = {{ log_auth_badpass | lower }}
-	auth_goodpass = {{ log_auth_goodpass | lower }}
+	auth_badpass = {{ FREERADIUS_LOG_AUTH_BADPASS | default('no') }}
+	auth_goodpass = {{ FREERADIUS_LOG_AUTH_GOODPASS | default('no') }}
 
 	#  Log additional text at the end of the "Login OK" messages.
 	#  for these to work, the "auth" and "auth_goodpass" or "auth_badpass"
@@ -400,7 +401,7 @@ log {
 
 	#  The message when the user exceeds the Simultaneous-Use limit.
 	#
-	msg_denied = "You are already logged in - access denied"
+	msg_denied = {{ msg_denied | default('"You are already logged in - access denied"') }}
 
 	#  Suppress "secret" attributes when printing them in debug mode.
 	#
@@ -423,7 +424,7 @@ log {
 }
 
 #  The program to execute to do concurrency checks.
-checkrad = ${sbindir}/checkrad
+checkrad = {{ checkrad | default('${sbindir}/checkrad') }}
 
 #
 #  ENVIRONMENT VARIABLES
@@ -444,7 +445,7 @@ checkrad = ${sbindir}/checkrad
 #  You should instead just use a normal configuration variable for
 #  that.
 #
-ENV {
+ENV {{ env | default('{') }}
 	#
 	#  Set environment varable `FOO` to value '/bar/baz'.
 	#
@@ -503,7 +504,7 @@ ENV {
 #  section holds the configuration items which minimize the impact
 #  of those attacks
 #
-security {
+security {{ security | default('{') }}
 	#  chroot: directory where the server does "chroot".
 	#
 	#  The chroot is done very early in the process of starting
@@ -562,15 +563,15 @@ security {
 	#  member.  This can allow for some finer-grained access
 	#  controls.
 	#
-	user = {{ security_user }}
-	group = {{ security_group }}
+	user = {{ FREERADIUS_USER | default('radiusd') }}
+	group = {{ FREERADIUS_GROUP | default('radiusd') }}
 
 	#  Core dumps are a bad thing.  This should only be set to
 	#  'yes' if you're debugging a problem with the server.
 	#
 	#  allowed values: {no, yes}
 	#
-	allow_core_dumps = {{ security_allow_core_dumps | lower }}
+	allow_core_dumps = {{ FREERADIUS_ALLOW_CORE_DUMPS | default('no') }}
 
 	#
 	#  max_attributes: The maximum number of attributes
@@ -585,7 +586,7 @@ security {
 	#  the server to use all available memory on the machine.
 	#
 	#  Setting this number to 0 means "allow any number of attributes"
-	max_attributes = {{ security_max_attributes }}
+	max_attributes = {{ FREERADIUS_MAX_ATTRIBUTES | default('200') }}
 
 	#
 	#  reject_delay: When sending an Access-Reject, it can be
@@ -602,7 +603,7 @@ security {
 	#  This number can be a decimal, e.g. 3.4
 	#
 	#  Useful ranges: 1 to 5
-	reject_delay = {{ security_reject_delay }}
+	reject_delay = {{ FREERADIUS_REJECT_DELAY | default('1') }}
 
 	#
 	#  status_server: Whether or not the server will respond
@@ -622,7 +623,7 @@ security {
 	#
 	#  See also raddb/sites-available/status
 	#
-	status_server = {{ security_status_server | lower }}
+	status_server = {{ FREERADIUS_STATUS_SERVER | default('yes') }}
 
 	#
 	#  Global configuration for requiring Message-Authenticator in
@@ -720,7 +721,7 @@ security {
 	#    this flag to "no", in which case the network will work,
 	#    but will be vulnerable to the attack.
 	#
-	require_message_authenticator = {{ security_require_message_authenticator }}
+	require_message_authenticator = {{ FREERADIUS_REQUIRE_MESSAGE_AUTHENTICATOR | default('auto') }}
 
 	#
 	#  Global configuration for limiting the combination of
@@ -807,7 +808,7 @@ security {
 	#    this flag to "no", in which case the network will work,
 	#    but will be vulnerable to the attack.
 	#
-	limit_proxy_state = {{ security_limit_proxy_state }}
+	limit_proxy_state = {{ FREERADIUS_LIMIT_PROXY_STATE | default('auto') }}
 
 
 }
@@ -828,7 +829,7 @@ security {
 #
 #  allowed values: {no, yes}
 #
-proxy_requests  = {{ proxy_requests | lower }}
+proxy_requests  = {{ FREERADIUS_PROXY_REQUESTS | default('yes') }}
 $INCLUDE proxy.conf
 
 
@@ -864,10 +865,10 @@ $INCLUDE clients.conf
 #
 #  The numbers given below should be adequate for most situations.
 #
-thread pool {
+thread {{ thread | default('pool {') }}
 	#  Number of servers to start initially --- should be a reasonable
 	#  ballpark figure.
-	start_servers = {{ thread_pool_start_servers }}
+	start_servers = {{ FREERADIUS_THREAD_POOL_START_SERVERS | default('5') }}
 
 	#  Limit on the total number of servers running.
 	#
@@ -890,7 +891,7 @@ thread pool {
 	#
 	#  For more information, see 'max_request_time', above.
 	#
-	max_servers = {{ thread_pool_max_servers }}
+	max_servers = {{ FREERADIUS_THREAD_POOL_MAX_SERVERS | default('32') }}
 
 	#  Server-pool size regulation.  Rather than making you guess
 	#  how many servers you need, FreeRADIUS dynamically adapts to
@@ -904,8 +905,8 @@ thread pool {
 	#  more than max_spare_servers, some of the spares die off.
 	#  The default values are probably OK for most sites.
 	#
-	min_spare_servers = {{ thread_pool_min_spare_servers }}
-	max_spare_servers = {{ thread_pool_max_spare_servers }}
+	min_spare_servers = {{ FREERADIUS_THREAD_POOL_MIN_SPARE_SERVERS | default('3') }}
+	max_spare_servers = {{ FREERADIUS_THREAD_POOL_MAX_SPARE_SERVERS | default('10') }}
 
 	#  When the server receives a packet, it places it onto an
 	#  internal queue, where the worker threads (configured above)
@@ -929,7 +930,7 @@ thread pool {
 	#
 	#  '0' is a special value meaning 'infinity', or 'the servers never
 	#  exit'
-	max_requests_per_server = {{ thread_pool_max_requests_per_server }}
+	max_requests_per_server = {{ FREERADIUS_THREAD_POOL_MAX_REQUESTS_PER_SERVER | default('0') }}
 
 	#  Automatically limit the number of accounting requests.
 	#  This configuration item tracks how many requests per second
@@ -951,7 +952,7 @@ thread pool {
 	#  to see how accounting packets should be retransmitted.  Using
 	#  any other method is likely to cause network meltdowns.
 	#
-	auto_limit_acct = {{ thread_pool_auto_limit_acct | lower }}
+	auto_limit_acct = {{ FREERADIUS_AUTO_LIMIT_ACCT | default('no') }}
 }
 
 ######################################################################
@@ -969,7 +970,7 @@ thread pool {
 #  After the modules are defined here, they may be referred to by name,
 #  in other sections of this configuration file.
 #
-modules {
+modules {{ modules | default('{') }}
 	#
 	#  Each module has a configuration as follows:
 	#
@@ -1037,7 +1038,7 @@ modules {
 #  "mods-enabled" directory means that unlike Version 2, you usually
 #  don't need to list modules here.
 #
-instantiate {
+instantiate {{ instantiate | default('{') }}
 	#
 	# We list the counter module here so that it registers
 	# the check_name attribute before any module which sets
@@ -1083,8 +1084,9 @@ instantiate {
 	#  to open a connection to every "down" database, causing
 	#  problems.
 	#
-	#redundant redundant_sql {
-	#	sql1
+{% if redundant is defined and redundant is not none and (redundant is number or redundant is boolean or redundant | length > 0) %}	redundant {{ redundant }}
+{% else %}	#redundant redundant_sql {
+{% endif %}	#	sql1
 	#	sql2
 	#}
 }
@@ -1103,7 +1105,7 @@ instantiate {
 #  If policy A calls policy B, then B MUST be defined before A.
 #
 ######################################################################
-policy {
+policy {{ policy | default('{') }}
 	$INCLUDE policy.d/
 }
 

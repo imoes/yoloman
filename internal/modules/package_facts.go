@@ -47,20 +47,47 @@ func (m *PackageFacts) Writes() bool { return false }
 
 func (m *PackageFacts) Run(ctx context.Context, params map[string]any, dryRun bool) (Result, error) {
 	// Debian/Ubuntu via dpkg; fall back to rpm on RHEL/Fedora-family hosts.
-	out, err := m.Runner(ctx, "dpkg-query", "-W", "-f", "${Package}\t${Version}\t${Architecture}\n")
+	// dpkg-query -W lists every package dpkg has a record of — including
+	// removed ones whose config files remain ("rc": deinstall ok
+	// config-files). The status column filters those out with the same rule
+	// the apt module uses (dpkgInstalled), so "installed" means one thing.
+	out, err := m.Runner(ctx, "dpkg-query", "-W", "-f", "${Status}\t${Package}\t${Version}\t${Architecture}\n")
 	if err == nil {
 		return Result{Changed: false, Data: parseDpkgQuery(out)}, nil
 	}
+	// rpm's database holds installed packages only — no status to filter.
 	rpmOut, rpmErr := m.Runner(ctx, "rpm", "-qa", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n")
 	if rpmErr != nil {
 		return Result{}, fmt.Errorf("package_facts: neither dpkg-query (%v) nor rpm (%v) succeeded", err, rpmErr)
 	}
-	return Result{Changed: false, Data: parseDpkgQuery(rpmOut)}, nil
+	return Result{Changed: false, Data: parsePackageLines(rpmOut)}, nil
 }
 
-// parseDpkgQuery parses tab-separated "name\tversion\tarch" lines as
-// produced by the -f format string in Run.
+// dpkgInstalled reports whether a dpkg ${Status} value ("want ok state",
+// e.g. "install ok installed" vs "deinstall ok config-files") describes an
+// installed package: the final state word must be exactly "installed".
+func dpkgInstalled(status string) bool {
+	fields := strings.Fields(status)
+	return len(fields) > 0 && fields[len(fields)-1] == "installed"
+}
+
+// parseDpkgQuery parses "status\tname\tversion\tarch" lines as produced
+// by the -f format string in Run, keeping only installed packages.
 func parseDpkgQuery(out []byte) []map[string]any {
+	var kept bytes.Buffer
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		status, rest, ok := strings.Cut(scanner.Text(), "\t")
+		if ok && dpkgInstalled(status) {
+			kept.WriteString(rest)
+			kept.WriteByte('\n')
+		}
+	}
+	return parsePackageLines(kept.Bytes())
+}
+
+// parsePackageLines parses tab-separated "name\tversion\tarch" lines.
+func parsePackageLines(out []byte) []map[string]any {
 	var pkgs []map[string]any
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {

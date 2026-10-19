@@ -1,32 +1,26 @@
-# =============================================================================
-# media-types configuration file
-# =============================================================================
-# This file configures the MIME type handling and logging for the media-types
-# service. It is self-documenting: every directive is preceded by a comment
-# derived from the schema description.
-# =============================================================================
+###############################################################################
+#
+#  Media (MIME) types and the extensions that represent them.
+#
+#  The format of this file is a media type on the left and zero or more
+#  filename extensions on the right.  Programs using this file will map
+#  files ending with those extensions to the associated type.
+#
+#  This file is part of the "media-types" package.  Please report a bug using
+#  the "reportbug" command of the "reportbug" package if you would like new
+#  types or extensions to be added.
+#
+#  The reason that all types are managed by the media-types package instead
+#  allowing individual packages to install types in much the same way as they
+#  add entries in to the mailcap file is so these types can be referenced by
+#  other programs (such as a web server) even if the specific support package
+#  for that type is not installed.
+#
+#  Users can add their own types if they wish by creating a ".mime.types"
+#  file in their home directory.  Definitions included there will take
+#  precedence over those listed here.
+#
+###############################################################################
 
 # primary_type: The default MIME type used for unspecified content.
-# Specifies the fallback Content-Type when the system cannot determine the
-# MIME type of a file or stream.
-primary_type: {{ primary_type|default('text/plain') }}
-
-# categories: List of media categories (e.g., Communication, Arts, Computing) to support.
-# A YAML list of high-level categories the service recognizes.
-# If empty (the default), no specific categories are enforced.
-categories:
-{%- if categories is defined %}
-{%- for category in categories %}
-  - {{ category|trim }}
-{%- endfor %}
-{%- else %}
-  []
-{%- endif %}
-
-# debug_mode: Enable debug logging when true.
-# Boolean flag. When true, enables verbose logging for troubleshooting.
-debug_mode: {{ debug_mode|default(false)|lower }}
-
-# log_path: Path to the application log file.
-# The absolute path to the file where the application writes its logs.
-log_path: {{ log_path|default('/var/log/media-types.log') }}
+{{ primary_type | default('text/plain') }}

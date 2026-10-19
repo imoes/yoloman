@@ -147,6 +147,14 @@ class ImageOut(BaseModel):
         )
 
 
+def grow_policy_keys(img: DiskImage) -> set[str]:
+    """What a grow policy may name for this image: a growable role (sizes every volume of it) or the mountpoint
+    of one growable volume (sizes exactly that one — imaging.policy_key)."""
+    mounts = {v.get("mountpoint") for v in (img.manifest or {}).get("volumes") or []
+              if v.get("role") in _GROWABLE_ROLES and v.get("mountpoint")}
+    return set(_GROWABLE_ROLES) | mounts
+
+
 @router.get("/api/v1/images", response_model=list[ImageOut])
 async def list_images(
     session: AsyncSession = Depends(get_session),
@@ -187,9 +195,10 @@ async def patch_image(
         img.grow_mode = body.grow_mode
     if body.grow_policy is not None:
         policy = {k: int(v) for k, v in body.grow_policy.items()}
-        unknown = set(policy) - _GROWABLE_ROLES
+        unknown = set(policy) - grow_policy_keys(img)
         if unknown:
-            raise HTTPException(status_code=422, detail=f"unknown grow-policy roles: {sorted(unknown)}")
+            raise HTTPException(status_code=422, detail=f"unknown grow-policy keys: {sorted(unknown)} (a growable role "
+                                f"or a growable volume's mountpoint: {sorted(grow_policy_keys(img))})")
         if any(v < 0 for v in policy.values()):
             raise HTTPException(status_code=422, detail="grow-policy values must be non-negative")
         # Percentages must sum to 100; absolute GiB sizes have no such constraint (a 0 fills the rest, and
@@ -492,7 +501,7 @@ class AutoProvisionIn(BaseModel):
     """One-shot provisioning: create a VM on a hypervisor and, using the MAC the
     hypervisor assigns, arm the whole PXE flow — planned host + restore job — so
     the freshly-created NIC is bound to the install with no operator retyping the
-    MAC. This is what a blueprint-defined server compiles down to.
+    MAC. This is what a desired-state server definition compiles down to.
 
     The `mac` binding is the entire point: create-vm returns it, and it's written
     into BOTH the planned host (provision_mac) AND the restore job (target_mac), so
@@ -527,85 +536,29 @@ async def auto_provision(
     session: AsyncSession = Depends(get_session), identity=Depends(get_current_identity),
 ) -> dict:
     """Create the VM, then bind its MAC to a fresh planned host + restore job in
-    one call — the single endpoint a blueprint→PXE job uses. Returns the created
+    one call — the single endpoint a provision→PXE job uses. Returns the created
     {vmid, mac}, the planned host id, and the armed restore job.
 
-    Sequence (each step reuses the same logic the standalone endpoints do, so there
-    is no behavioural drift):
+    Sequence (services/vm_provision.py — the same code the MCP tool deploy_vm runs):
       1. create-vm on the hypervisor      -> {vmid, mac}
       2. planned host with provision_mac = that mac (upsert by hostname)
       3. restore job with target_mac = that mac (+ VLAN handoff pointing at the VM)
     """
+    from bossman.services import vm_provision
+
     vm_host = await session.get(VmHost, host_id)
     if vm_host is None:
         raise HTTPException(status_code=404, detail="no such VM host")
     img = await _image_or_404(session, body.image_id)
-    if img.status != "ready":
-        raise HTTPException(status_code=409, detail=f"image {img.name!r} is {img.status}, not ready to deploy")
-    hostname = body.hostname.strip()
-    if not hostname:
-        raise HTTPException(status_code=422, detail="hostname is required")
-
-    # 1) Create + start the VM. The hypervisor assigns the MAC — the whole point of
-    #    this endpoint is that we never ask the operator to retype it.
-    password = _vault().decrypt(vm_host.secret)
     try:
-        client = (hypervisor.ProxmoxClient if vm_host.kind == "proxmox" else hypervisor.VCenterClient)(
-            vm_host.host, vm_host.username, password, verify_tls=vm_host.verify_tls)
-        created = await client.create_vm(
-            body.node, body.name.strip(), cores=body.cores, memory_mb=body.memory_mb,
-            disk_gib=body.disk_gib, storage=body.storage, bridge=body.bridge,
-            uefi=body.uefi, vlan=body.vlan)
-    except hypervisor.HypervisorError as exc:
-        log.warning("auto-provision create-vm on %s (%s/%s) failed: %s", vm_host.host, body.node, body.name, exc)
-        raise HTTPException(status_code=502, detail=f"VM creation failed: {exc}") from exc
-
-    vmid = str(created.get("vmid") or "")
-    mac = normalise_mac(created.get("mac") or "")  # 422 if the hypervisor gave us no usable MAC
-
-    # 2) Planned host, bound to that MAC (upsert by hostname — re-provision reuses the row).
-    new_meta = {
-        "provision_mac": mac,
-        "provision_network": body.network or {},
-        "provision_roles": list(body.roles),
-        "provision_write": bool(body.write),
-    }
-    planned = await session.scalar(select(Agent).where(Agent.name == hostname))
-    if planned is not None:
-        meta = dict(planned.agent_metadata or {})
-        meta.update(new_meta)
-        planned.agent_metadata = meta
-        planned.enrollment_state = "planned"
-    else:
-        planned = Agent(name=hostname, address=None, token=secrets.token_hex(16), mode="standalone",
-                        enrollment_state="planned", agent_metadata=new_meta)
-        session.add(planned)
-    await session.flush()  # need planned.id for the job link
-
-    # 3) Restore job, keyed by the SAME MAC. Refuse if that MAC already has one active
-    #    (mirrors create_restore_job — the DB's partial unique index also enforces it).
-    dupe = await session.scalar(
-        select(RestoreJob).where(RestoreJob.target_mac == mac, RestoreJob.status.in_(("pending", "running"))))
-    if dupe is not None:
-        raise HTTPException(status_code=409, detail=f"{mac} already has an active job ({dupe.status})")
-    handoff = body.production_bridge is not None or body.production_vlan is not None
-    job = RestoreJob(
-        image_id=img.id, target_mac=mac, target_hostname=hostname, target_disk=body.target_disk,
-        agent_id=planned.id,
-        vm_host_id=host_id if handoff else None,
-        vm_node=body.node if handoff else None,
-        vm_id=vmid if handoff else None,
-        production_vlan=body.production_vlan, production_bridge=body.production_bridge,
-    )
-    session.add(job)
-    await session.commit()
-    log.info("auto-provision: host=%s vmid=%s mac=%s -> planned %s + restore job %s (by %s)",
-             hostname, vmid, mac, planned.id, job.id, getattr(identity, "name", "?"))
-    return {
-        "vmid": vmid, "mac": mac,
-        "host_id": str(planned.id), "hostname": hostname,
-        "job": RestoreJobOut.from_model(job).model_dump(mode="json"),
-    }
+        return await vm_provision.auto_provision(
+            session, vm_host=vm_host, node=body.node, name=body.name, storage=body.storage, bridge=body.bridge,
+            cores=body.cores, memory_mb=body.memory_mb, disk_gib=body.disk_gib, uefi=body.uefi, vlan=body.vlan,
+            image=img, hostname=body.hostname, roles=list(body.roles), network=body.network or {}, write=body.write,
+            target_disk=body.target_disk, production_vlan=body.production_vlan,
+            production_bridge=body.production_bridge, requested_by=getattr(identity, "name", "?"))
+    except vm_provision.ProvisionError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
 @router.get("/api/v1/provisioning/vm-hosts/{host_id}/placement")
@@ -1052,15 +1005,19 @@ async def netboot_pending(
     """Whether the PXE DHCP should be answering right now: true iff a restore job is armed (pending) or
     mid-flight (running). The pxe container polls this and toggles dnsmasq's DHCP, so it only serves boot
     requests while there is actually an order to fulfil — no standing DHCP/PXE on the segment otherwise."""
+    from bossman.services import netboot_dhcp
+
     await _require_netboot(session, x_netboot_secret)
     count = await session.scalar(
         select(func.count()).select_from(RestoreJob).where(RestoreJob.status.in_(("pending", "running")))
     )
-    return {"pending": int(count or 0), "dhcp": bool(count)}
+    pol = await netboot_dhcp.policy(session, enabled=True, open_minutes=get_settings().netboot_open_dhcp_minutes)
+    return {"pending": int(count or 0), **pol}
 
 
 @router.get("/api/v1/netboot/config")
 async def netboot_config(
+    request: Request,
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
@@ -1081,14 +1038,38 @@ async def netboot_config(
         enabled, secret = bool(sys.netboot_enabled), db_secret
     else:
         enabled, secret = bool(env_secret), env_secret
-    pending = await session.scalar(
-        select(func.count()).select_from(RestoreJob).where(RestoreJob.status.in_(("pending", "running")))
-    )
-    return {
-        "enabled": enabled,
-        "secret": secret if enabled else "",
-        "dhcp": bool(enabled and (pending or 0) > 0),
-    }
+    from bossman.services import netboot_dhcp, netinstall
+
+    # Close netinstall jobs whose host has reported (done) or never did (failed) before deciding the DHCP, and start
+    # the finalization runbooks of hosts that have just reported — this poll runs every few seconds.
+    await netinstall.reconcile(session)
+    from bossman.api.plans import get_client_factory
+    from bossman.services import finalize
+
+    await finalize.kick(session, session_factory=request.app.state.session_factory, settings=get_settings(),
+                        client_factory=get_client_factory())
+    # dhcp_mode restricted|open|off + dhcp_macs: the container answers only these MACs unless the mode is
+    # open (a job armed without a MAC, for a bounded window) — never a standing DHCP for the whole segment.
+    pol = await netboot_dhcp.policy(session, enabled=enabled, open_minutes=get_settings().netboot_open_dhcp_minutes)
+    # netinstall: per-MAC installer boot entries + kickstarts the container writes (only while enabled).
+    entries = await netinstall.boot_entries(session, get_settings()) if enabled else []
+    return {"enabled": enabled, "secret": secret if enabled else "", **pol, "netinstall": entries}
+
+
+@router.post("/api/v1/netboot/netinstall/{mac}/ready")
+async def netinstall_ready(
+    mac: str,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """The pxe container (authenticated by its own agent token, as for /netboot/config) reports that this MAC's
+    installer is mirrored and its boot entry written; Bossman then starts the VM (services/netinstall.mark_ready)."""
+    from bossman.services import netinstall
+
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    if not token or await session.scalar(select(Agent).where(Agent.token == token)) is None:
+        raise HTTPException(status_code=403, detail="not an enrolled agent")
+    return await netinstall.mark_ready(session, normalise_mac(mac))
 
 
 @router.post("/api/v1/netboot/checkin", response_model=CheckinOut)
@@ -1129,8 +1110,11 @@ async def netboot_checkin(
     # The grow policy comes from the template (root/var/home sizes) and is snapshotted onto the job, so a
     # retry reproduces the exact partitioning even if the template is edited later. grow_mode says whether
     # the values are percentages of the leftover or absolute GiB.
-    grow_policy = dict(img.grow_policy or {})
-    grow_mode = img.grow_mode or "percent"
+    # A deployment that brought its own sizing (job.grow_mode set at arm time) keeps it; otherwise the image's.
+    if job.grow_mode:
+        grow_policy, grow_mode = dict(job.grow_policy or {}), job.grow_mode
+    else:
+        grow_policy, grow_mode = dict(img.grow_policy or {}), img.grow_mode or "percent"
     # The FINAL network the target should boot onto (from the planned host's config), written into the
     # restored root so it comes up on its destination segment, not the rollout/PXE one.
     net = None

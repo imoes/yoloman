@@ -1,8 +1,36 @@
-# Lomiri Thumbnailer Service Configuration
-# This package provides a thumbnail generation service for the Lomiri desktop environment.
-# It is a self-contained utility service and does not expose network ports, databases, or external dependencies
-# in this configuration context. It primarily processes local file resources.
+#!/bin/sh
+#
+# Copyright © 2011 Canonical Ltd.
+# Author: Ryan Lortie <desrt@desrt.ca>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
-# Path to the thumbnailer executable binary.
-# Defined by the system packaging, typically not configurable at runtime.
-/usr/libexec/lomiri-thumbnailer/vs-thumb
+# =============================================================================
+# Lomiri Thumbnailer Service Launcher
+# =============================================================================
+# This script is used to launch the lomiri-thumbnailer-service.
+# It passes the service name and the path to the configuration file
+# to the thumbnailer service.
+#
+# Configuration Variables:
+#   config_file   : The name of the configuration file located in /etc/lomiri-thumbnailer-service/
+#   session_name  : The session name identifier for the thumbnailer service
+#   max_threads   : The maximum number of threads to use for thumbnail generation
+# =============================================================================
+
+exec /usr/bin/lomiri-thumbnailer-service \
+    --config /etc/lomiri-thumbnailer-service/{{ config_file | default('default.conf') }} \
+    --session-name {{ session_name | default('lomiri-thumbnailer') }} \
+    --max-threads {{ max_threads | default(4) }}

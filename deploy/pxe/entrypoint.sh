@@ -6,6 +6,22 @@ set -eu
 
 PXE_INTERFACE="${PXE_INTERFACE:-ens19}"
 PXE_LISTEN_IP="${PXE_LISTEN_IP:-192.0.2.130}"
+
+# DHCP/TFTP must listen on the interface that is UP and carries PXE_LISTEN_IP. A configured interface that
+# is down (a lab bridge with no members, br-ens19 measured 2026-10-18 next to the real ens19 holding the same
+# address) receives no broadcast at all: dnsmasq ran, logged nothing, and no machine ever got an answer.
+# So the configuration is checked against the host and corrected with the reason in the log.
+iface_ok() { ip -o -4 addr show dev "$1" 2>/dev/null | grep -q " ${PXE_LISTEN_IP}/" && ip -o link show dev "$1" 2>/dev/null | grep -q "state UP"; }
+if ! iface_ok "$PXE_INTERFACE"; then
+    for cand in $(ip -o -4 addr show 2>/dev/null | awk -v ip="$PXE_LISTEN_IP" '$4 ~ "^"ip"/" {print $2}'); do
+        if iface_ok "$cand"; then
+            echo "pxe: PXE_INTERFACE=${PXE_INTERFACE} is down or does not carry ${PXE_LISTEN_IP}; using ${cand}, the UP interface that does" >&2
+            PXE_INTERFACE="$cand"
+            break
+        fi
+    done
+    iface_ok "$PXE_INTERFACE" || echo "pxe: WARNING no UP interface carries ${PXE_LISTEN_IP}; DHCP/TFTP on ${PXE_INTERFACE} will reach no one" >&2
+fi
 DHCP_MODE="${DHCP_MODE:-proxy}"                 # proxy | full
 DHCP_RANGE="${DHCP_RANGE:-192.0.2.150,192.0.2.200,12h}"   # full mode only
 DHCP_ROUTER="${DHCP_ROUTER:-$PXE_LISTEN_IP}"    # full mode only
@@ -122,13 +138,32 @@ cp -f /usr/lib/syslinux/modules/bios/ldlinux.c32 "$TFTP_ROOT/" 2>/dev/null || tr
 #       mode augments an existing DHCP server; full mode hands out addresses itself. Either way it points
 #       BIOS at pxelinux.0 and UEFI at grubx64.efi. ──────────────────────────────────────────────────
 DNSMASQ_CONF=/etc/dnsmasq.d/pxe.conf
-write_dnsmasq_conf() {   # $1 = on|off
+write_dnsmasq_conf() {   # $1 = off|open|restricted, $2 = space-separated MAC[=IP] (restricted)
     {
         echo "interface=${PXE_INTERFACE}"
         echo "bind-interfaces"
         echo "enable-tftp"
         echo "tftp-root=${TFTP_ROOT}"
-        if [ "$1" = "on" ]; then
+        if [ "$1" = "restricted" ]; then
+            # Only the machines Bossman armed a restore job for (their MAC came from the hypervisor): every
+            # other DHCP client on the segment is ignored, so this never acts as the segment's DHCP server.
+            # A MAC with the address its deployment was checked for gets exactly that address (full mode), so
+            # parallel installs never exhaust the dynamic range; a MAC without one falls back to the range.
+            for entry in $2; do
+                mac="${entry%%=*}"; ip=""; [ "$entry" != "$mac" ] && ip="${entry#*=}"
+                case "$mac" in
+                    [0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f])
+                        case "$ip" in
+                            *[!0-9.]*) echo "pxe: ignoring malformed address '${ip}' for ${mac}" >&2; echo "dhcp-host=${mac}" ;;
+                            "") echo "dhcp-host=${mac}" ;;
+                            *) if [ "$DHCP_MODE" = "full" ]; then echo "dhcp-host=${mac},${ip}"; else echo "dhcp-host=${mac}"; fi ;;
+                        esac ;;
+                    *) echo "pxe: ignoring malformed MAC '${mac}' from Bossman" >&2 ;;
+                esac
+            done
+            echo "dhcp-ignore=tag:!known"
+        fi
+        if [ "$1" = "open" ] || [ "$1" = "restricted" ]; then
             if [ "$DHCP_MODE" = "full" ]; then
                 echo "dhcp-range=${DHCP_RANGE}"
                 echo "dhcp-option=option:router,${DHCP_ROUTER}"
@@ -176,10 +211,76 @@ nginx
 #       source — we stamp the secret onto the PXE cmdline when it changes, and serve DHCP ONLY when a
 #       restore job is pending (`dhcp:true`), so there is never a standing DHCP/PXE server otherwise.
 #       BOSSMAN_URL must be reachable from this container (host network). ──────────────────────────────
+# ── Network installs (services/netinstall.py): per-MAC installer boot entries and their served files, from the same
+#    /netboot/config answer. The container knows no distribution: Bossman says what to fetch (once per release,
+#    into the TFTP or HTTP root), which files to serve, and the boot entry. Only entries this function wrote carry
+#    the marker, so nothing else is removed.
+NETINSTALL_MARK="# bossman-netinstall"
+safe_rel() {   # a relative path without .. or odd characters
+    case "$1" in ""|/*|*..*|*[!A-Za-z0-9_./-]*) return 1 ;; esac
+}
+sync_netinstall() {   # $1 = the /netboot/config JSON
+    : > /tmp/netinstall.keep
+    printf '%s' "$1" | jq -c '(.netinstall // [])[]' 2>/dev/null | while IFS= read -r e; do
+        mac="$(printf '%s' "$e" | jq -r '.mac')"
+        dir="$(printf '%s' "$e" | jq -r '.mirror_dir')"
+        case "$mac" in [0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]) ;; *) echo "pxe: netinstall: bad MAC '$mac'" >&2; continue ;; esac
+        safe_rel "$dir" || { echo "pxe: netinstall: bad mirror dir '$dir'" >&2; continue; }
+        ok=1
+        for f in $(printf '%s' "$e" | jq -r '.fetch[] | @base64'); do
+            item="$(printf '%s' "$f" | base64 -d)"
+            url="$(printf '%s' "$item" | jq -r '.url')"; area="$(printf '%s' "$item" | jq -r '.area')"; rel="$(printf '%s' "$item" | jq -r '.path')"
+            safe_rel "$rel" || { echo "pxe: netinstall: bad path '$rel'" >&2; ok=0; continue; }
+            case "$area" in tftp) root="$TFTP_ROOT" ;; http) root="$HTTP_ROOT" ;; *) ok=0; continue ;; esac
+            dest="$root/$dir/$rel"
+            if [ ! -s "$dest" ]; then
+                mkdir -p "$(dirname "$dest")"
+                echo "pxe: netinstall: fetching ${dir}/${rel}"
+                curl -fsSL -m 7200 -o "$dest.part" "$url" && mv "$dest.part" "$dest" \
+                    || { echo "pxe: netinstall: download of $url failed" >&2; rm -f "$dest.part"; ok=0; }
+            fi
+        done
+        for f in $(printf '%s' "$e" | jq -r '.files[] | @base64'); do
+            item="$(printf '%s' "$f" | base64 -d)"
+            rel="$(printf '%s' "$item" | jq -r '.path')"
+            case "$rel" in ks/*) safe_rel "$rel" || continue ;; *) continue ;; esac
+            mkdir -p "$(dirname "$HTTP_ROOT/$rel")"
+            printf '%s' "$item" | jq -r '.content' > "$HTTP_ROOT/$rel.tmp" && mv "$HTTP_ROOT/$rel.tmp" "$HTTP_ROOT/$rel"
+            echo "$HTTP_ROOT/$rel" >> /tmp/netinstall.keep
+        done
+        # The boot entry is written only once the installer files are present, so a machine never boots into a
+        # half-mirrored installer (a VM started before its installer arrived gave up on PXE — measured).
+        [ "$ok" = 1 ] || { echo "pxe: netinstall: ${mac} waits for its installer files" >&2; continue; }
+        cfg="$TFTP_ROOT/pxelinux.cfg/01-$(printf '%s' "$mac" | tr ':' '-')"
+        kernel="$(printf '%s' "$e" | jq -r '.boot.kernel')"; initrd="$(printf '%s' "$e" | jq -r '.boot.initrd')"
+        append="$(printf '%s' "$e" | jq -r '.boot.append')"
+        new="$(printf '%s\ndefault netinstall\nlabel netinstall\n  kernel %s\n  append initrd=%s %s\n  ipappend 2\n' \
+               "$NETINSTALL_MARK" "$kernel" "$initrd" "$append")"
+        if [ "$(cat "$cfg" 2>/dev/null)" != "$new" ]; then
+            mkdir -p "$TFTP_ROOT/pxelinux.cfg"; printf '%s\n' "$new" > "$cfg"
+            echo "pxe: netinstall: boot entry for $mac → ${dir}"
+        fi
+        echo "$cfg" >> /tmp/netinstall.keep
+        # Tell Bossman the installer is in place: it starts the VM, which was created stopped.
+        if [ "$(printf '%s' "$e" | jq -r '.status')" = pending ]; then
+            res="$(curl -fsS -m 30 -X POST -H "Authorization: Bearer $(agent_token)" "${BOSSMAN_URL}/api/v1/netboot/netinstall/${mac}/ready" 2>&1 || true)"
+            echo "pxe: netinstall: ${mac} ready → $(printf '%s' "$res" | jq -r '.action + " " + (.reason // .vmid // "")' 2>/dev/null || echo "$res")"
+        fi
+    done
+    for f in "$TFTP_ROOT"/pxelinux.cfg/01-*; do
+        [ -f "$f" ] || continue
+        head -1 "$f" | grep -qx "$NETINSTALL_MARK" || continue
+        grep -qx "$f" /tmp/netinstall.keep || { rm -f "$f"; echo "pxe: netinstall: removed boot entry $(basename "$f")"; }
+    done
+    find "$HTTP_ROOT/ks" -type f 2>/dev/null | while read -r f; do grep -qx "$f" /tmp/netinstall.keep || rm -f "$f"; done
+    find "$HTTP_ROOT/ks" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+    rm -f /tmp/netinstall.keep
+}
+
 agent_token() { sed -n 's/^token:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' /etc/agentic-mcp/config.yaml 2>/dev/null | head -1; }
-state=off
+state="off|"
 last_secret="__unset__"
-write_dnsmasq_conf off
+write_dnsmasq_conf off ""
 restart_dnsmasq
 echo "pxe: TFTP on ${PXE_INTERFACE}/${PXE_LISTEN_IP}, HTTP root ${HTTP_ROOT}; DHCP + secret gated via ${BOSSMAN_URL}/netboot/config"
 while true; do
@@ -188,7 +289,15 @@ while true; do
     [ -n "$tok" ] && resp="$(curl -fsS -m 5 -H "Authorization: Bearer ${tok}" "${BOSSMAN_URL}/api/v1/netboot/config" 2>/dev/null || true)"
     if [ -n "$resp" ]; then
         secret="$(printf '%s' "$resp" | jq -r '.secret // ""' 2>/dev/null || echo "")"
-        case "$resp" in *'"dhcp":true'*|*'"dhcp": true'*) want=on ;; *) want=off ;; esac
+        # dhcp_mode restricted|open|off + dhcp_macs (services/netboot_dhcp.py). A Bossman without dhcp_mode
+        # only says dhcp:true — that was always "answer everyone", so it maps to open.
+        mode="$(printf '%s' "$resp" | jq -r 'if .dhcp_mode then .dhcp_mode elif .dhcp then "open" else "off" end' 2>/dev/null || echo off)"
+        # MAC=IP from dhcp_hosts when Bossman sends them (the checked static address), else the bare MACs.
+        macs="$(printf '%s' "$resp" | jq -r 'if .dhcp_hosts then (.dhcp_hosts | map((.mac | ascii_downcase) + (if .address then "=" + .address else "" end)))
+                 else ((.dhcp_macs // []) | map(ascii_downcase)) end | join(" ")' 2>/dev/null || echo "")"
+        reason="$(printf '%s' "$resp" | jq -r '.dhcp_reason // ""' 2>/dev/null || echo "")"
+        want="${mode}|${macs}"
+        sync_netinstall "$resp"
         # Re-stamp the PXE cmdline only when the effective secret actually changed.
         if [ "$secret" != "$last_secret" ]; then
             stamp_cmdline "$secret"; last_secret="$secret"
@@ -198,8 +307,8 @@ while true; do
         want="$state"   # Bossman/token not ready → hold current state rather than flap
     fi
     if [ "$want" != "$state" ]; then
-        echo "pxe: DHCP ${want}"
-        write_dnsmasq_conf "$want"
+        echo "pxe: DHCP ${want%%|*}${macs:+ for ${macs}}${reason:+ — ${reason}}"
+        write_dnsmasq_conf "${want%%|*}" "${want#*|}"
         restart_dnsmasq
         state="$want"
     fi

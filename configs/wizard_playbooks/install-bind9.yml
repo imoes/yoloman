@@ -15,7 +15,6 @@
     listen_on: []
     forwarders: []
     listen_on_v6: []
-    doh_endpoint: {}
   tasks:
     - name: Install BIND DNS Server
       ansible.builtin.package:
@@ -35,7 +34,6 @@
         forwarders: "{{ forwarders }}"
         stats_file: "{{ stats_file }}"
         allow_query: "{{ allow_query }}"
-        doh_endpoint: "{{ doh_endpoint }}"
         listen_on_v6: "{{ listen_on_v6 }}"
         forward_policy: "{{ forward_policy }}"
         max_cache_size: "{{ max_cache_size }}"
@@ -44,7 +42,7 @@
         working_directory: "{{ working_directory }}"
 
     - name: Validate configuration
-      ansible.builtin.command: named-checkconf /etc/bind/named.conf
+      ansible.builtin.command: named-checkconf
 
     - name: Enable and restart BIND DNS Server
       ansible.builtin.service:

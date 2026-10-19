@@ -1,41 +1,103 @@
-# -----------------------------------------------------------------------------
-# Heimdal KDC Service Configuration Template
+# ==============================================================================
+# Heimdal KDC Service Configuration
+# ==============================================================================
+# This template manages the systemd service unit for the Heimdal Key Distribution
+# Center (KDC) and its associated password change daemon (kpasswdd).
 #
-# This template generates the systemd service drop-in or environment configuration
-# for the Heimdal Key Distribution Center (KDC). It controls the lifecycle of
-# three potential daemons:
-# 1. KDC (Kerberos Key Distribution Center)
-# 2. kpasswdd (Password Change Daemon)
-# 3. kprop (KDC Replication Slave/Master)
-#
-# All variables are sourced from the Ansible role variables. Defaults are applied
-# inline to ensure the template is self-contained and safe to reuse.
-# -----------------------------------------------------------------------------
+# Variables mapping:
+#   kdc_config_file   : Path to the KDC configuration file (kdc.conf).
+#   kdc_enabled       : Enable/disable the main KDC service.
+#   kpasswdd_enabled  : Enable/disable the kpasswdd service.
+#   kpasswdd_params   : Extra command-line arguments for kpasswdd.
+#   master_enabled    : Enable Master KDC mode (for iprop replication).
+#   slave_enabled     : Enable Slave KDC mode (for iprop replication).
+#   slave_params      : Extra command-line arguments for the KDC slave process.
+# ==============================================================================
 
+# ------------------------------------------------------------------------------
+# Main KDC Service Unit
+# ------------------------------------------------------------------------------
 # kdc_enabled: Whether to start the Heimdal KDC daemon.
-# Default: True
-KDC_ENABLED={{ kdc_enabled | default(true) }}
-
+# Default: yes
+{% if kdc_enabled | default('yes') | lower in ['yes', 'true', '1'] %}
 # kdc_config_file: Path to the KDC configuration file.
-# Default: '/etc/heimdal-kdc/kdc.conf'
-KDC_PARAMS="--config-file={{ kdc_config_file | default('/etc/heimdal-kdc/kdc.conf') }}"
+# Default: /etc/heimdal-kdc/kdc.conf
+[Unit]
+Description=Heimdal Key Distribution Center (KDC)
+Documentation=man:kdc(8) man:kdc.conf(5)
+After=network.target
+Requires=
 
-# kpasswdd_enabled: Whether to start the Heimdal kpasswdd (password change) daemon.
-# Default: True
-KPASSWDD_ENABLED={{ kpasswdd_enabled | default(true) }}
-
-# kpasswdd_params: Additional command-line parameters for kpasswdd.
-# Default: ''
-KPASSWDD_PARAMS="{{ kpasswdd_params | default('') }}"
+[Service]
+Type=forking
+PIDFile=/var/run/kdc.pid
+# ExecStart line uses the KDC config file path
+ExecStart=/usr/sbin/kdc -c {{ kdc_config_file | default('/etc/heimdal-kdc/kdc.conf') }}
 
 # master_enabled: Whether this host is the KDC master (used for iprop replication).
-# Default: False
-MASTER_ENABLED={{ master_enabled | default(false) }}
+# Default: no
+# If master is enabled, attempt to initialize the database if not already present.
+{% if master_enabled | default('no') | lower in ['yes', 'true', '1'] %}
+ExecStartPost=/usr/sbin/kdb5_util -r EXAMPLE.COM create -s
+{% endif %}
 
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+{% else %}
+# KDC Service is disabled because kdc_enabled is not 'yes', 'true', or '1'.
+[Unit]
+Description=Heimdal Key Distribution Center (KDC) - Disabled
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Password Change Daemon (kpasswdd) Service Unit
+# ------------------------------------------------------------------------------
+# kpasswdd_enabled: Whether to start the Heimdal kpasswdd (password change) daemon.
+# Default: yes
+{% if kpasswdd_enabled | default('yes') | lower in ['yes', 'true', '1'] %}
+[Unit]
+Description=Heimdal Password Change Daemon (kpasswdd)
+Documentation=man:kpasswdd(8)
+After=network.target kdc.service
+
+[Service]
+Type=forking
+PIDFile=/var/run/kpasswdd.pid
+# kpasswdd_params: Additional command-line parameters for kpasswdd.
+# Default: ''
+ExecStart=/usr/sbin/kpasswdd {{ kpasswdd_params | default('') }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+{% else %}
+# kpasswdd Service is disabled because kpasswdd_enabled is not 'yes', 'true', or '1'.
+[Unit]
+Description=Heimdal Password Change Daemon (kpasswdd) - Disabled
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# KDC Database Replication (iprop) Configuration Notes
+# ------------------------------------------------------------------------------
+# The schema fields `master_enabled` and `slave_enabled` control the behavior
+# of the KDC regarding iprop (incremental propagation) replication.
+#
+# - Master KDC: Writes change logs and serves them to slaves.
+# - Slave KDC: Reads change logs from the master and applies them to its database.
+#
+# Note: The `slave_params` field is defined in the schema but currently
+# has no specific placement in this simplified service unit template.
+# If the daemon supports flags for slave mode, they should be appended
+# to the ExecStart lines above conditionally.
+#
 # slave_enabled: Whether this host is a KDC slave (for iprop replication).
-# Default: False
-SLAVE_ENABLED={{ slave_enabled | default(false) }}
-
+# Default: no
 # slave_params: Additional parameters for the KDC slave (e.g., master hostname for iprop).
 # Default: ''
-SLAVE_PARAMS="{{ slave_params | default('') }}"

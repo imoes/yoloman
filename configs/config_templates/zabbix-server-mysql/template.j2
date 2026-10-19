@@ -1,32 +1,37 @@
-# Zabbix Server Log Rotation Configuration
-# Managed by Ansible — do not edit manually.
-# This file configures logrotate for the Zabbix server logs.
+# Zabbix Server Logrotate Configuration
+# Managed by Ansible - Do not edit manually
 
-/var/log/{{ zabbix_log_dir | default('zabbix-server') }}/ {{ zabbix_server_log_file | default('zabbix_server.log') }} {
-    # Rotate log files weekly.
+# Configuration for rotating the Zabbix server log file.
+# See man logrotate(8) for details on the directives used below.
+
+/var/log/zabbix-server/{{ zabbix_log_dir | default('zabbix-server') }}/{{ zabbix_server_log_file | default('zabbix_server.log') }} {
+    # Rotate log files weekly
     weekly
 
-    # Number of rotated log files to keep.
-    rotate {{ zabbix_log_rotate_count | default(7) }}
+    # Keep the specified number of rotated log files.
+    # Default: 7
+    rotate {{ zabbix_log_rotate_count | default('7') }}
 
     # Compress old log files using gzip to save disk space.
     compress
 
-    # Delay compression until the next rotation cycle to avoid blocking
-    # the Zabbix server while it is still writing to the compressed file.
+    # Delay compression of the most recent rotated file by one rotation cycle.
+    # This allows processes to finish writing to the compressed file if any.
     delaycompress
 
-    # Do not error if the log file is missing (e.g., before the first rotation).
+    # Do not error out if the log file is missing.
     missingok
 
-    # Do not rotate an empty log file.
+    # Do not rotate the log if it is empty.
     notifempty
 
     # Create new log files with the specified permissions and ownership.
-    # The permissions are octal (e.g., 0640).
-    # The user and group ensure proper access control.
+    # Format: create mode owner group
+    # Default permissions: 0640
+    # Default owner: zabbix
+    # Default group: zabbix
     create {{ zabbix_log_file_permissions | default('0640') }} {{ zabbix_log_user | default('zabbix') }} {{ zabbix_log_group | default('zabbix') }}
 
-    # Run the postrotate script only once for all logs in this block (if multiple).
+    # Run all scripts in the group as a single script, rather than one per log file.
     sharedscripts
 }

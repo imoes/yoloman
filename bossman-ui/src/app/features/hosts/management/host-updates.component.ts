@@ -131,9 +131,9 @@ import { UpdatesResponse } from '../../../core/models/agent.model';
       .bm-chk { font-size: 12.5px; opacity: 0.85; display: flex; align-items: center; gap: 5px; }
       .bm-reboot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 13px; background: color-mix(in srgb, #ed6c02 18%, transparent); color: #e65100; }
       .bm-sec-badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; font-weight: 600; background: color-mix(in srgb, #c62828 16%, transparent); color: #c62828; }
-      .bm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: 6px 14px; font-size: 12px; }
-      .bm-ct td { padding: 8px 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
+      .bm-ct { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 14px; font-size: 12px; }
+      .bm-ct td { padding: var(--bm-cell-py) 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
       .bm-right { text-align: right; }
       .bm-dev { font-family: monospace; font-weight: 600; }
       .bm-mono { font-family: monospace; }

@@ -1,153 +1,322 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          vzlogger
-# Required-Start:    $remote_fs
-# Required-Stop:    $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: logging measurements to a volkszaehler.org middelware
-### END INIT INFO
-
-# Author: Steffen Vogel <info@steffenvogol.de>
-
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="smartmetering server"
-NAME=vzlogger
-DAEMON=/usr/bin/vzlogger
-DAEMON_ARGS="-d"          # Arguments to run the daemon with
-#PIDFILE=/var/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/$NAME
-
-# The system user account under which the vzlogger daemon runs.
-USER={{ vzlogger_user | default('_vzlogger') }}
-
-# The system group account under which the vzlogger daemon runs.
-GROUP={{ vzlogger_group | default('_vzlogger') }}
-
-# Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
-
-# Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
-
-#
-# Function that starts the daemon/service
-#
-do_start()
 {
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --chuid $USER --group $GROUP --quiet  --exec $DAEMON --test > /dev/null \
-		|| return 1
-	start-stop-daemon --start --chuid $USER --group $GROUP --quiet  --exec $DAEMON -- \
-		$DAEMON_ARGS \
-		|| return 2
-	# Add code here, if necessary, that waits for the process to be ready
-	# to handle requests from services started subsequently which depend
-	# on this one.  As a last resort, sleep for some time.
-}
+    // General settings
+    // "verbosity": 5,         // log verbosity (0=log_alert, 1=log_error, 3=log_warning, 5=log_info, 10=log_debug, 15=log_finest)
+    // "log": "/var/log/vzlogger.log", // Path to the log file.
+    // "retry": 30,            // http retry delay in seconds
 
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5  --name $NAME
-	RETVAL="$?"
-	[ "$RETVAL" = 2 ] && return 2
-	# Wait for children to finish too if this is a daemon that forks
-	# and if the daemon is only ever run from this initscript.
-	# If the above conditions are not satisfied then add some other code
-	# that waits for the process to drop all resources that could be
-	# needed by services started subsequently.  A last resort is to
-	# sleep for some time.
-	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
-	[ "$?" = 2 ] && return 2
-	return "$RETVAL"
-}
+    "log": "{{ vzlogger_log | default('/var/log/vzlogger.log') }}",
+    "local": {
+        // "enabled": false,   // enable local HTTPd for serving live readings
+        // "port": 8080,       // TCP port for local HTTPd.
+        // "index": true,      // provide index listing of available channels if no UUID was requested
+        // "timeout": 30,      // timeout for long polling comet requests in seconds (0 disables comet)
+        // "buffer": -1        // HTTPd buffer configuration for serving readings, default -1
+                            //   >0: number of seconds of readings to serve
+                            //   <0: number of tuples to server per channel (e.g. -3 will serve 3 tuples)
+        "enabled": false,
+        "port": {{ vzlogger_local_port | default('1883, // 1883 for unencrypted, 8883 enc, 8884 enc cert needed') }},
+        "index": true,
+        "timeout": 30,
+        "buffer": -1
+    },
 
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-do_reload() {
-	#
-	# If the daemon can reload its configuration without
-	# restarting (for example, when it is sent a SIGHUP),
-	# then implement that here.
-	#
-	start-stop-daemon --stop --signal 1 --quiet  --name $NAME
-	return 0
-}
+    // realtime notification settings
+    "push": [
+        /*
+        {
+            "url": "http://127.0.0.1:5582"  // notification destination, e.g. frontend push-server
+        }
+        */
+    ],
 
-case "$1" in
-  start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
-    do_start
-    case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-  ;;
-  stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  status)
-       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-       ;;
-  #reload|force-reload)
-	#
-	# If do_reload() is not implemented then leave this commented out
-	# and leave 'force-reload' as an alias for 'restart'.
-	#
-	#log_daemon_msg "Reloading $DESC" "$NAME"
-	#do_reload
-	#log_end_msg $?
-	#;;
-  restart|force-reload)
-	#
-	# If the "reload" option is implemented then remove the
-	# 'force-reload' alias
-	#
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case "$?" in
-	  0|1)
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-		# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
-  *)
-	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
-	exit 3
-	;;
-esac
+    // mqtt client support (if ENABLE_MQTT set at cmake generation)
+    "mqtt": {
+        // "enabled": false,  // enable mqtt client. needs host and port as well
+        // "host": "test.mosquitto.org", // MQTT server address.
+        // "port": 1883, // 1883 for unencrypted, 8883 enc, 8884 enc cert needed,
+        // "cafile": "", // Optional file with server CA.
+        // "capath": "", // Optional path for server CAs. see mosquitto.conf. Specify only cafile or capath
+        // "certfile": "", // Optional file for client certificate.
+        // "keyfile": "", // Optional path for client private key.
+        // "keypass": "", // Optional password for private key.
+        // "keepalive": 30, // optional keepalive in seconds.
+        // "topic": "vzlogger/data", // MQTT topic.
+        // "id": "", // Optional static MQTT client ID.
+        // "user": "", // Optional MQTT username.
+        // "pass": "", // Optional MQTT password.
+        // "retain": false, // optional use retain message flag
+        // "rawAndAgg": false, // optional publish raw values even if agg mode is used
+        // "qos": 0, // optional quality of service, default is 0
+        // "timestamp": false // optional whether to include a timestamp in the payload
+        "enabled": false,
+        "host": "{{ vzlogger_mqtt_host | default('test.mosquitto.org') }}",
+        "port": {{ vzlogger_mqtt_port | default('1883, // 1883 for unencrypted, 8883 enc, 8884 enc cert needed') }},
+        "cafile": "{{ vzlogger_mqtt_cafile | default('') }}",
+        "capath": "{{ vzlogger_mqtt_capath | default('') }}",
+        "certfile": "{{ vzlogger_mqtt_certfile | default('') }}",
+        "keyfile": "{{ vzlogger_mqtt_keyfile | default('') }}",
+        "keypass": "{{ vzlogger_mqtt_keypass | default('') }}",
+        "keepalive": 30,
+        "topic": "{{ vzlogger_mqtt_topic | default('vzlogger/data') }}",
+        "id": "{{ vzlogger_mqtt_id | default('') }}",
+        "user": "{{ vzlogger_mqtt_user | default('') }}",
+        "pass": "{{ vzlogger_mqtt_pass | default('') }}",
+        "retain": false,
+        "rawAndAgg": false,
+        "qos": 0,
+        "timestamp": false
+    },
+
+    // Meter configuration
+    "meters": [
+        {
+            // Example SML meter
+
+            // "enabled": false,               // disabled meters will be ignored (default)
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+            // "protocol": "sml",              // meter protocol, see 'vzlogger -h' for full list
+            // "device": "/dev/ttyUSB1",       // Device path for the SML meter.
+//          "host": "http://my.ddns.net::7331",   // uri if meter not locally connected using <device>
+
+            // "aggtime": 10,                  // aggregate meter readings and send middleware update after <aggtime> seconds
+
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "sml",
+            "device": "{{ vzlogger_meter1_device | default('/dev/ttyUSB1') }}",
+            "aggtime": 10,
+
+            "channels": [{
+                // "api": "volkszaehler",      // middleware api, default volkszaehler
+                // "uuid": "fde8f1d0-c5d0-11e0-856e-f9e4360ced10",
+                // "middleware": "http://localhost/middleware.php", // Middleware URL for SML meter channel 0.
+                // "identifier": "power"       // OBIS identifier (alias for '1-0:1.7.ff')
+                                            //   see 'vzlogger -h' for available aliases
+                                            //   see 'vzlogger -v20' for available identifiers for attached meters
+                "api": "volkszaehler",
+                "uuid": "fde8f1d0-c5d0-11e0-856e-f9e4360ced10",
+                "middleware": "{{ vzlogger_meter1_channel0_middleware | default('http://localhost/middleware.php') }}",
+                "identifier": "power"
+            }, {
+                // "uuid": "a8da012a-9eb4-49ed-b7f3-38c95142a90c",
+                // "middleware": "http://localhost/middleware.php", // Middleware URL for SML meter channel 1.
+                // "identifier": "counter",    // OBIS identifier
+                // "duplicates": 10            // duplicate handling, default 0 (send duplicate values)
+                                            //   >0: send duplicate values only each <duplicates> seconds
+                                            // Activate only for abs. counter values (Zaehlerstaende) and not for impulses
+                "uuid": "a8da012a-9eb4-49ed-b7f3-38c95142a90c",
+                "middleware": "{{ vzlogger_meter1_channel1_middleware | default('http://localhost/middleware.php') }}",
+                "identifier": "counter",
+                "duplicates": 10
+            }, {
+                // "uuid": "d5c6db0f-533e-498d-a85a-be972c104b48",
+                // "middleware": "http://localhost/middleware.php", // Middleware URL for SML meter channel 2.
+                // "identifier": "1-0:1.8.0"   // OBIS identifier
+                "uuid": "d5c6db0f-533e-498d-a85a-be972c104b48",
+                "middleware": "{{ vzlogger_meter1_channel2_middleware | default('http://localhost/middleware.php') }}",
+                "identifier": "1-0:1.8.0"
+            }]
+        },
+        {
+            // Example S0 meter
+
+            // "enabled": false,               // disabled meters will be ignored (default)
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+            // "protocol": "s0",               // meter protocol, see 'vzlogger -h' for full list
+            // "device": "/dev/ttyUSB0",       // Device path for the S0 meter.
+
+            // "aggtime": 300,                 // aggregate meter readings and send middleware update after <aggtime> seconds
+            // "aggfixedinterval": true,       // round timestamps to nearest <aggtime> before sending to middleware
+
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "s0",
+            "device": "{{ vzlogger_meter2_device | default('/dev/ttyUSB0') }}",
+            "aggtime": 300,
+            "aggfixedinterval": true,
+
+            "channel": {
+                // "identifier": "Impulse",    // s0 meter knows "Impulse" and "Power"
+                // "uuid": "d495a390-f747-11e0-b3ca-f7890e45c7b2",
+                // "middleware": "http://localhost/middleware.php", // Middleware URL for S0 meter channel.
+                // "aggmode": "SUM"            // aggregation mode: aggregate meter readings during <aggtime> interval
+                                            //   "SUM": add readings (use for s0 impulses)
+                                            //   "MAX": maximum value (use for meters sending absolute readings)
+                                            //   "AVG": average value (use for meters sending current usage)
+                "identifier": "Impulse",
+                "uuid": "d495a390-f747-11e0-b3ca-f7890e45c7b2",
+                "middleware": "{{ vzlogger_meter2_channel_middleware | default('http://localhost/middleware.php') }}",
+                "aggmode": "SUM"
+            }
+        },
+        {
+            // Example D0 meter
+
+            // "enabled": false,               // disabled meters will be ignored (default)
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+            // "protocol": "d0",               // meter protocol, see 'vzlogger -h' for full list
+            // "device": "/dev/ttyUSB0",       // Device path for the D0 meter.
+            // "dump_file": "/var/log/d0.txt", // Detailed log file path for D0 meter.
+
+            // "parity": "7E1",                // Serial parity, 7E1 or 8N1
+            // "baudrate": 9600,               // Serial baud rate, typically 9600 or 300
+
+            // optional D0 interface settings
+//          "pullseq": "2F3F210D0A",        // Pull sequence in 'hex'
+//          "ackseq": "063030300d0a",       // optional (default: keine Antwortsequenz auf Zaehlerantwort) kann entweder feste hex-Sequenz sein (z.B. 063035300d0a für mode C mit 9600bd oder 063030300d0a = 300bd) oder kann auf "auto" gesetzt werden, damit die Sequenz autom. berechnet wird und autom. auf die max. Baudrate umgeschaltet wird (baudrate_read wird dann ignoriert)
+//          "read_timeout": 10,             // optional read timeout, default 10s. Data reading is considered finished if no state change after that timeout
+//          "baudrate_change_delay": 400,   // optional, default none. Delay value in ms after ACKSEQ send before baudrate change
+//          "baudrate_read": 300,           // Baudratenumschaltung auf gewünschte Baudrate, abhängig von Zählerantwort
+
+//          "aggtime": 20,                  // aggregate meter readings and send middleware update after <aggtime> seconds
+            // "interval": 0,                  // Wartezeit in Sekunden bis neue Werte in die middleware übertragen werden
+
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "d0",
+            "device": "{{ vzlogger_meter3_device | default('/dev/ttyUSB0') }}",
+            "dump_file": "{{ vzlogger_meter3_dump_file | default('/var/log/d0.txt') }}",
+            "parity": "{{ vzlogger_meter3_parity | default('7E1') }}",
+            "baudrate": {{ vzlogger_meter3_baudrate | default(9600) }},
+            "interval": 0,
+
+            "channel": {
+                // "uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee",
+                // "middleware": "http://localhost/middleware.php", // Middleware URL for D0 meter channel.
+                // "identifier": "1-0:1.8.1"  // OBIS identifier
+//              "aggmode": "MAX"            // aggregation mode: aggregate meter readings during <aggtime> interval
+                "uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee",
+                "middleware": "{{ vzlogger_meter3_channel_middleware | default('http://localhost/middleware.php') }}",
+                "identifier": "1-0:1.8.1"
+            }
+        },
+
+        // examples for non-device protocols
+        {
+            // "enabled": false,               // disabled meters will be ignored
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+
+            // "protocol": "random",
+            // "interval": 2,
+            // "max": 40.0,                    // has to be double!
+            // "min": -5.0,                    // has to be double!
+            // "channel": {
+            //     "uuid": "bac2e840-f72c-11e0-bedf-3f850c1e5a66",
+            //     "middleware": "http://localhost/middleware.php" // Middleware URL for random meter channel.
+            // }
+
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "random",
+            "interval": 2,
+            "max": 40.0,
+            "min": -5.0,
+            "channel": {
+                "uuid": "bac2e840-f72c-11e0-bedf-3f850c1e5a66",
+                "middleware": "{{ vzlogger_meter4_channel_middleware | default('http://localhost/middleware.php') }}"
+            }
+        },
+        {
+            /* A minimal example that "just works" on Debian.
+               The steps needed are:
+               1. Install influxdb: sudo apt install influxdb influxdb-client
+               2. Start the client by calling influx on the command line and
+               create db: CREATE DATABASE vzlogger
+               3. Set enabled to true in the configuration below
+             */
+            // "enabled": false,               // disabled meters will be ignored
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+
+            // "protocol": "random",
+            // "interval": 2,
+            // "max": 40.0,                    // has to be double!
+            // "min": -5.0,                    // has to be double!
+            // "channel": {
+            //     "uuid": "25a53b28-75ec-4764-a8a6-68587722ddab",
+            //     // For details on the influxdb configuration see vzlogger.conf.InfluxDB
+            //     "api": "influxdb",
+            //     "host": "localhost:8086" // InfluxDB host for the influxdb example meter.
+            // }
+
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "random",
+            "interval": 2,
+            "max": 40.0,
+            "min": -5.0,
+            "channel": {
+                "uuid": "25a53b28-75ec-4764-a8a6-68587722ddab",
+                "api": "influxdb",
+                "host": "{{ vzlogger_meter5_channel_host | default('localhost:8086') }}"
+            }
+        },
+        {
+            // "enabled": false,               // disabled meters will be ignored
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+
+            // "protocol": "file",
+            // "path": "/proc/loadavg",
+//          "format": "$i $v $t",           // a format string for parsing complex logfiles
+                                            // arbitrary text and whitespaces are allowed, see 'scanf()'
+                                            // at least $v has to be used
+                                            // $i => identifier, $v => value, $t => timestamp
+            // "rewind": true,                 // reset file pointer each interval to the beginning of the file
+            // "interval": 2                   // if ommitted, we will try to listen on changes with inotify
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "file",
+            "path": "/proc/loadavg",
+            "rewind": true,
+            "interval": 2
+        },
+        {
+            // "enabled": false,               // disabled meters will be ignored
+            // "allowskip": false,                  // if enabled, errors when opening meter will lead to meter being ignored
+            // "protocol": "exec",
+            // "command": "python /path/to/yourscript.py", // Command to execute for the exec meter.
+            //          "format": "$i $v $t",           // a format string for parsing complex logfiles
+                                                        // arbitrary text and whitespaces are allowed, see 'scanf()'
+                                                        // at least $v has to be used
+                                                        // $i => identifier, $v => value, $t => timestamp
+            // "interval": 2
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "exec",
+            "command": "{{ vzlogger_meter7_command | default('python /path/to/yourscript.py') }}",
+            "interval": 2
+        },
+
+        // examples for Flukso-based sensors
+        {
+            // "enabled": false,               // disabled meters will be ignored
+            // "allowskip": false,                  // errors when opening meter may be ignored if enabled
+
+            // "protocol": "fluksov2",
+            // "fifo": "/var/spid/delta/out",
+            // "channel": {
+            //     "uuid": "3b4da450-42a8-11e1-8b8d-c526d853edec",
+            //     "middleware": "http://localhost/middleware.php", // Middleware URL for Flukso sensor channel.
+            //     "identifier": "sensor0/power" // or "sensor2/consumption"
+            // }
+            "enabled": false,
+            "allowskip": false,
+            "protocol": "fluksov2",
+            "fifo": "/var/spid/delta/out",
+            "channel": {
+                "uuid": "3b4da450-42a8-11e1-8b8d-c526d853edec",
+                "middleware": "{{ vzlogger_meter8_channel_middleware | default('http://localhost/middleware.php') }}",
+                "identifier": "sensor0/power"
+            }
+        },
+
+        // example for 1wire temp sensors
+        {
+            // "enabled": false,
+            // "allowskip": true,
+            // "protocol": "w1therm"
+            "enabled": false,
+            "allowskip": true,
+            "protocol": "w1therm"
+        }
+    ]
+}

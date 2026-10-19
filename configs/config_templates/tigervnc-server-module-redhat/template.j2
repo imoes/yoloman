@@ -1,0 +1,46 @@
+# ==============================================================================
+# TigerVNC Server Module Configuration
+# ==============================================================================
+# This file configures the libvnc.so X11 module for TigerVNC.
+#
+# Prerequisites:
+#   1. The tigervnc-server package must be installed.
+#   2. A VNC password must be set for the target user (typically root)
+#      by running: vncpasswd (as the user who will run the VNC server).
+#   3. The path to the password file must be accessible by the VNC server process.
+#
+# For additional Xvnc options, consult the output of `Xvnc -help`.
+# ==============================================================================
+
+Section "Module"
+    # Load the TigerVNC shared object module
+    Load "vnc"
+EndSection
+
+Section "Screen"
+    # Identifier for this VNC screen section.
+    # Used to distinguish multiple screens if configured.
+    # Defaults to "Screen0" if not specified.
+    {% if tigervnc_screen_identifier is defined and tigervnc_screen_identifier is not none and (tigervnc_screen_identifier is number or tigervnc_screen_identifier is boolean or tigervnc_screen_identifier | length > 0) %}
+    Identifier "{{ tigervnc_screen_identifier }}"
+    {% else %}
+    #    Identifier "Screen0"
+    {% endif %}
+
+    # Default color depth for the VNC session (e.g., 8, 15, 16, 24, 32).
+    # Defaults to 16 if not specified.
+    {% if tigervnc_default_depth is defined and tigervnc_default_depth is not none and (tigervnc_default_depth is number or tigervnc_default_depth is boolean or tigervnc_default_depth | length > 0) %}
+    DefaultDepth {{ tigervnc_default_depth }}
+    {% else %}
+    #    DefaultDepth 16
+    {% endif %}
+
+    # Security type for the VNC connection.
+    # VncAuth uses standard VNC password authentication.
+    Option "SecurityTypes" "VncAuth"
+
+    # Path to the file containing the VNC authentication password.
+    # This file must be created and secured (chmod 600) by the user running VNC.
+    # Defaults to /root/.vnc/passwd.
+    Option "PasswordFile" "{{ (tigervnc_password_file | default('/root/.vnc/passwd')) }}"
+EndSection

@@ -1,0 +1,26 @@
+# ALSA Plugin: Arcam AV Amplifier
+# This configuration block defines the 'arcam_av' ALSA plugin, used to control
+# Arcam AV amplifiers via a serial interface.
+#
+# Source schema field: port
+# Description: The serial port device path for the Arcam-AV amplifier.
+
+ctl.arcam_av {
+	@args [ PORT ]
+	@args.PORT {
+		type string
+		# Default: /dev/ttyUSB0
+		default "{{ port | default('/dev/ttyUSB0') }}"
+	}
+	type arcam_av
+	# The serial port device path for the Arcam-AV amplifier.
+	# Uses the PORT argument passed by ALSA, defaulting to the schema value.
+	port $PORT
+	hint {
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+		description "Arcam-AV Amplifier"
+	}
+}

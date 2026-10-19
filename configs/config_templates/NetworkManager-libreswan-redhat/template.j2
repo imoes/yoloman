@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NetworkManager-LibreSwan D-Bus Configuration
+  ------------------------------------------------
+  This file defines the D-Bus security policies for the
+  NetworkManager-LibreSwan integration on RHEL-based systems.
+  It restricts access to the LibreSwan helper service to
+  the root user, ensuring secure VPN management.
+-->
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+	<!--
+	  Policy for the root user.
+	  Allows root to claim the service bus name, send messages
+	  to the service, and interact with its helper interface.
+	-->
+	<policy user="root">
+		<!--
+          Allow claiming the D-Bus service prefix.
+          The prefix identifies the specific NetworkManager-LibreSwan service instance.
+          Default: org.freedesktop.NetworkManager.libreswan
+        -->
+		<allow own_prefix="{{ nm_libreswan_service_prefix | default('org.freedesktop.NetworkManager.libreswan') }}"/>
+		
+		<!--
+          Allow sending messages to the service destination.
+          This enables management commands to reach the VPN daemon.
+          Default: org.freedesktop.NetworkManager.libreswan
+        -->
+		<allow send_destination="{{ nm_libreswan_service_prefix | default('org.freedesktop.NetworkManager.libreswan') }}"/>
+		
+		<!--
+          Allow sending messages to the helper interface.
+          This specific interface handles low-level IPsec helper operations
+          such as routing and interface configuration.
+          Default: org.freedesktop.NetworkManager.libreswan.helper
+        -->
+		<allow send_interface="{{ nm_libreswan_helper_interface | default('org.freedesktop.NetworkManager.libreswan.helper') }}"/>
+	</policy>
+
+	<!--
+	  Default policy for all other users.
+	  Denies access to the LibreSwan service to prevent
+      unauthorized VPN configuration or status checks.
+	-->
+	<policy context="default">
+		<!--
+          Deny claiming the service prefix for non-root users.
+        -->
+		<deny own_prefix="{{ nm_libreswan_service_prefix | default('org.freedesktop.NetworkManager.libreswan') }}"/>
+		
+		<!--
+          Deny sending messages to the service destination for non-root users.
+        -->
+		<deny send_destination="{{ nm_libreswan_service_prefix | default('org.freedesktop.NetworkManager.libreswan') }}"/>
+	</policy>
+</busconfig>

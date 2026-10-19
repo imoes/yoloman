@@ -1,83 +1,92 @@
-# Apache configuration for Nagios 4.x
-# This template configures the web server (Apache) to serve the Nagios4 CGI interface.
-# It sets up script aliases, static file aliases, and security directives for the
-# CGI binaries and HTML frontend.
+# Apache configuration for Nagios4
+#
+# This file configures Apache to serve the Nagios4 web interface and CGI scripts.
+# It defines aliases for the CGI binaries, stylesheets, and HTML documents,
+# and sets up directory access controls and authentication directives.
 
-# nagios_cgi_bin_path: The script alias path for the Nagios4 CGI binaries.
-# Defines where the executable CGI scripts reside on the filesystem.
-# Defaults to '/usr/lib/cgi-bin/nagios4'.
+# The script alias path for the Nagios4 CGI binaries.
+# Maps the /cgi-bin/nagios4 URL to the filesystem directory containing CGI executables.
 ScriptAlias /cgi-bin/nagios4 {{ nagios_cgi_bin_path | default('/usr/lib/cgi-bin/nagios4') }}
+
+# Alternate script alias for /nagios4/cgi-bin, also pointing to the CGI binaries directory.
 ScriptAlias /nagios4/cgi-bin {{ nagios_cgi_bin_path | default('/usr/lib/cgi-bin/nagios4') }}
 
-# nagios_stylesheets_path: The directory containing the Nagios4 stylesheets/config files.
-# Alias for static CSS/style assets used by the Nagios web interface.
-# Defaults to '/etc/nagios4/stylesheets'.
+# The directory containing the Nagios4 stylesheets/config files.
+# Maps the /nagios4/stylesheets URL to the stylesheets directory.
 Alias /nagios4/stylesheets {{ nagios_stylesheets_path | default('/etc/nagios4/stylesheets') }}
 
-# nagios_htdocs_path: The directory where the Nagios4 HTML pages reside.
-# Main static content directory for the Nagios web frontend.
-# Defaults to '/usr/share/nagios4/htdocs'.
+# The directory where the Nagios4 HTML pages reside.
+# Maps the /nagios4 URL to the htdocs directory.
 Alias /nagios4 {{ nagios_htdocs_path | default('/usr/share/nagios4/htdocs') }}
 
-# DirectoryMatch: Security and access control block for all Nagios 4 related paths.
-# This block applies to the CGI bin, stylesheets, and htdocs directories.
-# It restricts access to localhost and private network ranges by default
-# and configures digest authentication for command execution files.
-<DirectoryMatch (/usr/share/nagios4/htdocs|/usr/lib/cgi-bin/nagios4|/etc/nagios4/stylesheets)>
-    # Options: Enable symlink following and specify default index files.
+# Directory match block for htdocs, cgi-bin, and stylesheets paths.
+# Applies options and access controls to these directories.
+<DirectoryMatch ({{ nagios_htdocs_path | default('/usr/share/nagios4/htdocs') }}|{{ nagios_cgi_bin_path | default('/usr/lib/cgi-bin/nagios4') }}|{{ nagios_stylesheets_path | default('/etc/nagios4/stylesheets') }})>
+    # Follow symbolic links in this directory.
     Options FollowSymLinks
+    
+    # Set the default index files to serve if an index file is not specified.
     DirectoryIndex index.php index.html
-
-    # AllowOverride: Permit .htaccess files to override AuthConfig settings if needed.
+    
+    # Allow overriding authentication settings via .htaccess files.
     AllowOverride AuthConfig
-
+    
     #
-    # SECURITY NOTE:
-    # The default Debian/Ubuntu nagios4 install sets use_authentication=0 in
-    # /etc/nagios4/cgi.cfg, which disables Nagios's internal authentication.
-    # Relying solely on web-server-level auth (as done here) is a security
-    # boundary. The configuration below allows only private IP addresses
-    # to access the interface by default.
+    # Security Configuration Notes:
+    #
+    # The default Debian nagios4 install sets use_authentication=0 in
+    # /etc/nagios4/cgi.cfg, which turns off Nagios's internal authentication.
+    # This is insecure. As a compromise, this default Apache2 configuration
+    # only allows private IP addresses access (see Require ip directive below).
+    #
+    # To secure the Nagios4 web site so that only authenticated users can
+    # issue commands (such as silence notifications), you can modify the
+    # <Files "cmd.cgi"> section below. Replace "Require all granted" with
+    # "Require valid-user" and ensure users are added to the htdigest file.
+    #
+    # The htdigest users file for authentication is defined by:
+    # {{ nagios_htdigest_users_path | default('/etc/nagios4/htdigest.users') }}
+    #
+    # A higher security step is to insist all users validate themselves by
+    # moving the authentication stanzas from <Files "cmd.cgi"> into this
+    # <DirectoryMatch> block. Then, by setting use_authentication=1 in
+    # /etc/nagios4/cgi.cfg, you can configure which people get to see
+    # a particular service from within the Nagios configuration.
     #
 
-    # Require ip: Restrict access to local and private network ranges.
-    # This prevents unauthorized access from public IP addresses.
+    # Restrict access to loopback and private network ranges only.
+    # This prevents unauthorized external access to the CGI interface.
     Require ip	::1/128 fc00::/7 fe80::/10 10.0.0.0/8 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16
 
-    # Files "cmd.cgi": Specific configuration for the command execution CGI.
-    # This file allows sending commands to the Nagios daemon (e.g., acknowledge alerts).
+    # Specific configuration for the command interface CGI script.
     <Files "cmd.cgi">
-        # AuthDigestDomain: Identifies the protection domain for the digest auth.
+        # Set the digest domain name for HTTP Digest Authentication.
         AuthDigestDomain "Nagios4"
-
-        # AuthDigestProvider: Specifies that authentication is handled via a file.
+        
+        # Specify the provider for user authentication (file-based).
         AuthDigestProvider file
-
-        # AuthUserFile: Path to the htdigest file containing user credentials.
-        # nagios_htdigest_users_path: The path to the htdigest users file for authentication.
-        # Defaults to '/etc/nagios4/htdigest.users'.
+        
+        # Path to the htdigest users file containing authorized users.
+        # The path to the htdigest users file for authentication.
         AuthUserFile	"{{ nagios_htdigest_users_path | default('/etc/nagios4/htdigest.users') }}"
-
-        # AuthGroupFile: Path to the system group file for group-based access control.
+        
+        # Path to the groups file.
         AuthGroupFile	"/etc/group"
-
-        # AuthName: The realm name presented to the user during authentication.
+        
+        # The realm name displayed in the authentication prompt.
         AuthName	"Nagios4"
-
-        # AuthType: Specify HTTP Digest Authentication.
+        
+        # Use HTTP Digest authentication type.
         AuthType	Digest
-
-        # Require all granted: By default, grants access. To enforce auth, uncomment
-        # the line below and comment out this one. This ensures only authenticated
-        # users can send commands via cmd.cgi.
+        
+        # Currently allows all access; change to "Require valid-user" to enforce auth.
         Require all	granted
         #Require	valid-user
     </Files>
 </DirectoryMatch>
 
-# Directory /usr/share/nagios4/htdocs: Specific configuration for the HTML frontend.
-# Enables CGI execution capabilities within this directory if required by custom PHP/HTML pages.
-<Directory /usr/share/nagios4/htdocs>
-    # Options: Enable CGI execution (+ExecCGI).
-    Options	+ExecCGI
+# Directory block specifically for the htdocs path.
+<Directory {{ nagios_htdocs_path | default('/usr/share/nagios4/htdocs') }}>
+    # Enable CGI execution in this directory.
+    Options	+ExecCGI	
 </Directory>

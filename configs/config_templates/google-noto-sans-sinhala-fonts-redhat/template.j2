@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {#
+    Font substitution rule for Sinhala language support.
+    This configuration ensures that text requiring the 'Noto Sans Sinhala' font
+    is properly rendered, while providing a fallback for generic sans-serif text.
+  #}
+
+  {#
+    Match block: Applies to text segments identified by language and generic family.
+    If the language code matches `lang_code` AND the requested family matches `fallback_family`,
+    this rule prepends `font_name` to the font list.
+  #}
+  <match>
+    {# Check if the text language matches the target language code #}
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('si') }}</string>
+    </test>
+
+    {# Check if the target font family matches the generic fallback #}
+    <test name="family">
+      <string>{{ fallback_family | default('sans-serif') }}</string>
+    </test>
+
+    {# Prepend the specific Noto font to the rendering stack #}
+    <edit name="family" mode="prepend">
+      <string>{{ font_name | default('Noto Sans Sinhala') }}</string>
+    </edit>
+
+    {#
+      Enable auto-hinting for better rendering at small sizes.
+      Note: 'fonthashint' is a legacy/variant directive in some fontconfig versions;
+      standard hinting is usually controlled via 'hinting' boolean.
+    #}
+    <edit name="fonthashint" mode="append">
+      <bool>{{ autohint_enabled | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  {#
+    Alias block: Defines the primary font alias.
+    When an application requests `fallback_family`, it will be resolved to `font_name`.
+    This ensures consistent font usage across applications expecting generic sans-serif.
+  #}
+  <alias>
+    <family>{{ font_name | default('Noto Sans Sinhala') }}</family>
+    <default>
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

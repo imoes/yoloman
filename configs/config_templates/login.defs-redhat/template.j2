@@ -1,0 +1,291 @@
+#
+# Please note that the parameters in this configuration file control the
+# behavior of the tools from the shadow-utils component. None of these
+# tools uses the PAM mechanism, and the utilities that use PAM (such as the
+# passwd command) should therefore be configured elsewhere. Refer to
+# /etc/pam.d/system-auth for more information.
+#
+
+#
+# Delay in seconds before being allowed another attempt after a login failure
+# Note: When PAM is used, some modules may enforce a minimum delay (e.g.
+#       pam_unix(8) enforces a 2s delay)
+#
+{% if fail_delay is defined and fail_delay is not none and (fail_delay is number or fail_delay is boolean or fail_delay | length > 0) %}FAIL_DELAY		{{ fail_delay }}
+{% else %}#FAIL_DELAY		3
+{% endif %}
+# Currently FAILLOG_ENAB is not supported
+
+#
+# Enable display of unknown usernames when login(1) failures are recorded.
+#
+{% if log_unkfail_enab is defined and log_unkfail_enab is not none and (log_unkfail_enab is number or log_unkfail_enab is boolean or log_unkfail_enab | length > 0) %}LOG_UNKFAIL_ENAB	{{ log_unkfail_enab }}
+{% else %}#LOG_UNKFAIL_ENAB	no
+{% endif %}
+# Currently LOG_OK_LOGINS is not supported
+
+# Currently LASTLOG_ENAB is not supported
+
+#
+# Limit the highest user ID number for which the lastlog entries should
+# be updated.
+#
+# No LASTLOG_UID_MAX means that there is no user ID limit for writing
+# lastlog entries.
+#
+#LASTLOG_UID_MAX
+
+# Currently MAIL_CHECK_ENAB is not supported
+
+# Currently OBSCURE_CHECKS_ENAB is not supported
+
+# Currently PORTTIME_CHECKS_ENAB is not supported
+
+# Currently QUOTAS_ENAB is not supported
+
+# Currently SYSLOG_SU_ENAB is not supported
+
+#
+# Enable "syslog" logging of newgrp(1) and sg(1) activity.
+#
+{% if syslog_sg_enab is defined and syslog_sg_enab is not none and (syslog_sg_enab is number or syslog_sg_enab is boolean or syslog_sg_enab | length > 0) %}SYSLOG_SG_ENAB		{{ syslog_sg_enab }}
+{% else %}#SYSLOG_SG_ENAB		yes
+{% endif %}
+# Currently CONSOLE is not supported
+
+# Currently SULOG_FILE is not supported
+
+# Currently MOTD_FILE is not supported
+
+# Currently ISSUE_FILE is not supported
+
+# Currently TTYTYPE_FILE is not supported
+
+# Currently FTMP_FILE is not supported
+
+# Currently NOLOGINS_FILE is not supported
+
+# Currently SU_NAME is not supported
+
+# *REQUIRED*
+#   Directory where mailboxes reside, _or_ name of file, relative to the
+#   home directory.  If you _do_ define both, MAIL_DIR takes precedence.
+#
+MAIL_DIR	{{ mail_dir | default('/var/spool/mail') }}
+{% if mail_file is defined and mail_file is not none and (mail_file is number or mail_file is boolean or mail_file | length > 0) %}MAIL_FILE	{{ mail_file }}
+{% else %}#MAIL_FILE	.mail
+{% endif %}
+#
+# If defined, file which inhibits all the usual chatter during the login
+# sequence.  If a full pathname, then hushed mode will be enabled if the
+# user's name or shell are found in the file.  If not a full pathname, then
+# hushed mode will be enabled if the file exists in the user's home directory.
+#
+#HUSHLOGIN_FILE	.hushlogin
+#HUSHLOGIN_FILE	/etc/hushlogins
+
+# Currently ENV_TZ is not supported
+
+# Currently ENV_HZ is not supported
+
+#
+# The default PATH settings, for superuser and normal users.
+#
+# (they are minimal, add the rest in the shell startup files)
+{% if env_supath is defined and env_supath is not none and (env_supath is number or env_supath is boolean or env_supath | length > 0) %}ENV_SUPATH	{{ env_supath }}
+{% else %}#ENV_SUPATH	PATH=/sbin:/bin:/usr/sbin:/usr/bin
+{% endif %}{% if env_path is defined and env_path is not none and (env_path is number or env_path is boolean or env_path | length > 0) %}ENV_PATH	{{ env_path }}
+{% else %}#ENV_PATH	PATH=/bin:/usr/bin
+{% endif %}
+#
+# Terminal permissions
+#
+#	TTYGROUP	Login tty will be assigned this group ownership.
+#	TTYPERM		Login tty will be set to this permission.
+#
+# If you have a write(1) program which is "setgid" to a special group
+# which owns the terminals, define TTYGROUP as the number of such group
+# and TTYPERM as 0620.  Otherwise leave TTYGROUP commented out and
+# set TTYPERM to either 622 or 600.
+#
+#TTYGROUP	tty
+#TTYPERM		0600
+
+# Currently ERASECHAR, KILLCHAR and ULIMIT are not supported
+
+# Default initial "umask" value used by login(1) on non-PAM enabled systems.
+# Default "umask" value for pam_umask(8) on PAM enabled systems.
+# UMASK is also used by useradd(8) and newusers(8) to set the mode for new
+# home directories if HOME_MODE is not set.
+# 022 is the default value, but 027, or even 077, could be considered
+# for increased privacy. There is no One True Answer here: each sysadmin
+# must make up their mind.
+UMASK		{{ umask | default('022') }}
+
+# HOME_MODE is used by useradd(8) and newusers(8) to set the mode for new
+# home directories.
+# If HOME_MODE is not set, the value of UMASK is used to create the mode.
+HOME_MODE	{{ home_mode | default('0700') }}
+
+# Password aging controls:
+#
+#	PASS_MAX_DAYS	Maximum number of days a password may be used.
+#	PASS_MIN_DAYS	Minimum number of days allowed between password changes.
+#	PASS_MIN_LEN	Minimum acceptable password length.
+#	PASS_WARN_AGE	Number of days warning given before a password expires.
+#
+PASS_MAX_DAYS	{{ pass_max_days | default('99999') }}
+PASS_MIN_DAYS	{{ pass_min_days | default('0') }}
+PASS_WARN_AGE	{{ pass_warn_age | default('7') }}
+
+# Currently PASS_MIN_LEN is not supported
+
+# Currently SU_WHEEL_ONLY is not supported
+
+# Currently CRACKLIB_DICTPATH is not supported
+
+#
+# Min/max values for automatic uid selection in useradd(8)
+#
+UID_MIN                  {{ uid_min | default('1000') }}
+UID_MAX                 {{ uid_max | default('60000') }}
+# System accounts
+SYS_UID_MIN               {{ sys_uid_min | default('201') }}
+SYS_UID_MAX               {{ sys_uid_max | default('999') }}
+# Extra per user uids
+SUB_UID_MIN		   {{ sub_uid_min | default('100000') }}
+SUB_UID_MAX		{{ sub_uid_max | default('600100000') }}
+SUB_UID_COUNT		    {{ sub_uid_count | default('65536') }}
+
+#
+# Min/max values for automatic gid selection in groupadd(8)
+#
+GID_MIN                  {{ gid_min | default('1000') }}
+GID_MAX                 {{ gid_max | default('60000') }}
+# System accounts
+SYS_GID_MIN               {{ sys_gid_min | default('201') }}
+SYS_GID_MAX               {{ sys_gid_max | default('999') }}
+# Extra per user group ids
+SUB_GID_MIN		   {{ sub_gid_min | default('100000') }}
+SUB_GID_MAX		{{ sub_gid_max | default('600100000') }}
+SUB_GID_COUNT		    {{ sub_gid_count | default('65536') }}
+
+#
+# Max number of login(1) retries if password is bad
+#
+{% if login_retries is defined and login_retries is not none and (login_retries is number or login_retries is boolean or login_retries | length > 0) %}LOGIN_RETRIES		{{ login_retries }}
+{% else %}#LOGIN_RETRIES		3
+{% endif %}
+#
+# Max time in seconds for login(1)
+#
+{% if login_timeout is defined and login_timeout is not none and (login_timeout is number or login_timeout is boolean or login_timeout | length > 0) %}LOGIN_TIMEOUT		{{ login_timeout }}
+{% else %}#LOGIN_TIMEOUT		60
+{% endif %}
+# Currently PASS_CHANGE_TRIES is not supported
+
+# Currently PASS_ALWAYS_WARN is not supported
+
+# Currently PASS_MAX_LEN is not supported
+
+# Currently CHFN_AUTH is not supported
+
+#
+# Which fields may be changed by regular users using chfn(1) - use
+# any combination of letters "frwh" (full name, room number, work
+# phone, home phone).  If not defined, no changes are allowed.
+# For backward compatibility, "yes" = "rwh" and "no" = "frwh".
+# 
+{% if chfn_restrict is defined and chfn_restrict is not none and (chfn_restrict is number or chfn_restrict is boolean or chfn_restrict | length > 0) %}CHFN_RESTRICT		{{ chfn_restrict }}
+{% else %}#CHFN_RESTRICT		rwh
+{% endif %}
+# Currently LOGIN_STRING is not supported
+
+# Currently MD5_CRYPT_ENAB is not supported
+
+#
+# If set to MD5, MD5-based algorithm will be used for encrypting password
+# If set to SHA256, SHA256-based algorithm will be used for encrypting password
+# If set to SHA512, SHA512-based algorithm will be used for encrypting password
+# If set to BLOWFISH, BLOWFISH-based algorithm will be used for encrypting password
+# If set to DES, DES-based algorithm will be used for encrypting password (default)
+#
+ENCRYPT_METHOD {{ encrypt_method | default('SHA512') }}
+
+#
+# Only works if ENCRYPT_METHOD is set to SHA256 or SHA512.
+#
+# Define the number of SHA rounds.
+# With a lot of rounds, it is more difficult to brute-force the password.
+# However, more CPU resources will be needed to authenticate users if
+# this value is increased.
+#
+# If not specified, the libc will choose the default number of rounds (5000).
+# The values must be within the 1000-999999999 range.
+#
+SHA_CRYPT_MAX_ROUNDS {{ sha_crypt_max_rounds | default('100000') }}
+
+# Currently SHA_CRYPT_MIN_ROUNDS is not supported
+
+# Currently BCRYPT_MIN_ROUNDS and BCRYPT_MAX_ROUNDS are not supported
+
+# Currently CONSOLE_GROUPS is not supported
+
+#
+# Should login be allowed if we can't cd to the home directory?
+# Default is yes.
+#
+{% if default_home is defined and default_home is not none and (default_home is number or default_home is boolean or default_home | length > 0) %}DEFAULT_HOME	{{ default_home }}
+{% else %}#DEFAULT_HOME	yes
+{% endif %}
+# Currently ENVIRON_FILE is not supported
+
+#
+# If defined, this command is run when removing a user.
+# It should remove any at/cron/print jobs etc. owned by
+# the user to be removed (passed as the first argument).
+#
+{% if userdel_cmd is defined and userdel_cmd is not none and (userdel_cmd is number or userdel_cmd is boolean or userdel_cmd | length > 0) %}USERDEL_CMD	{{ userdel_cmd }}
+{% else %}#USERDEL_CMD	/usr/sbin/userdel_local
+{% endif %}
+#
+# Enables userdel(8) to remove user groups if no members exist.
+#
+USERGROUPS_ENAB {{ usergroups_enab | default('yes') }}
+
+#
+# If set to a non-zero number, the shadow utilities will make sure that
+# groups never have more than this number of users on one line.
+# This permits to support split groups (groups split into multiple lines,
+# with the same group ID, to avoid limitation of the line length in the
+# group file).
+#
+# 0 is the default value and disables this feature.
+#
+{% if max_members_per_group is defined and max_members_per_group is not none and (max_members_per_group is number or max_members_per_group is boolean or max_members_per_group | length > 0) %}MAX_MEMBERS_PER_GROUP	{{ max_members_per_group }}
+{% else %}#MAX_MEMBERS_PER_GROUP	0
+{% endif %}
+#
+# If useradd(8) should create home directories for users by default (non
+# system users only).
+# This option is overridden with the -M or -m flags on the useradd(8)
+# command-line.
+#
+CREATE_HOME	{{ create_home | default('yes') }}
+
+#
+# Force use shadow, even if shadow passwd & shadow group files are
+# missing.
+#
+{% if force_shadow is defined and force_shadow is not none and (force_shadow is number or force_shadow is boolean or force_shadow | length > 0) %}FORCE_SHADOW    {{ force_shadow }}
+{% else %}#FORCE_SHADOW    yes
+{% endif %}
+#
+# Select the HMAC cryptography algorithm.
+# Used in pam_timestamp module to calculate the keyed-hash message
+# authentication code.
+#
+# Note: It is recommended to check hmac(3) to see the possible algorithms
+# that are available in your system.
+#
+HMAC_CRYPTO_ALGO {{ hmac_crypto_algo | default('SHA512') }}

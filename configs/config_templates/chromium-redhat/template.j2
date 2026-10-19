@@ -1,0 +1,29 @@
+#
+# Author: Than Ngo <than@redhat.com>
+# 
+
+# system wide chromium flags
+
+ARCH="$(arch)"
+MODE="$(systemd-detect-virt)"
+
+# GRAPHIC_DRIVER=[amd|intel|nvidia|{{ GRAPHIC_DRIVER }}]
+GRAPHIC_DRIVER={{ GRAPHIC_DRIVER }}
+
+# WEB_AUTO_DARKMODE_WEBCONTENT=[on|off]
+WEB_AUTO_DARKMODE_WEBCONTENT={{ WEB_AUTO_DARKMODE_WEBCONTENT }}
+
+# NATIVE_WAYLAND=[on|off]
+# chromium >=141 switched to --ozone-platform-hint=auto
+if [ ! -z "$WAYLAND_DISPLAY" ]; then
+   NATIVE_WAYLAND=on
+else
+   NATIVE_WAYLAND=off
+fi
+
+# Disable chromium's AI model
+DISABLE_FEATURES="{{ DISABLE_FEATURES }}"
+ENABLE_FEATURES="{{ ENABLE_FEATURES_BASE }}"
+CHROMIUM_FLAGS=""
+if [ "$NATIVE_WAYLAND" == "on" ] ; then
+   ENABLE_FEATURES=""

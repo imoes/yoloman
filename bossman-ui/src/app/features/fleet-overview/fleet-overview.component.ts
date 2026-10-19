@@ -14,11 +14,11 @@ import { Agent } from '../../core/models/agent.model';
 import { PlanRun } from '../../core/models/run.model';
 import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
 import { HostResult, MassAssignFacets, ServiceResult } from '../../core/models/search.model';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
-import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { agentHealthStatus } from '../../shared/status.util';
 import { DashboardGridComponent } from './dashboard-grid.component';
 import { FleetSearchComponent } from './fleet-search.component';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /**
  * The fleet-wide summary landing page (see docs/plan.md's Bossman plan,
@@ -33,7 +33,7 @@ import { FleetSearchComponent } from './fleet-search.component';
 @Component({
   selector: 'app-fleet-overview',
   standalone: true,
-  imports: [RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, HostStatusBadgeComponent, DashboardGridComponent, FleetSearchComponent],
+  imports: [StatusPillComponent, RouterLink, DatePipe, MatCardModule, MatButtonModule, MatIconModule, DashboardGridComponent, FleetSearchComponent],
   template: `
     <div class="bm-page">
       <div class="bm-page-head">
@@ -73,7 +73,7 @@ import { FleetSearchComponent } from './fleet-search.component';
           </span>
           @if (siteOptions().length) {
             <span class="bm-filter-grp"><span class="bm-filter-lbl">Site</span>
-              <select class="bm-filter-sel" [value]="currentSiteFacet()" (change)="setSiteFacet($any($event.target).value)">
+              <select class="bm-filter-sel" aria-label="Site" [value]="currentSiteFacet()" (change)="setSiteFacet($any($event.target).value)">
                 <option value="">any</option>
                 @for (s of siteOptions(); track s) { <option [value]="s" [selected]="s === currentSiteFacet()">{{ s }}</option> }
               </select>
@@ -95,7 +95,7 @@ import { FleetSearchComponent } from './fleet-search.component';
               <div class="bm-bulk-bar">
                 <span class="bm-bulk-count">{{ selectedHosts().size }} selected</span>
                 <label>Criticality
-                  <select [value]="bulkCrit()" (change)="bulkCrit.set($any($event.target).value)">
+                  <select aria-label="Criticality" [value]="bulkCrit()" (change)="bulkCrit.set($any($event.target).value)">
                     <option value="">— keep —</option>
                     <option value="test">test</option>
                     <option value="stage">stage</option>
@@ -155,7 +155,7 @@ import { FleetSearchComponent } from './fleet-search.component';
                 <tbody>
                   @for (s of serviceResults(); track s.id) {
                     <tr class="bm-row-link" [routerLink]="['/hosts', s.agent_id]" [queryParams]="{ tab: 'services' }">
-                      <td><app-status-badge [status]="stateBadge(s.state)" [label]="s.state" /></td>
+                      <td><bm-status-pill [status]="s.state" /></td>
                       <td>{{ s.host }}</td>
                       <td>{{ s.name }}</td>
                       <td class="bm-detail" [title]="s.output">{{ s.output }}</td>
@@ -259,7 +259,7 @@ import { FleetSearchComponent } from './fleet-search.component';
                   <tr>
                     <td><a [routerLink]="['/hosts', p.agent_id]" [queryParams]="{ tab: 'services' }">{{ p.agent_name }}</a></td>
                     <td><a class="bm-svc-link" [routerLink]="['/hosts', p.agent_id]" [queryParams]="{ tab: 'services' }">{{ p.name }}</a></td>
-                    <td><app-status-badge [status]="badgeOf(p)" [label]="p.state" /></td>
+                    <td><bm-status-pill [status]="p.state" /></td>
                     <td class="bm-detail" [title]="p.output">{{ p.output }}</td>
                     <td>{{ p.last_state_change | date: 'short' }}</td>
                     <td class="bm-actions">
@@ -299,7 +299,7 @@ import { FleetSearchComponent } from './fleet-search.component';
                   @for (run of recentRuns(); track run.id) {
                     <tr [routerLink]="['/runs', run.id]" class="bm-row-link">
                       <td>{{ run.plan_name }}</td>
-                      <td><app-status-badge [status]="statusOf(run)" [label]="run.status" /></td>
+                      <td><bm-status-pill [status]="run.status" /></td>
                       <td>{{ run.started_at | date: 'medium' }}</td>
                     </tr>
                   }
@@ -322,7 +322,7 @@ import { FleetSearchComponent } from './fleet-search.component';
             <p>Take a plan and run it against a host.</p>
           </mat-card-content>
           <mat-card-actions>
-            <button mat-raised-button color="primary" routerLink="/plans">
+            <button mat-raised-button color="primary" routerLink="/plan-library">
               <mat-icon>play_arrow</mat-icon>
               Run a plan
             </button>
@@ -463,7 +463,7 @@ import { FleetSearchComponent } from './fleet-search.component';
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 6px 8px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
       }
       .bm-table td {
         padding: 8px;
@@ -722,10 +722,6 @@ export class FleetOverviewComponent implements OnInit {
     return { OK: 'var(--bm-green)', WARN: 'var(--bm-gold)', CRIT: 'var(--bm-red)' }[state] ?? 'var(--bm-unknown)';
   }
 
-  stateBadge(state: string) {
-    return serviceStateBadge(state);
-  }
-
   // ── export (CSV download + browser print→PDF) ──
   private toCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
     const esc = (v: unknown) => {
@@ -809,14 +805,6 @@ export class FleetOverviewComponent implements OnInit {
 
   private reloadProblems(): void {
     this.monitoringService.problems({ acknowledged: false }).subscribe((problems) => this.problems.set(problems.slice(0, 10)));
-  }
-
-  statusOf(run: PlanRun) {
-    return runStatusBadge(run.status);
-  }
-
-  badgeOf(p: ServiceState) {
-    return serviceStateBadge(p.state);
   }
 
   acknowledge(p: ServiceState): void {

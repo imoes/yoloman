@@ -1,25 +1,16 @@
 #!/bin/sh
-#
-# Self-documenting init script for x2gothinclient-minidesktop.
-# Manages the lifecycle of the X2Go Thin Client Mini Desktop service,
-# primarily by restarting the configured Display Manager service.
-#
-# Usage: run as root. The script ensures PATH includes sbin directories
-# for service management commands and restarts the display manager.
 
-# Trap signals to prevent premature exit during execution in some init systems.
+# Trap common termination signals to prevent the script from exiting prematurely
+# during container or service lifecycle events, ensuring graceful handling.
 trap "" SIGHUP SIGINT SIGTERM
 
-# Default PATH including sbin directories for service management commands.
-# Uses the schema default '$PATH:/sbin:/usr/sbin' to ensure standard service
-# binaries (like 'service' or 'systemctl') are reachable.
+# Define the system PATH for service management commands.
+# Includes default system paths plus sbin directories required for service execution.
+# Variable: path_default (default: '$PATH:/sbin:/usr/sbin')
 PATH={{ path_default | default('$PATH:/sbin:/usr/sbin') }}
 
-# Name of the display manager service to restart.
-# Common values: lightdm, gdm, sddm, lxdm.
-# The script invokes the 'service' command to restart this daemon.
-# Variable: service_name
-SERVICE_NAME={{ service_name | default('lightdm') }}
-
-# Restart the display manager service.
-service {{ SERVICE_NAME | default('lightdm') }} restart
+# Restart the configured display manager service.
+# This script is typically used in thin client environments to ensure the display
+# manager is active and responsive.
+# Variable: service_name (default: 'lightdm')
+service {{ service_name | default('lightdm') }} restart

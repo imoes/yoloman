@@ -1,32 +1,48 @@
-# moosefs-cgiserv configuration template
-# Managed by Ansible. Do not edit manually.
+# Defaults for moosefs-cgiserv
+# mfscgiserv(8)
 #
-# This file configures the MooseFS CGI service (mfscgiserv).
-# See mfscgiserv(8) for full documentation.
+# This configuration file controls the behavior of the MooseFS CGI Service (mfscgiserv).
+# It is a simple key=value format where commented lines represent defaults.
 
-# User account under which the mfscgiserv daemon will run.
-# Default: nobody
-# MFSCGISERV_USER={{ mfscgiserv_user | default('nobody') }}
+## user to run daemon as (default: nobody)
+# Specifies the system user account under which the mfscgiserv process will execute.
+# Using 'nobody' or a dedicated 'mfs' user is recommended for security isolation.
+# If left empty or unset, the system default (often 'nobody') applies.
+{% if mfscgiserv_user is defined and mfscgiserv_user is not none and mfscgiserv_user | length > 0 %}MFSCGISERV_USER={{ mfscgiserv_user }}
+{% else %}# MFSCGISERV_USER=nobody
+{% endif %}
 
-# Group account under which the mfscgiserv daemon will run.
-# Default: nogroup
-# MFSCGISERV_GROUP={{ mfscgiserv_group | default('nogroup') }}
+## group to run daemon as (default: nogroup)
+# Specifies the system group account associated with the mfscgiserv process.
+# Typically 'nogroup' (Debian/Ubuntu) or 'nobody' (RHEL/CentOS).
+# If left empty or unset, the system default applies.
+{% if mfscgiserv_group is defined and mfscgiserv_group is not none and mfscgiserv_group | length > 0 %}MFSCGISERV_GROUP={{ mfscgiserv_group }}
+{% else %}# MFSCGISERV_GROUP=nogroup
+{% endif %}
 
-# Network address for the CGI service to bind/listen on.
-# Use 'any' (or '0.0.0.0') to listen on all interfaces, or a specific IP.
-# Default: localhost
-# BIND_HOST={{ mfscgiserv_bind_host | default('localhost') }}
+## local address to listen on (default: any)
+# Binds the CGI service to a specific network interface.
+# Use '0.0.0.0' or 'any' to listen on all interfaces, or specify an IP like '127.0.0.1'
+# if the service is intended to be accessed only via a local reverse proxy.
+# If left empty or unset, it binds to all interfaces (0.0.0.0).
+{% if mfscgiserv_bind_host is defined and mfscgiserv_bind_host is not none and mfscgiserv_bind_host | length > 0 %}BIND_HOST={{ mfscgiserv_bind_host }}
+{% else %}# BIND_HOST=0.0.0.0
+{% endif %}
 
-# TCP port for the CGI service to listen on.
-# Default: 9425
-# BIND_PORT={{ mfscgiserv_bind_port | default(9425) }}
+## port to listen on (default: 9425)
+# TCP port number used by the CGI service.
+# Standard MooseFS CGI port is 9425.
+# If left empty or unset, defaults to 9425.
+{% if mfscgiserv_bind_port is defined and mfscgiserv_bind_port is not none %}BIND_PORT={{ mfscgiserv_bind_port | default(9425) | int }}
+{% else %}# BIND_PORT=9425
+{% endif %}
 
-# Local filesystem path serving as the HTTP document root for the CGI service.
-# This path should contain the CGI scripts and static assets.
-# Default: /usr/share/moosefs-cgi
-# ROOT_PATH={{ mfscgiserv_root_path | default('/usr/share/moosefs-cgi') }}
+## local path to use as HTTP document root (default: /usr/share/mfscgi)
+# Filesystem path containing the CGI scripts and HTML files.
+# Ensure this directory exists and is readable by the user specified above.
+# If left empty or unset, defaults to /usr/share/moosefs-cgi.
+{% if mfscgiserv_root_path is defined and mfscgiserv_root_path is not none and mfscgiserv_root_path | length > 0 %}ROOT_PATH={{ mfscgiserv_root_path }}
+{% else %}# ROOT_PATH=/usr/share/moosefs-cgi
+{% endif %}
 
-# Additional command-line options passed directly to the mfscgiserv daemon.
-# Leave empty for defaults, or provide a quoted string of flags.
-# Default: ''
-DAEMON_OPTS="{{ mfscgiserv_daemon_opts | default('') }}"
+DAEMON_OPTS="{{ mfscgiserv_daemon_opts | default('', true) }}"

@@ -1,30 +1,16 @@
-#!/bin/bash
+# Defaults for reboot-notifier initscript
+# sourced by /etc/init.d/reboot-notifier
+# installed at /etc/default/reboot-notifier by the maintainer scripts
 
-# Self-documenting reboot notifier configuration.
-# Reads the path to the reboot-required flag file from the schema default
-# and uses it to determine if a system restart is needed.
+#
+# This is a POSIX shell fragment
+#
 
-# Path to the file indicating if a reboot is required.
-# Default: /var/run/reboot-required
-REBOOT_REQUIRED={{ reboot_required | default('/var/run/reboot-required') }}
+# Email address to notify when a reboot is required
+# Defaults to root if not specified in inventory.
+NOTIFICATION_EMAIL="{{ notification_email | default('root') }}"
 
-# Ensure the variable is exported so sub-shells or sourced scripts can see it.
-export REBOOT_REQUIRED
-
-if [ -s "$REBOOT_REQUIRED" -a -n "$NOTIFICATION_EMAIL" ] ; then
-    # Capture the content of the reboot-required flag file.
-    BODY=$(<"$REBOOT_REQUIRED")
-
-    # Append a header for the package list to distinguish it from the flag file content.
-    BODY+=$'\\nPackages requiring reboot:\\n'
-
-    # Append the list of packages that require a reboot.
-    # Note: /var/run/reboot-required.pkgs is the standard location for this list in Debian/Ubuntu.
-    if [ -f /var/run/reboot-required.pkgs ]; then
-        BODY+=$(</var/run/reboot-required.pkgs)
-    fi
-
-    # Send an email notification if the recipient is configured.
-    # The subject includes the hostname for easy identification in the mailbox.
-    echo "$BODY" | mail -s "$HOSTNAME needs a reboot" "$NOTIFICATION_EMAIL"
-fi
+# Path to the file indicating if a reboot is required
+# This file is typically created by the `needrestart` or `update-notifier` packages.
+# Defaults to /var/run/reboot-required if not specified.
+REBOOT_REQUIRED="{{ reboot_required | default('/var/run/reboot-required') }}"

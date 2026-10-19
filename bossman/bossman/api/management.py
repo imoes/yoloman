@@ -111,8 +111,10 @@ async def call_agent_tool_route(
 ) -> dict[str, Any]:
     """Route a single tool call to one managed agent (proxies the agent's
     POST /api/v1/tools/{name}). The agent's write gate + ACL + audit are the
-    enforcement point; a read-only agent rejecting a write tool surfaces as a
-    502 with the agent's message."""
+    enforcement point. A refusal the agent ANSWERED with 403 (closed write
+    gate, ACL) is relayed as 403 with the agent's own reason — it is the
+    host's decision, not a gateway fault; only transport failures and other
+    agent errors are 502."""
     agent = await _agent_with_address(session, agent_id)
     client = client_factory(agent, settings)
     if body.timeout_seconds:
@@ -122,8 +124,199 @@ async def call_agent_tool_route(
     try:
         result = await client.call_tool(tool_name, body.params)
     except AgentClientError as exc:
+        if getattr(exc, "status", None) == 403:
+            raise HTTPException(status_code=403, detail=f"{agent.name}: {exc.reason or exc}") from exc
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"agent_id": str(agent.id), "tool": tool_name, "result": result}
+
+
+class DiagnoseRequest(BaseModel):
+    name: str
+    timeout_seconds: float | None = None
+
+
+@router.post("/api/v1/agents/{agent_id}/diagnose")
+async def diagnose_service_route(
+    agent_id: UUID,
+    body: DiagnoseRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Why does a service not run? Asks the host's `service_diagnose`, checks the document against the diagnosis
+    contract and keeps it (docs/diagnosis.md). A document that does not hold comes back — and is stored — with
+    contract_status "violation" and its reasons; it is never repaired. Read-only on the host."""
+    from bossman.services import diagnosis as diag
+
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    if body.timeout_seconds:
+        client._timeout = body.timeout_seconds  # noqa: SLF001 — same as call_agent_tool_route
+    try:
+        row = await diag.diagnose(session, agent, client, body.name)
+    except diag.DiagnosisUnavailable as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+    return diag.row_dict(row)
+
+
+@router.post("/api/v1/agents/{agent_id}/diagnose-updates")
+async def diagnose_updates_route(
+    agent_id: UUID,
+    timeout_seconds: int = 0,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Why is the host behind on updates, or why did an update fail? Asks the host's `update_diagnose` (Windows Update
+    on Windows, apt/dnf on Linux), checks the document against the diagnosis contract and keeps it (target kind
+    "updates"). A document that does not hold is stored with contract_status "violation" and its reasons, never
+    repaired. Read-only on the host."""
+    from bossman.services import diagnosis as diag
+
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    if timeout_seconds:
+        client._timeout = timeout_seconds  # noqa: SLF001 — a package search can take minutes
+    try:
+        row = await diag.diagnose_updates(session, agent, client)
+    except diag.DiagnosisUnavailable as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+    return diag.row_dict(row)
+
+
+@router.get("/api/v1/agents/{agent_id}/diagnoses")
+async def list_diagnoses_route(
+    agent_id: UUID,
+    target: str = "",
+    limit: int = 20,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(require_manage_agent),
+) -> dict[str, Any]:
+    """The host's stored diagnoses, newest first (without the documents; GET /api/v1/diagnoses/{id} has one)."""
+    from bossman.services import diagnosis as diag
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="no such agent")
+    rows = await diag.recent(session, agent, target, max(1, min(limit, 200)))
+    return {"agent_id": str(agent.id), "items": [diag.row_dict(r, with_document=False) for r in rows]}
+
+
+async def _diagnosis_row(session: AsyncSession, identity, row_id: UUID):
+    """The stored diagnosis, under the same host ACL as its agent's routes (the agent id comes from the row here,
+    not from the path — require_manage_agent reads it from the path)."""
+    from bossman.db.models import Diagnosis
+    from bossman.services.auth import user_can_manage_agent
+
+    row = await session.get(Diagnosis, row_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="no such diagnosis")
+    if not await user_can_manage_agent(session, identity, row.agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    return row
+
+
+@router.get("/api/v1/diagnoses/{diagnosis_row_id}")
+async def get_diagnosis_route(
+    diagnosis_row_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    from bossman.services import diagnosis as diag
+
+    return diag.row_dict(await _diagnosis_row(session, identity, diagnosis_row_id))
+
+
+@router.get("/api/v1/diagnoses/{diagnosis_row_id}/export/{fmt}")
+async def export_diagnosis_route(
+    diagnosis_row_id: UUID,
+    fmt: str,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """One stored diagnosis in another tool's format: checkmk (a <<<local>>> line), gelf (one message per finding
+    and evidence), ansible / dsc / powershell (the remedies and their rollback). What a format cannot express is
+    listed in `not_expressible` with its reason. Nothing is executed."""
+    from bossman.services import diagnosis_export as dx
+
+    row = await _diagnosis_row(session, identity, diagnosis_row_id)
+    try:
+        out = dx.export(row.document, fmt, row.contract_violations)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"id": str(row.id), "diagnosis_id": row.diagnosis_id, **out}
+
+
+@router.post("/api/v1/diagnoses/{diagnosis_row_id}/export/gelf/send")
+async def send_diagnosis_gelf_route(
+    diagnosis_row_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Send this diagnosis's GELF messages (one per finding and per evidence) to the configured Graylog
+    (BOSSMAN_GELF_HOST / _PORT / _PROTOCOL). Returns how many were sent and over which transport; a missing target
+    or a connection error is a 422/502 with the reason, never a silent drop. Nothing about the diagnosis changes."""
+    from bossman.services import diagnosis_export as dx, gelf_send
+
+    row = await _diagnosis_row(session, identity, diagnosis_row_id)
+    if not settings.gelf_host:
+        raise HTTPException(status_code=422, detail="no GELF target configured (set BOSSMAN_GELF_HOST)")
+    messages = dx.export(row.document, "gelf", row.contract_violations)["content"]
+    try:
+        result = gelf_send.send(messages, settings.gelf_host, settings.gelf_port, settings.gelf_protocol)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"GELF send failed: {exc}") from exc
+    return {"id": str(row.id), "diagnosis_id": row.diagnosis_id, **result}
+
+
+@router.get("/api/v1/diagnoses/{diagnosis_row_id}/explain")
+async def explain_diagnosis_route(
+    diagnosis_row_id: UUID,
+    language: str = "en",
+    use_model: bool = True,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """A stored diagnosis explained for a person: `header` (each finding's certainty and claim, precedent, remedy and
+    every gap — written by the code, word for word) and `sentences` from the configured model (or a template),
+    each checked against the evidence it cites — `backed: false` with the reason when it cites nothing, cites what is
+    not there, states a certainty, or names a name/number/time the evidence does not contain."""
+    from bossman.services import diagnosis_explain as dex
+    from bossman.services.chat_client import chat_client_for
+
+    row = await _diagnosis_row(session, identity, diagnosis_row_id)
+    client = chat_client_for(settings) if use_model and settings.chat_base_url else None
+    out = await dex.explain(row.document, client, language)
+    if client is None and out["note"] is None:
+        out["note"] = "no model was asked (use_model=false or no chat model configured); the sentences are the template"
+    return {"id": str(row.id), **out}
+
+
+class ProposeRemedyRequest(BaseModel):
+    finding: int = 0
+
+
+@router.post("/api/v1/diagnoses/{diagnosis_row_id}/propose")
+async def propose_remedy_route(
+    diagnosis_row_id: UUID,
+    body: ProposeRemedyRequest,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """File the remedy of one finding as a change proposal (kind "remedy"): preview = claim, certainty, evidence,
+    before/after/rollback/verify and the exports. Approval needs a second person and executes nothing."""
+    from bossman.services import proposals as proposals_svc
+
+    row = await _diagnosis_row(session, identity, diagnosis_row_id)
+    try:
+        p = await proposals_svc.create_remedy_proposal(session, row, body.finding, identity.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"proposal_id": str(p.id), "status": p.status, "title": p.title}
 
 
 @router.get("/api/v1/agents/{agent_id}/state/observed")

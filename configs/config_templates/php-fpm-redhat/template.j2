@@ -1,0 +1,43 @@
+; PHP-FPM pool configuration (one pool per file, included by php-fpm.conf).
+; Directive reference: the comments of the shipped www.conf and php-fpm(8).
+
+; Pool name — the section header; also the value of $pool in the paths below.
+[{{ pool_name | default('www') }}]
+
+; Unix user and group the worker processes run as.
+user = {{ user | default('apache') }}
+group = {{ group | default('apache') }}
+
+; Address the pool accepts FastCGI requests on: a Unix socket path or ip:port.
+listen = {{ listen | default('/run/php-fpm/www.sock') }}
+; Owner/group of the Unix socket, and the users granted access through POSIX ACLs (empty: not set).
+{% if listen_owner | default('') %}listen.owner = {{ listen_owner | default('') }}
+{% endif %}{% if listen_group | default('') %}listen.group = {{ listen_group | default('') }}
+{% endif %}{% if listen_mode | default('') %}listen.mode = {{ listen_mode | default('') }}
+{% endif %}{% if listen_acl_users | default('apache,nginx') %}listen.acl_users = {{ listen_acl_users | default('apache,nginx') }}
+{% endif %}; Client addresses allowed to connect to a TCP listen address (empty: any).
+{% if listen_allowed_clients | default('127.0.0.1') %}listen.allowed_clients = {{ listen_allowed_clients | default('127.0.0.1') }}
+{% endif %}
+; Process manager: static (fixed max_children), dynamic (between the spare limits) or ondemand.
+pm = {{ pm | default('dynamic') }}
+; Maximum number of child processes alive at the same time.
+pm.max_children = {{ pm_max_children | default(50) }}
+; Children created at startup, and the minimum/maximum number of idle children (dynamic only).
+pm.start_servers = {{ pm_start_servers | default(5) }}
+pm.min_spare_servers = {{ pm_min_spare_servers | default(5) }}
+pm.max_spare_servers = {{ pm_max_spare_servers | default(35) }}
+; Requests a child serves before it is respawned (0: never).
+{% if pm_max_requests | default(0) | int > 0 %}pm.max_requests = {{ pm_max_requests }}
+{% endif %}; URI of the FPM status page (empty: disabled).
+{% if pm_status_path | default('') %}pm.status_path = {{ pm_status_path | default('') }}
+{% endif %}
+; Log of requests slower than request_slowlog_timeout (empty: not set; 0 disables the timeout).
+{% if slowlog | default('/var/log/php-fpm/www-slow.log') %}slowlog = {{ slowlog | default('/var/log/php-fpm/www-slow.log') }}
+{% endif %}{% if slowlog | default('/var/log/php-fpm/www-slow.log') and request_slowlog_timeout | default('') %}request_slowlog_timeout = {{ request_slowlog_timeout }}
+{% endif %}
+; php.ini values for this pool: php_admin_* cannot be overridden by ini_set(), php_* can.
+{% for it in php_admin_values | default({"error_log": "/var/log/php-fpm/www-error.log"}) | dict2items %}php_admin_value[{{ it.key }}] = {{ it.value }}
+{% endfor %}{% for it in php_admin_flags | default({"log_errors": "on"}) | dict2items %}php_admin_flag[{{ it.key }}] = {{ it.value | string | lower }}
+{% endfor %}{% for it in php_values | default({"session.save_handler": "files", "session.save_path": "/var/lib/php/session", "soap.wsdl_cache_dir": "/var/lib/php/wsdlcache"}) | dict2items %}php_value[{{ it.key }}] = {{ it.value }}
+{% endfor %}{% for it in php_flags | default({}) | dict2items %}php_flag[{{ it.key }}] = {{ it.value | string | lower }}
+{% endfor %}

@@ -1,0 +1,110 @@
+{
+  "debian": {
+    "iodined": {
+      "tunnel_ip": "10.53.0.1/27",
+      "topdomain": "t.example.test",
+      "password": "e2e-tunnel-secret"
+    },
+    "biboumi": {
+      "hostname": "irc.example.test",
+      "password": "e2e-component-secret"
+    },
+    "isc-dhcp-server": {
+      "subnets": [
+        {
+          "network": "10.244.0.0",
+          "netmask": "255.255.0.0",
+          "range_start": "10.244.250.10",
+          "range_end": "10.244.250.50"
+        }
+      ]
+    },
+    "keepalived": {
+      "vrrp_instances": [
+        {
+          "name": "VI_1",
+          "interface": "eth0",
+          "virtual_router_id": 51,
+          "priority": 100,
+          "state": "MASTER",
+          "virtual_ipaddresses": [
+            "10.244.250.100/16"
+          ]
+        }
+      ]
+    },
+    "sssd": {
+      "domains": [
+        {
+          "name": "local",
+          "id_provider": "proxy",
+          "auth_provider": "none",
+          "options": [
+            {
+              "key": "proxy_lib_name",
+              "value": "files"
+            }
+          ]
+        }
+      ]
+    },
+    "kea": {
+      "subnet4": [
+        {
+          "subnet": "10.244.0.0/16",
+          "pool_start": "10.244.251.10",
+          "pool_end": "10.244.251.50"
+        }
+      ],
+      "interfaces": [
+        "eth0"
+      ]
+    },
+    "ctdb.conf": {
+      "ctdb_nodes": "127.0.0.1\n"
+    },
+    "prometheus-mysqld-exporter": {
+      "mysqld_exporter_my_cnf": "[client]\nuser=exporter\npassword=e2e-exporter-secret\nhost=127.0.0.1\n",
+      "args": "--config.my-cnf /var/lib/prometheus/.my.cnf"
+    }
+  },
+  "redhat": {
+    "isc-dhcp-server": {
+      "subnets": [
+        {
+          "network": "10.244.0.0",
+          "netmask": "255.255.0.0",
+          "range_start": "10.244.250.10",
+          "range_end": "10.244.250.50"
+        }
+      ]
+    },
+    "keepalived": {
+      "vrrp_instances": [
+        {
+          "name": "VI_1",
+          "interface": "eth0",
+          "virtual_router_id": 51,
+          "priority": 100,
+          "state": "MASTER",
+          "virtual_ipaddresses": [
+            "10.244.250.100/16"
+          ]
+        }
+      ]
+    },
+    "kea": {
+      "subnet4": [
+        {
+          "subnet": "10.244.0.0/16",
+          "pool_start": "10.244.251.10",
+          "pool_end": "10.244.251.50"
+        }
+      ],
+      "interfaces": [
+        "eth0"
+      ]
+    }
+  },
+  "_note": "Test inputs only. isc-dhcp-server's subnet is the minikube pod network (10.244.0.0/16), which a test host's eth0 sits in \u2014 dhcpd needs a subnet containing one of its interfaces. keepalived's VIP and sssd's proxy/files domain are test inputs too: an address inside the pod network, and a local domain that needs no directory server."
+}

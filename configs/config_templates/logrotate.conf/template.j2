@@ -23,10 +23,10 @@ dateformat {{ global_dateformat | default('-%Y%m%d') }}
 {% if global_weekly is not false %}weekly{% endif %}
 
 # rotate: number of rotated logs to keep (0 = remove immediately)
-rotate {{ global_rotate | default(0) }}
+rotate {{ global_rotate | default(4) }}
 
 # create: create new log file with given mode, owner, and group after rotation
-create {{ global_create | default('0640 root adm') }}
+{% if global_create is defined and global_create is not none and (global_create is number or global_create is boolean or global_create | length > 0) %}create {{ global_create | default('0640 root adm') }}{% else %}# create new (empty) log files after rotating old ones{% endif %}
 
 # missingok: do not issue an error if a log file is missing
 {% if global_missingok is not false %}missingok{% endif %}

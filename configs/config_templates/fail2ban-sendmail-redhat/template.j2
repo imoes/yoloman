@@ -1,0 +1,134 @@
+# Fail2Ban configuration file
+#
+# Author: Cyril Jaquier
+#
+# This configuration file defines the behavior of the Sendmail action
+# for Fail2Ban on Red Hat-based systems. It controls how summary
+# emails are generated and buffered before being sent to the administrator.
+#
+# Self-documentation note:
+# This template uses Jinja2 defaults to ensure safe rendering even if
+# specific variables are not provided by the Ansible role.
+
+[INCLUDES]
+
+# Include common Sendmail configuration definitions.
+before = sendmail-common.conf
+
+[Definition]
+
+# Bypass ban/unban for restored tickets.
+# If set to 1, Fail2Ban will ignore tickets that are restored from
+# previous runs (e.g., after a restart) to avoid sending duplicate
+# ban/unban notifications.
+#
+# Default: 1
+# Type: String (interpreted as boolean/integer)
+norestored = {{ norestored | default('1') }}
+
+# Option:  actionstart
+# Notes.:  Command executed on demand at the first ban (or at the start
+#          of Fail2Ban if actionstart_on_demand is set to false).
+# Values:  CMD
+#
+# This block constructs the initial notification email when Fail2Ban
+# starts or when the first ban occurs. It uses the 'lines' variable
+# to inform the recipient that the summary is buffered until a certain
+# number of lines (bans) are collected.
+actionstart = printf %%b "Subject: [Fail2Ban] <name>: started on <fq-hostname>
+              From: <sendername> <<sender>>
+              To: <dest>\n
+              Hi,\n
+              The jail <name> has been started successfully.\n
+              Output will be buffered until {{ lines | default('5') }} lines are available.\n
+              Regards,\n
+              Fail2Ban" | <mailcmd>
+
+# Option:  actionstop
+# Notes.:  Command executed at the stop of jail (or at the end of Fail2Ban).
+# Values:  CMD
+#
+# This block generates a summary email of all banned IPs if the temporary
+# file exists, deletes the temporary file, and then sends a final "stopped"
+# notification.
+actionstop = if [ -f {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }} ]; then
+                 printf %%b "Subject: [Fail2Ban] <name>: summary from <fq-hostname>
+                 From: <sendername> <<sender>>
+                 To: <dest>\n
+                 Hi,\n
+                 These hosts have been banned by Fail2Ban.\n
+                 `cat {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }}`
+                 Regards,\n
+                 Fail2Ban" | <mailcmd>
+                 rm {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }}
+             fi
+             printf %%b "Subject: [Fail2Ban] <name>: stopped  on <fq-hostname>
+             From: Fail2Ban <<sender>>
+             To: <dest>\n
+             Hi,\n
+             The jail <name> has been stopped.\n
+             Regards,\n
+             Fail2Ban" | <mailcmd>
+
+# Option:  actioncheck
+# Notes.:  Command executed once before each actionban command.
+# Values:  CMD
+#
+# Currently empty. Can be used to verify prerequisites before banning.
+actioncheck = 
+
+# Option:  actionban
+# Notes.:  Command executed when banning an IP. Take care that the
+#          command is executed with Fail2Ban user rights.
+# Tags:    See jail.conf(5) man page
+# Values:  CMD
+#
+# This block appends the banned IP and failure count to the temporary file.
+# It then checks the line count against the 'lines' threshold. If the
+# threshold is reached, it sends a summary email containing the contents
+# of the temporary file and removes the file.
+actionban = printf %%b "`date`: <ip> (<failures> failures)\n" >> {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }}
+            LINE=$( wc -l {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }} | awk '{ print $1 }' )
+            if [ $LINE -ge {{ lines | default('5') }} ]; then
+                printf %%b "Subject: [Fail2Ban] <name>: summary from <fq-hostname>
+                From: <sendername> <<sender>>
+                To: <dest>\n
+                Hi,\n
+                These hosts have been banned by Fail2Ban.\n
+                `cat {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }}`
+                Regards,\n
+                Fail2Ban" | <mailcmd>
+                rm {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }}
+            fi
+
+# Option:  actionunban
+# Notes.:  Command executed when unbanning an IP. Take care that the
+#          command is executed with Fail2Ban user rights.
+# Tags:    See jail.conf(5) man page
+# Values:  CMD
+#
+# Currently empty. Sendmail action typically handles unbans via the summary
+# or separate unban actions if configured in jail.local.
+actionunban = 
+
+[Init]
+
+# Default name of the chain.
+#
+name = default
+
+# Default number of lines that are buffered before sending the summary email.
+# The email is sent only after this many bans have accumulated in the
+# temporary file.
+#
+# Default: 5
+# Type: String (interpreted as integer)
+lines = {{ lines | default('5') }}
+
+# Default temporary file used to store banned IPs before sending the summary email.
+# This file is written to by the actionban directive and consumed by actionstop
+# and actionban (when the threshold is met).
+#
+# Default: /var/run/fail2ban/tmp-mail.txt
+# Type: String (Path)
+tmpfile = {{ tmpfile | default('/var/run/fail2ban/tmp-mail.txt') }}

@@ -63,7 +63,7 @@ public sealed class FirewallRuleModule : IModule
             },
             ["protocol"] = P("string", "TCP, UDP, ICMPv4, or Any. Default TCP when a port is given."),
             ["local_port"] = P("string", "Port or ports: \"8451\", \"80,443\", \"8000-8100\", or Any."),
-            ["remote_address"] = P("string", "Restrict to a remote address or CIDR, e.g. 10.32.0.0/16."),
+            ["remote_address"] = P("string", "Restrict to a remote address or CIDR, e.g. 192.0.2.0/24."),
             ["program"] = P("string", "Restrict to a program's full path."),
             ["profile"] = P("string", "Profiles the rule applies in: Domain, Private, Public, Any "
                                       + "(comma-separated). A RULE ENABLED ONLY IN Domain IS NOT IN EFFECT on "
@@ -242,8 +242,8 @@ public sealed class FirewallRuleModule : IModule
 
     /// <summary>
     /// Do two address specifications mean the same thing? Compares each comma-separated entry with its
-    /// IPv4 prefix length expanded to a dotted netmask, which is the form Windows stores — so "10.32.0.0/16"
-    /// and "10.32.0.0/255.255.0.0" are one address, and anything this cannot parse falls back to a plain
+    /// IPv4 prefix length expanded to a dotted netmask, which is the form Windows stores — so "192.0.2.0/24"
+    /// and "203.0.113.0/255.255.0.0" are one address, and anything this cannot parse falls back to a plain
     /// comparison rather than being declared equal on a guess.
     /// </summary>
     private static bool SameAddress(string? one, string? other)
@@ -320,7 +320,7 @@ public sealed class FirewallRuleModule : IModule
                 if (string.IsNullOrWhiteSpace(want)) { return; }
                 if (string.Equals(want, (string?)have, StringComparison.OrdinalIgnoreCase)) { return; }
                 // ADDRESSES ARE COMPARED NORMALISED. Measured on the host: a rule declared with
-                // `10.32.0.0/16` is STORED by Windows as `10.32.0.0/255.255.0.0`, so the plain string
+                // `192.0.2.0/24` is STORED by Windows as `203.0.113.0/255.255.0.0`, so the plain string
                 // comparison found a difference on every single run — the second identical call reported
                 // "updated: remote_address" and would have rewritten that rule forever. An idempotence check
                 // that never converges is worse than none: it hides the real changes in noise.

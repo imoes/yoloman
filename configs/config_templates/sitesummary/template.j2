@@ -1,20 +1,840 @@
-# sitesummary configuration template
-# This file is typically included in an Apache/Nginx virtual host configuration.
-# It exposes the sitesummary statistics listing page and sets the web root.
+# Nagios configuration file for use with the sitesummary generated
+# host and service list.
+#
+# This file is managed by Ansible. Do not edit manually.
 
-# site_path: The URL path segment for accessing the sitesummary listing page.
-# Default: 'sitesummary'
-Alias /{{ site_path | default('sitesummary') }} {{ www_directory | default('/var/lib/sitesummary/www') }}
+# LOG FILE
+# The main log file where service and host events are logged.
+log_file={{ log_file | default('/var/log/icinga/icinga.log') }}
 
-<Directory {{ www_directory | default('/var/lib/sitesummary/www') }}>
-    # AllowOverride None: Prevent .htaccess files from overriding these settings.
-    AllowOverride None
+cfg_file=/etc/icinga/sitesummary-templates.cfg
+cfg_file=/etc/icinga/sitesummary-template-contacts.cfg
+cfg_file={{ nagios_generated_cfg | default('/var/lib/sitesummary/nagios-generated.cfg') }}
 
-    # Options: +SymLinksIfOwnerMatch allows following symbolic links if the owner matches;
-    # -MultiViews disables content negotiation which is generally undesirable for static listing pages.
-    Options +SymLinksIfOwnerMatch -MultiViews
 
-    # Require all granted: Allows unrestricted access to the directory.
-    # In production, consider tightening this with authentication.
-    Require all granted
-</Directory>
+# Commands definitions
+#cfg_file=/etc/icinga/commands.cfg
+
+# Debian also defaults to using the check commands defined by the debian
+# monitoring-plugins package
+#cfg_dir=/etc/monitoring-plugins/config
+
+# Debian uses by default a configuration directory where icinga-common,
+# other packages and the local admin can dump or link configuration
+# files into.
+#cfg_dir=/etc/icinga/objects
+
+# OBJECT CONFIGURATION FILE(S)
+# These are the object configuration files in which you define hosts,
+# host groups, contacts, contact groups, services, etc.
+# You can split your object definitions across several config files
+# if you wish (as shown below), or keep them all in a single config file.
+
+# You can specify individual object config files as shown below:
+#cfg_file=/etc/icinga/objects/commands.cfg
+#cfg_file=/etc/icinga/objects/contacts.cfg
+#cfg_file=/etc/icinga/objects/timeperiods.cfg
+#cfg_file=/etc/icinga/objects/templates.cfg
+
+# Definitions for monitoring a Windows machine
+#cfg_file=/etc/icinga/objects/windows.cfg
+
+# Definitions for monitoring a router/switch
+#cfg_file=/etc/icinga/objects/switch.cfg
+
+# Definitions for monitoring a network printer
+#cfg_file=/etc/icinga/objects/printer.cfg
+
+
+# You can also tell Nagios to process all config files (with a .cfg
+# extension) in a particular directory by using the cfg_dir
+# directive as shown below:
+
+#cfg_dir=/etc/icinga/servers
+#cfg_dir=/etc/icinga/printers
+#cfg_dir=/etc/icinga/switches
+#cfg_dir=/etc/icinga/routers
+
+
+
+# OBJECT CACHE FILE
+# The file where object definitions are cached when Nagios starts/restarts.
+object_cache_file={{ object_cache_file | default('/var/cache/icinga/objects.cache') }}
+
+
+
+# PRE-CACHED OBJECT FILE
+# The location of the precached object file.
+precached_object_file={{ precached_object_file | default('/var/lib/icinga/objects.precache') }}
+
+
+
+# RESOURCE FILE
+# An optional resource file that contains $USERx$ macro definitions.
+resource_file={{ resource_file | default('/etc/icinga/resource.cfg') }}
+
+
+
+# STATUS FILE
+# The file where the current status of all monitored services and hosts is stored.
+status_file={{ status_file | default('/var/lib/icinga/status.dat') }}
+
+
+# STATUS FILE UPDATE INTERVAL
+# The frequency (in seconds) that Nagios will periodically dump program, host, and service status data.
+status_update_interval={{ status_update_interval | default('10') }}
+
+
+
+# NAGIOS USER
+# The effective user that Nagios should run as.
+nagios_user={{ nagios_user | default('nagios') }}
+
+
+
+# NAGIOS GROUP
+# The effective group that Nagios should run as.
+nagios_group={{ nagios_group | default('nagios') }}
+
+
+
+# EXTERNAL COMMAND OPTION
+# Whether or not Nagios should check for external commands (0 = disable, 1 = enable).
+check_external_commands={{ check_external_commands | default('0') }}
+
+
+
+# EXTERNAL COMMAND CHECK INTERVAL
+# The interval at which Nagios should check for external commands.
+command_check_interval={{ command_check_interval | default('-1') }}
+
+
+
+# EXTERNAL COMMAND FILE
+# The file that Nagios checks for external command requests.
+command_file={{ command_file | default('/var/lib/icinga/rw/icinga.cmd') }}
+
+
+
+# EXTERNAL COMMAND BUFFER SLOTS
+# The number of items or 'slots' that the Nagios daemon should allocate to the buffer for external commands.
+external_command_buffer_slots={{ external_command_buffer_slots | default('4096') }}
+
+
+
+# LOCK FILE
+# The lockfile that Nagios will use to store its PID number.
+lock_file={{ lock_file | default('/var/run/icinga/icinga.pid') }}
+
+
+
+# TEMP FILE
+# A temporary file that is used as scratch space when Nagios updates the status log, etc.
+temp_file={{ temp_file | default('/var/cache/icinga/icinga.tmp') }}
+
+
+
+# TEMP PATH
+# Path where Nagios can create temp files for service and host check results.
+temp_path={{ temp_path | default('/tmp') }}
+
+
+
+# EVENT BROKER OPTIONS
+# Controls what (if any) data gets sent to the event broker (-1 = Broker everything).
+event_broker_options={{ event_broker_options | default('-1') }}
+
+
+
+# EVENT BROKER MODULE(S)
+# This directive is used to specify an event broker module that should
+# by loaded by Nagios at startup.  Use multiple directives if you want
+# to load more than one module.  Arguments that should be passed to
+# the module at startup are seperated from the module path by a space.
+#
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING !!! WARNING
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#
+# Do NOT overwrite modules while they are being used by Nagios or Nagios
+# will crash in a fiery display of SEGFAULT glory.  This is a bug/limitation
+# either in dlopen(), the kernel, and/or the filesystem.  And maybe Nagios...
+#
+# The correct/safe way of updating a module is by using one of these methods:
+#    1. Shutdown Nagios, replace the module file, restart Nagios
+#    2. Delete the original module file, move the new module file into place, restart Nagios
+#
+# Example:
+#
+#   broker_module=<modulepath> [moduleargs]
+
+#broker_module=/somewhere/module1.o
+#broker_module=/somewhere/module2.o arg1 arg2=3 debug=0
+
+
+
+# LOG ROTATION METHOD
+# The log rotation method (n=none, h=hourly, d=daily, w=weekly, m=monthly).
+log_rotation_method={{ log_rotation_method | default('d') }}
+
+
+
+# LOG ARCHIVE PATH
+# The directory where archived (rotated) log files should be placed.
+log_archive_path={{ log_archive_path | default('/var/log/icinga/archives') }}
+
+
+
+# LOGGING OPTIONS
+# Whether messages should be logged to the syslog facility (1 = yes, 0 = no).
+use_syslog={{ use_syslog | default('1') }}
+
+
+
+# NOTIFICATION LOGGING OPTION
+# Whether notifications should be logged (1 = yes, 0 = no).
+log_notifications={{ log_notifications | default('1') }}
+
+
+
+# SERVICE RETRY LOGGING OPTION
+# Whether service check retries should be logged (1 = yes, 0 = no).
+log_service_retries={{ log_service_retries | default('1') }}
+
+
+
+# HOST RETRY LOGGING OPTION
+# Whether host check retries should be logged (1 = yes, 0 = no).
+log_host_retries={{ log_host_retries | default('1') }}
+
+
+
+# EVENT HANDLER LOGGING OPTION
+# Whether host and service event handlers should be logged (1 = yes, 0 = no).
+log_event_handlers={{ log_event_handlers | default('1') }}
+
+
+
+# INITIAL STATES LOGGING OPTION
+# Whether Nagios should log all initial host and service states (1 = yes, 0 = no).
+log_initial_states={{ log_initial_states | default('0') }}
+
+
+
+# EXTERNAL COMMANDS LOGGING OPTION
+# Whether Nagios should log external commands (1 = yes, 0 = no).
+log_external_commands={{ log_external_commands | default('1') }}
+
+
+
+# PASSIVE CHECKS LOGGING OPTION
+# Whether Nagios should log passive host and service checks (1 = yes, 0 = no).
+log_passive_checks={{ log_passive_checks | default('1') }}
+
+
+
+# GLOBAL HOST AND SERVICE EVENT HANDLERS
+# These options allow you to specify a host and service event handler
+# command that is to be run for every host or service state change.
+# The global event handler is executed immediately prior to the event
+# handler that you have optionally specified in each host or
+# service definition. The command argument is the short name of a
+# command definition that you define in your host configuration file.
+# Read the HTML docs for more information.
+
+#global_host_event_handler=somecommand
+#global_service_event_handler=somecommand
+
+
+
+# SERVICE INTER-CHECK DELAY METHOD
+# The method for initially spreading out service checks (n=none, d=dumb, s=smart).
+service_inter_check_delay_method={{ service_inter_check_delay_method | default('s') }}
+
+
+
+# MAXIMUM SERVICE CHECK SPREAD
+# The timeframe (in minutes) from program start that an initial check of all services should be completed.
+max_service_check_spread={{ max_service_check_spread | default('30') }}
+
+
+
+# SERVICE CHECK INTERLEAVE FACTOR
+# How service checks are interleaved (s=smart, x=interleave factor).
+service_interleave_factor={{ service_interleave_factor | default('s') }}
+
+
+
+# HOST INTER-CHECK DELAY METHOD
+# The method for initially spreading out host checks (n=none, d=dumb, s=smart).
+host_inter_check_delay_method={{ host_inter_check_delay_method | default('s') }}
+
+
+
+# MAXIMUM HOST CHECK SPREAD
+# The timeframe (in minutes) from program start that an initial check of all hosts should be completed.
+max_host_check_spread={{ max_host_check_spread | default('30') }}
+
+
+
+# MAXIMUM CONCURRENT SERVICE CHECKS
+# The maximum number of service checks that can be run in parallel (0 = no restriction).
+max_concurrent_checks={{ max_concurrent_checks | default('0') }}
+
+
+
+# HOST AND SERVICE CHECK REAPER FREQUENCY
+# The frequency (in seconds) that Nagios will process the results of host and service checks.
+check_result_reaper_frequency={{ check_result_reaper_frequency | default('10') }}
+
+
+
+
+# MAX CHECK RESULT REAPER TIME
+# The max amount of time (in seconds) that a single check result reaper event will be allowed to run.
+max_check_result_reaper_time={{ max_check_result_reaper_time | default('30') }}
+
+
+
+
+# CHECK RESULT PATH
+# Directory where Nagios stores the results of host and service checks that have not yet been processed.
+#
+# Note: Make sure that only one instance of Nagios has access
+# to this directory!  
+
+check_result_path={{ check_result_path | default('/var/lib/icinga/spool/checkresults') }}
+
+
+
+# MAX CHECK RESULT FILE AGE
+# The maximum age (in seconds) which check result files are considered to be valid.
+max_check_result_file_age={{ max_check_result_file_age | default('3600') }}
+
+
+
+# CACHED HOST CHECK HORIZON
+# The maximum amount of time (in seconds) that the state of a previous host check is considered current.
+cached_host_check_horizon={{ cached_host_check_horizon | default('15') }}
+
+
+
+# CACHED SERVICE CHECK HORIZON
+# The maximum amount of time (in seconds) that the state of a previous service check is considered current.
+cached_service_check_horizon={{ cached_service_check_horizon | default('15') }}
+
+
+
+# ENABLE PREDICTIVE HOST DEPENDENCY CHECKS
+# Whether Nagios will attempt to execute checks of hosts for predictive dependency logic (0 = disable, 1 = enable).
+enable_predictive_host_dependency_checks={{ enable_predictive_host_dependency_checks | default('1') }}
+
+
+
+# ENABLE PREDICTIVE SERVICE DEPENDENCY CHECKS
+# Whether Nagios will attempt to execute checks of service for predictive dependency logic (0 = disable, 1 = enable).
+enable_predictive_service_dependency_checks={{ enable_predictive_service_dependency_checks | default('1') }}
+
+
+
+# SOFT STATE DEPENDENCIES
+# Whether Nagios will use soft state information when checking dependencies (0 = no, 1 = yes).
+soft_state_dependencies={{ soft_state_dependencies | default('0') }}
+
+
+
+# TIME CHANGE ADJUSTMENT THRESHOLDS
+# These options determine when Nagios will react to detected changes
+# in system time (either forward or backwards).
+
+#time_change_threshold=900
+
+
+
+# AUTO-RESCHEDULING OPTION
+# Whether Nagios will attempt to automatically reschedule active checks (0 = no, 1 = yes).
+auto_reschedule_checks={{ auto_reschedule_checks | default('0') }}
+
+
+
+# AUTO-RESCHEDULING INTERVAL
+# How often (in seconds) Nagios will attempt to automatically reschedule checks.
+auto_rescheduling_interval={{ auto_rescheduling_interval | default('30') }}
+
+
+
+# AUTO-RESCHEDULING WINDOW
+# The 'window' of time (in seconds) that Nagios will look at when automatically rescheduling checks.
+auto_rescheduling_window={{ auto_rescheduling_window | default('180') }}
+
+
+
+# SLEEP TIME
+# The number of seconds to sleep between checking for system events and service checks.
+sleep_time={{ sleep_time | default('0.25') }}
+
+
+
+# TIMEOUT VALUES
+# These options control how much time Nagios will allow various
+# types of commands to execute before killing them off.  Options
+# are available for controlling maximum time allotted for
+# service checks, host checks, event handlers, notifications, the
+# ocsp command, and performance data commands.  All values are in
+# seconds.
+
+service_check_timeout={{ service_check_timeout | default('60') }}
+host_check_timeout={{ host_check_timeout | default('30') }}
+event_handler_timeout={{ event_handler_timeout | default('30') }}
+notification_timeout={{ notification_timeout | default('30') }}
+ocsp_timeout={{ ocsp_timeout | default('5') }}
+perfdata_timeout={{ perfdata_timeout | default('5') }}
+
+
+
+# RETAIN STATE INFORMATION
+# Whether Nagios will save state information for services and hosts before shutting down (0 = no, 1 = yes).
+retain_state_information={{ retain_state_information | default('1') }}
+
+
+
+# STATE RETENTION FILE
+# The file that Nagios should use to store host and service state information before it shuts down.
+state_retention_file={{ state_retention_file | default('/var/cache/icinga/retention.dat') }}
+
+
+
+# RETENTION DATA UPDATE INTERVAL
+# How often (in minutes) that Nagios will automatically save retention data during normal operation.
+retention_update_interval={{ retention_update_interval | default('60') }}
+
+
+
+# USE RETAINED PROGRAM STATE
+# Whether Nagios will set program status variables based on values saved in the retention file (0 = no, 1 = yes).
+use_retained_program_state={{ use_retained_program_state | default('1') }}
+
+
+
+# USE RETAINED SCHEDULING INFO
+# Whether Nagios will retain scheduling info based on values saved in the retention file (0 = no, 1 = yes).
+use_retained_scheduling_info={{ use_retained_scheduling_info | default('1') }}
+
+
+
+# RETAINED ATTRIBUTE MASKS (ADVANCED FEATURE)
+# The following variables are used to specify specific host and
+# service attributes that should *not* be retained by Nagios during
+# program restarts.
+#
+# The values of the masks are bitwise ANDs of values specified
+# by the "MODATTR_" definitions found in include/common.h.  
+# For example, if you do not want the current enabled/disabled state
+# of flap detection and event handlers for hosts to be retained, you
+# would use a value of 24 for the host attribute mask...
+# MODATTR_EVENT_HANDLER_ENABLED (8) + MODATTR_FLAP_DETECTION_ENABLED (16) = 24
+
+# This mask determines what host attributes are not retained
+retained_host_attribute_mask={{ retained_host_attribute_mask | default('0') }}
+
+# This mask determines what service attributes are not retained
+retained_service_attribute_mask={{ retained_service_attribute_mask | default('0') }}
+
+# These two masks determine what process attributes are not retained.
+# There are two masks, because some process attributes have host and service
+# options.  For example, you can disable active host checks, but leave active
+# service checks enabled.
+retained_process_host_attribute_mask={{ retained_process_host_attribute_mask | default('0') }}
+retained_process_service_attribute_mask={{ retained_process_service_attribute_mask | default('0') }}
+
+# These two masks determine what contact attributes are not retained.
+# There are two masks, because some contact attributes have host and
+# service options.  For example, you can disable host notifications for
+# a contact, but leave service notifications enabled for them.
+retained_contact_host_attribute_mask={{ retained_contact_host_attribute_mask | default('0') }}
+retained_contact_service_attribute_mask={{ retained_contact_service_attribute_mask | default('0') }}
+
+
+
+# INTERVAL LENGTH
+# The seconds per unit interval as used in the host/contact/service configuration files.
+interval_length={{ interval_length | default('60') }}
+
+
+
+# AGGRESSIVE HOST CHECKING OPTION
+# Whether to enable aggressive host checking features (0 = no, 1 = yes).
+use_aggressive_host_checking={{ use_aggressive_host_checking | default('0') }}
+
+
+
+# SERVICE CHECK EXECUTION OPTION
+# Whether Nagios will actively execute service checks when it initially starts (0 = no, 1 = yes).
+execute_service_checks={{ execute_service_checks | default('1') }}
+
+
+
+# PASSIVE SERVICE CHECK ACCEPTANCE OPTION
+# Whether Nagios will accept passive service checks results when it initially (re)starts (0 = no, 1 = yes).
+accept_passive_service_checks={{ accept_passive_service_checks | default('1') }}
+
+
+
+# HOST CHECK EXECUTION OPTION
+# Whether Nagios will actively execute host checks when it initially starts (0 = no, 1 = yes).
+execute_host_checks={{ execute_host_checks | default('1') }}
+
+
+
+# PASSIVE HOST CHECK ACCEPTANCE OPTION
+# Whether Nagios will accept passive host checks results when it initially (re)starts (0 = no, 1 = yes).
+accept_passive_host_checks={{ accept_passive_host_checks | default('1') }}
+
+
+
+# NOTIFICATIONS OPTION
+# Whether Nagios will send out any host or service notifications when it is initially (re)started (0 = no, 1 = yes).
+enable_notifications={{ enable_notifications | default('1') }}
+
+
+
+# EVENT HANDLER USE OPTION
+# Whether Nagios will run any host or service event handlers when it is initially (re)started (0 = no, 1 = yes).
+enable_event_handlers={{ enable_event_handlers | default('1') }}
+
+
+
+# PROCESS PERFORMANCE DATA OPTION
+# Whether Nagios will process performance data returned from service and host checks (0 = no, 1 = yes).
+process_performance_data={{ process_performance_data | default('0') }}
+
+
+
+# HOST AND SERVICE PERFORMANCE DATA PROCESSING COMMANDS
+# These commands are run after every host and service check is
+# performed.  These commands are executed only if the
+# enable_performance_data option (above) is set to 1.  The command
+# argument is the short name of a command definition that you 
+# define in your host configuration file.  Read the HTML docs for
+# more information on performance data.
+
+#host_perfdata_command=process-host-perfdata
+#service_perfdata_command=process-service-perfdata
+
+
+
+# HOST AND SERVICE PERFORMANCE DATA FILES
+# These files are used to store host and service performance data.
+# Performance data is only written to these files if the
+# enable_performance_data option (above) is set to 1.
+
+#host_perfdata_file=/tmp/host-perfdata
+#service_perfdata_file=/tmp/service-perfdata
+
+
+
+# HOST AND SERVICE PERFORMANCE DATA FILE TEMPLATES
+# These options determine what data is written (and how) to the
+# performance data files.  The templates may contain macros, special
+# characters (\t for tab, \r for carriage return, \n for newline)
+# and plain text.  A newline is automatically added after each write
+# to the performance data file.  Some examples of what you can do are
+# shown below.
+
+#host_perfdata_file_template=[HOSTPERFDATA]\t$TIMET$\t$HOSTNAME$\t$HOSTEXECUTIONTIME$\t$HOSTOUTPUT$\t$HOSTPERFDATA$
+#service_perfdata_file_template=[SERVICEPERFDATA]\t$TIMET$\t$HOSTNAME$\t$SERVICEDESC$\t$SERVICEEXECUTIONTIME$\t$SERVICELATENCY$\t$SERVICEOUTPUT$\t$SERVICEPERFDATA$
+
+
+
+# HOST AND SERVICE PERFORMANCE DATA FILE MODES
+# This option determines whether or not the host and service
+# performance data files are opened in write ("w") or append ("a")
+# mode. If you want to use named pipes, you should use the special
+# pipe ("p") mode which avoid blocking at startup, otherwise you will
+# likely want the defult append ("a") mode.
+
+#host_perfdata_file_mode=a
+#service_perfdata_file_mode=a
+
+
+
+# HOST AND SERVICE PERFORMANCE DATA FILE PROCESSING INTERVAL
+# These options determine how often (in seconds) the host and service
+# performance data files are processed using the commands defined
+# below.  A value of 0 indicates the files should not be periodically
+# processed.
+
+#host_perfdata_file_processing_interval=0
+#service_perfdata_file_processing_interval=0
+
+
+
+# HOST AND SERVICE PERFORMANCE DATA FILE PROCESSING COMMANDS
+# These commands are used to periodically process the host and
+# service performance data files.  The interval at which the
+# processing occurs is determined by the options above.
+
+#host_perfdata_file_processing_command=process-host-perfdata-file
+#service_perfdata_file_processing_command=process-service-perfdata-file
+
+
+
+# OBSESS OVER SERVICE CHECKS OPTION
+# Whether Nagios will obsess over service checks and run the ocsp_command (0 = no, 1 = yes).
+obsess_over_services={{ obsess_over_services | default('0') }}
+
+
+
+# OBSESSIVE COMPULSIVE SERVICE PROCESSOR COMMAND
+# This is the command that is run for every service check that is
+# processed by Nagios.  This command is executed only if the
+# obsess_over_services option (above) is set to 1.  The command 
+# argument is the short name of a command definition that you
+# define in your host configuration file. Read the HTML docs for
+# more information on implementing distributed monitoring.
+
+#ocsp_command=somecommand
+
+
+
+# OBSESS OVER HOST CHECKS OPTION
+# Whether Nagios will obsess over host checks and run the ochp_command (0 = no, 1 = yes).
+obsess_over_hosts={{ obsess_over_hosts | default('0') }}
+
+
+
+# OBSESSIVE COMPULSIVE HOST PROCESSOR COMMAND
+# This is the command that is run for every host check that is
+# processed by Nagios.  This command is executed only if the
+# obsess_over_hosts option (above) is set to 1.  The command 
+# argument is the short name of a command definition that you
+# define in your host configuration file. Read the HTML docs for
+# more information on implementing distributed monitoring.
+
+#ochp_command=somecommand
+
+
+
+# TRANSLATE PASSIVE HOST CHECKS OPTION
+# Whether Nagios will translate DOWN/UNREACHABLE passive host check results into their proper state (0 = no, 1 = yes).
+translate_passive_host_checks={{ translate_passive_host_checks | default('0') }}
+
+
+
+# PASSIVE HOST CHECKS ARE SOFT OPTION
+# Whether Nagios will treat passive host checks as being HARD or SOFT (0 = HARD, 1 = SOFT).
+passive_host_checks_are_soft={{ passive_host_checks_are_soft | default('0') }}
+
+
+
+# ORPHANED HOST/SERVICE CHECK OPTIONS
+# These options determine whether or not Nagios will periodically 
+# check for orphaned host service checks.  Since service checks are
+# not rescheduled until the results of their previous execution 
+# instance are processed, there exists a possibility that some
+# checks may never get rescheduled.  A similar situation exists for
+# host checks, although the exact scheduling details differ a bit
+# from service checks.  Orphaned checks seem to be a rare
+# problem and should not happen under normal circumstances.
+# If you have problems with service checks never getting
+# rescheduled, make sure you have orphaned service checks enabled.
+# Values: 1 = enable checks, 0 = disable checks
+
+check_for_orphaned_services={{ check_for_orphaned_services | default('1') }}
+check_for_orphaned_hosts={{ check_for_orphaned_hosts | default('1') }}
+
+
+
+# SERVICE FRESHNESS CHECK OPTION
+# Whether Nagios will periodically check the 'freshness' of service results (0 = no, 1 = yes).
+check_service_freshness={{ check_service_freshness | default('1') }}
+
+
+
+# SERVICE FRESHNESS CHECK INTERVAL
+# How often (in seconds) Nagios will check the 'freshness' of service check results.
+service_freshness_check_interval={{ service_freshness_check_interval | default('60') }}
+
+
+
+# HOST FRESHNESS CHECK OPTION
+# Whether Nagios will periodically check the 'freshness' of host results (0 = no, 1 = yes).
+check_host_freshness={{ check_host_freshness | default('0') }}
+
+
+
+# HOST FRESHNESS CHECK INTERVAL
+# How often (in seconds) Nagios will check the 'freshness' of host check results.
+host_freshness_check_interval={{ host_freshness_check_interval | default('60') }}
+
+
+
+
+# ADDITIONAL FRESHNESS THRESHOLD LATENCY
+# The number of seconds that Nagios will add to any host and service freshness thresholds.
+additional_freshness_latency={{ additional_freshness_latency | default('15') }}
+
+
+
+
+# FLAP DETECTION OPTION
+# Whether Nagios will try to detect hosts and services that are 'flapping' (0 = no, 1 = yes).
+enable_flap_detection={{ enable_flap_detection | default('1') }}
+
+
+
+# FLAP DETECTION THRESHOLDS FOR HOSTS AND SERVICES
+# Read the HTML documentation on flap detection for
+# an explanation of what this option does.  This option
+# has no effect if flap detection is disabled.
+
+low_service_flap_threshold={{ low_service_flap_threshold | default('5.0') }}
+high_service_flap_threshold={{ high_service_flap_threshold | default('20.0') }}
+low_host_flap_threshold={{ low_host_flap_threshold | default('5.0') }}
+high_host_flap_threshold={{ high_host_flap_threshold | default('20.0') }}
+
+
+
+# DATE FORMAT OPTION
+# How short dates are displayed (us, euro, iso8601, strict-iso8601).
+date_format={{ date_format | default('iso8601') }}
+
+
+
+
+# TIMEZONE OFFSET
+# This option is used to override the default timezone that this
+# instance of Nagios runs in.  If not specified, Nagios will use
+# the system configured timezone.
+#
+# NOTE: In order to display the correct timezone in the CGIs, you
+# will also need to alter the Apache directives for the CGI path 
+# to include your timezone.  Example:
+#
+#   <Directory "/usr/local/nagios/sbin/">
+#      SetEnv TZ "Australia/Brisbane"
+#      ...
+#   </Directory>
+
+#use_timezone=US/Mountain
+#use_timezone=Australia/Brisbane
+
+
+
+
+# P1.PL FILE LOCATION
+# The location of the p1.pl perl script.
+p1_file={{ p1_file | default('/usr/lib/icinga/p1.pl') }}
+
+
+
+# EMBEDDED PERL INTERPRETER OPTION
+# Whether the embedded Perl interpreter will be enabled during runtime (0 = no, 1 = yes).
+enable_embedded_perl={{ enable_embedded_perl | default('1') }}
+
+
+
+# EMBEDDED PERL USAGE OPTION
+# Whether Nagios will process Perl plugins and scripts with the embedded Perl interpreter implicitly (0 = no, 1 = yes).
+use_embedded_perl_implicitly={{ use_embedded_perl_implicitly | default('1') }}
+
+
+
+# ILLEGAL OBJECT NAME CHARACTERS
+# Illegal characters that cannot be used in host names, service descriptions, or names of other object types.
+illegal_object_name_chars={{ illegal_object_name_chars | default('`~!$%^&*|\'"<>?,()=') }}
+
+
+
+# ILLEGAL MACRO OUTPUT CHARACTERS
+# Illegal characters that are stripped from macros before being used in notifications, event handlers, etc.
+illegal_macro_output_chars={{ illegal_macro_output_chars | default('`~$&|\'"<>') }}
+
+
+
+# REGULAR EXPRESSION MATCHING
+# Whether regular expression matching takes place in the object config files (0 = no, 1 = yes).
+use_regexp_matching={{ use_regexp_matching | default('0') }}
+
+
+
+# "TRUE" REGULAR EXPRESSION MATCHING
+# Whether 'true' regular expression matching takes place in the object config files (0 = no, 1 = yes).
+use_true_regexp_matching={{ use_true_regexp_matching | default('0') }}
+
+
+
+# ADMINISTRATOR EMAIL/PAGER ADDRESSES
+# The email address of a global administrator.
+admin_email={{ admin_email | default('root@localhost') }}
+# The pager address of a global administrator.
+admin_pager={{ admin_pager | default('pageroot@localhost') }}
+
+
+
+# DAEMON CORE DUMP OPTION
+# Whether Nagios is allowed to create a core dump when it runs as a daemon (0 = no, 1 = yes).
+daemon_dumps_core={{ daemon_dumps_core | default('0') }}
+
+
+
+# LARGE INSTALLATION TWEAKS OPTION
+# Whether Nagios will take some shortcuts to save on memory and CPU usage in large installations (0 = no, 1 = yes).
+use_large_installation_tweaks={{ use_large_installation_tweaks | default('0') }}
+
+
+
+# ENABLE ENVIRONMENT MACROS
+# Whether Nagios will make all standard macros available as environment variables (0 = no, 1 = yes).
+enable_environment_macros={{ enable_environment_macros | default('1') }}
+
+
+
+# CHILD PROCESS MEMORY OPTION
+# This option determines whether or not Nagios will free memory in
+# child processes (processed used to execute system commands and host/
+# service checks).  If you specify a value here, it will override
+# program defaults.
+# Value: 1 - Free memory in child processes
+#        0 - Do not free memory in child processes
+
+#free_child_process_memory=1
+
+
+
+# CHILD PROCESS FORKING BEHAVIOR
+# This option determines how Nagios will fork child processes
+# (used to execute system commands and host/service checks).  Normally
+# child processes are fork()ed twice, which provides a very high level
+# of isolation from problems.  Fork()ing once is probably enough and will
+# save a great deal on CPU usage (in large installs), so you might
+# want to consider using this.  If you specify a value here, it will
+# program defaults.
+# Value: 1 - Child processes fork() twice
+#        0 - Child processes fork() just once
+
+#child_processes_fork_twice=1
+
+
+
+# DEBUG LEVEL
+# How much debugging information will be written to the debug file.
+debug_level={{ debug_level | default('0') }}
+
+
+
+# DEBUG VERBOSITY
+# How verbose the debug log output will be (0 = brief, 1 = more detailed, 2 = very detailed).
+debug_verbosity={{ debug_verbosity | default('1') }}
+
+
+
+# DEBUG FILE
+# Where Nagios should write debugging information.
+debug_file={{ debug_file | default('/var/log/icinga/icinga.debug') }}
+
+
+
+# MAX DEBUG FILE SIZE
+# The maximum size (in bytes) of the debug file.
+max_debug_file_size={{ max_debug_file_size | default('1000000') }}

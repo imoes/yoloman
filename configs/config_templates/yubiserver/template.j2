@@ -128,8 +128,9 @@ case "$1" in
 	# If do_reload() is not implemented then leave this commented out
 	# and leave 'force-reload' as an alias for 'restart'.
 	#
-	#log_daemon_msg "Reloading {{ desc | default('yubiserver') }}" "{{ name | default('yubiserver') }}"
-	#do_reload
+{% if desc is defined and desc is not none and (desc is number or desc is boolean or desc | length > 0) %}	log_daemon_msg "Reloading {{ desc | default('yubiserver') }}" "{{ name | default('yubiserver') }}"
+{% else %}	#log_daemon_msg "Reloading $DESC" "$NAME"
+{% endif %}	#do_reload
 	#log_end_msg $?
 	#;;
   restart|force-reload)

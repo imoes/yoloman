@@ -35,7 +35,7 @@
 # Define upstream NTP servers to synchronize against.
 # The 'iburst' option speeds up initial synchronization.
 {% if server_mode | default(True) %}
-{% for server in ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) %}server {{ server }} iburst
+{% for server in ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) %}server {{ server }} iburst minpoll {{ minpoll_exp | default(6) }} maxpoll {{ maxpoll_exp | default(10) }}
 {% endfor %}
 {% endif %}
 
@@ -48,13 +48,6 @@
 {% if local_reference | default(False) %}
 local stratum {{ local_stratum | default(10) }}
 {% endif %}
-
-# ------------------------------------------
-# Runtime Directory
-# ------------------------------------------
-# {{ comment_base_dir | default('# Runtime data directory') }}
-# Directory for runtime data, including the drift file.
-dir /var/lib/chrony
 
 # ------------------------------------------
 # Drift File
@@ -79,7 +72,7 @@ makestep {{ makestep_threshold | default(1.0) }} {{ makestep_burst_count | defau
 # {{ comment_logging | default('# Logging options') }}
 # Specify which types of data to log (measurements, statistics, tracking, etc.).
 # Defaults to logging measurements, statistics, and tracking.
-log {{ logging_destinations | default(['measurements', 'statistics', 'tracking']) | join(' ') }}
+{% if logging_destinations is defined and logging_destinations is not none and (logging_destinations is number or logging_destinations is boolean or logging_destinations | length > 0) %}log {{ logging_destinations | default(['measurements', 'statistics', 'tracking']) | join(' ') }}{% else %}#log tracking measurements statistics{% endif %}
 
 # ------------------------------------------
 # RTC Synchronization
@@ -106,7 +99,7 @@ leapsecmode {{ leapsec_mode | default('system') }}
 # Path to the file containing NTP authentication keys.
 # Empty string disables authentication key loading.
 {% if keyfile | default('') | trim != '' %}
-keyfile {{ keyfile | default('') }}
+keyfile {{ keyfile | default('/etc/chrony/chrony.keys') }}
 {% endif %}
 
 # ------------------------------------------
@@ -143,29 +136,8 @@ hwtimestamp {{ hwtimestamp_interfaces | default([]) | join(' ') }}
 # ------------------------------------------
 # Poll Interval Range
 # ------------------------------------------
-# {{ comment_minpoll_maxpoll | default('# Poll interval range') }}
-# Set the minimum and maximum poll intervals (in seconds).
-# Values are exponents: minpoll 6 = 2^6 = 64s, maxpoll 10 = 2^10 = 1024s.
-minpoll {{ minpoll_exp | default(6) }}
-maxpoll {{ maxpoll_exp | default(10) }}
-
-# ------------------------------------------
-# Maximum Sources
-# ------------------------------------------
-# {{ comment_sources | default('# Max NTP sources') }}
-# Limit the number of NTP sources chronyd will use for synchronization.
-# Prevents resource exhaustion from too many peers.
-maxsources {{ max_sources | default(6) }}
-
-# ------------------------------------------
-# Web UI Settings
-# ------------------------------------------
-# {{ comment_webserver | default('# Web UI settings') }}
-# Enable the built-in web server for the Chrony Web UI dashboard.
-# Exposes metrics and status via HTTP on the specified port.
-{% if webserver_enabled | default(False) %}
-webport {{ webserver_port | default(8080) }}
-{% endif %}
+# minpoll/maxpoll are options of each `server` line above (chrony has no standalone directive for them).
+# Values are exponents: minpoll 6 = 2^6 = 64 s, maxpoll 10 = 2^10 = 1024 s.
 
 # ------------------------------------------
 # Tracking/Diagnostic Logs

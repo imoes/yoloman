@@ -120,6 +120,10 @@ async def prune_process_series(
     pruned = 0
     batches = 0
     prune_error: str | None = None
+    # Series this run passed over because the poller was writing them (SKIP LOCKED below). Not selected again in
+    # this run: the selection cannot see the uncommitted point, so the same series came back in every batch and the
+    # loop spun up to its batch cap.
+    busy: set[int] = set()
     while True:
         try:
             ids = (await session.execute(
@@ -133,11 +137,12 @@ async def prune_process_series(
                       AND NOT EXISTS (
                         SELECT 1 FROM metrics_raw r
                         WHERE r.series_id = s.series_id AND r.time < :floor)
+                      AND NOT (s.series_id = ANY(:busy))
                     LIMIT :batch
                     """
                 ),
                 {"cutoff": stale_cutoff, "floor": uncompressed_floor,
-                 "batch": _PRUNE_BATCH},
+                 "batch": _PRUNE_BATCH, "busy": sorted(busy)},
             )).scalars().all()
             if not ids:
                 break
@@ -159,16 +164,26 @@ async def prune_process_series(
             # this query had just judged empty. A guard that ignores the rows most likely to exist is not a
             # guard. Reading a compressed chunk through the series_id index is a read — it decompresses
             # nothing — so correctness costs an index lookup per candidate here.
+            #
+            # AND THE ROWS ARE LOCKED, SKIPPING THE BUSY ONES. The guard reads what was committed when the statement
+            # began; a point the poller inserts WHILE the statement runs is only seen by the FK check, and the prune
+            # died on "violates foreign key constraint metrics_raw_series_id_fkey" anyway (measured 2026-10-11, twice
+            # in 40 minutes). An insert that references a series holds a KEY SHARE lock on its row until it commits;
+            # FOR UPDATE SKIP LOCKED passes over exactly those rows, so a series being written right now is left for
+            # a later run instead of aborting this one, and nothing the poller writes is lost.
             res = await session.execute(
                 text(
-                    "DELETE FROM metric_series WHERE series_id = ANY(:ids) "
+                    "DELETE FROM metric_series WHERE series_id IN ("
+                    "SELECT series_id FROM metric_series WHERE series_id = ANY(:ids) FOR UPDATE SKIP LOCKED) "
                     "AND NOT EXISTS (SELECT 1 FROM metrics_raw r "
-                    "WHERE r.series_id = metric_series.series_id)"
+                    "WHERE r.series_id = metric_series.series_id) RETURNING series_id"
                 ),
                 {"ids": list(ids)},
             )
+            deleted = set(res.scalars().all())
+            busy |= set(ids) - deleted
             await session.commit()
-            pruned += res.rowcount or 0
+            pruned += len(deleted)
             batches += 1
             if batches >= _PRUNE_MAX_BATCHES:
                 logger.warning(
@@ -186,6 +201,46 @@ async def prune_process_series(
                 batches, pruned, prune_error, exc_info=True)
             break
     return {"process_series_stale": pruned}
+
+
+async def sweep_orphan_series(session: AsyncSession) -> int:
+    """Delete metric series that have no point at all; returns how many. Never raises (logged)."""
+    # Sweep remaining orphan series (no points at all — e.g. their chunks were
+    # dropped by retention). Batched for the same reason as above.
+    #
+    # LOCKED LIKE THE PROCESS PRUNE (I1), SKIPPING BUSY ROWS. A brand-new series has no point until the poller's
+    # insert commits, so it looks orphaned while that insert is in flight — and the sweep died on
+    # "violates foreign key constraint metrics_raw_series_id_fkey" right after a restart, when the poller was
+    # catching up (measured 2026-10-15). The insert holds a KEY SHARE lock on the series row; FOR UPDATE SKIP LOCKED
+    # leaves exactly those rows for a later run. Skipped rows do not fill the batch, so the loop still ends.
+    orphans = 0
+    try:
+        while True:
+            res = await session.execute(
+                text(
+                    """
+                    DELETE FROM metric_series WHERE series_id IN (
+                      SELECT s.series_id FROM metric_series s
+                      WHERE NOT EXISTS (
+                        SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id)
+                      LIMIT :batch
+                      FOR UPDATE OF s SKIP LOCKED)
+                    AND NOT EXISTS (
+                      SELECT 1 FROM metrics_raw r WHERE r.series_id = metric_series.series_id)
+                    """
+                ),
+                {"batch": _PRUNE_BATCH},
+            )
+            await session.commit()
+            n = res.rowcount or 0
+            orphans += n
+            if n < _PRUNE_BATCH:
+                break
+    except Exception as exc:  # noqa: BLE001
+        await session.rollback()
+        logger.error("metric_series orphan sweep FAILED after %d series — %s: %s",
+                     orphans, type(exc).__name__, exc, exc_info=True)
+    return orphans
 
 
 async def run_housekeeping(session: AsyncSession, settings: Settings, now: datetime) -> dict[str, int]:
@@ -232,32 +287,7 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     # process_prune_loop, because hourly is far too slow for PID churn).
     deleted.update(await prune_process_series(session, settings, now))
 
-    # Sweep remaining orphan series (no points at all — e.g. their chunks were
-    # dropped by retention). Batched for the same reason as above.
-    orphans = 0
-    try:
-        while True:
-            res = await session.execute(
-                text(
-                    """
-                    DELETE FROM metric_series WHERE series_id IN (
-                      SELECT s.series_id FROM metric_series s
-                      WHERE NOT EXISTS (
-                        SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id)
-                      LIMIT :batch)
-                    """
-                ),
-                {"batch": _PRUNE_BATCH},
-            )
-            await session.commit()
-            n = res.rowcount or 0
-            orphans += n
-            if n < _PRUNE_BATCH:
-                break
-    except Exception as exc:  # noqa: BLE001
-        await session.rollback()
-        logger.error("metric_series orphan sweep FAILED after %d series — %s: %s",
-                     orphans, type(exc).__name__, exc, exc_info=True)
+    orphans = await sweep_orphan_series(session)
     deleted["metric_series_orphans"] = orphans
 
     # Report the outcome even when it is zero — a silent "nothing to do" is

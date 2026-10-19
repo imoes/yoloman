@@ -1,0 +1,27 @@
+# Logrotate configuration for system logs managed by rsyslog on Red Hat systems.
+# This file defines how standard log files (cron, mail, messages, secure, spooler)
+# should be rotated. It ensures the rsyslog daemon is signaled to reopen log files
+# after rotation completes.
+
+# The log files to be rotated. These are the standard syslog output files on RHEL/CentOS/Fedora.
+/var/log/cron
+/var/log/maillog
+/var/log/messages
+/var/log/secure
+/var/log/spooler
+{
+    # Do not rotate if the log file is missing.
+    missingok
+
+    # Run the postrotate script only once, even if multiple log files are matched.
+    sharedscripts
+
+    # Commands to run after the log files have been rotated.
+    postrotate
+        # Send a SIGHUP (reload/reopen logs) signal to the rsyslog service.
+        # We use 'systemctl -s HUP' to send the signal directly to the main process,
+        # which is more reliable than a full restart for log reopening.
+        # The service name is configurable via rsyslog_service variable.
+        /usr/bin/systemctl -s HUP kill {{ rsyslog_service | default('rsyslog.service') }} >/dev/null 2>&1 || true
+    endscript
+}

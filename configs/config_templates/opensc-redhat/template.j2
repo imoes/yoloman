@@ -1,0 +1,46 @@
+# OpenSC Configuration Template
+# This template configures the default opensc application and the pkcs15-init utility.
+# It handles debug settings, PKCS#15 file caching strategies, and PCSC reader driver options.
+
+app default {
+    # Debug level for the default opensc application. Commented out by default.
+    # Allowed values: integer (e.g., 1, 2, 3) or boolean (true/false).
+    # If not set, OpenSC uses its internal default (usually 0/quiet).
+{% if debug_level is defined %}
+    debug = {{ debug_level }};
+{% else %}
+    # debug = 3;
+{% endif %}
+
+    # Debug log file name for the default opensc application. Commented out by default.
+    # If not set, debug output may go to stderr or be suppressed depending on debug_level.
+{% if debug_file is defined %}
+    debug_file = {{ debug_file }};
+{% else %}
+    # debug_file = opensc-debug.txt;
+{% endif %}
+
+    framework pkcs15 {
+        # File caching mode for the default PKCS#15 framework.
+        # Controls how cached data is stored/managed.
+        # Default: public
+        use_file_caching = {{ default_framework_pkcs15_use_file_caching | default('public') }};
+    }
+
+    reader_driver pcsc {
+        # Enable pinpad support for the default PCSC reader driver.
+        # Some readers have broken pinpads; set to false if you experience issues.
+        # Default: false
+        enable_pinpad = {{ default_reader_driver_pcsc_enable_pinpad | default('false') }};
+    }
+}
+
+# The pkcs15-init is used for card initialization when the file caching
+# brings more trouble than use so disable that:
+app pkcs15-init {
+    framework pkcs15 {
+        # File caching mode for the pkcs15-init application.
+        # Default: no
+        use_file_caching = {{ pkcs15_init_framework_pkcs15_use_file_caching | default('no') }};
+    }
+}

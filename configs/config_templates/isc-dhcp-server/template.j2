@@ -1,50 +1,116 @@
-# ISC-DHCP-Server Configuration Template
+# dhcpd.conf
 #
-# This template generates a valid dhcpd.conf for the ISC DHCP Server.
-# It is self-documenting: every directive is commented with its schema description
-# and uses variables with safe defaults to prevent rendering errors.
+# Sample configuration file for ISC dhcpd
+#
 
-# Option: List of DNS servers to offer to DHCP clients.
-# Schema Description: List of DNS servers to offer to DHCP clients.
-# Default: ['8.8.8.8', '8.8.4.4']
-option domain-name-servers {{ DOMAIN_NAME_SERVERS | default(['8.8.8.8', '8.8.4.4']) | join(', ') }};
+# option definitions common to all supported networks...
+option domain-name "{{ domain_name | default('example.org') }}";
+option domain-name-servers {{ domain_name_servers | default('ns1.example.org, ns2.example.org') }};
 
-# Option: Domain name to offer to DHCP clients.
-# Schema Description: Domain name to offer to DHCP clients.
-# Default: 'example.com'
-option domain-name "{{ DOMAIN_NAME | default('example.com') }}";
+default-lease-time {{ default_lease_time | default(600) }};
+max-lease-time {{ max_lease_time | default(7200) }};
 
-# Option: Default router (gateway) to offer to DHCP clients.
-# Schema Description: Default router (gateway) to offer to DHCP clients.
-# Default: '192.168.1.1'
-option routers {{ ROUTERS | default('192.168.1.1') }};
+# The ddns-updates-style parameter controls whether or not the server will
+# attempt to do a DNS update when a lease is confirmed. We default to the
+# behavior of the version 2 packages ('none', since DHCP v2 didn't
+# have support for DDNS.)
+ddns-update-style {{ ddns_update_style | default('none') }};
 
-# Option: Subnet mask to offer to DHCP clients.
-# Schema Description: Subnet mask to offer to DHCP clients.
-# Default: '255.255.255.0'
-option subnet-mask {{ SUBNET_MASK | default('255.255.255.0') }};
+# If this DHCP server is the official DHCP server for the local
+# network, the authoritative directive should be uncommented.
+{% if authoritative is defined and authoritative is not none and (authoritative is number or authoritative is boolean or authoritative | length > 0) %}{{ '' if authoritative | bool else '#' }}authoritative;
+{% else %}#authoritative;
+{% endif %}
+# Use this to send dhcp log messages to a different log file (you also
+# have to hack syslog.conf to complete the redirection).
+#log-facility local7;
 
-# Range of IP addresses for dynamic allocation to clients.
-# Schema Description: Start of the IP address range for dynamic allocation.
-# Schema Description: End of the IP address range for dynamic allocation.
-# Defaults: '192.168.1.100', '192.168.1.200'
-range {{ RANGE_START | default('192.168.1.100') }} {{ RANGE_END | default('192.168.1.200') }};
+# No service will be given on this subnet, but declaring it helps the 
+# DHCP server to understand the network topology.
 
-# Style of DNS update mechanism for DDNS.
-# Schema Description: Style of DNS update (ad-hoc, interim, or none).
-# Default: 'ad-hoc'
-ddns-update-style {{ DDNS_UPDATE_STYLE | default('ad-hoc') }};
+#subnet 10.152.187.0 netmask 255.255.255.0 {
+#}
 
-# Default lease time in seconds for IP addresses.
-# Schema Description: Default lease time in seconds.
-# Default: 600
-default-lease-time {{ DEFAULT_LEASE_TIME | default(600) }};
+# This is a very basic subnet declaration.
 
-# Maximum lease time in seconds for IP addresses.
-# Schema Description: Maximum lease time in seconds.
-# Default: 7200
-max-lease-time {{ MAX_LEASE_TIME | default(7200) }};
+#subnet 10.254.239.0 netmask 255.255.255.224 {
+#  range 10.254.239.10 10.254.239.20;
+#  option routers rtr-239-0-1.example.org, rtr-239-0-2.example.org;
+#}
 
-# Authoritative mode: declare that the server is authoritative for the subnet.
-# This prevents the server from complaining about unknown clients.
-authoritative;
+# This declaration allows BOOTP clients to get dynamic addresses,
+# which we don't really recommend.
+
+#subnet 10.254.239.32 netmask 255.255.255.224 {
+#  range dynamic-bootp 10.254.239.40 10.254.239.60;
+#  option broadcast-address 10.254.239.31;
+#  option routers rtr-239-32-1.example.org;
+#}
+
+# A slightly different configuration for an internal subnet.
+#subnet 10.5.5.0 netmask 255.255.255.224 {
+#  range 10.5.5.26 10.5.5.30;
+#  option domain-name-servers ns1.internal.example.org;
+#  option domain-name "internal.example.org";
+#  option routers 10.5.5.1;
+#  option broadcast-address 10.5.5.31;
+#  default-lease-time 600;
+#  max-lease-time 7200;
+#}
+
+# Hosts which require special configuration options can be listed in
+# host statements.   If no address is specified, the address will be
+# allocated dynamically (if possible), but the host-specific information
+# will still come from the host declaration.
+
+#host passacaglia {
+#  hardware ethernet 0:0:c0:5d:bd:95;
+#  filename "vmunix.passacaglia";
+#  server-name "toccata.example.com";
+#}
+
+# Fixed IP addresses can also be specified for hosts.   These addresses
+# should not also be listed as being available for dynamic assignment.
+# Hosts for which fixed IP addresses have been specified can boot using
+# BOOTP or DHCP.   Hosts for which no fixed address is specified can only
+# be booted with DHCP, unless there is an address range on the subnet
+# to which a BOOTP client is connected which has the dynamic-bootp flag
+# set.
+#host fantasia {
+#  hardware ethernet 08:00:07:26:c0:a5;
+#  fixed-address fantasia.example.com;
+#}
+
+# You can declare a class of clients and then do address allocation
+# based on that.   The example below shows a case where all clients
+# in a certain class get addresses on the 10.17.224/24 subnet, and all
+# other clients get addresses on the 10.0.29/24 subnet.
+
+#class "foo" {
+#  match if substring (option vendor-class-identifier, 0, 4) = "SUNW";
+#}
+
+#shared-network 224-29 {
+#  subnet 10.17.224.0 netmask 255.255.255.0 {
+#    option routers rtr-224.example.org;
+#  }
+#  subnet 10.0.29.0 netmask 255.255.255.0 {
+#    option routers rtr-29.example.org;
+#  }
+#  pool {
+#    allow members of "foo";
+#    range 10.17.224.10 10.17.224.250;
+#  }
+#  pool {
+#    deny members of "foo";
+#    range 10.0.29.10 10.0.29.230;
+#  }
+#}
+{% for s in subnets | default([]) %}
+# Subnet {{ s.network }}/{{ s.netmask }} — written by Bossman from the role's `subnets`.
+subnet {{ s.network }} netmask {{ s.netmask }} {
+{% if s.range_start is defined and s.range_start %}  range {{ s.range_start }} {{ s.range_end | default(s.range_start) }};
+{% endif %}{% if s.routers is defined and s.routers %}  option routers {{ s.routers }};
+{% endif %}{% if s.dns_servers is defined and s.dns_servers %}  option domain-name-servers {{ s.dns_servers }};
+{% endif %}}
+{% endfor %}

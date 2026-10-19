@@ -1,21 +1,29 @@
 # Configuration file for yaws-chat
-# Self-documented template generated from schema.
-# Variables use explicit defaults to prevent render failures
-# when the role consumer omits optional settings.
+# This configuration file controls the Yaws Chat application behavior.
+# It uses a key=value syntax similar to INI files.
 
-# ebin_dir: Path to the directory where yaws-chat beam code is placed.
+# ebin_dir = <path>
+# Path to the directory where yaws-chat beam code is placed.
+# The daemon will add this directory to its search path.
 ebin_dir = {{ ebin_dir | default('/usr/lib/yaws-chat/ebin') }}
 
-# Virtual server definition for yaws-chat.
-# Uncomment and adjust the block below to enable the chat service.
+# Virtual Server Definition
+# To enable the chat server, uncomment the <server chat> block below
+# and configure the specific directives (port, listen, docroot).
+#
+<server chat>
+    # port = <number>
+    # Port number for the yaws-chat virtual server.
+    # If commented out, Yaws uses its default listening port for this virtual host.
+{% if port is defined and port is not none and (port is number or port is boolean or port | length > 0) %}    port = {{ port | default(8080) }}{% else %}# port = 8080{% endif %}
 
-#<server chat>
-    # port: Port number for the yaws-chat virtual server.
-    port = {{ port | default(8080) }}
+    # listen = <ip_address>
+    # IP address to listen on for the yaws-chat virtual server.
+    # If commented out, Yaws listens on all interfaces (0.0.0.0) or the server default.
+{% if listen is defined and listen is not none and (listen is number or listen is boolean or listen | length > 0) %}    listen = {{ listen | default('0.0.0.0') }}{% else %}# listen = 0.0.0.0{% endif %}
 
-    # listen: IP address to listen on for the yaws-chat virtual server.
-    listen = {{ listen | default('0.0.0.0') }}
-
-    # docroot: Document root for the yaws-chat virtual server.
-    docroot = {{ docroot | default('/usr/share/yaws-chat/www') }}
-#</server>
+    # docroot = <path>
+    # Document root for the yaws-chat virtual server.
+    # The directory where static files (HTML, CSS, JS) for the chat interface are stored.
+{% if docroot is defined and docroot is not none and (docroot is number or docroot is boolean or docroot | length > 0) %}    docroot = {{ docroot | default('/var/www/yaws-chat') }}{% else %}# docroot = /usr/share/yaws-chat/www{% endif %}
+</server>

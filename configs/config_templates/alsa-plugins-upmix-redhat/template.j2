@@ -1,0 +1,51 @@
+# ALSA Plugin Configuration: Upmix
+# This block configures the ALSA 'upmix' plugin, which converts audio from a lower channel count
+# (e.g., stereo) to a higher channel count (e.g., 5.1 or 7.1) by duplicating and mixing channels.
+pcm.upmix {
+	# Arguments definition for the upmix plugin.
+	# These allow dynamic configuration via ALSA's conf.d loading mechanism.
+	@args [ SLAVE CHANNELS DELAY ]
+
+	# SLAVE: The PCM device to which audio is sent after upmixing.
+	# Default: 'plug:hw' (automatically plugs to hardware device).
+	@args.SLAVE {
+		type string
+		default "{{ slave_pcm | default('plug:hw') }}"
+	}
+
+	# CHANNELS: The target number of channels for upmixing.
+	# Common values: 4 (quad), 6 (5.1 surround), 8 (7.1 surround).
+	@args.CHANNELS {
+		type integer
+		default {{ channels_count | default(6) }}
+	}
+
+	# DELAY: Artificial delay in milliseconds applied during upmixing.
+	# Usually 0 for standard playback; can be adjusted for specific acoustic alignments.
+	@args.DELAY {
+		type integer
+		default {{ delay_ms | default(0) }}
+	}
+
+	# Type of this PCM node: the upmix plugin.
+	type upmix
+
+	# The number of output channels, resolved from the CHANNELS argument.
+	channels $CHANNELS
+
+	# The delay in milliseconds, resolved from the DELAY argument.
+	delay $DELAY
+
+	# The slave PCM device, resolved from the SLAVE argument.
+	slave.pcm $SLAVE
+
+	# Hint information for ALSA's device discovery.
+	hint {
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+        # Human-readable description of the plugin, displayed in audio configuration tools.
+        description "{{ description | default('Plugin for channel upmix (4,6,8)') }}"
+	}
+}

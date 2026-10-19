@@ -48,7 +48,6 @@ Listen {{ listen_port | default(3128) }}
 {% if gateway | default(false) %}Gateway yes
 {% else %}Gateway no
 {% endif %}
-
 # NTLM authentication method: NTLMv2 (recommended), NTLM, NTLM2SR, LM, NT, or space-separated combination
 # Controls which hash types cntlm uses when communicating with upstream proxies.
 Auth {{ auth | default('NTLMv2') }}
@@ -66,8 +65,9 @@ Flags {{ flags | default('0x06820000') }}
 {% endfor %}
 
 # GFI WebMonitor-handling plugin parameters, disabled by default
-# ISAScannerSize {{ isa_scanner_size | default(1024) }}
-# ISAScannerAgent Wget/
+{% if isa_scanner_size is defined and isa_scanner_size is not none and (isa_scanner_size is number or isa_scanner_size is boolean or isa_scanner_size | length > 0) %}ISAScannerSize {{ isa_scanner_size | default(1024) }}
+{% else %}#ISAScannerSize     1024
+{% endif %}# ISAScannerAgent Wget/
 # ISAScannerAgent APT-HTTP/
 # ISAScannerAgent Yum/
 
@@ -81,7 +81,6 @@ SOCKS5Proxy {{ socks5_port | default(8010) }}
 # Format: username:password
 SOCKS5User {{ socks5_user | default('dave:password') }}
 {% endif %}
-
 # TCP port-forwarding tunnels routed through the corporate proxy (useful for non-HTTP protocols)
 # Format: local_port:remote_host:remote_port
 {% for tunnel in (tunnels | default(['11443:remote.com:443'])) %}Tunnel {{ tunnel }}

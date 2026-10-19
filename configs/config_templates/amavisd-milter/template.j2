@@ -4,13 +4,13 @@
 # 2011-01-26 Harald Jenny
 
 # The user should be the one amavisd-new is running as
-SYSTEMUSER={{ system_user | default('amavis') }}
+{% if system_user is defined and system_user is not none and (system_user is number or system_user is boolean or system_user | length > 0) %}SYSTEMUSER={{ system_user | default('amavis') }}{% else %}#SYSTEMUSER=amavis{% endif %}
 
 # Pidfile is placed in run-directory from amavisd-new
-PIDFILE={{ pidfile | default('/var/run/amavis/amavisd-milter.pid') }}
+{% if pidfile is defined and pidfile is not none and (pidfile is number or pidfile is boolean or pidfile | length > 0) %}PIDFILE={{ pidfile | default('/var/run/amavis/amavisd-milter.pid') }}{% else %}#PIDFILE=/var/run/amavis/amavisd-milter.pid{% endif %}
 
 # This is the default location of the milter socket
-MILTERSOCKET={{ milter_socket | default('/var/lib/amavis/amavisd-milter.sock') }}
+{% if milter_socket is defined and milter_socket is not none and milter_socket != '' %}MILTERSOCKET={{ milter_socket }}{% else %}#MILTERSOCKET=/var/lib/amavis/amavisd-milter.sock{% endif %}
 
 # If you want the milter daemon to listen on tcp please
 # use something like the next line:
@@ -22,22 +22,22 @@ MILTERSOCKET={{ milter_socket | default('/var/lib/amavis/amavisd-milter.sock') }
 # chrooted you may need a socket inside the chroot.
 # You will probably also need the options at the end of
 # this file!
-MILTERSOCKET={{ chroot_milter_socket | default('/var/spool/postfix/amavis/amavis.sock') }}
+{% if chroot_milter_socket is defined and chroot_milter_socket is not none and chroot_milter_socket != '' %}MILTERSOCKET={{ chroot_milter_socket }}{% else %}#MILTERSOCKET=/var/lib/amavis/amavisd-milter.sock{% endif %}
 
 # The default location of the amavisd-new socket
-AMAVISSOCKET={{ amavis_socket | default('/var/lib/amavis/amavisd.sock') }}
+{% if amavis_socket is defined and amavis_socket is not none and (amavis_socket is number or amavis_socket is boolean or amavis_socket | length > 0) %}AMAVISSOCKET={{ amavis_socket | default('/var/lib/amavis/amavisd.sock') }}{% else %}#AMAVISSOCKET=/var/lib/amavis/amavisd.sock{% endif %}
 
 # Here amavisd-milter stores the mails which should get
 # checked (needs to be changed when amavisd-new TEMPBASE
 # variable is modified!).
-WORKINGDIR={{ working_dir | default('/var/lib/amavis/tmp') }}
+{% if working_dir is defined and working_dir is not none and (working_dir is number or working_dir is boolean or working_dir | length > 0) %}WORKINGDIR={{ working_dir | default('/var/lib/amavis/tmp') }}{% else %}#WORKINGDIR=/var/lib/amavis/tmp{% endif %}
 
 # The parameters listed here will be passed directly to
 # amavisd-milter directly, please take a look at the
 # programs manpage for detailed infomation.
-EXTRAPARAMS="{{ extra_params | default('') }}"
+{% if extra_params is defined and extra_params is not none and (extra_params is number or extra_params is boolean or extra_params | length > 0) %}EXTRAPARAMS="{{ extra_params | default('') }}"{% else %}#EXTRAPARAMS=""{% endif %}
 
 # Set these two options if you want the socket to have
 # special permissions (usefull mainly for postfix).
-MILTERSOCKETOWNER="{{ milter_socket_owner | default('postfix:postfix') }}"
-MILTERSOCKETMODE="{{ milter_socket_mode | default('0660') }}"
+{% if milter_socket_owner is defined and milter_socket_owner is not none and (milter_socket_owner is number or milter_socket_owner is boolean or milter_socket_owner | length > 0) %}MILTERSOCKETOWNER="{{ milter_socket_owner | default('postfix:postfix') }}"{% else %}#MILTERSOCKETOWNER="postfix:postfix"{% endif %}
+{% if milter_socket_mode is defined and milter_socket_mode is not none and (milter_socket_mode is number or milter_socket_mode is boolean or milter_socket_mode | length > 0) %}MILTERSOCKETMODE="{{ milter_socket_mode | default('0660') }}"{% else %}#MILTERSOCKETMODE="0660"{% endif %}

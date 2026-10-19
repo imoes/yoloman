@@ -1,0 +1,47 @@
+[centpkg-sig]
+# Base URL for the lookaside cache (sources).
+lookaside = {{ lookaside | default('https://git.centos.org/sources') }}
+# Hash algorithm used for lookaside cache checksums.
+lookasidehash = {{ lookasidehash | default('sha512') }}
+# URL for the lookaside CGI upload script.
+lookaside_cgi = {{ lookaside_cgi | default('https://git.centos.org/sources/upload_sig.cgi') }}
+# Whether to use namespaced dist-git paths.
+distgit_namespaced = {{ distgit_namespaced | default(true) | lower }}
+# Comma-separated list of dist-git namespaces to use.
+distgit_namespaces = {{ distgit_namespaces | default('rpms') }}
+# Base URL for git repositories (SSH format), %(repo)s is substituted.
+gitbaseurl = {{ gitbaseurl | default('git@gitlab.com:CentOS/%(repo)s.git') }}
+# Anonymous HTTPS URL for git repositories, %(repo)s is substituted.
+anongiturl = {{ anongiturl | default('https://gitlab.com/CentOS/%(repo)s') }}
+# Regular expression for matching valid branch names.
+branchre = {{ branchre | default('c\\d+s?-sig-.+') }}
+# Koji profile identifier for build interactions.
+kojiprofile = {{ kojiprofile | default('cbs') }}
+# Build client tool to use.
+build_client = {{ build_client | default('cbs') }}
+# Whether to use namespaced lookaside cache paths.
+lookaside_namespaced = {{ lookaside_namespaced | default(true) | lower }}
+
+# Excluded files/directories for git tracking in source trees.
+git_excludes =
+  i386/
+  i686/
+  x86_64/
+  ppc/
+  ppc64/
+  ia64/
+  mips/
+  arm/
+  noarch/
+  /*.src.rpm
+  /build*.log
+  /.build-*.log
+  /*-build/
+  results_*/
+  clog
+
+[centpkg-sig.distgit]
+# Base URL for the dist-git API.
+apibaseurl = {{ apibaseurl | default('https://gitlab.com') }}
+# Authentication token for the dist-git API.
+token = {{ token | default('') }}

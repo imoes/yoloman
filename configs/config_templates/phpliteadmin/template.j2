@@ -1,24 +1,32 @@
-# phpLiteAdmin configuration template
-#
-# phpLiteAdmin is a single-file PHP-based database management tool for SQLite databases.
-# It is designed to be self-contained and does not require an external database server connection,
-# nor does it support dynamic configuration injection of database credentials at runtime via this
-# configuration mechanism. The configuration below defines Apache web-server directives to expose
-# the application files via an Alias.
+# phpLiteAdmin Configuration Template
+# This template configures the Apache web server directives for phpLiteAdmin.
+# It sets up the alias for the web interface and configures directory access rules.
 
+# Apache <IfModule> directive block.
+# Ensures that the Alias directive is only processed if the mod_php module is loaded.
+# This prevents errors if the server is running without PHP support.
 <IfModule mod_php.c>
-    # Alias directive: Maps the URL path /phpliteadmin to the local filesystem directory
-    # where phpLiteAdmin is installed.
-    # Variable: document_root (The absolute path to the phpLiteAdmin installation directory on the server filesystem.)
-    Alias /phpliteadmin {{document_root | default('/usr/share/phpliteadmin')}}
+    # Alias directive mapping the URL path /phpliteadmin to the server's filesystem.
+    # This makes the phpLiteAdmin application accessible via http://server/phpliteadmin.
+    #
+    # Variable: document_root
+    # Description: The absolute path to the phpLiteAdmin installation directory on the server filesystem.
+    # Default: /usr/share/phpliteadmin
+    Alias /phpliteadmin {{ document_root | default('/usr/share/phpliteadmin') }}
 </IfModule>
 
-<Directory {{document_root | default('/usr/share/phpliteadmin')}}>
-    # DirectoryIndex: Specifies the default file to serve when a directory is requested.
-    # Setting this ensures users land directly on the phpLiteAdmin interface.
+# Directory block for the phpLiteAdmin installation path.
+# This block applies specific directives to the directory where phpLiteAdmin files reside.
+# Default: /usr/share/phpliteadmin
+<Directory {{ document_root | default('/usr/share/phpliteadmin') }}>
+    # DirectoryIndex directive specifies the default file to serve when a directory is accessed.
+    # Setting it to 'phpliteadmin.php' allows users to access the admin interface directly
+    # by visiting the directory URL without specifying the filename.
     DirectoryIndex phpliteadmin.php
-    # DirectoryIndexRedirect: Controls how the server handles requests for directories that
-    # match the DirectoryIndex. 'permanent' sends a 301 Moved Permanently redirect to the
-    # URL including the index filename.
+
+    # DirectoryIndexRedirect directive controls how redirects are handled when the DirectoryIndex
+    # file is accessed. 'permanent' issues a 301 Moved Permanently status code.
+    # This ensures the URL in the browser's address bar reflects the actual file being served,
+    # improving SEO and user experience.
     DirectoryIndexRedirect permanent
 </Directory>

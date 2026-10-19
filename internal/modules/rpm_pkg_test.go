@@ -2,6 +2,8 @@ package modules
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -14,7 +16,9 @@ type fakeRPM struct {
 	// <binary> update -y <pkg> runs — simulating a real repo having a
 	// newer version available.
 	updateResult map[string]string
-	calls        []string
+	// unavailable lists packages no repository offers (`<binary> -q list --available` finds nothing).
+	unavailable map[string]bool
+	calls       []string
 }
 
 func (f *fakeRPM) runner(binary string) CommandRunner {
@@ -31,6 +35,12 @@ func (f *fakeRPM) runner(binary string) CommandRunner {
 			return []byte(v), nil
 		case binary:
 			pkg := args[len(args)-1]
+			if args[0] == "-q" && len(args) > 2 && args[1] == "list" {
+				if f.unavailable[pkg] {
+					return []byte("Error: No matching Packages to list\n"), exitStatus(1)
+				}
+				return []byte("Available Packages\n" + pkg + ".x86_64    1.0-1    appstream\n"), nil
+			}
 			switch args[0] {
 			case "install":
 				if v, ok := f.updateResult[pkg]; ok {
@@ -259,6 +269,109 @@ func TestRPMPackageManagers_SingleStringName(t *testing.T) {
 			}
 			if !res.Changed {
 				t.Error("expected changed=true with a single string name")
+			}
+		})
+	}
+}
+
+// A package file that could not be fetched (the error measured on an AlmaLinux e2e host). The module refreshes the
+// metadata once and retries; without that, one failed download or a replaced release fails the whole role.
+func TestRPMPackageManagers_StaleMetadataRefreshedOnceAndRetried(t *testing.T) {
+	stale := "dnf install -y openssh-server: exit status 1: [Errno 2] No such file or directory: " +
+		"'/var/cache/dnf/baseos-09b2e93483836b7c/packages/openssh-9.9p1-12.el9_8.alma.1.x86_64.rpm'"
+	for _, impl := range rpmModuleImpls() {
+		t.Run(impl.binary, func(t *testing.T) {
+			var calls []string
+			cleaned := false
+			impl.module.setRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+				calls = append(calls, name+" "+joinArgs(args))
+				switch {
+				case name == "rpm":
+					return nil, exitStatus(1)
+				case args[0] == "clean":
+					cleaned = true
+					return nil, nil
+				case args[0] == "install" && !cleaned:
+					return nil, fmt.Errorf("%s", stale)
+				}
+				return nil, nil
+			})
+			res, err := impl.module.Run(context.Background(), map[string]any{"name": []string{"openssh-server"}}, false)
+			if err != nil {
+				t.Fatalf("Run: %v (calls %v)", err, calls)
+			}
+			if !res.Changed {
+				t.Error("expected changed=true")
+			}
+			want := []string{impl.binary + " install -y openssh-server", impl.binary + " clean metadata",
+				impl.binary + " install -y openssh-server"}
+			got := []string{}
+			for _, c := range calls {
+				if !strings.HasPrefix(c, "rpm ") {
+					got = append(got, c)
+				}
+			}
+			if strings.Join(got, "|") != strings.Join(want, "|") {
+				t.Errorf("calls = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// Only stale metadata earns a retry: "no match" is the operator's typo, and a second stale failure is reported with
+// the fact that a refresh was already tried.
+func TestRPMPackageManagers_RetryOnlyOnceAndOnlyForStaleMetadata(t *testing.T) {
+	for _, impl := range rpmModuleImpls() {
+		t.Run(impl.binary, func(t *testing.T) {
+			n := 0
+			impl.module.setRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+				if name == "rpm" {
+					return nil, exitStatus(1)
+				}
+				n++
+				return nil, fmt.Errorf("Error: Unable to find a match: httpdd")
+			})
+			if _, err := impl.module.Run(context.Background(), map[string]any{"name": []string{"httpdd"}}, false); err == nil {
+				t.Fatal("expected an error")
+			}
+			if n != 1 {
+				t.Errorf("a non-stale failure ran %d commands, want 1 (no retry)", n)
+			}
+			n = 0
+			impl.module.setRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+				if name == "rpm" {
+					return nil, exitStatus(1)
+				}
+				n++
+				if args[0] == "clean" {
+					return nil, nil
+				}
+				return nil, fmt.Errorf("Status code: 404 for https://mirror/x.rpm")
+			})
+			_, err := impl.module.Run(context.Background(), map[string]any{"name": []string{"httpd"}}, false)
+			if err == nil || !strings.Contains(err.Error(), "failed again after refreshing") {
+				t.Fatalf("err = %v, want the second failure to say a refresh was tried", err)
+			}
+			if n != 3 {
+				t.Errorf("ran %d commands, want 3 (install, clean, install)", n)
+			}
+		})
+	}
+}
+
+// A preview fails where the real install would: no enabled repository offers the package.
+func TestRPM_DryRunRefusesAPackageNoRepositoryOffers(t *testing.T) {
+	for _, impl := range rpmModuleImpls() {
+		t.Run(impl.binary, func(t *testing.T) {
+			fake := &fakeRPM{installed: map[string]string{}, unavailable: map[string]bool{"scx-scheds": true}}
+			impl.module.setRunner(fake.runner(impl.binary))
+			_, err := impl.module.Run(context.Background(), map[string]any{"name": []string{"scx-scheds"}, "dry_run": true}, false)
+			if err == nil || !strings.Contains(err.Error(), "scx-scheds is not offered by any enabled repository") {
+				t.Fatalf("err = %v", err)
+			}
+			res, err := impl.module.Run(context.Background(), map[string]any{"name": []string{"httpd"}, "dry_run": true}, false)
+			if err != nil || res.Data.([]map[string]any)[0]["would_install_version"] != "1.0-1" {
+				t.Errorf("err=%v data=%v", err, res.Data)
 			}
 		})
 	}

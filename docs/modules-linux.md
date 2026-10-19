@@ -1,7 +1,7 @@
 # Linux modules — the Ansible-shaped action plane
 
 > **GENERATED** by `scripts/generate-module-docs.py` from what the agent itself publishes
-> (`GET /api/v1/tools` on `docker-test.test.ippen.media`), on 2026-08-28. Do not edit by hand: the next run
+> (`GET /api/v1/tools` on `host4.example.internal`), on 2026-10-18. Do not edit by hand: the next run
 > overwrites it, and the point of generating it is that this page cannot disagree with the agents.
 
 ## What this is
@@ -10,7 +10,7 @@ Every module this platform's agent exposes **right now**, with the parameters th
 declares. A module is the unit a runbook step, a console action and an MCP tool call all use — the same
 name, the same parameters, on every host of this platform.
 
-**84 modules**: 61 that change the host, 23 that only read it.
+**86 modules**: 64 that change the host, 22 that only read it.
 
 Two rules hold for all of them, and they are why the tables below are worth reading rather than
 skimming:
@@ -47,6 +47,7 @@ Cross-tool equivalents:
 |---|---|---|---|
 | `name` | array of string | yes | One or more package names, e.g. ["nginx"] or ["nginx", "curl=8.5.0-2ubuntu10"] (an "=version" suffix pins a specific version for state=present). |
 | `dry_run` | boolean | — | When true, report what would change without issuing any mutating apt-get command (check_mode). |
+| `lock_timeout` | integer | — | Seconds to wait for the dpkg lock held by another apt/dpkg run (Ansible's apt lock_timeout). Default 60. |
 | `state` | one of `present`, `absent`, `latest` | — | Desired package state. Default "present". |
 | `update_cache` | boolean | — | Whether to run `apt-get update` before evaluating package state. Default false. |
 
@@ -147,6 +148,7 @@ Cross-tool equivalents:
 | `chdir` | string | — | Optional working directory to run the command in. |
 | `cmd` | string | — | Plain command line, split on whitespace (no quoting), e.g. "systemctl daemon-reload". Mutually exclusive with argv. |
 | `dry_run` | boolean | — | When true, do not execute the command at all; report changed=true as a prediction only (check_mode). |
+| `env` | object | — | Extra environment variables for this one call, ADDED to the inherited environment (PATH/HOME stay intact). Values are passed through the process environment, not the command line, so they do not appear in `ps` output or a shell history — which is why an event handler's parameters travel this way. |
 
 ### `community.general.filesystem`
 
@@ -357,8 +359,8 @@ Cross-tool equivalents:
 
 | Parameter | Type | Required | What it means |
 |---|---|---|---|
-| `format` | one of `keyvalue`, `ini`, `json`, `yaml`, `xml`, `fstab`, `zonefile`, `exports`, `dhcpd` | yes | Config codec. |
-| `path` | string | yes | Config file path, e.g. /etc/ssh/sshd_config. |
+| `format` | one of `keyvalue`, `ini`, `json`, `yaml`, `xml`, `fstab`, `zonefile`, `exports`, `dhcpd`, `dirvalue` | yes | Config codec. `dirvalue` treats `path` as a DIRECTORY holding one file per setting (filename = key, contents = value) — Debian pure-ftpd's /etc/pure-ftpd/conf. |
+| `path` | string | yes | Config file path, e.g. /etc/ssh/sshd_config — or, for format=dirvalue, the directory, e.g. /etc/pure-ftpd/conf. |
 | `comment` | string | — | keyvalue comment marker (default "#"). |
 | `manage` | one of `merge`, `exact` | — | merge = set the given keys, keep the rest (default); exact = file holds exactly `values`. |
 | `separator` | string | — | keyvalue key/value separator (default " "; use "=" for key=value files). |
@@ -451,6 +453,20 @@ Cross-tool equivalents:
 | `dry_run` | boolean | — | When true, report what would change without applying it (check_mode). |
 | `unseen` | boolean | — | When true, also clear the question's "seen" flag so the package will prompt for it again if reconfigured. Default false. |
 | `vtype` | one of `string`, `boolean`, `select`, `multiselect`, `note`, `password` | — | Debconf value type. Default "string". |
+
+### `disk_move`
+
+Move a partition's raw block range to a new offset on the same block device — the copy half of a gparted-style 'Resize/Move'. Filesystem-agnostic: the same number of bytes is copied to a new start, so any filesystem survives (resize the filesystem separately if the size must change). Overlapping ranges are handled by copying BACKWARDS when the destination lies after the source, so nothing is overwritten before it is read. Long-running by nature, therefore asynchronous: action=start returns a job id and copies in the background (a request timeout cannot kill it), action=status reports {state, done_bytes, total_bytes, error}, action=cancel stops it. The caller is responsible for having the partition UNMOUNTED and for rewriting the partition table afterwards.
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `action` | one of `start`, `status`, `cancel` | yes | start a copy, poll its status, or cancel it |
+| `block_size` | integer | — | copy buffer in bytes (default 4 MiB) |
+| `device` | string | — | block device, e.g. /dev/sdb |
+| `dst_offset` | integer | — | destination start in BYTES |
+| `job_id` | string | — | status/cancel: the id from start |
+| `length` | integer | — | number of BYTES to copy |
+| `src_offset` | integer | — | source start in BYTES |
 
 ### `dnf`
 
@@ -690,6 +706,24 @@ Cross-tool equivalents:
 | `path` | string | — | Target known_hosts file. Default "/etc/ssh/ssh_known_hosts". |
 | `state` | one of `present`, `absent` | — | Whether the entry should be present or absent. Default "present". |
 
+### `kubectl`
+
+Run kubectl against the cluster this host's kubeconfig points at — the whole kubectl surface in one tool with a structured input. verb is the kubectl verb ("get", "apply", "delete", "scale", "rollout restart", "rollout undo", "logs", "describe", "cordon", "drain", …), resource/name/namespace address the object, manifest is a YAML/JSON document fed on stdin for apply/delete. Read verbs (get, describe, logs, top, events, api-resources, version, explain, diff, rollout status/history, auth can-i, and apply-dry-run = `apply --dry-run=server`, the server-side preview) run even in check_mode and report changed=false. Every other verb is mutating — write-gated, skipped under dry_run=true. apply is ALWAYS server-side apply with field manager "bossman" (--validate=strict), so the fields this tool set are visible in managedFields. `-o json` is added automatically for verbs that support it; the parsed object is returned as data.parsed. A non-zero exit code is returned as data (rc, stderr), not as an error — stderr is the reason the caller must show. Interactive verbs (exec, attach, port-forward, proxy, edit, debug) are refused. etcd is never touched: the API server is the only writer, and this tool only ever talks to it.
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `verb` | string | yes | The kubectl verb, e.g. "get", "apply", "apply-dry-run", "delete", "scale", "rollout restart", "rollout undo", "rollout status", "logs", "describe", "events", "cordon", "uncordon", "drain", "label", "annotate", "api-resources", "version". |
+| `all_namespaces` | boolean | — | List across all namespaces (-A). Only for list verbs; overrides namespace. |
+| `args` | array of string | — | Extra positional arguments and flags appended after the structured ones, e.g. ["--replicas=3"] for scale, ["--to-revision=2"] for rollout undo, ["--ignore-daemonsets"] for drain, ["-c","web","--tail=200","--previous"] for logs. |
+| `context` | string | — | kubeconfig context (--context). Default: the file's current-context. |
+| `dry_run` | boolean | — | When true, mutating verbs are reported but not executed (check_mode). Read verbs and apply-dry-run still run. |
+| `kubeconfig` | string | — | Path to a kubeconfig file (--kubeconfig). Default: KUBECONFIG or ~/.kube/config of the agent's user. |
+| `manifest` | string | — | A YAML or JSON document (one or more objects) fed to kubectl on stdin as `-f -`. Required for apply and apply-dry-run; optional for delete and diff. |
+| `name` | string | — | Object name. Omit to address every object of the resource type. |
+| `namespace` | string | — | Namespace (-n). Omit for cluster-scoped objects or to use the kubeconfig's default namespace. |
+| `output` | string | — | Output format (-o): "json" (default for verbs that support it), "yaml", "wide", "name", or "text" for kubectl's plain table/text output with no -o flag. |
+| `resource` | string | — | Resource type ("pods", "deployment", "deploy.apps", "configmap", …). Omit for apply/delete with a manifest and for verbs that take none (version, api-resources). |
+
 ### `lineinfile`
 
 Ensure a single line is present or absent in a text file, without rewriting the rest of the file — the classic 'make sure this one config line is set' operation (e.g. a sysctl setting, a single key=value pair, an /etc/hosts entry). If `regexp` is given, the first line matching it is replaced (state=present) or every matching line is removed (state=absent); without `regexp`, an exact line match is used. Idempotent — a repeat call with the same parameters reports changed=false. Supports check_mode via dry_run=true.
@@ -807,6 +841,7 @@ Alias of the command module under Ansible's bootstrap-execution module name. Rea
 | `chdir` | string | — | Optional working directory to run the command in. |
 | `cmd` | string | — | Plain command line, split on whitespace (no quoting), e.g. "systemctl daemon-reload". Mutually exclusive with argv. |
 | `dry_run` | boolean | — | When true, do not execute the command at all; report changed=true as a prediction only (check_mode). |
+| `env` | object | — | Extra environment variables for this one call, ADDED to the inherited environment (PATH/HOME stay intact). Values are passed through the process environment, not the command line, so they do not appear in `ps` output or a shell history — which is why an event handler's parameters travel this way. |
 
 ### `reboot`
 
@@ -889,6 +924,7 @@ Alias of the systemd module under Ansible's more commonly used generic module na
 | `name` | string | yes | Unit name, e.g. "nginx" or "nginx.service" (the .service suffix is added automatically if omitted). |
 | `dry_run` | boolean | — | When true, report what would change without issuing any mutating systemctl command (check_mode). |
 | `enabled` | boolean | — | Whether the unit should start at boot. Omit to leave the current enabled state untouched. |
+| `masked` | boolean | — | Whether the unit should be masked (cannot be started at all). false unmasks a unit the package installed masked (Debian's hostapd) before it is started. Omit to leave it untouched. |
 | `state` | one of `started`, `stopped`, `restarted`, `reloaded` | — | Desired running state. Omit to only manage "enabled" without touching running state. |
 
 ### `shell`
@@ -928,6 +964,27 @@ Cross-tool equivalents:
 | `force` | boolean | — | When true, discard any local modifications before updating (svn revert). Default false. |
 | `revision` | string | — | Revision to check out, e.g. "HEAD" or "1234". Default "HEAD". |
 
+### `swap`
+
+Read or manage swap areas (swap files and swap partitions). With no `path`: lists the ACTIVE areas from /proc/swaps — name, type, size and used bytes, priority. With `path` and state=present: creates the file if `size` is given and it is missing, runs mkswap if the area is not formatted yet, then swapon — each step skipped when already done, so it is idempotent. state=absent runs swapoff, and removes the file only if `remove_file` is set (never a partition).
+
+It does NOT edit /etc/fstab: that line belongs to the fstab codec (`config` with format=fstab), and two writers for one file produce duplicate entries. Pair the two when the swap should survive a reboot.
+
+Refuses to mkswap a block device that already carries a filesystem unless `force` is set — mkswap on a mounted-elsewhere disk destroys it.
+
+Cross-tool equivalents:
+- Ansible: no core module (community.general.filesystem + shell swapon).
+- Shell: swapon --show / mkswap / swapon / swapoff.
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `force` | boolean | — | Allow mkswap on a block device that already carries a filesystem. Default false. |
+| `path` | string | — | Swap file or partition, e.g. /swapfile or /dev/sdb2. Omit to read the active areas. |
+| `priority` | integer | — | swapon priority (-1..32767). Higher is used first. Omitted = kernel default. |
+| `remove_file` | boolean | — | With state=absent, also delete the swap FILE after swapoff. Never deletes a partition. Default false: swapping off is reversible, deleting is not. |
+| `size` | string | — | Size for a swap FILE that does not exist yet, e.g. "2G" or "512M". Ignored for a partition and for a file that already exists — this module never resizes an area in place, because that means swapoff first and dropping pages of live memory. |
+| `state` | one of `present`, `absent` | — | present = formatted and active; absent = swapped off. Default present when `path` is given. |
+
 ### `systemd`
 
 Manage a systemd unit's running state (start/stop/restart/reload) and its enabled-at-boot state. Idempotent: queries `systemctl is-active`/`is-enabled` first and only issues a mutating systemctl command when the current state differs from the desired one — except state=restarted/reloaded, which Ansible (and this module) always treat as changed, since a restart is inherently an action rather than a state comparison. Supports check_mode via dry_run=true (queries current state but issues no systemctl mutation).
@@ -944,6 +1001,7 @@ Cross-tool equivalents:
 | `name` | string | yes | Unit name, e.g. "nginx" or "nginx.service" (the .service suffix is added automatically if omitted). |
 | `dry_run` | boolean | — | When true, report what would change without issuing any mutating systemctl command (check_mode). |
 | `enabled` | boolean | — | Whether the unit should start at boot. Omit to leave the current enabled state untouched. |
+| `masked` | boolean | — | Whether the unit should be masked (cannot be started at all). false unmasks a unit the package installed masked (Debian's hostapd) before it is started. Omit to leave it untouched. |
 | `state` | one of `started`, `stopped`, `restarted`, `reloaded` | — | Desired running state. Omit to only manage "enabled" without touching running state. |
 
 ### `systemd_service`
@@ -955,6 +1013,7 @@ Alias of the systemd module under Ansible's newer, systemd-specific generic modu
 | `name` | string | yes | Unit name, e.g. "nginx" or "nginx.service" (the .service suffix is added automatically if omitted). |
 | `dry_run` | boolean | — | When true, report what would change without issuing any mutating systemctl command (check_mode). |
 | `enabled` | boolean | — | Whether the unit should start at boot. Omit to leave the current enabled state untouched. |
+| `masked` | boolean | — | Whether the unit should be masked (cannot be started at all). false unmasks a unit the package installed masked (Debian's hostapd) before it is started. Omit to leave it untouched. |
 | `state` | one of `started`, `stopped`, `restarted`, `reloaded` | — | Desired running state. Omit to only manage "enabled" without touching running state. |
 
 ### `sysvinit`
@@ -1203,41 +1262,6 @@ Cross-tool equivalents:
 
 ## Read-only modules
 
-### `checkmk.lnx_if`
-
-Interface %s
-
-| Parameter | Type | Required | What it means |
-|---|---|---|---|
-| `crit` | string | — | crit (from the check's parameters). |
-| `warn` | string | — | warn (from the check's parameters). |
-
-### `checkmk.systemd_units_services`
-
-Systemd Service %s
-
-| Parameter | Type | Required | What it means |
-|---|---|---|---|
-| `active_since_lower` | string | — | active_since_lower (from the check's parameters). |
-| `active_since_upper` | string | — | active_since_upper (from the check's parameters). |
-| `cpu_time` | string | — | cpu_time (from the check's parameters). |
-| `descriptions` | array of string | — | descriptions (from the check's parameters). |
-| `else` | string | — | else (from the check's parameters). |
-| `memory` | string | — | memory (from the check's parameters). |
-| `names` | array of string | — | names (from the check's parameters). |
-| `states` | array of string | — | states (from the check's parameters). |
-| `states_default` | string | — | states_default (from the check's parameters). |
-| `unit_type` | string | — | unit_type (from the check's parameters). |
-
-### `checkmk.systemd_units_services_summary`
-
-Systemd Service Summary
-
-| Parameter | Type | Required | What it means |
-|---|---|---|---|
-| `disabled_critical` | boolean | — | disabled_critical (from the check's parameters). |
-| `ignored` | array of string | — | ignored (from the check's parameters). |
-
 ### `community.general.zfs_facts`
 
 Gather facts about ZFS datasets
@@ -1373,6 +1397,29 @@ Companion to the `journal` module (journald); together they give the operator a 
 | `regex` | boolean | — | For state=read: interpret `grep` as an extended regular expression (like grep -E) instead of a plain substring. |
 | `state` | string | — | "list" (default) enumerates log files; "read" tails one file. |
 
+### `manpage`
+
+Search and read the manual pages installed on this host (the documentation of the versions that actually run here). Read-only.
+
+How to use it, in two steps:
+1. SEARCH: `query` with a few keywords (e.g. "ssh daemon", "crontab", "nftables") matches page names and their one-line NAME summaries, like apropos. Add `full_text: true` to search inside the pages too (slower; returns the matching lines) — use it for an option or directive name ("PermitRootLogin", "max_connections").
+2. READ: `page` (+ optional `section`, e.g. "5" for file formats, "8" for daemons/admin commands, "1" for user commands) returns the page as plain text. Narrow it with `heading` (e.g. "OPTIONS", "FILES", "EXAMPLES") or `grep` (a word; only the paragraphs containing it), and `max_chars`.
+
+If the host has no manual pages installed (common in container images, which exclude /usr/share/man), the result says so in `note` instead of returning an empty list.
+
+Cross-tool equivalents: `apropos`/`man -k` (search), `man -K` (full text), `man <section> <page>` (read).
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `full_text` | boolean | — | Also search inside the pages and return matching lines (slower). |
+| `grep` | string | — | When reading: return only the paragraphs containing this word. |
+| `heading` | string | — | When reading: return only this section of the page, e.g. "OPTIONS". |
+| `limit` | integer | — | When searching: at most this many results (default 20). |
+| `max_chars` | integer | — | When reading: cut the text at this many characters (default 12000). |
+| `page` | string | — | A page to read, e.g. "sshd_config". Takes precedence over query. |
+| `query` | string | — | Search words (all must match, case-insensitive), e.g. "ssh daemon". Searches page names and NAME summaries. |
+| `section` | string | — | Manual section to restrict to, e.g. "5" (file formats) or "8" (administration). |
+
 ### `package_facts`
 
 Enumerate every package installed on the host (name, version, architecture). Uses dpkg on Debian/Ubuntu and falls back to rpm on RHEL/Fedora-family systems. Takes no parameters — it always returns the full list; filter client-side for a specific package. Use this to check whether a desired package is already at the right version before deciding to call the write-gated `apt`/`package` module.
@@ -1386,6 +1433,22 @@ Cross-tool equivalents:
 
 _Takes no parameters._
 
+### `package_search`
+
+Search THIS host's configured repositories for installable packages — the read side of the package manager, answering "what could I install?" as `package_facts` answers "what is installed?". Family-agnostic: apt-cache (Debian/Ubuntu), dnf/dnf5/yum (RHEL family), zypper (SUSE), checked in that order. Returns {name, summary} per match, capped by `limit` (default 50) with `truncated` saying whether more exist — a search box must not stream thousands of rows.
+
+Read-only: it issues query commands only, never refreshes the package cache and never takes the package-manager lock, so it also works on a write-gated host.
+
+Cross-tool equivalents:
+- Ansible: no core equivalent (package_facts covers installed only).
+- Shell: apt-cache search / dnf search / zypper search.
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `query` | string | yes | Substring to search for, matched against package names and summaries. |
+| `limit` | integer | — | Maximum matches to return (default 50, max 500). `truncated` in the result says whether the repositories held more. |
+| `names_only` | boolean | — | Match only package NAMES, not summaries. Default false. A UI search box wants the broad match; a name resolver wants this. |
+
 ### `ping`
 
 Trivial connectivity/health check — call it to confirm this agent is reachable and responding. Takes no parameters, always succeeds, returns {"ping": "pong"}.
@@ -1398,6 +1461,22 @@ Cross-tool equivalents:
 - Terraform: not applicable — Terraform has no live-connectivity health-check primitive of its own.
 
 _Takes no parameters._
+
+### `service_diagnose`
+
+Explain why a service (systemd unit) does not run. Returns a Diagnosis: EVIDENCE (each measurement with a stable id — systemd:show:<unit>, journal:<cursor>, file:stat:<path>, user:getent:<user>), FINDINGS (a rule from configs/diagnosis_rules.json, a claim, a certainty Proven/Likely/Unknown, the evidence ids it rests on), a timeline and named gaps. Deterministic and read-only: no model is involved and nothing is changed. A unit that is not running always gets a finding — svc.unexplained (Unknown, naming what could not be measured) when no rule matches. Rules: masked, unit missing, 203/EXEC program missing, 217/USER account missing, state/credential directories, a failed required unit (the deepest failed link), timeout, crash, OOM kill, start limit, unmet conditions, the program's own exit code, and causes read from the journal (config invalid/incomplete, peer or network unreachable, needs initialisation, device missing, container limit — these Likely).
+
+Parameters: name (the unit, "nginx" or "nginx.service"), include_snapshot (also return the raw snapshot the rules saw).
+
+Cross-tool equivalents:
+- Ansible: none — `systemctl status`/`journalctl` via command and reading by hand.
+- Chef/Puppet/Salt: none; their service resources report failure, not its cause.
+- Terraform: not applicable.
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `name` | string | yes | The systemd unit to diagnose, e.g. "nginx" or "nginx.service". |
+| `include_snapshot` | boolean | — | Also return the snapshot the rules evaluated (systemctl properties, journal lines). |
 
 ### `service_facts`
 
@@ -1505,14 +1584,4 @@ Cross-tool equivalents:
 | `sleep` | string | — | Seconds between checks. Default "1". |
 | `state` | one of `started`, `stopped`, `present`, `absent` | — | Condition to wait for. Default "started". |
 | `timeout` | string | — | Maximum seconds to wait before failing. Default "300", capped at 600. |
-
-### `yoloman.agent_selfcheck`
-
-Agent self-check
-
-| Parameter | Type | Required | What it means |
-|---|---|---|---|
-| `crit_ms` | string | — | Crit when it takes at least this many milliseconds. |
-| `port` | string | — | The agent's own listening port on this host. 8051 is the Go agent's default; the Windows agent is often on 8451. |
-| `warn_ms` | string | — | Warn when the local connection to the agent's port takes at least this many milliseconds. |
 

@@ -1,42 +1,43 @@
-# SPIP (Site Internet en Protocole Ouvert) configuration template.
-# This template generates an Apache virtual-host snippet for the SPIP application.
-# It configures URL aliasing and filesystem directory access controls.
+# Apache configuration for SPIP (Simple Pour Internet Publieur)
+# This template configures URL aliases and directory access controls for the SPIP application.
 
-# --- URL Alias Configuration ---
+# --- URL Aliases ---
 
-# Alias /spip <path>
-# desc: The URL path alias for the SPIP application.
-# default: /usr/share/spip
+# Sets the URL path alias for the SPIP application.
+# The Alias directive maps a URL path to a filesystem directory.
+# Default: '/usr/share/spip'
 Alias /spip {{ spip_alias_path | default('/usr/share/spip') }}
 
-# --- Directory: Web Root ---
+# --- Directory Access Controls ---
 
-# <Directory <path>>
-# desc: The filesystem path to the SPIP web root directory.
-# default: /usr/share/spip
+# Configures access controls for the main SPIP web root directory.
+# Ensures symbolic links are followed and allows Apache overrides via .htaccess.
+# Default path: '/usr/share/spip'
 <Directory {{ spip_document_root | default('/usr/share/spip') }}>
-	# Follow symbolic links within this directory
-	Options +FollowSymLinks
-	# Allow .htaccess overrides (e.g., for security rules, rewrites)
-	AllowOverride All
-	# Grant access to all users (Apache 2.4 syntax)
-	Require all granted
+    # Enable following symbolic links within this directory.
+    Options +FollowSymLinks
+
+    # Allow .htaccess files to override configuration directives.
+    AllowOverride All
+
+    # Grant access to all clients (access control is often handled by PHP/Auth elsewhere).
+    Require all granted
 </Directory>
 
-# --- Directory: Sites Data (Protected) ---
+# --- Data Directory Protection ---
 
-# <Directory <path>>
-# desc: The filesystem path to the SPIP sites data directory that requires protection.
-# default: /var/lib/spip/sites
+# Configures access controls for the SPIP sites data directory.
+# This directory typically contains sensitive data and must be protected from direct web access.
+# Default path: '/var/lib/spip/sites'
 <Directory {{ spip_sites_path | default('/var/lib/spip/sites') }}>
-	# Do NOT follow symbolic links (security best practice for data dirs)
-	Options -FollowSymLinks
-	# Prevent .htaccess overrides to ensure strict enforcement
-	AllowOverride None
-	# Note: The original template uses 'Require all granted' here as well.
-	# Typically, data directories should be 'Require all denied' to prevent
-	# direct web access to sensitive files. If this directive is intentionally
-	# open for specific PHP include mechanisms, leave as is. Otherwise,
-	# consider changing to 'Require all denied'.
-	Require all granted
+    # Disable following symbolic links for security.
+    Options -FollowSymLinks
+
+    # Prevent .htaccess overrides to ensure security settings cannot be bypassed locally.
+    AllowOverride None
+
+    # Restrict access. Note: 'Require all granted' is kept from original template,
+    # but in a production security-hardened setup, this should likely be 'Require all denied'
+    # or restricted to specific IPs/users.
+    Require all granted
 </Directory>

@@ -1,23 +1,22 @@
-# mobian-archive-keyring configuration
-# This file defines the trusted APT repositories and their signing keys for the Mobian distribution.
-# It is consumed by scripts or APT sources management tools to ensure package integrity and availability.
+# APT source list configuration for the Mobian operating system repository.
+# This file is managed by Ansible. Do not edit manually.
 
-# Types: default=['deb', 'deb-src']  desc='List of repository types (e.g., deb, deb-src).'
-# Defines which types of package lists (binary and source) to retrieve.
-Types: {{ types | default(['deb', 'deb-src']) }}
+# List of repository types to enable.
+# Valid values are 'deb' for binary packages and 'deb-src' for source packages.
+Type: {{ types | default(['deb', 'deb-src']) | join(' ') }}
 
-# URIs: default=['https://repo.mobian.org/']  desc='List of repository URIs.'
-# The base URLs where the package repositories are hosted.
-URIs: {{ uris | default(['https://repo.mobian.org/']) }}
+# List of repository URIs.
+# These are the base URLs from which the package lists are fetched.
+URI: {{ uris | default(['https://repo.mobian.org/']) | join(' ') }}
 
-# Suites: default=['trixie']  desc='List of repository suites (e.g., trixie, bookworm).'
-# The distribution codenames/suites to track within the repository URIs.
-Suites: {{ suites | default(['trixie']) }}
+# List of repository suites.
+# The suite name corresponds to the Debian release codename (e.g., trixie, bookworm).
+Suite: {{ suites | default(['trixie']) | join(' ') }}
 
-# Components: default=['main']  desc='List of repository components (e.g., main, contrib, non-free).'
-# The repository components (sections) to enable within the suites.
-Components: {{ components | default(['main']) }}
+# List of repository components.
+# Components define the sections of the repository (e.g., main, contrib, non-free).
+Component: {{ components | default(['main']) | join(' ') }}
 
-# Signed-By: default='/usr/share/keyrings/mobian-archive-keyring.gpg'  desc='Path to the GPG keyring file used to sign the repository.'
-# Path to the GPG keyring file containing the public keys used to verify repository signatures.
+# Path to the GPG keyring file used to sign the repository.
+# This key is used to verify the authenticity of the package lists.
 Signed-By: {{ signed_by | default('/usr/share/keyrings/mobian-archive-keyring.gpg') }}

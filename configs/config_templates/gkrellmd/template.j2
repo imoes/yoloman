@@ -5,10 +5,10 @@
 # derived from the schema definition.
 
 # IP address to bind the GKrellM server daemon to. Use '0.0.0.0' to listen on all interfaces.
-address {{ bind_address | default('127.0.0.1') }}
+{% if bind_address is defined and bind_address is not none and (bind_address is number or bind_address is boolean or bind_address | length > 0) %}address {{ bind_address | default('127.0.0.1') }}{% else %}#address 127.0.0.1{% endif %}
 
 # TCP port on which gkrellmd will listen for client connections.
-port {{ bind_port | default(19150) }}
+{% if bind_port is defined and bind_port is not none and (bind_port is number or bind_port is boolean or bind_port | length > 0) %}port {{ bind_port | default(19150) }}{% else %}#port 19150{% endif %}
 
 # List of hosts allowed to connect. Use '0.0.0.0/0' or '*' for all hosts (not recommended).
 {% for host in allow_hosts | default(['localhost', '127.0.0.1', '::ffff:127.0.0.1']) %}

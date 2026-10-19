@@ -1,0 +1,50 @@
+# /etc/pam.d/rsh
+#
+# PAM configuration for the RSH (Remote Shell) service.
+#
+# SECURITY WARNING: The RSH protocol is UNENCRYPTED and transmits credentials
+# in cleartext. It is considered deprecated and insecure. Prefer SSH.
+# If RSH must be used, ensure it is restricted to trusted networks and
+# users via /etc/hosts.equiv or /etc/shosts.equiv and strict firewall rules.
+
+# Standard PAM header.
+#%PAM-1.0
+
+# Authentication phase:
+# 1. Check if the system is in single-user or maintenance mode (nologin).
+#    - This prevents non-root logins when /etc/nologin exists.
+#    - Root is typically exempt from this check depending on PAM module version/config.
+auth       required     pam_nologin.so
+
+# 2. Check if the terminal is listed in /etc/securetty.
+#    - RSH connections are not on a "secure" tty by default.
+#    - For root to login via RSH, "rexec" (or "rsh") must be added to /etc/securetty.
+#    - See: man 5 securetty
+auth       required     pam_securetty.so
+
+# 3. Initialize environment variables.
+auth       required     pam_env.so
+
+# 4. Include the common password authentication stack (defined in /etc/pam.d/password-auth).
+#    - This handles password verification, account expiration, etc.
+#    - Uses the distribution's default auth configuration.
+auth       include      password-auth
+
+# Account phase:
+# 5. Include the common account management stack.
+#    - Checks for account validity, locks, etc.
+account    include      password-auth
+
+# Session phase:
+# 6. Initialize the user's session keyring (if applicable) and revoke old keys.
+#    - 'force' ensures initialization even if already initialized.
+#    - 'revoke' clears any existing session keys to prevent leakage.
+session    optional     pam_keyinit.so    force revoke
+
+# 7. Set the login UID for auditing purposes.
+#    - Essential for tracking who ran the session.
+session    required     pam_loginuid.so
+
+# 8. Include the common session management stack (defined in /etc/pam.d/password-auth).
+#    - Handles session opening/closing tasks like mounting home dirs, logging, etc.
+session    include      password-auth

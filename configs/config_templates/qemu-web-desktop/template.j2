@@ -1,0 +1,65 @@
+# =============================================================================
+# qwd cgi configuration for perl
+# =============================================================================
+#
+# This configuration block sets up Apache to handle CGI scripts for
+# qemu-web-desktop, specifically Perl-based scripts, and serves the
+# associated HTML desktop interface.
+#
+
+# Load necessary Apache modules for Perl CGI execution.
+LoadModule perl_module modules/mod_perl.so
+LoadModule cgi_module  modules/mod_cgi.so
+
+# =============================================================================
+# CGI Script Location Block
+# =============================================================================
+# Defines the URL path where the Perl CGI script is accessible.
+# Uses the schema default for the CGI path if not explicitly provided.
+# =============================================================================
+<Location /{{ qwd_cgi_path | default('cgi-bin/qemu-web-desktop.pl') }}|default('cgi-bin/qemu-web-desktop.pl') }}>
+    # Set the handler to process this location as a Perl script via ModPerl.
+    SetHandler perl-script
+    PerlResponseHandler ModPerl::Registry
+    PerlOptions +ParseHeaders
+
+    # Associate .pl and .cgi file extensions with the perl-script handler.
+    AddHandler perl-script .pl
+    AddHandler perl-script .cgi
+
+    # Enable CGI execution options for this location.
+    Options   +ExecCGI
+
+    # =============================================================================
+    # User/Group Assignment (MPM ITK)
+    # =============================================================================
+    # If the mpm_itk_module is loaded, assign a specific user and group
+    # for the CGI process to run under. This isolates the service from
+    # other Apache processes.
+    # =============================================================================
+    <IfModule mpm_itk_module>
+        # Assign the user defined in qwd_user for CGI execution.
+        AssignUserIDExpr _{{ qwd_user | default('qemu-web-desktop') }}
+        # Assign the group defined in qwd_group for CGI execution.
+        AssignGroupIDExpr {{ qwd_group | default('kvm') }}
+    </IfModule>
+</Location>
+
+# =============================================================================
+# HTML Desktop Alias & Directory
+# =============================================================================
+# Maps a URL alias to the filesystem directory containing the HTML desktop
+# files. Ensures proper options are set for directory listing and server-side
+# includes if needed.
+# =============================================================================
+
+# Define the alias mapping: URL path to filesystem path.
+Alias /{{ qwd_alias | default('qemu-web-desktop') }} {{ qwd_document_root | default('/usr/share/qemu-web-desktop/html/desktop') }}
+
+# Configure the directory access and options for the HTML root.
+<Directory {{ qwd_document_root | default('/usr/share/qemu-web-desktop/html/desktop') }}>
+    # Enable Server-Side Includes (SSI).
+    Options +Includes
+    # Configure the output filter for SSI processing on HTML files.
+    AddOutputFilter INCLUDES .html
+</Directory>

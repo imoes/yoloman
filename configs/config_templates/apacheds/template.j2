@@ -1,0 +1,1191 @@
+# =========================================================================
+# ApacheDS (Apache Directory Server) Configuration
+# =========================================================================
+# This file configures the core directory service, partitions, interceptors,
+# authenticators, password policies, and transport servers (LDAP, LDAPS, Kerberos, HTTP).
+# It is an LDIF-style configuration structure expected by ApacheDS.
+# =========================================================================
+
+# --- Version and Root Configuration ---
+version: 1
+dn: ou=config
+ou: config
+objectclass: top
+objectclass: organizationalUnit
+
+# --- Directory Service Core Settings ---
+# These settings control the global behavior of the directory server instance.
+dn: ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-directoryService
+ads-directoryserviceid: default
+# Replica ID for the directory service.
+ads-dsreplicaid: {{ ads_ds_replica_id | default('1') }}
+# Synchronization period in milliseconds.
+ads-dssyncperiodmillis: {{ ads_ds_sync_period_millis | default('15000') }}
+# Whether passwords are hidden in logs/attributes.
+ads-dsPasswordHidden: {{ ads_ds_password_hidden | default('FALSE') }}
+# Allow anonymous access to the directory.
+ads-dsallowanonymousaccess: {{ ads_ds_allow_anonymous_access | default('TRUE') }}
+# Enable access control interceptors.
+ads-dsaccesscontrolenabled: {{ ads_ds_access_control_enabled | default('FALSE') }}
+# Enable denormalization of operational attributes.
+ads-dsdenormalizeopattrsenabled: {{ ads_ds_denormalize_op_attrsenabled | default(False) }}
+# Enable the directory service itself.
+ads-enabled: {{ ads_enabled | default(True) }}
+
+# --- Change Log Configuration ---
+# Tracks changes to the directory for replication or auditing.
+dn: ads-changeLogId=defaultChangeLog,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-changeLog
+ads-changeLogId: defaultChangeLog
+# Expose the change log to external consumers.
+ads-changeLogExposed: {{ ads_changelog_exposed | default('FALSE') }}
+# Enable the change log functionality.
+ads-enabled: {{ ads_changelog_enabled | default(False) }}
+
+# --- Journal Configuration ---
+# Persistent journal for transactional integrity.
+dn: ads-journalId=defaultJournal,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-journal
+ads-journalId: defaultJournal
+# Name of the journal file.
+ads-journalFileName: {{ ads_journal_file_name | default('Journal.txt') }}
+# Working directory for the journal.
+ads-journalWorkingDir: {{ ads_journal_working_dir | default('/') }}
+# Number of journal rotations to keep.
+ads-journalRotation: {{ ads_journal_rotation | default('2') }}
+# Enable the journal functionality.
+ads-enabled: {{ ads_journal_enabled | default(False) }}
+
+# --- Interceptors Section ---
+# Interceptors process requests/responses. They are ordered by `ads-interceptororder`.
+dn: ou=interceptors,ads-directoryServiceId=default,ou=config
+ou: interceptors
+objectclass: organizationalUnit
+objectclass: top
+
+# Normalization Interceptor (Order 1)
+# Normalizes RDN attributes (e.g., case folding).
+dn: ads-interceptorId=normalizationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 1
+ads-interceptorclassname: org.apache.directory.server.core.normalization.NormalizationInterceptor
+ads-interceptorid: normalizationInterceptor
+# Enable the normalization interceptor.
+ads-enabled: {{ ads_interceptor_normalization_enabled | default(True) }}
+
+# Authentication Interceptor (Order 2)
+# Handles bind/unbind operations and delegates to authenticators.
+dn: ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+objectclass: ads-authenticationInterceptor
+ads-interceptororder: 2
+ads-interceptorclassname: org.apache.directory.server.core.authn.AuthenticationInterceptor
+ads-interceptorid: authenticationInterceptor
+# Enable the authentication interceptor.
+ads-enabled: {{ ads_interceptor_authentication_enabled | default(True) }}
+
+# --- Authenticators Section ---
+# Configured under the authentication interceptor.
+dn: ou=authenticators,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+ou: authenticators
+objectclass: top
+objectclass: organizationalUnit
+
+# Anonymous Authenticator
+# Allows anonymous binds.
+dn: ads-authenticatorid=anonymousauthenticator,ou=authenticators,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+ads-authenticatorid: anonymousauthenticator
+objectclass: top
+objectclass: ads-base
+objectClass: ads-authenticator
+objectClass: ads-authenticatorImpl
+ads-authenticatorClass: org.apache.directory.server.core.authn.AnonymousAuthenticator
+# Base DN for anonymous authenticator.
+ads-baseDn: {{ ads_anonymous_auth_base_dn | default('') }}
+# Enable the anonymous authenticator.
+ads-enabled: {{ ads_anonymous_auth_enabled | default(True) }}
+
+# Simple Authenticator
+# Handles simple username/password binds.
+dn: ads-authenticatorid=simpleauthenticator,ou=authenticators,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+ads-authenticatorid: simpleauthenticator
+objectclass: top
+objectclass: ads-base
+objectClass: ads-authenticator
+objectClass: ads-authenticatorImpl
+ads-authenticatorClass: org.apache.directory.server.core.authn.SimpleAuthenticator
+# Base DN for simple authenticator.
+ads-baseDn: {{ ads_simple_auth_base_dn | default('') }}
+# Enable the simple authenticator.
+ads-enabled: {{ ads_simple_auth_enabled | default(True) }}
+
+# Strong Authenticator
+# Handles certificate-based or other strong authentication.
+dn: ads-authenticatorid=strongauthenticator,ou=authenticators,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+ads-authenticatorid: strongauthenticator
+objectclass: top
+objectclass: ads-base
+objectClass: ads-authenticator
+objectClass: ads-authenticatorImpl
+ads-authenticatorClass: org.apache.directory.server.core.authn.StrongAuthenticator
+# Base DN for strong authenticator.
+ads-baseDn: {{ ads_strong_auth_base_dn | default('') }}
+# Enable the strong authenticator.
+ads-enabled: {{ ads_strong_auth_enabled | default(True) }}
+
+# Delegating Authenticator
+# Delegates authentication to another server.
+dn: ads-authenticatorid=delegatingauthenticator,ou=authenticators,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+ads-authenticatorid: delegatingauthenticator
+objectclass: top
+objectclass: ads-base
+objectClass: ads-authenticator
+objectClass: ads-authenticatorImpl
+ads-authenticatorClass: org.apache.directory.server.core.authn.DelegatingAuthenticator
+# Base DN for delegating authenticator.
+ads-baseDn: {{ ads_delegating_auth_base_dn | default('') }}
+# Enable the delegating authenticator.
+ads-enabled: {{ ads_delegating_auth_enabled | default(False) }}
+
+# --- Password Policies Section ---
+# Password policies are applied to users in the directory.
+dn: ou=passwordPolicies,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectClass: organizationalUnit
+objectClass: top
+ou: passwordPolicies
+
+# Default Password Policy
+dn: ads-pwdId=default,ou=passwordPolicies,ads-interceptorId=authenticationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectClass: top
+objectClass: ads-base
+objectClass: ads-passwordPolicy
+ads-pwdId: default
+# Safe modify for passwords (prevents bypassing password change logic).
+ads-pwdSafeModify: {{ ads_pwd_safe_modify | default('FALSE') }}
+# Maximum password age in seconds (0 = no limit).
+ads-pwdMaxAge: {{ ads_pwd_max_age | default('0') }}
+# Failure count interval in seconds (window for lockout check).
+ads-pwdFailureCountInterval: {{ ads_pwd_failure_count_interval | default('30') }}
+# Attribute holding the password.
+ads-pwdAttribute: {{ ads_pwd_attribute | default('userPassword') }}
+# Maximum password failures before lockout.
+ads-pwdMaxFailure: {{ ads_pwd_max_failure | default('5') }}
+# Enable password lockout.
+ads-pwdLockout: {{ ads_pwd_lockout | default('TRUE') }}
+# Password must change on next login.
+ads-pwdMustChange: {{ ads_pwd_must_change | default('FALSE') }}
+# Lockout duration in seconds (0 = permanent).
+ads-pwdLockoutDuration: {{ ads_pwd_lockout_duration | default('0') }}
+# Minimum password length.
+ads-pwdMinLength: {{ ads_pwd_min_length | default('5') }}
+# Number of previous passwords to remember.
+ads-pwdInHistory: {{ ads_pwd_in_history | default('5') }}
+# Warning time before expiration in seconds.
+ads-pwdExpireWarning: {{ ads_pwd_expire_warning | default('600') }}
+# Minimum password age in seconds.
+ads-pwdMinAge: {{ ads_pwd_min_age | default('0') }}
+# Allow users to change their password.
+ads-pwdAllowUserChange: {{ ads_pwd_allow_user_change | default('TRUE') }}
+# Grace authentication limit (number of uses of expired password).
+ads-pwdGraceAuthNLimit: {{ ads_pwd_grace_auth_n_limit | default('5') }}
+# Password quality check level.
+ads-pwdCheckQuality: {{ ads_pwd_check_quality | default('1') }}
+# Maximum password length (0 = no limit).
+ads-pwdMaxLength: {{ ads_pwd_max_length | default('0') }}
+# Grace period expiration in seconds.
+ads-pwdGraceExpire: {{ ads_pwd_grace_expire | default('0') }}
+# Minimum delay for password attempts (brute force protection).
+ads-pwdMinDelay: {{ ads_pwd_min_delay | default('0') }}
+# Maximum delay for password attempts.
+ads-pwdMaxDelay: {{ ads_pwd_max_delay | default('0') }}
+# Maximum idle time before lockout.
+ads-pwdMaxIdle: {{ ads_pwd_max_idle | default('0') }}
+# Validator class for passwords.
+ads-pwdValidator: {{ ads_pwd_validator | default('org.apache.directory.server.core.api.authn.ppolicy.DefaultPasswordValidator') }}
+# Enable password policies.
+ads-enabled: {{ ads_pwd_enabled | default(True) }}
+
+# --- Interceptors (Continued) ---
+
+# Referral Interceptor (Order 3)
+# Handles referral responses.
+dn: ads-interceptorId=referralInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 3
+ads-interceptorclassname: org.apache.directory.server.core.referral.ReferralInterceptor
+ads-interceptorid: referralInterceptor
+# Enable the referral interceptor.
+ads-enabled: {{ ads_interceptor_referral_enabled | default(True) }}
+
+# ACI Authorization Interceptor (Order 4)
+# Access Control Item authorization.
+dn: ads-interceptorId=aciAuthorizationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 4
+ads-interceptorclassname: org.apache.directory.server.core.authz.AciAuthorizationInterceptor
+ads-interceptorid: aciAuthorizationInterceptor
+# Enable the ACI authorization interceptor.
+ads-enabled: {{ ads_interceptor_aci_authz_enabled | default(True) }}
+
+# Default Authorization Interceptor (Order 5)
+# Default authorization if no ACIs match.
+dn: ads-interceptorId=defaultAuthorizationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 5
+ads-interceptorclassname: org.apache.directory.server.core.authz.DefaultAuthorizationInterceptor
+ads-interceptorid: defaultAuthorizationInterceptor
+# Enable the default authorization interceptor.
+ads-enabled: {{ ads_interceptor_default_authz_enabled | default(True) }}
+
+# Administrative Point Interceptor (Order 6)
+# Restricts operations on administrative entries.
+dn: ads-interceptorId=administrativePointInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 6
+ads-interceptorclassname: org.apache.directory.server.core.admin.AdministrativePointInterceptor
+ads-interceptorid: administrativePointInterceptor
+# Enable the administrative point interceptor.
+ads-enabled: {{ ads_interceptor_admin_point_enabled | default(True) }}
+
+# Exception Interceptor (Order 7)
+# Converts exceptions to LDAP result codes.
+dn: ads-interceptorId=exceptionInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 7
+ads-interceptorclassname: org.apache.directory.server.core.exception.ExceptionInterceptor
+ads-interceptorid: exceptionInterceptor
+# Enable the exception interceptor.
+ads-enabled: {{ ads_interceptor_exception_enabled | default(True) }}
+
+# Key Derivation Interceptor (Order 8)
+# Used for Kerberos key derivation.
+dn: ads-interceptorId=keyDerivationInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-enabled: {{ ads_interceptor_key_derivation_enabled | default(False) }}
+ads-interceptororder: 8
+ads-interceptorclassname: org.apache.directory.server.core.kerberos.KeyDerivationInterceptor
+ads-interceptorid: keyDerivationInterceptor
+
+# Password Hashing Interceptor (Order 9)
+# Handles password hashing algorithms.
+dn: ads-interceptorId=passwordHashingInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+objectclass: ads-hashInterceptor
+ads-enabled: {{ ads_interceptor_password_hashing_enabled | default(True) }}
+ads-interceptororder: 9
+ads-interceptorclassname: org.apache.directory.server.core.hash.ConfigurableHashingInterceptor
+ads-interceptorid: passwordHashingInterceptor
+# Hash algorithm for passwords (e.g., SSHA, SHA).
+ads-hashAlgorithm: {{ ads_hash_algorithm | default('SSHA') }}
+# LDAP OID for the hash attribute.
+ads-hashAttribute: {{ ads_hash_attribute | default('2.5.4.35') }}
+
+# Schema Interceptor (Order 10)
+# Enforces schema rules.
+dn: ads-interceptorId=schemaInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 10
+ads-interceptorclassname: org.apache.directory.server.core.schema.SchemaInterceptor
+ads-interceptorid: schemaInterceptor
+# Enable the schema interceptor.
+ads-enabled: {{ ads_interceptor_schema_enabled | default(True) }}
+
+# Operational Attribute Interceptor (Order 11)
+# Manages operational attributes like createTime.
+dn: ads-interceptorId=operationalAttributeInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 11
+ads-interceptorclassname: org.apache.directory.server.core.operational.OperationalAttributeInterceptor
+ads-interceptorid: operationalAttributeInterceptor
+# Enable the operational attribute interceptor.
+ads-enabled: {{ ads_interceptor_op_attr_enabled | default(True) }}
+
+# Collective Attribute Interceptor (Order 12)
+# Manages collective attributes (shared across partitions).
+dn: ads-interceptorId=collectiveAttributeInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 12
+ads-interceptorclassname: org.apache.directory.server.core.collective.CollectiveAttributeInterceptor
+ads-interceptorid: collectiveAttributeInterceptor
+# Enable the collective attribute interceptor.
+ads-enabled: {{ ads_interceptor_collective_attr_enabled | default(True) }}
+
+# Subentry Interceptor (Order 13)
+# Manages subentries (special entries used for configuration).
+dn: ads-interceptorId=subentryInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 13
+ads-interceptorclassname: org.apache.directory.server.core.subtree.SubentryInterceptor
+ads-interceptorid: subentryInterceptor
+# Enable the subentry interceptor.
+ads-enabled: {{ ads_interceptor_subentry_enabled | default(True) }}
+
+# Event Interceptor (Order 14)
+# Fires events for directory modifications.
+dn: ads-interceptorId=eventInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 14
+ads-interceptorclassname: org.apache.directory.server.core.event.EventInterceptor
+ads-interceptorid: eventInterceptor
+# Enable the event interceptor.
+ads-enabled: {{ ads_interceptor_event_enabled | default(True) }}
+
+# Trigger Interceptor (Order 15)
+# Executes triggers on directory modifications.
+dn: ads-interceptorId=triggerInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 15
+ads-interceptorclassname: org.apache.directory.server.core.trigger.TriggerInterceptor
+ads-interceptorid: triggerInterceptor
+# Enable the trigger interceptor.
+ads-enabled: {{ ads_interceptor_trigger_enabled | default(True) }}
+
+# Journal Interceptor (Order 16)
+# Manages the transactional journal.
+dn: ads-interceptorId=journalInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 16
+ads-interceptorclassname: org.apache.directory.server.core.journal.JournalInterceptor
+ads-interceptorid: journalInterceptor
+# Enable the journal interceptor.
+ads-enabled: {{ ads_interceptor_journal_enabled | default(True) }}
+
+# Number Interceptor (Order 17)
+# Manages number sequences for object IDs.
+dn: ads-interceptorId=numberInterceptor,ou=interceptors,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-interceptor
+ads-interceptororder: 17
+ads-interceptorclassname: org.apache.directory.server.core.number.NumberIncrementingInterceptor
+ads-interceptorId: numberInterceptor
+# Enable the number interceptor.
+ads-enabled: {{ ads_interceptor_number_enabled | default(False) }}
+
+# --- Partitions Section ---
+# Data is stored in partitions (like database schemas).
+dn: ou=partitions,ads-directoryServiceId=default,ou=config
+ou: partitions
+objectclass: organizationalUnit
+objectclass: top
+
+# System Partition
+# Stores the configuration and system entries.
+dn: ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectClass: ads-base
+objectclass: ads-partition
+objectclass: ads-jdbmPartition
+# Suffix for the system partition.
+ads-partitionSuffix: {{ ads_partition_system_suffix | default('ou=system') }}
+# Enable optimizer for system partition.
+ads-jdbmpartitionoptimizerenabled: {{ ads_partition_system_optimizer_enabled | default('TRUE') }}
+# Cache size for system partition.
+ads-partitioncachesize: {{ ads_partition_system_cache_size | default('10000') }}
+# Sync on write for system partition.
+ads-partitionsynconwrite: {{ ads_partition_system_sync_on_write | default('TRUE') }}
+ads-partitionid: system
+# Enable the system partition.
+ads-enabled: {{ ads_partition_system_enabled | default(True) }}
+
+# System Partition Indexes
+dn: ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ou: indexes
+objectclass: organizationalUnit
+objectclass: top
+
+# apacheRdn Index (System)
+dn: ads-indexAttributeId=apacheRdn,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheRdn
+# Reverse index for apacheRdn in system partition.
+ads-indexHasReverse: {{ ads_index_system_apacheRdn_reverse | default(True) }}
+# Cache size for apacheRdn index in system partition.
+ads-indexcachesize: {{ ads_index_system_apacheRdn_cache_size | default(1000) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheRdn index in system partition.
+ads-enabled: {{ ads_index_system_apacheRdn_enabled | default(True) }}
+
+# apachePresence Index (System)
+dn: ads-indexAttributeId=apachePresence,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apachePresence
+# Reverse index for apachePresence in system partition.
+ads-indexHasReverse: {{ ads_index_system_apachePresence_reverse | default(False) }}
+# Cache size for apachePresence index in system partition.
+ads-indexcachesize: {{ ads_index_system_apachePresence_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apachePresence index in system partition.
+ads-enabled: {{ ads_index_system_apachePresence_enabled | default(True) }}
+
+# apacheOneAlias Index (System)
+dn: ads-indexAttributeId=apacheOneAlias,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheOneAlias
+# Reverse index for apacheOneAlias in system partition.
+ads-indexHasReverse: {{ ads_index_system_apacheOneAlias_reverse | default(False) }}
+# Cache size for apacheOneAlias index in system partition.
+ads-indexcachesize: {{ ads_index_system_apacheOneAlias_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheOneAlias index in system partition.
+ads-enabled: {{ ads_index_system_apacheOneAlias_enabled | default(True) }}
+
+# apacheSubAlias Index (System)
+dn: ads-indexAttributeId=apacheSubAlias,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheSubAlias
+# Reverse index for apacheSubAlias in system partition.
+ads-indexHasReverse: {{ ads_index_system_apacheSubAlias_reverse | default(False) }}
+# Cache size for apacheSubAlias index in system partition.
+ads-indexcachesize: {{ ads_index_system_apacheSubAlias_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheSubAlias index in system partition.
+ads-enabled: {{ ads_index_system_apacheSubAlias_enabled | default(True) }}
+
+# apacheAlias Index (System)
+dn: ads-indexAttributeId=apacheAlias,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheAlias
+# Reverse index for apacheAlias in system partition.
+ads-indexHasReverse: {{ ads_index_system_apacheAlias_reverse | default(False) }}
+# Cache size for apacheAlias index in system partition.
+ads-indexcachesize: {{ ads_index_system_apacheAlias_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheAlias index in system partition.
+ads-enabled: {{ ads_index_system_apacheAlias_enabled | default(True) }}
+
+# objectClass Index (System)
+dn: ads-indexAttributeId=objectClass,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: objectClass
+# Reverse index for objectClass in system partition.
+ads-indexHasReverse: {{ ads_index_system_objectClass_reverse | default(False) }}
+# Cache size for objectClass index in system partition.
+ads-indexcachesize: {{ ads_index_system_objectClass_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable objectClass index in system partition.
+ads-enabled: {{ ads_index_system_objectClass_enabled | default(True) }}
+
+# entryCSN Index (System)
+dn: ads-indexAttributeId=entryCSN,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: entryCSN
+# Reverse index for entryCSN in system partition.
+ads-indexHasReverse: {{ ads_index_system_entryCSN_reverse | default(False) }}
+# Cache size for entryCSN index in system partition.
+ads-indexcachesize: {{ ads_index_system_entryCSN_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable entryCSN index in system partition.
+ads-enabled: {{ ads_index_system_entryCSN_enabled | default(True) }}
+
+# ou Index (System)
+dn: ads-indexAttributeId=ou,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: ou
+# Reverse index for ou in system partition.
+ads-indexHasReverse: {{ ads_index_system_ou_reverse | default(False) }}
+# Cache size for ou index in system partition.
+ads-indexcachesize: {{ ads_index_system_ou_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable ou index in system partition.
+ads-enabled: {{ ads_index_system_ou_enabled | default(True) }}
+
+# uid Index (System)
+dn: ads-indexAttributeId=uid,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: uid
+# Reverse index for uid in system partition.
+ads-indexHasReverse: {{ ads_index_system_uid_reverse | default(False) }}
+# Cache size for uid index in system partition.
+ads-indexcachesize: {{ ads_index_system_uid_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable uid index in system partition.
+ads-enabled: {{ ads_index_system_uid_enabled | default(True) }}
+
+# administrativeRole Index (System)
+dn: ads-indexAttributeId=administrativeRole,ou=indexes,ads-partitionId=system,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: administrativeRole
+# Reverse index for administrativeRole in system partition.
+ads-indexHasReverse: {{ ads_index_system_administrativeRole_reverse | default(False) }}
+# Cache size for administrativeRole index in system partition.
+ads-indexcachesize: {{ ads_index_system_administrativeRole_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable administrativeRole index in system partition.
+ads-enabled: {{ ads_index_system_administrativeRole_enabled | default(True) }}
+
+# Example Partition
+# Default sample data partition.
+dn: ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectClass: ads-base
+objectclass: ads-partition
+objectclass: ads-jdbmPartition
+# Suffix for the example partition.
+ads-partitionSuffix: {{ ads_partition_example_suffix | default('dc=example,dc=com') }}
+# Base64 encoded context entry for the example partition.
+ads-contextentry:: {{ ads_partition_example_contextentry_b64 | default('ZG46IGRjPWV4YW1wbGUsZGM9Y29tCmRjOiBleGFtcGxlCm9iamVjdGNsY') }}
+# Enable optimizer for example partition.
+ads-jdbmpartitionoptimizerenabled: {{ ads_partition_example_optimizer_enabled | default('TRUE') }}
+# Cache size for example partition.
+ads-partitioncachesize: {{ ads_partition_example_cache_size | default('10000') }}
+# Sync on write for example partition.
+ads-partitionsynconwrite: {{ ads_partition_example_sync_on_write | default('TRUE') }}
+ads-partitionid: example
+# Enable the example partition.
+ads-enabled: {{ ads_partition_example_enabled | default(True) }}
+
+# Example Partition Indexes
+dn: ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ou: indexes
+objectclass: organizationalUnit
+objectclass: top
+
+# apacheRdn Index (Example)
+dn: ads-indexAttributeId=apacheRdn,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheRdn
+# Reverse index for apacheRdn in example partition.
+ads-indexHasReverse: {{ ads_index_example_apacheRdn_reverse | default(True) }}
+# Cache size for apacheRdn index in example partition.
+ads-indexcachesize: {{ ads_index_example_apacheRdn_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheRdn index in example partition.
+ads-enabled: {{ ads_index_example_apacheRdn_enabled | default(True) }}
+
+# apachePresence Index (Example)
+dn: ads-indexAttributeId=apachePresence,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apachePresence
+# Reverse index for apachePresence in example partition.
+ads-indexHasReverse: {{ ads_index_example_apachePresence_reverse | default(False) }}
+# Cache size for apachePresence index in example partition.
+ads-indexcachesize: {{ ads_index_example_apachePresence_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apachePresence index in example partition.
+ads-enabled: {{ ads_index_example_apachePresence_enabled | default(True) }}
+
+# apacheOneAlias Index (Example)
+dn: ads-indexAttributeId=apacheOneAlias,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheOneAlias
+# Reverse index for apacheOneAlias in example partition.
+ads-indexHasReverse: {{ ads_index_example_apacheOneAlias_reverse | default(False) }}
+# Cache size for apacheOneAlias index in example partition.
+ads-indexcachesize: {{ ads_index_example_apacheOneAlias_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheOneAlias index in example partition.
+ads-enabled: {{ ads_index_example_apacheOneAlias_enabled | default(True) }}
+
+# apacheSubAlias Index (Example)
+dn: ads-indexAttributeId=apacheSubAlias,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheSubAlias
+# Reverse index for apacheSubAlias in example partition.
+ads-indexHasReverse: {{ ads_index_example_apacheSubAlias_reverse | default(False) }}
+# Cache size for apacheSubAlias index in example partition.
+ads-indexcachesize: {{ ads_index_example_apacheSubAlias_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheSubAlias index in example partition.
+ads-enabled: {{ ads_index_example_apacheSubAlias_enabled | default(True) }}
+
+# apacheAlias Index (Example)
+dn: ads-indexAttributeId=apacheAlias,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: apacheAlias
+# Reverse index for apacheAlias in example partition.
+ads-indexHasReverse: {{ ads_index_example_apacheAlias_reverse | default(False) }}
+# Cache size for apacheAlias index in example partition.
+ads-indexcachesize: {{ ads_index_example_apacheAlias_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable apacheAlias index in example partition.
+ads-enabled: {{ ads_index_example_apacheAlias_enabled | default(True) }}
+
+# dc Index (Example)
+dn: ads-indexAttributeId=dc,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: dc
+# Reverse index for dc in example partition.
+ads-indexHasReverse: {{ ads_index_example_dc_reverse | default(False) }}
+# Cache size for dc index in example partition.
+ads-indexcachesize: {{ ads_index_example_dc_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable dc index in example partition.
+ads-enabled: {{ ads_index_example_dc_enabled | default(True) }}
+
+# krb5PrincipalName Index (Example)
+dn: ads-indexAttributeId=krb5PrincipalName,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: krb5PrincipalName
+# Reverse index for krb5PrincipalName in example partition.
+ads-indexHasReverse: {{ ads_index_example_krb5PrincipalName_reverse | default(False) }}
+# Cache size for krb5PrincipalName index in example partition.
+ads-indexcachesize: {{ ads_index_example_krb5PrincipalName_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable krb5PrincipalName index in example partition.
+ads-enabled: {{ ads_index_example_krb5PrincipalName_enabled | default(True) }}
+
+# objectClass Index (Example)
+dn: ads-indexAttributeId=objectClass,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: objectClass
+# Reverse index for objectClass in example partition.
+ads-indexHasReverse: {{ ads_index_example_objectClass_reverse | default(False) }}
+# Cache size for objectClass index in example partition.
+ads-indexcachesize: {{ ads_index_example_objectClass_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable objectClass index in example partition.
+ads-enabled: {{ ads_index_example_objectClass_enabled | default(True) }}
+
+# entryCSN Index (Example)
+dn: ads-indexAttributeId=entryCSN,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: entryCSN
+# Reverse index for entryCSN in example partition.
+ads-indexHasReverse: {{ ads_index_example_entryCSN_reverse | default(False) }}
+# Cache size for entryCSN index in example partition.
+ads-indexcachesize: {{ ads_index_example_entryCSN_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable entryCSN index in example partition.
+ads-enabled: {{ ads_index_example_entryCSN_enabled | default(True) }}
+
+# ou Index (Example)
+dn: ads-indexAttributeId=ou,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: ou
+# Reverse index for ou in example partition.
+ads-indexHasReverse: {{ ads_index_example_ou_reverse | default(False) }}
+# Cache size for ou index in example partition.
+ads-indexcachesize: {{ ads_index_example_ou_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable ou index in example partition.
+ads-enabled: {{ ads_index_example_ou_enabled | default(True) }}
+
+# uid Index (Example)
+dn: ads-indexAttributeId=uid,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: uid
+# Reverse index for uid in example partition.
+ads-indexHasReverse: {{ ads_index_example_uid_reverse | default(False) }}
+# Cache size for uid index in example partition.
+ads-indexcachesize: {{ ads_index_example_uid_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable uid index in example partition.
+ads-enabled: {{ ads_index_example_uid_enabled | default(True) }}
+
+# administrativeRole Index (Example)
+dn: ads-indexAttributeId=administrativeRole,ou=indexes,ads-partitionId=example,ou=partitions,ads-directoryServiceId=default,ou=config
+ads-indexattributeid: administrativeRole
+# Reverse index for administrativeRole in example partition.
+ads-indexHasReverse: {{ ads_index_example_administrativeRole_reverse | default(False) }}
+# Cache size for administrativeRole index in example partition.
+ads-indexcachesize: {{ ads_index_example_administrativeRole_cache_size | default(100) }}
+objectclass: ads-index
+objectclass: ads-jdbmIndex
+objectclass: ads-base
+objectclass: top
+# Enable administrativeRole index in example partition.
+ads-enabled: {{ ads_index_example_administrativeRole_enabled | default(True) }}
+
+# --- Servers Section ---
+# Defines the network servers (LDAP, Kerberos, HTTP, etc.)
+dn: ou=servers,ads-directoryServiceId=default,ou=config
+ou: servers
+objectclass: organizationalUnit
+objectclass: top
+
+# Change Password Server
+# Dedicated server for password change operations.
+dn: ads-serverId=changePasswordServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectclass: ads-server
+objectclass: ads-changePasswordServer
+objectclass: ads-dsBasedServer
+objectclass: ads-base
+objectclass: top
+ads-serverid: changePasswordServer
+# Enable the change password server.
+ads-enabled: {{ ads_server_change_password_enabled | default(False) }}
+
+# Change Password Server Transports
+dn: ou=transports,ads-serverId=changePasswordServer,ou=servers,ads-directoryServiceId=default,ou=config
+ou: transports
+objectclass: organizationalUnit
+objectclass: top
+
+# TCP Transport for Change Password
+dn: ads-transportId=tcp,ou=transports,ads-serverId=changePasswordServer,ou=servers,ads-directoryServiceId=default,ou=config
+# TCP port for change password server.
+ads-systemport: {{ ads_transport_change_password_tcp_port | default(60464) }}
+# Number of threads for change password TCP transport.
+ads-transportnbthreads: {{ ads_transport_change_password_tcp_threads | default(2) }}
+# Address for change password TCP transport.
+ads-transportaddress: {{ ads_transport_change_password_tcp_address | default('0.0.0.0') }}
+ads-transportid: tcp
+objectclass: ads-transport
+objectclass: ads-tcpTransport
+objectClass: ads-base
+objectclass: top
+# Enable TCP transport for change password server.
+ads-enabled: {{ ads_transport_change_password_tcp_enabled | default(True) }}
+
+# UDP Transport for Change Password
+dn: ads-transportId=udp,ou=transports,ads-serverId=changePasswordServer,ou=servers,ads-directoryServiceId=default,ou=config
+# UDP port for change password server.
+ads-systemport: {{ ads_transport_change_password_udp_port | default(60464) }}
+# Number of threads for change password UDP transport.
+ads-transportnbthreads: {{ ads_transport_change_password_udp_threads | default(2) }}
+# Address for change password UDP transport.
+ads-transportaddress: {{ ads_transport_change_password_udp_address | default('0.0.0.0') }}
+ads-transportid: udp
+objectclass: ads-transport
+objectclass: ads-udpTransport
+objectClass: ads-base
+objectclass: top
+# Enable UDP transport for change password server.
+ads-enabled: {{ ads_transport_change_password_udp_enabled | default(True) }}
+
+# HTTP Server
+# Embedded web server for management/apps.
+dn: ads-serverId=httpServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-serverid: httpServer
+# Enable the HTTP server.
+ads-enabled: {{ ads_server_http_enabled | default(False) }}
+objectclass: ads-server
+objectclass: ads-httpServer
+objectclass: ads-base
+objectclass: top
+
+# HTTP Server Transports
+dn: ou=transports,ads-serverId=httpServer,ou=servers,ads-directoryServiceId=default,ou=config
+ou: transports
+objectclass: organizationalUnit
+objectclass: top
+
+# HTTP Transport
+dn: ads-transportid=http,ou=transports,ads-serverId=httpServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-transport
+objectclass: ads-tcpTransport
+ads-transportid: http
+# Port for HTTP transport.
+ads-systemport: {{ ads_transport_http_port | default(8080) }}
+# Address for HTTP transport.
+ads-transportaddress: {{ ads_transport_http_address | default('0.0.0.0') }}
+# Enable HTTP transport.
+ads-enabled: {{ ads_transport_http_enabled | default(True) }}
+
+# HTTPS Transport
+dn: ads-transportid=https,ou=transports,ads-serverId=httpServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectclass: top
+objectclass: ads-base
+objectclass: ads-transport
+objectclass: ads-tcpTransport
+ads-transportid: https
+# Address for HTTPS transport.
+ads-transportaddress: {{ ads_transport_https_address | default('0.0.0.0') }}
+# Port for HTTPS transport.
+ads-systemport: {{ ads_transport_https_port | default(8443) }}
+# Enable HTTPS transport.
+ads-enabled: {{ ads_transport_https_enabled | default(True) }}
+
+# HTTP Web Apps
+dn: ou=httpWebApps,ads-serverId=httpServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectclass: organizationalUnit
+objectclass: top
+ou: httpWebApps
+
+# Test Web App
+dn: ads-id=testapp,ou=httpWebApps,ads-serverId=httpServer,ou=servers,ads-directoryServiceId=default,ou=config
+# Path to the WAR file for the test app.
+ads-httpwarfile: {{ ads_webapp_testapp_war_path | default('/path/to/foo/war') }}
+# Context path for the test app.
+ads-httpappctxpath: {{ ads_webapp_testapp_context_path | default('/foo') }}
+ads-id: testapp
+objectclass: ads-httpWebApp
+objectclass: ads-base
+objectclass: top
+# Enable the test web app.
+ads-enabled: {{ ads_webapp_testapp_enabled | default(False) }}
+
+# Kerberos Server (KDC)
+# Active Directory compatible Kerberos Distribution Center.
+dn: ads-serverId=kerberosServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectclass: ads-server
+objectclass: ads-kdcServer
+objectclass: ads-dsBasedServer
+objectclass: ads-base
+objectclass: top
+ads-serverid: kerberosServer
+# Enable the Kerberos server.
+ads-enabled: {{ ads_server_kerberos_enabled | default(False) }}
+# Allowable clock skew for Kerberos in milliseconds.
+ads-krbAllowableClockSkew: {{ ads_krb_clock_skew | default('300000') }}
+# Verify body checksum for Kerberos.
+ads-krbBodyChecksumVerified: {{ ads_krb_body_checksum_verified | default('TRUE') }}
+# Allow empty addresses for Kerberos.
+ads-krbEmptyAddressesAllowed: {{ ads_krb_empty_addresses_allowed | default('TRUE') }}
+# List of allowed encryption types for Kerberos.
+# Note: ApacheDS expects multiple lines for this attribute if multiple types are used.
+ads-krbEncryptionTypes: {{ ads_krb_encryption_types | default(['aes128-cts-hmac-sha1-96', 'des3-cbc-sha1-kd', 'des-cbc-md5']) | join('\nads-krbEncryptionTypes: ') }}
+# Allow forwardable tickets for Kerberos.
+ads-krbForwardableAllowed: {{ ads_krb_forwardable_allowed | default('TRUE') }}
+# Maximum renewable lifetime for Kerberos in milliseconds.
+ads-krbmaximumrenewablelifetime: {{ ads_krb_max_renewable_lifetime | default('604800000') }}
+# Maximum ticket lifetime for Kerberos in milliseconds.
+ads-krbMaximumTicketLifetime: {{ ads_krb_max_ticket_lifetime | default('86400000') }}
+# Require PA-ENC-TIMESTAMP for Kerberos.
+ads-krbPaEncTimestampRequired: {{ ads_krb_pa_enc_timestamp_required | default('TRUE') }}
+# Allow postdated tickets for Kerberos.
+ads-krbPostdatedAllowed: {{ ads_krb_postdated_allowed | default('TRUE') }}
+# Primary Kerberos realm.
+ads-krbPrimaryRealm: {{ ads_krb_primary_realm | default('EXAMPLE.COM') }}
+# Allow proxiable tickets for Kerberos.
+ads-krbProxiableAllowed: {{ ads_krb_proxiable_allowed | default('TRUE') }}
+# Allow renewable tickets for Kerberos.
+ads-krbRenewableAllowed: {{ ads_krb_renewable_allowed | default('TRUE') }}
+# Base DN for searching Kerberos principals.
+ads-searchBaseDN: {{ ads_krb_search_base_dn | default('ou=users,dc=example,dc=com') }}
+
+# Kerberos Server Transports
+dn: ou=transports,ads-serverId=kerberosServer,ou=servers,ads-directoryServiceId=default,ou=config
+ou: transports
+objectclass: organizationalUnit
+objectclass: top
+
+# TCP Transport for Kerberos
+dn: ads-transportid=tcp,ou=transports,ads-serverId=kerberosServer,ou=servers,ads-directoryServiceId=default,ou=config
+# TCP port for Kerberos server.
+ads-systemport: {{ ads_transport_kerberos_tcp_port | default(60088) }}
+# Number of threads for Kerberos TCP transport.
+ads-transportnbthreads: {{ ads_transport_kerberos_tcp_threads | default(4) }}
+# Address for Kerberos TCP transport.
+ads-transportaddress: {{ ads_transport_kerberos_tcp_address | default('0.0.0.0') }}
+ads-transportid: tcp
+objectclass: ads-transport
+objectClass: ads-base
+objectclass: ads-tcpTransport
+objectclass: top
+# Enable TCP transport for Kerberos server.
+ads-enabled: {{ ads_transport_kerberos_tcp_enabled | default(True) }}
+
+# UDP Transport for Kerberos
+dn: ads-transportid=udp,ou=transports,ads-serverId=kerberosServer,ou=servers,ads-directoryServiceId=default,ou=config
+# UDP port for Kerberos server.
+ads-systemport: {{ ads_transport_kerberos_udp_port | default(60088) }}
+# Number of threads for Kerberos UDP transport.
+ads-transportnbthreads: {{ ads_transport_kerberos_udp_threads | default(4) }}
+# Address for Kerberos UDP transport.
+ads-transportaddress: {{ ads_transport_kerberos_udp_address | default('0.0.0.0') }}
+ads-transportid: udp
+objectclass: ads-transport
+objectclass: ads-udpTransport
+objectClass: ads-base
+objectclass: top
+# Enable UDP transport for Kerberos server.
+ads-enabled: {{ ads_transport_kerberos_udp_enabled | default(True) }}
+
+# LDAP Server
+# The main LDAP service.
+dn: ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectclass: ads-server
+objectclass: ads-ldapServer
+objectclass: ads-dsBasedServer
+objectclass: ads-base
+objectclass: top
+ads-serverId: ldapServer
+# Require confidentiality for LDAP server (TLS required).
+ads-confidentialityRequired: {{ ads_ldap_confidentiality_required | default('FALSE') }}
+# Maximum size limit for LDAP results.
+ads-maxSizeLimit: {{ ads_ldap_max_size_limit | default('1000') }}
+# Maximum time limit for LDAP searches in milliseconds.
+ads-maxTimeLimit: {{ ads_ldap_max_time_limit | default('15000') }}
+# Maximum PDU size for LDAP.
+ads-maxpdusize: {{ ads_ldap_max_pdu_size | default('2000000') }}
+# SASL host for LDAP server.
+ads-saslHost: {{ ads_ldap_sasl_host | default('ldap.example.com') }}
+# SASL principal for LDAP server.
+ads-saslPrincipal: {{ ads_ldap_sasl_principal | default('ldap/ldap.example.com@EXAMPLE.COM') }}
+# List of SASL realms for LDAP server.
+# Note: ApacheDS expects multiple lines for this attribute if multiple realms are used.
+ads-saslRealms: {{ ads_ldap_sasl_realms | default(['example.com', 'apache.org']) | join('\nads-saslRealms: ') }}
+# Search base DN for LDAP server.
+ads-searchBaseDN: {{ ads_ldap_search_base_dn | default('ou=users,ou=system') }}
+# Enable replication for LDAP server.
+ads-replEnabled: {{ ads_ldap_repl_enabled | default('true') }}
+# Ping sleep time for LDAP replication in seconds.
+ads-replPingerSleep: {{ ads_ldap_repl_pinger_sleep | default('5') }}
+# Enable the LDAP server.
+ads-enabled: {{ ads_ldap_enabled | default(True) }}
+
+# LDAP Replication Consumers
+dn: ou=replConsumers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+objectClass: organizationalUnit
+objectClass: top
+ou: replConsumers
+
+# LDAP Server Transports
+dn: ou=transports,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ou: transports
+objectclass: organizationalUnit
+objectclass: top
+
+# LDAP Transport (Plaintext)
+dn: ads-transportid=ldap,ou=transports,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+# Port for LDAP transport.
+ads-systemport: {{ ads_transport_ldap_port | default(10389) }}
+# Number of threads for LDAP transport.
+ads-transportnbthreads: {{ ads_transport_ldap_threads | default(8) }}
+# Address for LDAP transport.
+ads-transportaddress: {{ ads_transport_ldap_address | default('0.0.0.0') }}
+ads-transportid: ldap
+objectclass: ads-transport
+objectclass: ads-tcpTransport
+objectClass: ads-base
+objectclass: top
+# Enable LDAP transport.
+ads-enabled: {{ ads_transport_ldap_enabled | default(True) }}
+
+# LDAPS Transport (SSL/TLS)
+dn: ads-transportid=ldaps,ou=transports,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+# Port for LDAPS transport.
+ads-systemport: {{ ads_transport_ldaps_port | default(10636) }}
+# Enable SSL for LDAPS transport.
+ads-transportenablessl: {{ ads_transport_ldaps_ssl_enabled | default('TRUE') }}
+# Address for LDAPS transport.
+ads-transportaddress: {{ ads_transport_ldaps_address | default('0.0.0.0') }}
+ads-transportid: ldaps
+objectclass: ads-transport
+objectclass: ads-tcpTransport
+objectClass: ads-base
+objectclass: top
+# Enable LDAPS transport.
+ads-enabled: {{ ads_transport_ldaps_enabled | default(True) }}
+
+# Extended Operation Handlers
+# Special LDAP operations (StartTLS, Password Modify, etc.)
+dn: ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ou: extendedOpHandlers
+objectclass: organizationalUnit
+objectclass: top
+
+# Graceful Shutdown Handler
+dn: ads-extendedOpId=gracefulShutdownHandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-extendedOpId: gracefulShutdownHandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.GracefulShutdownHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+# Enable graceful shutdown handler.
+ads-enabled: {{ ads_extended_op_graceful_shutdown_enabled | default(True) }}
+
+# StartTLS Handler
+dn: ads-extendedOpId=starttlshandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-extendedOpId: starttlshandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.StartTlsHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+# Enable StartTLS handler.
+ads-enabled: {{ ads_extended_op_starttls_enabled | default(True) }}
+
+# Stored Procedure Handler
+dn: ads-extendedOpId=storedprochandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-enabled: {{ ads_extended_op_stored_proc_enabled | default(False) }}
+ads-extendedOpId: storedprochandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.StoredProcedureExtendedOperationHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+
+# Password Modify Handler
+dn: ads-extendedOpId=pwdModifyHandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-extendedOpId: pwdModifyHandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.PwdModifyHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+# Enable password modify handler.
+ads-enabled: {{ ads_extended_op_pwd_modify_enabled | default(True) }}
+
+# WhoAmI Handler
+dn: ads-extendedOpId=whoAmIHandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-extendedOpId: whoAmIHandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.WhoAmIHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+# Enable whoAmI handler.
+ads-enabled: {{ ads_extended_op_whoami_enabled | default(True) }}
+
+# Start Transaction Handler
+dn: ads-extendedOpId=startTransactionHandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-extendedOpId: startTransactionHandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.StartTransactionHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+# Enable start transaction handler.
+ads-enabled: {{ ads_extended_op_start_txn_enabled | default(True) }}
+
+# End Transaction Handler
+dn: ads-extendedOpId=endTransactionHandler,ou=extendedOpHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-extendedOpId: endTransactionHandler
+ads-extendedOpHandlerclass: org.apache.directory.server.ldap.handlers.extended.EndTransactionHandler
+objectclass: ads-extendedOpHandler
+objectclass: ads-base
+objectclass: top
+# Enable end transaction handler.
+ads-enabled: {{ ads_extended_op_end_txn_enabled | default(True) }}
+
+# SASL Mechanism Handlers
+# Configures authentication mechanisms for LDAP binds.
+dn: ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ou: saslMechHandlers
+objectclass: organizationalUnit
+objectclass: top
+
+# CRAM-MD5 SASL Mechanism
+dn: ads-saslMechName=CRAM-MD5,ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-saslMechClassName: org.apache.directory.server.ldap.handlers.sasl.cramMD5.CramMd5MechanismHandler
+objectclass: ads-saslMechHandler
+objectclass: ads-base
+objectclass: top
+ads-saslMechName: CRAM-MD5
+# Enable CRAM-MD5 SASL mechanism.
+ads-enabled: {{ ads_sasl_cram_md5_enabled | default(True) }}
+
+# DIGEST-MD5 SASL Mechanism
+dn: ads-saslMechName=DIGEST-MD5,ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-saslMechClassName: org.apache.directory.server.ldap.handlers.sasl.digestMD5.DigestMd5MechanismHandler
+objectclass: ads-saslMechHandler
+objectclass: ads-base
+objectclass: top
+ads-saslMechName: DIGEST-MD5
+# Enable DIGEST-MD5 SASL mechanism.
+ads-enabled: {{ ads_sasl_digest_md5_enabled | default(True) }}
+
+# GSS-SPNEGO SASL Mechanism
+dn: ads-saslMechName=GSS-SPNEGO,ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-saslMechClassName: org.apache.directory.server.ldap.handlers.sasl.ntlm.NtlmMechanismHandler
+objectclass: ads-saslMechHandler
+objectclass: ads-base
+objectclass: top
+ads-saslMechName: GSS-SPNEGO
+# NTLM provider for GSS-SPNEGO SASL mechanism.
+ads-ntlmMechProvider: {{ ads_sasl_gss_spnego_ntlm_provider | default('com.foo.Bar') }}
+# Enable GSS-SPNEGO SASL mechanism.
+ads-enabled: {{ ads_sasl_gss_spnego_enabled | default(True) }}
+
+# GSSAPI SASL Mechanism
+dn: ads-saslMechName=GSSAPI,ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-saslMechClassName: org.apache.directory.server.ldap.handlers.sasl.gssapi.GssapiMechanismHandler
+objectclass: ads-saslMechHandler
+objectclass: ads-base
+objectclass: top
+ads-saslMechName: GSSAPI
+# Enable GSSAPI SASL mechanism.
+ads-enabled: {{ ads_sasl_gssapi_enabled | default(True) }}
+
+# NTLM SASL Mechanism
+dn: ads-saslMechName=NTLM,ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-saslMechClassName: org.apache.directory.server.ldap.handlers.sasl.ntlm.NtlmMechanismHandler
+objectclass: ads-saslMechHandler
+objectclass: ads-base
+objectclass: top
+ads-saslMechName: NTLM
+# NTLM provider for NTLM SASL mechanism.
+ads-ntlmMechProvider: {{ ads_sasl_ntlm_provider | default('com.foo.Bar') }}
+# Enable NTLM SASL mechanism.
+ads-enabled: {{ ads_sasl_ntlm_enabled | default(True) }}
+
+# SIMPLE SASL Mechanism
+dn: ads-saslMechName=SIMPLE,ou=saslMechHandlers,ads-serverId=ldapServer,ou=servers,ads-directoryServiceId=default,ou=config
+ads-saslMechClassName: org.apache.directory.server.ldap.handlers.sasl.SimpleMechanismHandler
+objectclass: ads-saslMechHandler
+objectclass: ads-base
+objectclass: top
+ads-saslMechName: SIMPLE
+# Enable SIMPLE SASL mechanism.
+ads-enabled: {{ ads_sasl_simple_enabled | default(True) }}

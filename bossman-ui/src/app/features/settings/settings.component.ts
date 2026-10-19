@@ -17,6 +17,7 @@ import { EnrollInfo } from '../../core/models/enroll.model';
 import { AgentUpdatesComponent } from './agent-updates.component';
 import { InfraKnowledgeComponent } from './infra-knowledge.component';
 import { MeasurementDisplayComponent } from './measurement-display.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /**
  * v1 scope, deliberately small: Bossman's REST API has no user-management
@@ -32,7 +33,7 @@ import { MeasurementDisplayComponent } from './measurement-display.component';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent, InfraKnowledgeComponent, MeasurementDisplayComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent, InfraKnowledgeComponent, MeasurementDisplayComponent],
   template: `
     <div class="bm-page">
       <h1>Settings</h1>
@@ -95,7 +96,7 @@ import { MeasurementDisplayComponent } from './measurement-display.component';
                 <button
                   mat-raised-button
                   color="primary"
-                  [disabled]="deploying() || !deployHosts.trim()"
+                  [disabled]="deploying()" [bmBlocked]="!deployHosts.trim() ? 'Enter at least one host name' : ''"
                   (click)="deployNewHost()"
                 >
                   {{ deploying() ? 'Deploying…' : 'Deploy & enroll' }}
@@ -218,7 +219,7 @@ import { MeasurementDisplayComponent } from './measurement-display.component';
                 <button
                   mat-stroked-button
                   (click)="completeClaudeLogin()"
-                  [disabled]="loginBusy() || !claudeCode().trim()"
+                  [disabled]="loginBusy()" [bmBlocked]="!claudeCode().trim() ? 'Paste the code from the login page first' : ''"
                 >
                   Complete
                 </button>
@@ -379,10 +380,10 @@ import { MeasurementDisplayComponent } from './measurement-display.component';
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 8px 10px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
       }
       .bm-table td {
-        padding: 8px 10px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
         border-top: 1px solid var(--mat-sys-outline-variant);
       }
       .bm-actions {

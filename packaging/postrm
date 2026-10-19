@@ -7,6 +7,16 @@
 # remove it explicitly.
 set -e
 
+# ONLY ON A REAL REMOVAL. dpkg calls postrm with "remove"/"purge" (and "upgrade" while replacing the package); rpm
+# with 0 (erase) or 1 (upgrade). On an rpm UPGRADE the old package's %postun runs AFTER the new one's %post — an
+# unconditional stop+disable here left every upgraded RHEL agent stopped and disabled (measured 2026-10-17 on the
+# e2e-rh test hosts, 0.57.76 → 0.57.92: "Started", then "Stopping … Deactivated"). The `posttrans` script of the
+# new package repairs upgrades from packages that still carry the old version of this script.
+case "$1" in
+	remove|purge|0) ;;
+	*) exit 0 ;;
+esac
+
 if command -v systemctl >/dev/null 2>&1; then
 	systemctl stop yoloman-agent.service || true
 	systemctl disable yoloman-agent.service || true

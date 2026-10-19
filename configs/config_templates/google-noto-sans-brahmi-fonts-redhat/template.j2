@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Font configuration for Google Noto Sans Brahmi.
+  Inserts the specified font into the sans-serif stack and sets fallbacks.
+  This template generates a valid Fontconfig XML configuration.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- Match the sans-serif family to inject our font -->
+  <match>
+    <!-- Test if the requested family is sans-serif -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    <!-- Prepend the Noto Sans Brahmi font to the family list -->
+    <!-- font_family: The name of the font to be inserted into the sans-serif font stack. -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Brahmi') }}</string>
+    </edit>
+    <!--
+      Note: The attribute name in Fontconfig for disabling hinting is typically 'hinting' or similar.
+      The original template used 'fonthashint'. Assuming this is a typo for 'hinting' or a specific
+      internal key, we preserve the name but fix the value handling.
+      
+      font_hint_disabled: Whether to disable font hinting for this font.
+      Expected values: true/false.
+    -->
+    <edit name="hinting" mode="append">
+      <!-- Convert string 'true'/'false' or boolean to valid XML bool -->
+      <bool>{{ font_hint_disabled | default('false') | lower == 'true' }}</bool>
+    </edit>
+  </match>
+  
+  <!-- Alias definition for the font family -->
+  <alias>
+    <!-- font_family: The name of the font to be inserted into the sans-serif font stack. -->
+    <family>{{ font_family | default('Noto Sans Brahmi') }}</family>
+    <default>
+      <!-- fallback_family: The default fallback family if the font is not available. -->
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

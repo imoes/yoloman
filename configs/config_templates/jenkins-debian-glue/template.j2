@@ -1,138 +1,215 @@
-# ============================================================================
-# jenkins-debian-glue Configuration Template
-# Install this file as /etc/jenkins/debian_glue to enable it.
-# This file documents every configurable option with its schema description
-# and provides safe defaults for all variables.
-# ============================================================================
+# =============================================================================
+# jenkins-debian-glue Configuration
+# =============================================================================
+# This file configures the jenkins-debian-glue tool, which automates Debian
+# package building and repository management within Jenkins pipelines.
+# It uses a simple KEY=VALUE format. Lines beginning with '#' are comments.
+# =============================================================================
 
+# -----------------------------------------------------------------------------
+# GnuPG Signing Key
+# -----------------------------------------------------------------------------
 # GnuPG ID used for signing the reprepro repository (e.g. DEADBEEF).
-# If you build packages for Squeeze your reprepro repositories *MUST* be
-# signed and the keyring that holds the public key (REPOSITORY_KEYRING)
-# must be set.
-# Expected format: DEADBEEF
-KEY_ID={{ KEY_ID | default('') }}
+# If building for older distributions like Squeeze, this MUST be set.
+# Default: None (commented out)
+{% if KEY_ID is defined and KEY_ID is not none and KEY_ID | length > 0 %}
+{% if KEY_ID is defined and KEY_ID is not none and (KEY_ID is number or KEY_ID is boolean or KEY_ID | length > 0) %}KEY_ID={{ KEY_ID }}{% else %}# KEY_ID={% endif %}
+{% else %}
+# KEY_ID=
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Trunk Repository
+# -----------------------------------------------------------------------------
 # Repository name to copy built packages to, creating a central trunk repository.
-# If TRUNK_RELEASE is set then the package(s) of the repository
-# receiving the packages that are built will be copied to the
-# repository specified in TRUNK_RELEASE. This provides the option
-# to have all recent versions of packages in a central repository.
-TRUNK_RELEASE='{{ TRUNK_RELEASE | default('') }}'
+# This allows maintaining a "stable" or "latest" repo separate from specific versions.
+# Default: None (commented out)
+{% if TRUNK_RELEASE is defined and TRUNK_RELEASE is not none and TRUNK_RELEASE | length > 0 %}
+{% if TRUNK_RELEASE is defined and TRUNK_RELEASE is not none and (TRUNK_RELEASE is number or TRUNK_RELEASE is boolean or TRUNK_RELEASE | length > 0) %}TRUNK_RELEASE={{ TRUNK_RELEASE }}{% else %}# TRUNK_RELEASE='release-trunk'{% endif %}
+{% else %}
+# TRUNK_RELEASE='release-trunk'
+{% endif %}
 
-# Architecture on which to build 'Architecture: all' packages. Defaults to host architecture if unset.
-# If packages are build for more than one architecture you can
-# decide which architecture should build the "Architecture: all"
-# packages. On all other architectures only the arch specific
-# packages will be build then.
-# If unset it will default to the architecture of the host system.
-MAIN_ARCHITECTURE="{{ MAIN_ARCHITECTURE | default('') }}"
+# -----------------------------------------------------------------------------
+# Main Architecture
+# -----------------------------------------------------------------------------
+# Architecture on which to build 'Architecture: all' packages.
+# Defaults to host architecture if unset. Useful for cross-compilation setups.
+# Default: None (commented out)
+{% if MAIN_ARCHITECTURE is defined and MAIN_ARCHITECTURE is not none and MAIN_ARCHITECTURE | length > 0 %}
+{% if MAIN_ARCHITECTURE is defined and MAIN_ARCHITECTURE is not none and (MAIN_ARCHITECTURE is number or MAIN_ARCHITECTURE is boolean or MAIN_ARCHITECTURE | length > 0) %}MAIN_ARCHITECTURE="{{ MAIN_ARCHITECTURE }}"{% else %}# MAIN_ARCHITECTURE="amd64"{% endif %}
+{% else %}
+# MAIN_ARCHITECTURE="amd64"
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Pbuilder Hook Directory
+# -----------------------------------------------------------------------------
 # Directory containing hook scripts for pbuilder/cowbuilder.
-# Hook scripts for pbuilder/cowbuilder, used e.g. for autopkgtest.
+# Hooks are executed at various stages of the build process (e.g., before/after build).
 # Default: /usr/share/jenkins-debian-glue/pbuilder-hookdir/
-PBUILDER_HOOKDIR={{ PBUILDER_HOOKDIR | default('/usr/share/jenkins-debian-glue/pbuilder-hookdir/') }}
+{% if PBUILDER_HOOKDIR is defined and PBUILDER_HOOKDIR is not none and PBUILDER_HOOKDIR | length > 0 %}
+{% if PBUILDER_HOOKDIR is defined and PBUILDER_HOOKDIR is not none and (PBUILDER_HOOKDIR is number or PBUILDER_HOOKDIR is boolean or PBUILDER_HOOKDIR | length > 0) %}PBUILDER_HOOKDIR={{ PBUILDER_HOOKDIR }}{% else %}# PBUILDER_HOOKDIR=/usr/share/jenkins-debian-glue/pbuilder-hookdir/{% endif %}
+{% else %}
+# PBUILDER_HOOKDIR=/usr/share/jenkins-debian-glue/pbuilder-hookdir/
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Pbuilder Configuration File
+# -----------------------------------------------------------------------------
 # Path to a user-specific pbuilder configuration file.
-# To enable a pbuilder configuration file for usage as documented
-# in man pbuilder(8) under --configfile set this option.
-# By default no user specific pbuilder configuration file is used.
-PBUILDER_CONFIG={{ PBUILDER_CONFIG | default('') }}
+# See man pbuilder(8) for details on --configfile.
+# Default: None (commented out, no user-specific config used)
+{% if PBUILDER_CONFIG is defined and PBUILDER_CONFIG is not none and PBUILDER_CONFIG | length > 0 %}
+{% if PBUILDER_CONFIG is defined and PBUILDER_CONFIG is not none and (PBUILDER_CONFIG is number or PBUILDER_CONFIG is boolean or PBUILDER_CONFIG | length > 0) %}PBUILDER_CONFIG={{ PBUILDER_CONFIG }}{% else %}# PBUILDER_CONFIG=/etc/jenkins/pbuilderrc{% endif %}
+{% else %}
+# PBUILDER_CONFIG=/etc/jenkins/pbuilderrc
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Default Repository Base Directory
+# -----------------------------------------------------------------------------
 # Base directory for reprepro repositories.
-# Base directory for reprepro repositories, can be overwritten
-# via REPOSITORY on demand
+# Can be overridden via the REPOSITORY variable on demand.
 # Default: /srv/repository
-DEFAULT_REPOSITORY='{{ DEFAULT_REPOSITORY | default('/srv/repository') }}'
+{% if DEFAULT_REPOSITORY is defined and DEFAULT_REPOSITORY is not none and DEFAULT_REPOSITORY | length > 0 %}
+{% if DEFAULT_REPOSITORY is defined and DEFAULT_REPOSITORY is not none and (DEFAULT_REPOSITORY is number or DEFAULT_REPOSITORY is boolean or DEFAULT_REPOSITORY | length > 0) %}DEFAULT_REPOSITORY='{{ DEFAULT_REPOSITORY }}'{% else %}# DEFAULT_REPOSITORY='/srv/repository'{% endif %}
+{% else %}
+# DEFAULT_REPOSITORY='/srv/repository'
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Preserve Original Version
+# -----------------------------------------------------------------------------
 # If true, preserve the version number from the changelog without padding.
-# In order to keep the build versions unique and to ensure that there
-# are no duplicates, the version number from the changelog is padded
-# with the date and the build number.
-# To override this behaviour and preserve the version number from the
-# changelog, set USE_ORIG_VERSION to true.
-USE_ORIG_VERSION={{ USE_ORIG_VERSION | default(false) | lower }}
+# By default, versions are padded with date and build number to ensure uniqueness.
+# Default: false
+{% if USE_ORIG_VERSION is defined and USE_ORIG_VERSION is not none and USE_ORIG_VERSION | length > 0 %}
+{% if USE_ORIG_VERSION is defined and USE_ORIG_VERSION is not none and (USE_ORIG_VERSION is number or USE_ORIG_VERSION is boolean or USE_ORIG_VERSION | length > 0) %}USE_ORIG_VERSION={{ USE_ORIG_VERSION }}{% else %}# USE_ORIG_VERSION=true{% endif %}
+{% else %}
+# USE_ORIG_VERSION=false
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Repository Keyring
+# -----------------------------------------------------------------------------
 # Path to the keyring file holding the public key for signing repositories.
-# By default reprepro repositories are not verified but assumed to be
-# trustworthy.
-# Please note that if you build packages for Squeeze, the reprepro
-# repositories *MUST* be signed and verifiable. I.e. you need to set
-# KEY_ID and the corresponding keyring in REPOSITORY_KEYRING that
-# holds the public key portion for that KEY_ID.
-REPOSITORY_KEYRING={{ REPOSITORY_KEYRING | default('') }}
+# Required if REPOSITORY_KEYRING signing is enabled (mandatory for Squeeze+).
+# Default: None (commented out)
+{% if REPOSITORY_KEYRING is defined and REPOSITORY_KEYRING is not none and REPOSITORY_KEYRING | length > 0 %}
+{% if REPOSITORY_KEYRING is defined and REPOSITORY_KEYRING is not none and (REPOSITORY_KEYRING is number or REPOSITORY_KEYRING is boolean or REPOSITORY_KEYRING | length > 0) %}REPOSITORY_KEYRING={{ REPOSITORY_KEYRING }}{% else %}# REPOSITORY_KEYRING=/etc/apt/trusted.gpg.d/my-custom-keyring.gpg{% endif %}
+{% else %}
+# REPOSITORY_KEYRING=/etc/apt/trusted.gpg.d/my-custom-keyring.gpg
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Remove from Release Before Incoming
+# -----------------------------------------------------------------------------
 # If true, remove packages from a release repository before processing incoming.
-# If $release is set then "${REPOSITORY}/release/${release}"
-# is used as release repository. If you want to use a different
-# directory set RELEASE_REPOSITORY accordingly.
-# Default:
-RELEASE_REPOSITORY="${REPOSITORY}/release/${release}"
-
-# If true, remove packages from a release repository before processing incoming.
-# This allows to rebuild and provide versions already existent
-# in the release repository they are built for.
+# This allows rebuilding and providing versions that already exist in the release repo.
 # Default: false
-REMOVE_FROM_RELEASE={{ REMOVE_FROM_RELEASE | default(false) | lower }}
+{% if REMOVE_FROM_RELEASE is defined and REMOVE_FROM_RELEASE is not none and REMOVE_FROM_RELEASE | length > 0 %}
+{% if REMOVE_FROM_RELEASE is defined and REMOVE_FROM_RELEASE is not none and (REMOVE_FROM_RELEASE is number or REMOVE_FROM_RELEASE is boolean or REMOVE_FROM_RELEASE | length > 0) %}REMOVE_FROM_RELEASE={{ REMOVE_FROM_RELEASE }}{% else %}# REMOVE_FROM_RELEASE=false{% endif %}
+{% else %}
+# REMOVE_FROM_RELEASE=false
+{% endif %}
 
+# -----------------------------------------------------------------------------
+# Keep Build Environment on Failure
+# -----------------------------------------------------------------------------
 # If true, keep a copy of the build environment on failure.
-# By default the underlying build system (cowbuilder/pbuilder)
-# automatically destroys the build environment, even if building
-# fails for whatever reason. If DEB_KEEP_BUILD_ENV is set then
-# a copy of the build environment is created under
-# /var/cache/pbuilder/build/debug.$JOBNAME
-# Please be aware that those build environments usually require
-# quite some disk space, so do not forget to remove them.
-# If unset the build environment won't be kept if building fails.
-DEB_KEEP_BUILD_ENV={{ DEB_KEEP_BUILD_ENV | default(false) | lower }}
-
-# Comma-separated list of extra repositories for resolving dependencies.
-# Comma separated list of extra repositories for resolving dependencies.
-# Usage example:
-# REPOSITORY_EXTRA='deb http://security.debian.org/ wheezy/updates main,deb-src http://security.debian.org/ wheezy/updates main'
-# Default:
-REPOSITORY_EXTRA={{ REPOSITORY_EXTRA | default('') }}
-
-# Comma-separated list of URLs with keys for extra repositories.
-# Comma separated list of URLs with keys for extra repositories.
-# Usage example:
-# REPOSITORY_EXTRA_KEYS='http://foorepo.domain.com/key1.gpg,http://barrepo.domain.com/key2.gpg'
-# Default:
-REPOSITORY_EXTRA_KEYS={{ REPOSITORY_EXTRA_KEYS | default('') }}
-
-# Control autopkgtest execution: internal, external, all, or skip.
-# autopkgtests are executed automatically inside the cowbuilder environment by
-# default, corresponding to the ADT='internal' setting or if ADT is unset.
-# To execute autopkgtests also externally you need to set ADT to
-# either 'external' (no internal runs) or 'all' (internal + external runs).
-# The external autopkgtests depend on a configured ADT_RUNNER setting.
-# To skip internal as well as external autopkgtests set ADT='skip'.
-# Usage example (see adt-virt-qemu(1) for details regarding image setup):
-ADT='{{ ADT | default('internal') }}'
-# ADT_RUNNER="adt-virt-qemu /srv/adt-${distribution:-}-${architecture:-}.img"
-
-# Control usage of eatmydata to speed up builds (true/false or auto).
-# Control usage of eatmydata to speed up builds. If eatmydata is present on the
-# host system and when building for a recent distribution (Debian/jessie +
-# Ubuntu/vivid or newer) eatmydata is enabled automatically.
-# To force its usage (skipping any host + distribution checks) set it to 'true'.
-# To disable its usage set it to 'false'.
-USE_EATMYDATA={{ USE_EATMYDATA | default(false) | lower }}
-
-# Enable ccache for fast recompilation of C/C++ code.
-# Enable ccache (compiler cache for fast recompilation of C/C++ code)
-# to speed up builds.
-USE_CCACHE={{ USE_CCACHE | default(false) | lower }}
-
-# Format string for the generated build timestamp.
-# Specify the format (as accepted by the 'date' command) for the generated
-# build timestamp.
-# Default: %Y%m%d%H%M%S
-TIMESTAMP_FORMAT="{{ TIMESTAMP_FORMAT | default('%Y%m%d%H%M%S') }}"
-
-# If true, append SCM commit to version number even if marked UNRELEASED.
-# In case you are explicitly marking your new package version as "UNRELEASED"
-# inside the debian/changelog file, you may not get a package build version
-# number containing the SCM commit. Set this to 'true' in order to work around
-# this.
+# The copy is stored in /var/cache/pbuilder/build/debug.$JOBNAME.
+# Warning: Requires significant disk space.
 # Default: false
-UNRELEASED_APPEND_COMMIT={{ UNRELEASED_APPEND_COMMIT | default(false) | lower }}
+{% if DEB_KEEP_BUILD_ENV is defined and DEB_KEEP_BUILD_ENV is not none and DEB_KEEP_BUILD_ENV | length > 0 %}
+{% if DEB_KEEP_BUILD_ENV is defined and DEB_KEEP_BUILD_ENV is not none and (DEB_KEEP_BUILD_ENV is number or DEB_KEEP_BUILD_ENV is boolean or DEB_KEEP_BUILD_ENV | length > 0) %}DEB_KEEP_BUILD_ENV={{ DEB_KEEP_BUILD_ENV }}{% else %}# DEB_KEEP_BUILD_ENV=true{% endif %}
+{% else %}
+# DEB_KEEP_BUILD_ENV=false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Extra Repositories for Dependencies
+# -----------------------------------------------------------------------------
+# Comma-separated list of extra repositories for resolving dependencies.
+# Example: 'deb http://security.debian.org/ wheezy/updates main,deb-src http://security.debian.org/ wheezy/updates main'
+# Default: Empty string
+{% if REPOSITORY_EXTRA is defined and REPOSITORY_EXTRA is not none and REPOSITORY_EXTRA | length > 0 %}
+REPOSITORY_EXTRA='{{ REPOSITORY_EXTRA }}'
+{% else %}
+# REPOSITORY_EXTRA=''
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Extra Repository Keys
+# -----------------------------------------------------------------------------
+# Comma-separated list of URLs with keys for extra repositories.
+# Example: 'http://foorepo.domain.com/key1.gpg,http://barrepo.domain.com/key2.gpg'
+# Default: Empty string
+{% if REPOSITORY_EXTRA_KEYS is defined and REPOSITORY_EXTRA_KEYS is not none and REPOSITORY_EXTRA_KEYS | length > 0 %}
+REPOSITORY_EXTRA_KEYS='{{ REPOSITORY_EXTRA_KEYS }}'
+{% else %}
+# REPOSITORY_EXTRA_KEYS=''
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Autopkgtest Execution Mode
+# -----------------------------------------------------------------------------
+# Control autopkgtest execution: internal, external, all, or skip.
+# - internal: Run tests inside cowbuilder (default)
+# - external: Run tests externally (requires ADT_RUNNER)
+# - all: Run both internal and external
+# - skip: Disable all autopkgtests
+# Default: external
+{% if ADT is defined and ADT is not none and ADT | length > 0 %}
+ADT='{{ ADT }}'
+{% else %}
+# ADT='external'
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Use Eatmydata
+# -----------------------------------------------------------------------------
+# Control usage of eatmydata to speed up builds (true/false or auto).
+# eatmydata disables fsync, speeding up I/O but risking data loss on crash.
+# If 'auto' (or unset), it is enabled for recent distros if available.
+# Default: true
+{% if USE_EATMYDATA is defined and USE_EATMYDATA is not none and USE_EATMYDATA | length > 0 %}
+{% if USE_EATMYDATA is defined and USE_EATMYDATA is not none and (USE_EATMYDATA is number or USE_EATMYDATA is boolean or USE_EATMYDATA | length > 0) %}USE_EATMYDATA={{ USE_EATMYDATA }}{% else %}# USE_EATMYDATA=true{% endif %}
+{% else %}
+# USE_EATMYDATA=true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Use Ccache
+# -----------------------------------------------------------------------------
+# Enable ccache for fast recompilation of C/C++ code.
+# Default: true
+{% if USE_CCACHE is defined and USE_CCACHE is not none and USE_CCACHE | length > 0 %}
+{% if USE_CCACHE is defined and USE_CCACHE is not none and (USE_CCACHE is number or USE_CCACHE is boolean or USE_CCACHE | length > 0) %}USE_CCACHE={{ USE_CCACHE }}{% else %}# USE_CCACHE=true{% endif %}
+{% else %}
+# USE_CCACHE=true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Timestamp Format
+# -----------------------------------------------------------------------------
+# Format string for the generated build timestamp.
+# Uses the 'date' command format.
+# Default: None (commented out, uses standard format)
+{% if TIMESTAMP_FORMAT is defined and TIMESTAMP_FORMAT is not none and TIMESTAMP_FORMAT | length > 0 %}
+{% if TIMESTAMP_FORMAT is defined and TIMESTAMP_FORMAT is not none and (TIMESTAMP_FORMAT is number or TIMESTAMP_FORMAT is boolean or TIMESTAMP_FORMAT | length > 0) %}TIMESTAMP_FORMAT="{{ TIMESTAMP_FORMAT }}"{% else %}# TIMESTAMP_FORMAT="%Y%m%d%H%M%S"{% endif %}
+{% else %}
+# TIMESTAMP_FORMAT="%Y%m%d%H%M%S"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Unreleased Append Commit
+# -----------------------------------------------------------------------------
+# If true, append SCM commit to version number even if marked UNRELEASED.
+# This ensures unique versions even when the changelog says "unreleased".
+# Default: false
+{% if UNRELEASED_APPEND_COMMIT is defined and UNRELEASED_APPEND_COMMIT is not none and UNRELEASED_APPEND_COMMIT | length > 0 %}
+{% if UNRELEASED_APPEND_COMMIT is defined and UNRELEASED_APPEND_COMMIT is not none and (UNRELEASED_APPEND_COMMIT is number or UNRELEASED_APPEND_COMMIT is boolean or UNRELEASED_APPEND_COMMIT | length > 0) %}UNRELEASED_APPEND_COMMIT={{ UNRELEASED_APPEND_COMMIT }}{% else %}# UNRELEASED_APPEND_COMMIT=false{% endif %}
+{% else %}
+# UNRELEASED_APPEND_COMMIT=false
+{% endif %}

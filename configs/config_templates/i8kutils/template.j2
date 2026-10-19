@@ -1,50 +1,82 @@
-# Configuration for i8kutils (i8kmon)
-# This file defines fan curve thresholds and status display settings for
-# Dell laptops supported by the i8kmon daemon.
+# ============================================================================
+# i8kutils Configuration Template
+# ============================================================================
+# This template generates the configuration file for i8kutils (i8kmon/i8kutils),
+# used to control fan speeds on IBM/Lenovo ThinkPad laptops based on thermal readings.
+# ============================================================================
 
 # Status check timeout in seconds
-# Controls how often i8kmon checks the hardware sensor status.
-set config(timeout)     {{ timeout | default(2) }}
+# Controls how often the i8kmon daemon checks system status.
+set config(timeout)     {{ timeout | default('2') }}
 
+# Temperature threshold for red display
 # Temperature threshold at which the temperature is displayed in red
-# When the CPU temperature exceeds this value (in Celsius), the display color changes.
-set config(t_high)      {{ t_high | default(80) }}
+set config(t_high)      {{ t_high | default('80') }}
 
 # Number of temperature configurations
-# Defines how many fan speed levels (curves) are active. Must match the number of config blocks.
-set config(num_configs) {{ num_configs | default(5) }}
+# Number of temperature configurations
+set config(num_configs) {{ num_configs | default('5') }}
 
-# Temperature thresholds: {fan_speeds low_ac high_ac low_batt high_batt}
-# Each line defines a configuration block:
-#   fan_speeds: {left_fan_state right_fan_state}
-#   low_ac:     AC temperature low threshold
-#   high_ac:    AC temperature high threshold
-#   low_batt:   Battery temperature low threshold
-#   high_batt:  Battery temperature high threshold
+# ============================================================================
+# Temperature Configuration Blocks
+# ============================================================================
+# Each block defines a fan speed state with associated thermal thresholds.
+# Format: set config(N) {fan_speed} low_ac high_ac low_batt high_batt
+# - fan_speed: Code representing fan speed state (e.g., '0 0' for off, '0 1' for low).
+# - low_ac:    Low AC temperature threshold (degrees C)
+# - high_ac:   High AC temperature threshold (degrees C)
+# - low_batt:  Low Battery temperature threshold (degrees C)
+# - high_batt: High Battery temperature threshold (degrees C)
+#
+# Note: The fan speed code is embedded in curly braces to survive Jinja2 parsing.
 
-# Config 0: Initial state
-# Fan speeds are typically off or low; thresholds are minimal.
-set config(0)   {{ '{0 0}' }} {{ temp_0_ac_low | default(-1) }} {{ temp_0_ac_high | default(50) }} -1 {{ temp_0_ac_high | default(50) }}
+# Configuration 0: Initial/Low power state
+# Low AC temperature threshold for config 0: {{ temp_0_ac_low | default(-1) }}
+# High AC temperature threshold for config 0: {{ temp_0_ac_high | default(50) }}
+# Low Battery temperature threshold for config 0: {{ temp_0_batt_low | default(-1) }}
+# High Battery temperature threshold for config 0: {{ temp_0_batt_high | default(50) }}
+set config(0)   {{ '{' }}0 0{{ '}' }}  {{ temp_0_ac_low | default(-1) }}  {{ temp_0_ac_high | default(50) }}  {{ temp_0_batt_low | default(-1) }}  {{ temp_0_batt_high | default(50) }}
 
-# Config 1: First transition state
-# Fan speeds start increasing as temperature rises.
-set config(1)   {{ '{0 1}' }} {{ temp_1_ac_low | default(45) }} {{ temp_1_ac_high | default(55) }} {{ temp_1_batt_low | default(45) }} {{ temp_1_batt_high | default(55) }}
+# Configuration 1: Moderate load state
+# Low AC temperature threshold for config 1: {{ temp_1_ac_low | default(45) }}
+# High AC temperature threshold for config 1: {{ temp_1_ac_high | default(55) }}
+# Low Battery temperature threshold for config 1: {{ temp_1_batt_low | default(45) }}
+# High Battery temperature threshold for config 1: {{ temp_1_batt_high | default(55) }}
+set config(1)   {{ '{' }}0 1{{ '}' }}  {{ temp_1_ac_low | default(45) }}  {{ temp_1_ac_high | default(55) }}  {{ temp_1_batt_low | default(45) }}  {{ temp_1_batt_high | default(55) }}
 
-# Config 2: Second transition state
-set config(2)   {{ '{1 1}' }} {{ temp_2_ac_low | default(50) }} {{ temp_2_ac_high | default(65) }} {{ temp_2_batt_low | default(50) }} {{ temp_2_batt_high | default(65) }}
+# Configuration 2: High load state
+# Low AC temperature threshold for config 2: {{ temp_2_ac_low | default(50) }}
+# High AC temperature threshold for config 2: {{ temp_2_ac_high | default(65) }}
+# Low Battery temperature threshold for config 2: {{ temp_2_batt_low | default(50) }}
+# High Battery temperature threshold for config 2: {{ temp_2_batt_high | default(65) }}
+set config(2)   {{ '{' }}1 1{{ '}' }}  {{ temp_2_ac_low | default(50) }}  {{ temp_2_ac_high | default(65) }}  {{ temp_2_batt_low | default(50) }}  {{ temp_2_batt_high | default(65) }}
 
-# Config 3: Third transition state
-set config(3)   {{ '{1 2}' }} {{ temp_3_ac_low | default(60) }} {{ temp_3_ac_high | default(70) }} {{ temp_3_batt_low | default(60) }} {{ temp_3_batt_high | default(70) }}
+# Configuration 3: Critical load state
+# Low AC temperature threshold for config 3: {{ temp_3_ac_low | default(60) }}
+# High AC temperature threshold for config 3: {{ temp_3_ac_high | default(70) }}
+# Low Battery temperature threshold for config 3: {{ temp_3_batt_low | default(60) }}
+# High Battery temperature threshold for config 3: {{ temp_3_batt_high | default(70) }}
+set config(3)   {{ '{' }}1 2{{ '}' }}  {{ temp_3_ac_low | default(60) }}  {{ temp_3_ac_high | default(70) }}  {{ temp_3_batt_low | default(60) }}  {{ temp_3_batt_high | default(70) }}
 
-# Config 4: Highest temperature state
-# Fans run at maximum speed; thresholds allow for high thermal loads.
-set config(4)   {{ '{2 2}' }} {{ temp_4_ac_low | default(65) }} {{ temp_4_ac_high | default(128) }} {{ temp_4_batt_low | default(65) }} {{ temp_4_batt_high | default(128) }}
+# Configuration 4: Maximum/Throttling state
+# Low AC temperature threshold for config 4: {{ temp_4_ac_low | default(65) }}
+# High AC temperature threshold for config 4: {{ temp_4_ac_high | default(128) }}
+# Low Battery temperature threshold for config 4: {{ temp_4_batt_low | default(65) }}
+# High Battery temperature threshold for config 4: {{ temp_4_batt_high | default(128) }}
+set config(4)   {{ '{' }}2 2{{ '}' }}  {{ temp_4_ac_low | default(65) }}  {{ temp_4_ac_high | default(128) }}  {{ temp_4_batt_low | default(65) }}  {{ temp_4_batt_high | default(128) }}
 
-# Speed values are set here to avoid i8kmon probing them at every start.
-# Left fan speed values string (space-separated RPMs for fan states 0, 1, 2...)
-set status(leftspeed)   "{{ status_leftspeed | default('0 2500 5000 5000') }}"
+# ============================================================================
+# Fan Speed Status Overrides
+# ============================================================================
+# These values prevent i8kmon from probing fan speeds on every startup,
+# improving performance and stability.
 
-# Right fan speed values string (space-separated RPMs for fan states 0, 1, 2...)
-set status(rightspeed)  "{{ status_rightspeed | default('0 2500 5000 5000') }}"
+# Left fan speed values string
+# Space-separated string defining RPMs for left fan states
+set status(leftspeed)	"{{ status_leftspeed | default('0 2500 5000 5000') }}"
+
+# Right fan speed values string
+# Space-separated string defining RPMs for right fan states
+set status(rightspeed)	"{{ status_rightspeed | default('0 2500 5000 5000') }}"
 
 # end of file

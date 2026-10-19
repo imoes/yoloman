@@ -1,7 +1,7 @@
 {
   "control_socket_name": {
     "type": "string",
-    "default": "/run/kea/dhcp6-ctrl.sock",
+    "default": "kea6-ctrl-socket",
     "description": "Unix socket path for Kea control agent communication"
   },
   "lease_database_type": {
@@ -12,12 +12,11 @@
       "memfile",
       "mysql",
       "postgresql"
-    ],
-    "enum_open": true
+    ]
   },
   "lease_database_name": {
     "type": "string",
-    "default": "kea-dhcp6-db",
+    "default": "kea-dhcp6",
     "description": "Name of the lease database (used for SQL backends)"
   },
   "lease_database_user": {
@@ -37,8 +36,8 @@
   },
   "lease_database_port": {
     "type": "number",
-    "default": 5432,
-    "description": "Port of the lease database server (ignored for file-based 'memfile')"
+    "default": null,
+    "description": "Port of the SQL lease database server (mysql/postgresql only). Unset = the backend's standard port (MySQL 3306, PostgreSQL 5432)."
   },
   "lease_database_lfc_interval": {
     "type": "number",
@@ -47,7 +46,7 @@
   },
   "lease_database_max_reclaim_leases": {
     "type": "number",
-    "default": 1000,
+    "default": 100,
     "description": "Maximum number of leases to reclaim during a single LFC cycle"
   },
   "lease_database_max_reclaim_time": {
@@ -57,7 +56,7 @@
   },
   "lease_database_unwarned_reclaim_cycles": {
     "type": "number",
-    "default": 3,
+    "default": 5,
     "description": "Number of cycles after which a warning is emitted if reclaiming is still ongoing"
   },
   "hooks_libraries": {
@@ -65,20 +64,32 @@
     "default": [],
     "description": "List of hook libraries to load (e.g., for logging, auditing, or custom logic)"
   },
-  "loggers": {
-    "type": "list",
-    "default": [
-      {
-        "name": "kea-dhcp6",
-        "output_options": [
-          {
-            "output": "/var/log/kea/kea-dhcp6.log"
-          }
-        ],
-        "severity": "INFO",
-        "debuglevel": 99
-      }
+  "log_output": {
+    "type": "string",
+    "default": "stdout",
+    "description": "Where the kea-dhcp6 logger writes: stdout, stderr, syslog, syslog:<name>, or a file path.",
+    "enum": [
+      "stdout",
+      "stderr",
+      "syslog"
     ],
-    "description": "Logging configuration for the DHCPv6 server"
+    "enum_open": true
+  },
+  "log_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Lowest severity the kea-dhcp6 logger keeps.",
+    "enum": [
+      "FATAL",
+      "ERROR",
+      "WARN",
+      "INFO",
+      "DEBUG"
+    ]
+  },
+  "log_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity when log_severity is DEBUG: 0 (least) to 99 (most)."
   }
 }

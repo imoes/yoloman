@@ -1,0 +1,78 @@
+#
+# Sample iSNS client configuration file
+#
+
+# The source name. This is an iSCSI qualified name,
+# and identifies the client uniquely.
+#
+# If left empty, the source name is derived from
+# the client's hostname.
+#
+{% if source_name is defined and source_name is not none and (source_name is number or source_name is boolean or source_name | length > 0) %}SourceName	= {{ source_name }}
+{% else %}#SourceName	= iqn.2006-01.com.example.host1
+{% endif %}
+# Name and port of the iSNS server.
+# Possible formats:
+#	foo.example.com
+#	foo.example.com:3205
+#	192.168.1.7:isns
+#	[2001:4e5f::1]:isns
+#	SLP:
+# If the special string "SLP:" is given, Open-iSNS will
+# query the SLP directory service to find the iSNS server.
+{% if server_address is defined and server_address is not none and (server_address is number or server_address is boolean or server_address | length > 0) %}ServerAddress	= {{ server_address }}
+{% else %}#ServerAddress	= isns.example.com
+{% endif %}
+
+# Authentication enable/disable.
+# When set to 1, the client will sign
+# all messages, and expect all server messages
+# to be signed.
+#
+# Authentication requires a valid private DSA
+# key in AuthKeyFile, and the server's DSA public
+# key in ServerKeyFile.
+#
+# The default is to use authentication if the
+# requires keys are installed, and use unauthenticated
+# iSNS otherwise.
+{% if security is defined and security is not none and (security is number or security is boolean or security | length > 0) %}Security	= {{ security }}
+{% else %}#Security	= 1
+{% endif %}
+# Location of the client's private key.
+# The file must contain a PEM encoded DSA key.
+# The default is /etc/isns/auth_key
+{% if auth_key_file is defined and auth_key_file is not none and (auth_key_file is number or auth_key_file is boolean or auth_key_file | length > 0) %}AuthKeyFile	= {{ auth_key_file }}
+{% else %}#AuthKeyFile	= /etc/isns/auth_key
+{% endif %}
+# Location of the servers's public key.
+# The file must contain a PEM encoded DSA key.
+# The default is /etc/isns/server_key.pub
+{% if server_key_file is defined and server_key_file is not none and (server_key_file is number or server_key_file is boolean or server_key_file | length > 0) %}ServerKeyFile	= {{ server_key_file }}
+{% else %}#ServerKeyFile	= /etc/isns/server_key.pub
+{% endif %}
+# In order to prevent replay attacks, the
+# authentication blocks carried by iSNS
+# include a time stamp. The following two
+# parameters control how we verify the
+# time stamp
+Auth.ReplayWindow = {{ auth_replay_window | default('2m') }}
+Auth.TimeStampJitter = {{ auth_timestamp_jitter | default('1s') }}
+
+# Maximum number of incoming connections
+# accepted. This usually applies to server
+# side only, but is relevant if you create
+# a passive TCP socket for ESI or SCN.
+# Network.MaxSockets = 1024
+
+# Time to wait for a TCP connection to be
+# established.
+# Network.ConnectTimeout = 60
+
+# When a connection attempt failed, we wait
+# before we try connecting again.
+# Network.ReonnectTimeout = 10
+
+# Total amount of time to wait before timing
+# out a call to the iSNS server.
+# Network.CallTimeout = 60

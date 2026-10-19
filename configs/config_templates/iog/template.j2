@@ -1,8 +1,18 @@
 #
 # Regular cron jobs for the iog package
-# Self-documented: uses cron_schedule and cron_user variables.
 #
-# cron_schedule: Cron schedule for the iog job
-#   Defines the timing for the iog execution.
-#   Default: '0 *  * * *' (every hour)
-{{ cron_schedule | default('0 *  * * *') }}	{{ cron_user | default('www-data') }}	[ -x /usr/sbin/iog ] && /usr/sbin/iog
+# This template generates a crontab entry to run the 'iog' utility on a defined schedule.
+# The schedule and the user running the task are configurable via schema fields.
+
+# Cron schedule definition: specifies when the job runs.
+# Default: '0 * * * *' (every hour at minute 0).
+# Format: minute hour day-of-month month day-of-week
+{{ (cron_schedule | default('0 *  * * *')) | trim }}
+
+# User context: the system user under which the cron job executes.
+# Default: 'www-data'
+{{ (cron_user | default('www-data')) | trim }}
+
+# Command execution: checks if the iog binary exists and is executable, then runs it.
+# This ensures the job fails silently or logs appropriately if the binary is missing.
+[ -x /usr/sbin/iog ] && /usr/sbin/iog

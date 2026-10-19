@@ -1,23 +1,66 @@
+# ==============================================================================
 # Kytos Utilities Configuration
-# This file controls the behavior of Kytos utility scripts and helper services.
-# It is managed by Ansible; do not edit manually.
+# ==============================================================================
+# This file configures the Kytos utilities (kytos-utils).
+# It defines connection endpoints, timeouts, logging verbosity, localization,
+# and paths for Network Application (NApp) directories.
 
-# The base URL of the Kytos API endpoint.
-# Used by utilities to connect to the Kytos controller's REST API.
-kytos_api_url: {{ kytos_api_url | default('http://localhost:8181') }}
+# ------------------------------------------------------------------------------
+# NApp Directories Configuration
+# ------------------------------------------------------------------------------
+# List of directories where Kytos Network Applications (NApps) are stored.
+# Kytos loads NApps from these paths at startup.
 
-# Timeout in seconds for HTTP requests made by the utility.
-# If the Kytos API does not respond within this window, requests are aborted.
-request_timeout: {{ request_timeout | default(30) }}
+# NAPP_DIRS: List of directories containing NApp packages.
+# Default: ['/var/lib/kytos/napps/']
+{% set napp_dirs = napp_dirs_path | default(['/var/lib/kytos/napps/']) %}
+NAPP_DIRS = [
+{% for path in napp_dirs %}
+    "{{ path }}",
+{% endfor %}
+]
 
-# Whether to enable verbose debug logging.
-# When true, the utilities emit detailed logs for troubleshooting.
-verbose_logging: {{ verbose_logging | default(False) | lower }}
+# ------------------------------------------------------------------------------
+# API Connection Configuration
+# ------------------------------------------------------------------------------
+# Settings for connecting to the main Kytos Controller API.
 
-# Default language code (ISO 639-1) for translations.
-# This language is used when no user preference is set and no fallback is found.
-default_language: {{ default_language | default('en') }}
+# KYTOS_API_URL: The base URL of the Kytos API endpoint.
+# This URL is used by utilities to authenticate and send requests to the controller.
+# Default: 'http://localhost:8181'
+KYTOS_API_URL = "{{ kytos_api_url | default('http://localhost:8181') }}"
 
-# List of supported language codes for translation features.
-# Only languages in this list are available for selection or fallback.
-supported_languages: {{ supported_languages | default(['en', 'es', 'fr', 'de', 'pt']) | tojson }}
+# REQUEST_TIMEOUT: Timeout in seconds for HTTP requests made by the utility.
+# If the API does not respond within this time, the request will fail.
+# Default: 30
+REQUEST_TIMEOUT = {{ request_timeout | default(30) }}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+# Controls the verbosity of log output for debugging purposes.
+
+# VERBOSE_LOGGING: Whether to enable verbose debug logging.
+# Set to True to see detailed debug information, False for standard logging.
+# Default: False
+VERBOSE_LOGGING = {{ verbose_logging | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Localization Configuration
+# ------------------------------------------------------------------------------
+# Settings for internationalization (i18n) and language preferences.
+
+# DEFAULT_LANGUAGE: Default language code (ISO 639-1) for translations.
+# This language is used if no other preference is set by the user or environment.
+# Default: 'en'
+DEFAULT_LANGUAGE = "{{ default_language | default('en') }}"
+
+# SUPPORTED_LANGUAGES: List of supported language codes for translation features.
+# Utilities will only provide translations for languages in this list.
+# Default: ['en', 'es', 'fr', 'de', 'pt']
+{% set supported_langs = supported_languages | default(['en', 'es', 'fr', 'de', 'pt']) %}
+SUPPORTED_LANGUAGES = [
+    {% for lang in supported_langs %}
+    "{{ lang }}",
+    {% endfor %}
+]

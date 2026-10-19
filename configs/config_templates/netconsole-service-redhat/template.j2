@@ -1,0 +1,56 @@
+# ==============================================================================
+# netconsole-service-redhat Configuration Template
+# ==============================================================================
+# This file configures the netconsole kernel module/service on Red Hat systems.
+# netconsole allows the kernel to send console log messages (klogd/syslog)
+# over UDP to a remote syslog server.
+#
+# Each configuration directive below is derived from the role variables.
+# If a variable is undefined or empty, the directive is commented out with
+# its sensible default value shown.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Local UDP Port
+# ------------------------------------------------------------------------------
+# The local UDP port number that the netconsole module will bind to for
+# sending messages. Default is 6666 if not specified.
+{% if local_port is defined and local_port is not none and (local_port is number or local_port is boolean or (local_port is string and local_port | trim | length > 0)) %}LOCALPORT={{ local_port | default('6666') }}
+{% else %}# LOCALPORT=6666
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Network Device Interface
+# ------------------------------------------------------------------------------
+# The ethernet device interface to send console messages out of.
+# Leave empty (commented out) to allow automatic determination by the kernel.
+{% if device is defined and device is not none and (device is string and device | trim | length > 0) %}DEV={{ device | default('') }}
+{% else %}# DEV=
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Remote Syslog Server Address
+# ------------------------------------------------------------------------------
+# The IP address of the remote syslog server to send messages to.
+# This is a required field for netconsole to function.
+{% if syslog_addr is defined and syslog_addr is not none and (syslog_addr is string and syslog_addr | trim | length > 0) %}SYSLOGADDR={{ syslog_addr | default('') }}
+{% else %}# SYSLOGADDR=
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Remote Syslog Server Port
+# ------------------------------------------------------------------------------
+# The UDP listening port of the remote syslog daemon.
+# Standard syslog port is 514 if not specified.
+{% if syslog_port is defined and syslog_port is not none and (syslog_port is number or syslog_port is boolean or (syslog_port is string and syslog_port | trim | length > 0)) %}SYSLOGPORT={{ syslog_port | default('514') }}
+{% else %}# SYSLOGPORT=514
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Remote Syslog Server MAC Address
+# ------------------------------------------------------------------------------
+# The MAC address of the remote syslog server.
+# Leave empty (commented out) to allow automatic determination via ARP.
+{% if syslog_mac_addr is defined and syslog_mac_addr is not none and (syslog_mac_addr is string and syslog_mac_addr | trim | length > 0) %}SYSLOGMACADDR={{ syslog_mac_addr | default('') }}
+{% else %}# SYSLOGMACADDR=
+{% endif %}

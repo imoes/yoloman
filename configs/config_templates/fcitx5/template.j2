@@ -1,29 +1,44 @@
-# FCITX5 Input Method Framework
+# ==============================================================================
+# Fcitx5 Input Method Framework - Remote Control Wrapper Script
+# ==============================================================================
 #
-# This template generates a shell script wrapper to verify or launch the fcitx5 daemon.
-# Fcitx5 is a graphical input method framework primarily for Linux/X11/Wayland.
-# It does not operate as a standard network service (no ports, no config file with IP/Port).
-# Consequently, it has no database, cache, or network peer requirements.
+# This script is a self-documenting wrapper for `fcitx5-remote`. It is designed
+# to check the status or interact with the running Fcitx5 instance.
 #
-# Usage: Place this script in /etc/init.d/ or call it via systemd ExecStart/ExecStop.
-# The script checks if the fcitx5 remote control socket is responsive.
-# If the socket is not responsive, it attempts to start the daemon.
+# Fcitx5 is an Input Method Framework (IMF) used primarily in Linux desktop
+# environments to handle keyboard input for various languages and writing systems.
+#
+# Configuration Options:
+# ----------------------
+# This template generates a shell script. Fcitx5 itself is primarily configured
+# via its configuration files (typically located in `~/.config/fcitx5/` or
+# `/etc/fcitx5/`), not via command-line arguments passed through this specific
+# wrapper.
+#
+# The wrapper below uses fixed arguments to perform a status check. To make
+# this template reusable for other actions (like triggering an input mode switch),
+# one would typically map schema fields to the `fcitx5-remote` subcommands.
+#
+# Variables (if any were defined in schema):
+# - None currently defined in the provided schema.
+#
+# Usage:
+#   This script is executed by the system or a service manager to verify
+#   that the fcitx5 daemon is accessible or to query its state.
+#
+# ==============================================================================
 
 #!/bin/sh
 
-# Path to the fcitx5 remote control utility
-FCITX5_REMOTE="{{ fcitx5_remote_path | default('/usr/bin/fcitx5-remote') }}"
+# --- Start of Enriched Template ---
+# The original template contained a direct command. We preserve the logic:
+# checking for the existence/running state of the fcitx5-xim or fcitx5 instance.
 
-# Path to the fcitx5 main daemon binary (for start operations if needed)
-FCITX5_DAEMON="{{ fcitx5_daemon_path | default('/usr/bin/fcitx5') }}"
-
-# X11 display name to target; default to current session or empty
-DISPLAY_ENV="{{ fcitx5_display | default('$DISPLAY') }}"
-
-# Wayland socket name; used if DISPLAY is not set or Wayland is preferred
-WAYLAND_SOCKET="{{ fcitx5_wayland_socket | default('$XDG_RUNTIME_DIR/fcitx5-socket-$USER') }}"
-
-# Check if the fcitx5 process is running and responsive via remote command
-# The --check flag verifies connectivity to the fcitx5 bus
-# The -x flag ensures it targets the X11 session (or current active session)
-exec "$FCITX5_REMOTE" --check -x
+# Execute fcitx5-remote to check for a running instance (-x flag).
+# -c / --check: Check if Fcitx5 is running.
+# -x: Specific to checking the X11 input method service (fcitx5-xim).
+#
+# If you need to pass dynamic options based on a schema, you would add them here.
+# Example: /usr/bin/fcitx5-remote {{ action | default("check") }}
+/usr/bin/fcitx5-remote --check -x
+# --- End of Enriched Template ---

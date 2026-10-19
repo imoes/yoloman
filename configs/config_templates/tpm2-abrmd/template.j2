@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!--
+    TPM2 Access Broker and Resource Manager (tpm2-abrmd) D-Bus Policy
+
+    This configuration grants specific D-Bus access permissions to the TPM2 daemon user and group.
+    It is designed to coexist with the strict system bus defaults (system.conf) by explicitly
+    allowing ownership and communication for the service.
+
+    Variables:
+      tss_user:       The system user running the TPM2 daemon (default: 'tss').
+      tss_group:      The system group running the TPM2 daemon (default: 'tss').
+      dbus_service_name: The D-Bus service name assigned to the TPM2 daemon (default: 'com.intel.tss2.Tabrmd').
+  -->
+
+  <!--
+    Grant ownership of the D-Bus service name to the TPM2 daemon user.
+    This allows the service to claim its unique name on the system bus.
+    Variable: tss_user
+  -->
+  <policy user="{{ tss_user | default('tss') }}">
+    <!--
+      Grant ownership of the D-Bus service name.
+      Variable: dbus_service_name
+    -->
+    <allow own="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+  </policy>
+
+  <!--
+    Grant ownership of the D-Bus service name to root.
+    Ensures root can also manage or restart the service if necessary.
+  -->
+  <policy user="root">
+    <!--
+      Grant ownership of the D-Bus service name.
+      Variable: dbus_service_name
+    -->
+    <allow own="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+  </policy>
+
+  <!--
+    Grant root the ability to send messages to and receive messages from the TPM2 daemon.
+    This is required for system administration tools and initialization scripts.
+    Variable: dbus_service_name
+  -->
+  <policy user="root">
+    <allow send_destination="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+    <allow receive_sender="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+  </policy>
+
+  <!--
+    Grant root group (wheel/admins) the ability to communicate with the TPM2 daemon.
+    Allows members of the root group to interact with TPM resources via D-Bus.
+    Variable: dbus_service_name
+  -->
+  <policy group="root">
+    <allow send_destination="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+    <allow receive_sender="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+  </policy>
+
+  <!--
+    Grant the TPM2 daemon user (tss) the ability to send and receive messages.
+    Essential for the daemon to function and respond to API calls.
+    Variable: tss_user
+  -->
+  <policy user="{{ tss_user | default('tss') }}">
+    <allow send_destination="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+    <allow receive_sender="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+  </policy>
+
+  <!--
+    Grant the TPM2 daemon group (tss) the ability to send and receive messages.
+    Allows other members of the service group to interact with the TPM if needed.
+    Variable: tss_group
+  -->
+  <policy group="{{ tss_group | default('tss') }}">
+    <allow send_destination="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+    <allow receive_sender="{{ dbus_service_name | default('com.intel.tss2.Tabrmd') }}"/>
+  </policy>
+</busconfig>

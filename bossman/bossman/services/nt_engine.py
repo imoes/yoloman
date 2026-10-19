@@ -15,6 +15,7 @@ namespace with variables, exactly like Ansible.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -93,6 +94,29 @@ def _summarize_register(results: list[StepResult], looped: bool) -> dict[str, An
     }
 
 
+def _nest_dotted(values: dict[str, Any]) -> dict[str, Any]:
+    """`{"server.host_name": "x"}` → also `{"server": {"host_name": "x"}}`, which is how the template reads it.
+
+    Schemas name nested settings by dotted path (avahi-daemon's `server.host_name`); the template addresses them as
+    attributes. Passed flat, `{{ server.host_name }}` found no `server` and the render failed — 38 of 298 catalog
+    roles in the Bossman-path e2e. The flat keys stay, so nothing that read them changes."""
+    out = dict(values)
+    for key, value in values.items():
+        if not isinstance(key, str) or "." not in key:
+            continue
+        head, *rest = key.split(".")
+        node = out.setdefault(head, {})
+        if not isinstance(node, dict):
+            continue
+        for part in rest[:-1]:
+            node = node.setdefault(part, {})
+            if not isinstance(node, dict):
+                break
+        else:
+            node.setdefault(rest[-1], value)
+    return out
+
+
 async def _apply_config_template(
     step: Any, args: dict[str, Any], item: Any, client: Any,
     variables: dict[str, Any], templates: dict[str, str], check_mode: bool,
@@ -103,18 +127,78 @@ async def _apply_config_template(
     (the runbook variables overlaid with the step's own `vars`)."""
     name = args.get("template") or args.get("name")
     dest = args.get("dest") or args.get("path")
-    body = templates.get(name) if name else None
+    # The family's own template for THIS file wins over the named one: a role names one template, but the
+    # RedHat file and the Debian file of one software are different files (see config_templates.family_key).
+    family = variables.get("_family")
+    body = templates.get(f"@{family}:{dest}") if family and dest else None
+    if body is None:
+        body = templates.get(name) if name else None
+        # A template records the file it renders. Written over a DIFFERENT file it replaces that file's content with
+        # another file's — measured: cups rendered its snmp.conf template over cupsd.conf, opendmarc its
+        # /etc/default snippet over opendmarc.conf. Refused, with both paths named; nothing is written.
+        recorded = templates.get(f"@target:{name}") if name else None
+        if body is not None and dest and recorded and recorded != dest:
+            return StepResult(name=step.name, module=step.module, status="failed", item=item,
+                              error=f"refused: template {name!r} renders {recorded}, but this host's file is {dest}")
+    if name and not dest:
+        # A catalog role whose branch for THIS family names no configuration file (`_dest` empty): the package is
+        # installed, the file is not configured — said, not failed. It used to abort the whole role (18 of 298
+        # roles in the Bossman-path e2e) although the install itself was fine.
+        return StepResult(name=step.name, module=step.module, status="skipped", item=item,
+                          error="this role names no configuration file for the host's family — installed, not configured")
     if not name or not dest:
         return StepResult(name=step.name, module=step.module, status="failed", item=item,
                           error="config_template needs `template` (name) and `dest` (path)")
+    if any(ch in dest for ch in "*?["):
+        # A pattern is not a file. Written literally it created a directory named `*` (php-fpm on Debian:
+        # /etc/php/*/fpm/pool.d/www.conf) while the daemon kept its real file — and the read-back of that same
+        # path reported "compliant" (Bossman-path e2e). Refused, with the pattern named.
+        return StepResult(name=step.name, module=step.module, status="failed", item=item,
+                          error=f"refused: the destination {dest!r} is a pattern, not a file — the catalog must "
+                                "name the concrete path for this host")
     if body is None:
         return StepResult(name=step.name, module=step.module, status="failed", item=item,
                           error=f"unknown config template {name!r}")
-    values = {**variables, **(args.get("vars") or {})}
+    merged = {**variables, **(args.get("vars") or {})}
+    # A field only ANOTHER family's file has (the role's form is the union of its families' templates): a value the
+    # operator set for it on this host would be written nowhere. Refused, naming the fields and where they apply.
+    family_only = variables.get("_family_only") or {}
+    role_defaults_all = variables.get("_role_defaults") or {}
+    foreign = sorted(k for k, fams in family_only.items()
+                     if family and family not in fams and k in merged and merged[k] != role_defaults_all.get(k))
+    if foreign:
+        where = sorted({f for k in foreign for f in family_only[k]})
+        return StepResult(name=step.name, module=step.module, status="failed", item=item,
+                          error=f"refused: {', '.join(foreign)} exist(s) only in the {'/'.join(where)} file — this "
+                                f"host is {family}; leave them unset for it")
+    if family and templates.get(f"@{family}:{dest}") is not None:
+        # A FAMILY template renders with the role's variables, whose defaults are the role's (Debian) values: on
+        # AlmaLinux php-fpm got `user = www-data`, a user that does not exist there. A value still equal to the role
+        # default is not a choice — it is dropped, so the family template's own default (its with_own_defaults
+        # prelude) applies. A value the operator changed is kept. (An operator who wants exactly the Debian
+        # default on RedHat gets the RedHat default instead — the price of not knowing who typed it.)
+        role_defaults = variables.get("_role_defaults") or {}
+        merged = {k: v for k, v in merged.items()
+                  if k.startswith("_") or k not in role_defaults or role_defaults[k] != v}
+        # A value the operator SET for a field this family's file does not have would vanish silently — squid on EL
+        # ships 3 directives where Debian documents 207. Refused, naming the fields, instead of a "compliant" host
+        # that ignores what was asked.
+        named = set(re.findall(r"[A-Za-z_]\w*", body))
+        lost = sorted(k for k in merged if k in role_defaults and not k.startswith("_") and k not in named)
+        if lost:
+            return StepResult(name=step.name, module=step.module, status="failed", item=item,
+                              error=f"refused: this host's {family} file has no setting for {', '.join(lost)} — the "
+                                    "value(s) would be lost; leave them unset for this family or add them to its template")
+    values = _nest_dotted({k: v for k, v in merged.items() if k not in ("_role_defaults", "_family_only")})
     resource = {"type": "template_render", "path": dest, "template": body, "values": values}
     try:
         resp = await client.state_apply({"resources": [resource]}, check_mode)
-        changes = resp.get("changes", []) if isinstance(resp, dict) else []
+        # The agent answers `{"plan": {"changes": [...], "changed_count": n}, "generation": …}` — in BOTH modes.
+        # Reading a top-level `changes` (which the agent never sends) made every config_template step report
+        # "unchanged": an edited managed file was "compliant" forever, and a config change notified no handler.
+        # The top-level form stays accepted for older agents.
+        plan = (resp.get("plan") or {}) if isinstance(resp, dict) else {}
+        changes = (resp.get("changes") if isinstance(resp, dict) else None) or plan.get("changes") or []
         changed = any(c.get("action") not in (None, "noop") for c in changes)
         return StepResult(name=step.name, module=step.module, status=("changed" if changed else "ok"),
                           item=item, changed=changed, response=resp if isinstance(resp, dict) else {"result": resp})
@@ -220,6 +304,28 @@ async def _run_block(
     return aborted and not block.ignore_errors
 
 
+#: Modules whose result is a process exit code. Ansible fails them on a non-zero rc; so does this engine.
+_RC_MODULES = frozenset({"command", "shell", "script", "raw"})
+
+
+def _failure(module: str, resp: dict) -> str | None:
+    """Why a module call failed, or None when it did not — ONE rule for steps and handlers.
+
+    A command that exits non-zero has failed (Ansible's semantics), even though the agent reports it as
+    "executed": measured in the package e2e, `nginx -t` returned rc=1 on a broken nginx.conf, the step counted as
+    changed, the runbook went on to restart nginx with that file, and the host was left with a stopped web server.
+    `ignore_errors` on the step still lets a caller accept a non-zero rc deliberately."""
+    if resp.get("failed") or "error" in resp:
+        return str(resp.get("error", "") or "failed")
+    if module in _RC_MODULES:
+        data = resp.get("data") if isinstance(resp.get("data"), dict) else {}
+        rc = data.get("rc")
+        if isinstance(rc, int) and rc != 0:
+            detail = str(data.get("stderr") or data.get("stdout") or "").strip()[-400:]
+            return f"exit code {rc}" + (f": {detail}" if detail else "")
+    return None
+
+
 async def _run_step(
     step: Step, client: Any, context: dict[str, Any], variables: dict[str, Any],
     templates: dict[str, str], check_mode: bool, notified: list[str], out: "RunResult",
@@ -259,11 +365,10 @@ async def _run_step(
                 if not isinstance(resp, dict):
                     resp = {"result": resp}
                 changed = resp.get("changed")
-                failed = bool(resp.get("failed")) or "error" in resp
-                status = "failed" if failed else ("changed" if changed else "ok")
+                error = _failure(step.module, resp)
+                status = "failed" if error is not None else ("changed" if changed else "ok")
                 sr = StepResult(name=step.name, module=step.module, status=status,
-                                item=item, changed=changed, response=resp,
-                                error=str(resp.get("error", "")) if failed else "")
+                                item=item, changed=changed, response=resp, error=error or "")
             except Exception as exc:  # noqa: BLE001 — a module failure is recorded, not raised
                 sr = StepResult(name=step.name, module=step.module, status="failed",
                                 item=item, error=str(exc))
@@ -307,9 +412,9 @@ async def _run_handler(
         if not isinstance(resp, dict):
             resp = {"result": resp}
         changed = resp.get("changed")
-        failed = bool(resp.get("failed")) or "error" in resp
-        status = "failed" if failed else ("changed" if changed else "ok")
+        error = _failure(h.module, resp)
+        status = "failed" if error is not None else ("changed" if changed else "ok")
         return StepResult(name=h.name, module=h.module, status=status, changed=changed,
-                          response=resp, error=str(resp.get("error", "")) if failed else "")
+                          response=resp, error=error or "")
     except Exception as exc:  # noqa: BLE001 — recorded, not raised
         return StepResult(name=h.name, module=h.module, status="failed", error=str(exc))

@@ -43,6 +43,7 @@ func (a *Apt) InputSchema() map[string]any {
 		"name":         stringArrayProp(`One or more package names, e.g. ["nginx"] or ["nginx", "curl=8.5.0-2ubuntu10"] (an "=version" suffix pins a specific version for state=present).`),
 		"state":        stringEnumProp(`Desired package state. Default "present".`, "present", "absent", "latest"),
 		"update_cache": boolProp("Whether to run `apt-get update` before evaluating package state. Default false.", false),
+		"lock_timeout": intProp("Seconds to wait for the dpkg lock held by another apt/dpkg run (Ansible's apt lock_timeout). Default 60."),
 		"dry_run":      boolProp("When true, report what would change without issuing any mutating apt-get command (check_mode).", false),
 	}, "name")
 }
@@ -67,12 +68,19 @@ func (a *Apt) Run(ctx context.Context, params map[string]any, dryRunArg bool) (R
 		return Result{}, err
 	}
 	dryRun := dryRunArg || paramDryRun
+	lockTimeout, err := intParam(params, "lock_timeout", 60)
+	if err != nil {
+		return Result{}, err
+	}
+	// Wait for the dpkg lock instead of failing at once: another apt run (unattended-upgrades, a parallel role)
+	// made the install fail with "Could not get lock /var/lib/dpkg/lock-frontend" (role e2e, Playwright B2).
+	lockOpt := []string{"-o", fmt.Sprintf("DPkg::Lock::Timeout=%d", lockTimeout)}
 	if state != "present" && state != "absent" && state != "latest" {
 		return Result{}, fmt.Errorf("state: unsupported value %q (want present|absent|latest)", state)
 	}
 
 	if updateCache && !dryRun {
-		if _, err := a.Runner(ctx, "apt-get", "update"); err != nil {
+		if _, err := a.Runner(ctx, "apt-get", append(append([]string{}, lockOpt...), "update")...); err != nil {
 			return Result{}, fmt.Errorf("apt: update_cache: %w", err)
 		}
 	}
@@ -108,8 +116,24 @@ func (a *Apt) Run(ctx context.Context, params map[string]any, dryRunArg bool) (R
 			action = "install"
 		}
 
+		// A preview must fail where the real run would: an install of a package no repository offers is
+		// "Unable to locate package" for apt-get, so check mode asks apt-cache for the candidate instead of
+		// reporting "would install" (measured: dry_run said changed=true for Ubuntu's non-existent "scx").
+		wouldInstall := ""
+		if pkgChanged && dryRun && action == "install" {
+			candidate, err := a.candidateVersion(ctx, pkgName)
+			if err != nil {
+				return Result{}, fmt.Errorf("apt: querying candidate for %s: %w", pkgName, err)
+			}
+			if candidate == "" {
+				return Result{}, fmt.Errorf("apt: %s has no installation candidate in the configured repositories "+
+					"(apt-cache policy); installing it would fail with \"Unable to locate package\"", pkgName)
+			}
+			wouldInstall = candidate
+		}
+
 		if pkgChanged && !dryRun {
-			args := []string{action, "-y"}
+			args := append(append([]string{}, lockOpt...), action, "-y")
 			if action == "install" {
 				args = append(args, spec)
 			} else {
@@ -120,12 +144,22 @@ func (a *Apt) Run(ctx context.Context, params map[string]any, dryRunArg bool) (R
 			}
 		}
 
+		if pkgChanged && !dryRun {
+			// Report the version now on the host, not the one queried before the install ("" for a new package).
+			if _, v, qerr := a.dpkgStatus(ctx, pkgName); qerr == nil {
+				version = v
+			}
+		}
 		changed = changed || pkgChanged
-		results = append(results, map[string]any{
+		entry := map[string]any{
 			"name":              pkgName,
 			"installed_version": version,
 			"changed":           pkgChanged,
-		})
+		}
+		if wouldInstall != "" {
+			entry["would_install_version"] = wouldInstall
+		}
+		results = append(results, entry)
 	}
 
 	return Result{Changed: changed, Msg: "package state applied", Data: results}, nil
@@ -151,9 +185,7 @@ func (a *Apt) dpkgStatus(ctx context.Context, pkg string) (installed bool, versi
 	// not-installed" — a substring match on "installed" wrongly matched the
 	// latter (dpkg knows the package but it is NOT installed), which made
 	// `state: present` a silent no-op. Compare the final status word exactly.
-	fields := strings.Fields(status)
-	installed = len(fields) > 0 && fields[len(fields)-1] == "installed"
-	return installed, version, nil
+	return dpkgInstalled(status), version, nil
 }
 
 // candidateVersion returns the apt-cache policy "Candidate" version for pkg,

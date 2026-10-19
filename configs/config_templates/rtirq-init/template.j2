@@ -18,38 +18,79 @@
 # /etc/sysconfig/rtirq
 # /etc/default/rtirq
 #
-# Configuration for IRQ thread tunning,
+# Configuration for IRQ thread tuning,
 # for realtime-preempt enabled kernels.
 #
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License version 2 or later.
+# This file configures the `rtirq` init script to assign real-time
+# scheduling policies (SCHED_FIFO/RRA) to IRQ handler threads.
+# This is primarily used for low-latency audio processing or industrial
+# control systems.
 #
 
-# Space-separated list of IRQ thread service names, ordered from higher to lower priority.
-# RTIRQ_NAME_LIST="snd usb i8042"
+# ==============================================================================
+# IRQ Thread Prioritization
+# ==============================================================================
+
+# Space-separated list of IRQ thread service names, ordered from higher to
+# lower priority. The kernel will assign real-time priority to these specific
+# IRQ handlers based on the priority settings below.
+# Example: "snd usb i8042" prioritizes audio, USB, and PS/2 controllers.
+#
+# Schema Field: RTIRQ_NAME_LIST
+# Default: snd usb i8042
 RTIRQ_NAME_LIST="{{ RTIRQ_NAME_LIST | default('snd usb i8042') }}"
 
 # Highest priority level for RT IRQ threads.
-# RTIRQ_PRIO_HIGH=90
+# This value defines the base priority (SCHED_FIFO) assigned to the first
+# group of IRQs listed in RTIRQ_NAME_LIST.
+# Valid range: 1-99 (higher is more important/preemptive).
+#
+# Schema Field: RTIRQ_PRIO_HIGH
+# Default: 90
 RTIRQ_PRIO_HIGH={{ RTIRQ_PRIO_HIGH | default(90) }}
 
 # Priority decrease step for each subsequent priority level.
-# RTIRQ_PRIO_DECR=5
+# The kernel groups the IRQs from RTIRQ_NAME_LIST into buckets. The priority
+# drops by this amount for each subsequent bucket (up to RTIRQ_PRIO_LOW).
+#
+# Schema Field: RTIRQ_PRIO_DECR
+# Default: 5
 RTIRQ_PRIO_DECR={{ RTIRQ_PRIO_DECR | default(5) }}
 
 # Lowest priority level for RT IRQ threads.
-# RTIRQ_PRIO_LOW=51
+# IRQs falling into the last bucket will have this priority. If the calculated
+# priority goes below this, it is capped at this value.
+#
+# Schema Field: RTIRQ_PRIO_LOW
+# Default: 51
 RTIRQ_PRIO_LOW={{ RTIRQ_PRIO_LOW | default(51) }}
 
 # Whether to reset all IRQ threads to SCHED_OTHER (1=yes, 0=no).
-# RTIRQ_RESET_ALL=0
-RTIRQ_RESET_ALL={{ RTIRQ_RESET_ALL | default('0') }}
+# When enabled, the script first restores all IRQ threads to the default
+# cooperative scheduler (SCHED_OTHER) before applying the real-time settings.
+# This prevents conflicts with other RT scheduling or previous runs.
+#
+# Schema Field: RTIRQ_RESET_ALL
+# Default: 0
+RTIRQ_RESET_ALL={{ RTIRQ_RESET_ALL | default(0) }}
 
-# Space-separated list of services that should not be threaded.
-# RTIRQ_NON_THREADED="rtc snd"
+# Space-separated list of services that should NOT be threaded (1=yes, 0=no).
+# These IRQ handlers will remain unthreaded or be handled differently,
+# preventing them from being subject to the RT priority rules.
+# Useful for devices that might cause latency spikes if threaded.
+#
+# Schema Field: RTIRQ_NON_THREADED
+# Default: rtc snd
 RTIRQ_NON_THREADED="{{ RTIRQ_NON_THREADED | default('rtc snd') }}"
 
-# Process names which will be forced to the
-# highest realtime priority range (99-91)
-# (space separated list, from highest to lower priority).
-# RTIRQ_HIGH_LIST="timer"
+# ==============================================================================
+# Advanced/Optional Configuration
+# ==============================================================================
+
+# Process names which will be forced to the highest realtime priority range
+# (99-91).
+# This variable is currently unused in the standard rtirq script logic
+# which focuses on IRQ threads, but is preserved for compatibility or
+# future extensions.
+# Example: RTIRQ_HIGH_LIST="timer"
+# RTIRQ_HIGH_LIST="..."

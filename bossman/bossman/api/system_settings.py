@@ -119,15 +119,25 @@ async def set_netboot(
     """Enter/rotate the PXE netboot secret and turn netboot on/off. Enabling without any secret set
     (neither here nor the BOSSMAN_NETBOOT_SECRET env fallback) is rejected — an open install endpoint
     must never be a one-click mistake."""
-    settings = await _get_or_seed(session)
-    if body.secret is not None:
-        settings.netboot_secret = body.secret
-    if body.enabled and not (settings.netboot_secret or get_settings().netboot_secret):
-        raise HTTPException(status_code=400, detail="cannot enable netboot without a secret set")
-    settings.netboot_enabled = body.enabled
-    settings.updated_by = identity.name
-    await session.commit()
+    try:
+        settings = await apply_netboot(session, enabled=body.enabled, secret=body.secret, who=identity.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _out(settings)
+
+
+async def apply_netboot(session: AsyncSession, *, enabled: bool, secret: str | None, who: str):
+    """The one place netboot is switched — REST (above) and the MCP tool set_netboot. Enabling without any
+    secret (neither stored nor the BOSSMAN_NETBOOT_SECRET env fallback) is refused."""
+    settings = await _get_or_seed(session)
+    if secret is not None:
+        settings.netboot_secret = secret
+    if enabled and not (settings.netboot_secret or get_settings().netboot_secret):
+        raise ValueError("cannot enable netboot without a secret set")
+    settings.netboot_enabled = enabled
+    settings.updated_by = who
+    await session.commit()
+    return settings
 
 
 class SetRetentionIn(BaseModel):

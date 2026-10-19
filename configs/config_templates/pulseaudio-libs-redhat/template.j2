@@ -1,0 +1,92 @@
+# PulseAudio Client Configuration
+# ================================
+# This file configures PulseAudio client behavior, including default sinks/sources,
+# server connection details, and daemon spawning options.
+#
+# Format: directive = value
+# Lines starting with ; or # are commented out (defaults).
+# Active lines override the built-in defaults of the PulseAudio library.
+
+## Default Audio Devices
+# -----------------------
+
+# default-sink: The name of the default audio sink (output device).
+# If not set, PulseAudio uses its internal detection logic to choose a sink.
+# Set this to a specific device name (e.g., "alsa_output.pci-0000_00_1b.0.analog-stereo")
+# to force a specific output device.
+{% if default_sink is defined and default_sink is not none and (default_sink is number or default_sink is boolean or default_sink | length > 0) %}default-sink = {{ default_sink | default(None) }}{% else %}; default-sink ={% endif %}
+
+# default-source: The name of the default audio source (input device/microphone).
+# Similar to default-sink, this forces the use of a specific input device.
+# Unset means PulseAudio chooses the best available source automatically.
+{% if default_source is defined and default_source is not none and (default_source is number or default_source is boolean or default_source | length > 0) %}default-source = {{ default_source | default(None) }}{% else %}; default-source ={% endif %}
+
+## Server Connection Settings
+# ----------------------------
+
+# default-server: The hostname or IP address of the PulseAudio server to connect to.
+# If empty or unset, the client connects to the local socket or uses the default local server.
+# Useful for connecting to a remote PulseAudio server.
+{% if default_server is defined and default_server is not none and (default_server is number or default_server is boolean or default_server | length > 0) %}default-server = {{ default_server | default(None) }}{% else %}; default-server ={% endif %}
+
+# default-dbus-server: The address of the D-Bus system session bus for PulseAudio.
+# Usually defaults to the local session bus. Rarely needs manual configuration.
+{% if default_dbus_server is defined and default_dbus_server is not none and (default_dbus_server is number or default_dbus_server is boolean or default_dbus_server | length > 0) %}default-dbus-server = {{ default_dbus_server | default(None) }}{% else %}; default-dbus-server ={% endif %}
+
+## Daemon Spawning
+# ---------------
+
+# autospawn: Controls whether PulseAudio automatically starts the daemon when needed.
+# 'yes' = Start the daemon if not running when a client connects.
+# 'no'  = Do not start the daemon; assume it is running or managed manually.
+# Default is 'no' for system-wide installations to prevent multiple daemons.
+{% if autospawn is defined and autospawn is not none and (autospawn is number or autospawn is boolean or autospawn | length > 0) %}autospawn = {{ autospawn | default('no') }}{% else %}; autospawn = no {% endif %}
+
+## Daemon Path
+# -----------
+
+# daemon-binary: The path to the PulseAudio daemon executable.
+# Only needed if the daemon is not in the standard system PATH (/usr/bin/pulseaudio).
+{% if daemon_binary is defined and daemon_binary is not none and (daemon_binary is number or daemon_binary is boolean or daemon_binary | length > 0) %}daemon-binary = {{ daemon_binary | default('/usr/bin/pulseaudio') }}{% else %}; daemon-binary = /usr/bin/pulseaudio{% endif %}
+
+## Daemon Arguments
+# ----------------
+
+# extra-arguments: Additional command-line arguments passed to the PulseAudio daemon.
+# Use this to enable modules, set log levels, or configure specific runtime behaviors.
+# Example: "--load-module module-udev-detect"
+{% if extra_arguments is defined and extra_arguments is not none and (extra_arguments is number or extra_arguments is boolean or extra_arguments | length > 0) %}extra-arguments = {{ extra_arguments | default('--log-target=syslog') }}{% else %}; extra-arguments = --log-target=syslog{% endif %}
+
+## Authentication
+# --------------
+
+# cookie-file: Path to the file containing the PulseAudio authentication cookie.
+# If unset, PulseAudio looks in the default location (usually ~/.config/pulse/cookie).
+# Set this if using a custom authentication mechanism or shared cookie file.
+{% if cookie_file is defined and cookie_file is not none and (cookie_file is number or cookie_file is boolean or cookie_file | length > 0) %}cookie-file = {{ cookie_file | default(None) }}{% else %}; cookie-file ={% endif %}
+
+## Shared Memory
+# -------------
+
+# enable-shm: Enable or disable shared memory support for inter-process communication.
+# 'yes' = Use shared memory (faster, lower latency).
+# 'no'  = Disable shared memory (more compatible with some security sandboxes).
+{% if enable_shm is defined and enable_shm is not none and (enable_shm is number or enable_shm is boolean or enable_shm | length > 0) %}enable-shm = {{ enable_shm | default('yes') }}{% else %}; enable-shm = yes{% endif %}
+
+# shm-size-bytes: Size of the shared memory segment in bytes.
+# Set to 0 to use the system default (typically 64 MiB).
+# Increase if experiencing audio dropouts under high load with large buffers.
+{% if shm_size_bytes is defined and shm_size_bytes is not none and (shm_size_bytes is number or shm_size_bytes is boolean or shm_size_bytes | length > 0) %}shm-size-bytes = {{ shm_size_bytes | default(0) }} # setting this 0 will use the system-default, usually 64 MiB{% else %}; shm-size-bytes = 0 # setting this 0 will use the system-default, usually 64 MiB{% endif %}
+
+## Auto-Connect Features
+# ---------------------
+
+# auto_connect_localhost: Automatically connect to the localhost sink/source if available.
+# 'yes' = Prioritize localhost devices for local applications.
+# 'no'  = Do not auto-connect based on localhost availability.
+{% if auto_connect_localhost is defined and auto_connect_localhost is not none and (auto_connect_localhost is number or auto_connect_localhost is boolean or auto_connect_localhost | length > 0) %}auto-connect-localhost = {{ auto_connect_localhost | default('no') }}{% else %}; auto-connect-localhost = no{% endif %}
+
+# auto_connect_display: Automatically connect to the display server's sink/source.
+# 'yes' = Connect to PulseAudio if a display server (X11/Wayland) is detected.
+# 'no'  = Do not auto-connect based on display server detection.
+{% if auto_connect_display is defined and auto_connect_display is not none and (auto_connect_display is number or auto_connect_display is boolean or auto_connect_display | length > 0) %}auto-connect-display = {{ auto_connect_display | default('no') }}{% else %}; auto-connect-display = no{% endif %}

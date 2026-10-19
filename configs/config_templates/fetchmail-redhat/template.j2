@@ -1,0 +1,39 @@
+# ==============================================================================
+# fetchmail Configuration for Red Hat Systems
+# This template generates the configuration for the fetchmail daemon.
+# fetchmail is used to poll mail from remote POP3/IMAP servers and deliver
+# it locally to the specified Linux user's mailbox.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Server Polling Configuration
+# Defines the remote mail server to poll, the protocol to use, and
+# authentication credentials.
+# -----------------------------------------------------------------------------
+
+# poll <host> [proto <protocol>] [port <port>] [keep] [is <local_user>]
+#   host: The hostname or IP address of the remote mail server.
+#   proto: The protocol to use (POP3, IMAP, etc.). AUTO attempts to negotiate.
+#   is: The local Linux user account to deliver retrieved mail to.
+#   user: The username for authenticating with the remote mail server.
+#   pass: The password for authenticating with the remote mail server.
+#
+# The 'there' keyword separates the remote server context from the local delivery context.
+
+# Source: poll_host - The hostname or IP address of the POP3/IMAP server to poll.
+# Source: poll_proto - The protocol to use when polling the mail server (e.g., pop3, imap).
+# Source: poll_user - The username for authenticating with the remote mail server.
+# Source: poll_password - The password for authenticating with the remote mail server.
+# Source: poll_local_user - The local Linux user account to deliver retrieved mail to.
+
+# Generate the poll directive with protocol specification if provided,
+# otherwise default to AUTO behavior or explicit protocol if needed.
+poll {{ poll_host | default('pop.domain.com') }} proto {{ poll_proto | default('AUTO') }}
+
+    # Remote authentication credentials
+{% if poll_user is defined and poll_user is not none and (poll_user is number or poll_user is boolean or poll_user | length > 0) %}    user '{{ poll_user | default('user1') }}' there{% else %}#    user 'user1' there with password 'secret' is user1 here{% endif %}
+
+    # Local delivery target and remote password
+    # The 'with password' clause provides the credentials for the 'user' above.
+    # The 'is' clause specifies the local user who receives the mail.
+    password '{{ poll_password | default('secret') }}' is {{ poll_local_user | default('user1') }} here

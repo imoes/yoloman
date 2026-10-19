@@ -1,292 +1,331 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          neutron-ovn-metadata-agent
-# Required-Start:    $network $local_fs $remote_fs $syslog
-# Required-Stop:     $remote_fs openvswitch-switch
-# Should-Start:      mysql postgresql rabbitmq-server keystone openvswitch-switch
-# Should-Stop:       mysql postgresql rabbitmq-server keystone openvswitch-switch
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Neutron OVN Metadata Agent
-# Description:       Neutron OVN Metadata services for instances
-### END INIT INFO
+[DEFAULT]
 
-# Author: Thomas Goirand <zigo@debian.org>
+# Location for Metadata Proxy UNIX domain socket.
+# The state path directory used by Neutron for runtime files like metadata proxy sockets.
+metadata_proxy_socket = {{ (state_path | default('')) }}/metadata_proxy
 
-# The OpenStack project name used for paths and service naming.
-# Default: neutron
-PROJECT_NAME={{ project_name | default('neutron') }}
+# User (uid or name) running metadata proxy after its initialization (if empty: agent effective user).
+# User (uid or name) running metadata proxy after its initialization (if empty: agent effective user).
+{% if metadata_proxy_user is defined and metadata_proxy_user | length > 0 %}
+{% if metadata_proxy_user is defined and metadata_proxy_user is not none and (metadata_proxy_user is number or metadata_proxy_user is boolean or metadata_proxy_user | length > 0) %}metadata_proxy_user = {{ metadata_proxy_user }}{% else %}#metadata_proxy_user ={% endif %}
+{% else %}
+#metadata_proxy_user =
+{% endif %}
 
-# The name of this specific daemon, derived from the project name.
-NAME=${PROJECT_NAME}-ovn-metadata-agent
+# Group (gid or name) running metadata proxy after its initialization (if empty: agent effective group).
+# Group (gid or name) running metadata proxy after its initialization (if empty: agent effective group).
+{% if metadata_proxy_group is defined and metadata_proxy_group | length > 0 %}
+{% if metadata_proxy_group is defined and metadata_proxy_group is not none and (metadata_proxy_group is number or metadata_proxy_group is boolean or metadata_proxy_group | length > 0) %}metadata_proxy_group = {{ metadata_proxy_group }}{% else %}#metadata_proxy_group ={% endif %}
+{% else %}
+#metadata_proxy_group =
+{% endif %}
 
-# Path to the OVN metadata agent specific configuration file.
-# Default: /etc/neutron/neutron_ovn_metadata_agent.ini
-CONFIG_FILE={{ config_file | default('/etc/neutron/neutron_ovn_metadata_agent.ini') }}
+# IP address or DNS name of Nova metadata server.
+# IP address or DNS name of Nova metadata server.
+{% if nova_metadata_host is defined and nova_metadata_host | length > 0 %}
+{% if nova_metadata_host is defined and nova_metadata_host is not none and (nova_metadata_host is number or nova_metadata_host is boolean or nova_metadata_host | length > 0) %}nova_metadata_host = {{ nova_metadata_host }}{% else %}#nova_metadata_host = 127.0.0.1{% endif %}
+{% else %}
+#nova_metadata_host =
+{% endif %}
 
-# The base arguments passed to the daemon.
-# The main neutron.conf is appended automatically by openstack-pkg-tools.
-DAEMON_ARGS="--config-file=/etc/neutron/neutron.conf"
+# TCP Port used by Nova metadata server.
+# TCP Port used by Nova metadata server.
+{% if nova_metadata_port is defined and nova_metadata_port | length > 0 %}
+{% if nova_metadata_port is defined and nova_metadata_port is not none and (nova_metadata_port is number or nova_metadata_port is boolean or nova_metadata_port | length > 0) %}nova_metadata_port = {{ nova_metadata_port }}{% else %}#nova_metadata_port = 8775{% endif %}
+{% else %}
+#nova_metadata_port =
+{% endif %}
 
-# The user account under which the metadata agent daemon runs.
-# Default: root
-SYSTEM_USER={{ system_user | default('root') }}
+# When proxying metadata requests, Neutron signs the Instance-ID header with a shared secret to prevent spoofing. You may select any string
+# for a secret, but it must match here and in the configuration used by the Nova metadata server. NOTE: Nova uses the same config key, but
+# in [neutron] section.
+# Shared secret for signing Instance-ID header to prevent spoofing.
+{% if metadata_proxy_shared_secret is defined and metadata_proxy_shared_secret | length > 0 %}
+{% if metadata_proxy_shared_secret is defined and metadata_proxy_shared_secret is not none and (metadata_proxy_shared_secret is number or metadata_proxy_shared_secret is boolean or metadata_proxy_shared_secret | length > 0) %}metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}{% else %}#metadata_proxy_shared_secret ={% endif %}
+{% else %}
+#metadata_proxy_shared_secret =
+{% endif %}
 
-# The group account under which the metadata agent daemon runs.
-# Default: root
-SYSTEM_GROUP={{ system_group | default('root') }}
+# Protocol to access Nova metadata, http or https
+# Protocol to access Nova metadata, http or https.
+{% if nova_metadata_protocol is defined and nova_metadata_protocol is not none and (nova_metadata_protocol is number or nova_metadata_protocol is boolean or nova_metadata_protocol | length > 0) %}nova_metadata_protocol = {{ nova_metadata_protocol | default('http') }}{% else %}#nova_metadata_protocol = http{% endif %}
 
-# Environment variable required by oslo.messaging to identify this process in RabbitMQ.
-export OS_OSLO_MESSAGING_RABBIT__PROCESSNAME=neutron-ovn-metadata-agent
+# Allow to perform insecure SSL (https) requests to Nova metadata
+# Allow to perform insecure SSL (https) requests to Nova metadata.
+{% if nova_metadata_insecure is defined and nova_metadata_insecure | length > 0 %}
+{% if nova_metadata_insecure is defined and nova_metadata_insecure is not none and (nova_metadata_insecure is number or nova_metadata_insecure is boolean or nova_metadata_insecure | length > 0) %}nova_metadata_insecure = {{ nova_metadata_insecure }}{% else %}#nova_metadata_insecure = false{% endif %}
+{% else %}
+#nova_metadata_insecure = false
+{% endif %}
 
-#!/bin/sh
-# The content after this line comes from openstack-pkg-tools
-# and has been automatically added to a .init.in script, which
-# contains only the descriptive part for the daemon. Everything
-# else is standardized as a single unique script.
+# Client certificate for Nova metadata api server.
+# Client certificate for Nova metadata api server.
+{% if nova_client_cert is defined and nova_client_cert | length > 0 %}
+{% if nova_client_cert is defined and nova_client_cert is not none and (nova_client_cert is number or nova_client_cert is boolean or nova_client_cert | length > 0) %}nova_client_cert = {{ nova_client_cert }}{% else %}#nova_client_cert ={% endif %}
+{% else %}
+#nova_client_cert =
+{% endif %}
 
-# Author: Thomas Goirand <zigo@debian.org>
-# Author: Ondřej Nový <novy@ondrej.org>
+# Private key of client certificate.
+# Private key of client certificate.
+{% if nova_client_priv_key is defined and nova_client_priv_key | length > 0 %}
+{% if nova_client_priv_key is defined and nova_client_priv_key is not none and (nova_client_priv_key is number or nova_client_priv_key is boolean or nova_client_priv_key | length > 0) %}nova_client_priv_key = {{ nova_client_priv_key }}{% else %}#nova_client_priv_key ={% endif %}
+{% else %}
+#nova_client_priv_key =
+{% endif %}
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# Metadata Proxy UNIX domain socket mode, 4 values allowed: 'deduce': deduce mode from metadata_proxy_user/group values, 'user': set
+# metadata proxy socket mode to 0o644, to use when metadata_proxy_user is agent effective user or root, 'group': set metadata proxy socket
+# mode to 0o664, to use when metadata_proxy_group is agent effective group or root, 'all': set metadata proxy socket mode to 0o666, to use
+# otherwise.
+# Metadata Proxy UNIX domain socket mode (deduce, user, group, all).
+{% if metadata_proxy_socket_mode is defined and metadata_proxy_socket_mode is not none and (metadata_proxy_socket_mode is number or metadata_proxy_socket_mode is boolean or metadata_proxy_socket_mode | length > 0) %}metadata_proxy_socket_mode = {{ metadata_proxy_socket_mode | default('deduce') }}{% else %}#metadata_proxy_socket_mode = deduce{% endif %}
 
-if [ -n "${UWSGI_PORT}" ] && [ -n "${UWSGI_INI_PATH}" ] && [ -n "${UWSGI_INI_APP}" ] ; then
-	if ! [ -f "${UWSGI_INI_APP}" ] ; then
-		exit 0
-	fi
-	if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
-		KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
-	fi
+# Number of separate worker processes for metadata server (defaults to 0 when used with ML2/OVN and half of the number of CPUs with other
+# backend drivers)
+# Number of separate worker processes for metadata server.
+{% if metadata_workers is defined and metadata_workers | length > 0 %}
+{% if metadata_workers is defined and metadata_workers is not none and (metadata_workers is number or metadata_workers is boolean or metadata_workers | length > 0) %}metadata_workers = {{ metadata_workers }}{% else %}#metadata_workers = <num_of_cpus> / 2{% endif %}
+{% else %}
+#metadata_workers =
+{% endif %}
 
-	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
-		# This is needed for puppet...
-		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
-	else
-		if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
-			CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
-		fi
-	fi
+# Number of backlog requests to configure the metadata server socket with
+# Number of backlog requests to configure the metadata server socket with.
+{% if metadata_backlog is defined and metadata_backlog | length > 0 %}
+{% if metadata_backlog is defined and metadata_backlog is not none and (metadata_backlog is number or metadata_backlog is boolean or metadata_backlog | length > 0) %}metadata_backlog = {{ metadata_backlog }}{% else %}#metadata_backlog = 4096{% endif %}
+{% else %}
+#metadata_backlog =
+{% endif %}
 
-	# Sid doesn't have /usr/bin/uwsgi_python3, so we need
-	# to search for a more specific daemon name. For stretch
-	# /usr/bin/uwsgi_python3 is fine.
-	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
-		if [ -x /usr/bin/uwsgi_python${i} ] ; then
-			DAEMON=/usr/bin/uwsgi_python${i}
-		fi
-	done
+#
+# From oslo.log
+#
 
-	if [ -n "${UWSGI_BIND_CONFIG_FILE}" ] && [ -r "${UWSGI_BIND_CONFIG_FILE}" ] && [ -n "${UWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${UWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
-		. /usr/share/openstack-pkg-tools/pkgos_func
-		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_IP_DIRECTIVE}
-	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-			UWSGI_BIND_IP=${RET}
-		fi
-		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}
-	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-			UWSGI_PORT=${RET}
-		fi
-		if [ -n "${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
-			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
-		        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-				UWSGI_PROCESSES=" --processes ${RET}
-			else
-				# If we can't find the directive in the config file,
-				# we fallback to the number of thread / 2.
-				UWSGI_PROCESSES=" --processes "$(( $(nproc) / 2 ))
-			fi
-		fi
-		if [ "${UWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
-			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} devices
-			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-				DEVICES_PATH=${RET}
-				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
-				COUNT=0
-				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
-					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
-					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
-					COUNT=$(( ${COUNT} + 1 ))
-				done
-			fi
-		fi
-	else
-		UWSGI_BIND_IP=""
-	fi
+# If set to true, the logging level will be set to DEBUG instead of the default INFO level.
+# If set to true, the logging level will be set to DEBUG instead of the default INFO level.
+{% if debug is defined and debug | length > 0 %}
+{% if debug is defined and debug is not none and (debug is number or debug is boolean or debug | length > 0) %}debug = {{ debug }}{% else %}#debug = false{% endif %}
+{% else %}
+#debug = false
+{% endif %}
 
-	if [ -n "${BIND_PARAMS}" ] ; then
-		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
-	else
-		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
-			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
-		else
-			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
-		fi
-	fi
+# Use syslog for logging. Existing syslog format is DEPRECATED and will be changed later to honor RFC5424. This option is ignored if
+# log_config_append is set.
+# Use syslog for logging.
+{% if use_syslog is defined and use_syslog | length > 0 %}
+{% if use_syslog is defined and use_syslog is not none and (use_syslog is number or use_syslog is boolean or use_syslog | length > 0) %}use_syslog = {{ use_syslog }}{% else %}#use_syslog = false{% endif %}
+{% else %}
+#use_syslog = false
+{% endif %}
 
-	DAEMON_ARGS="${DAEMON_ARGS} --ini ${UWSGI_INI_PATH}"
-	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
-	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
-fi
+# Enable journald for logging. If running in a systemd environment you may wish to enable journal support. Doing so will use the journal
+# native protocol which includes structured metadata in addition to log messages.This option is ignored if log_config_append is set.
+# Enable journald for logging.
+{% if use_journal is defined and use_journal | length > 0 %}
+{% if use_journal is defined and use_journal is not none and (use_journal is number or use_journal is boolean or use_journal | length > 0) %}use_journal = {{ use_journal }}{% else %}#use_journal = false{% endif %}
+{% else %}
+#use_journal = false
+{% endif %}
 
-if [ -z "${DAEMON}" ] ; then
-	DAEMON=/usr/bin/${NAME}
-fi
-PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
-if [ -z "${SCRIPTNAME}" ] ; then
-	SCRIPTNAME=/etc/init.d/${NAME}
-fi
-if [ -z "${SYSTEM_USER}" ] ; then
-	SYSTEM_USER=${PROJECT_NAME}
-fi
-if [ -z "${SYSTEM_GROUP}" ] ; then
-	SYSTEM_GROUP=${PROJECT_NAME}
-fi
-if [ "${SYSTEM_USER}" != "root" ] ; then
-	STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
-fi
-if [ -z "${CONFIG_FILE}" ] ; then
-	CONFIG_FILE=/etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
-fi
-LOGFILE=/var/log/${PROJECT_NAME}/${NAME}.log
-if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
-	DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
-fi
+# Syslog facility to receive log lines. This option is ignored if log_config_append is set.
+# Syslog facility to receive log lines.
+{% if syslog_log_facility is defined and syslog_log_facility | length > 0 %}
+{% if syslog_log_facility is defined and syslog_log_facility is not none and (syslog_log_facility is number or syslog_log_facility is boolean or syslog_log_facility | length > 0) %}syslog_log_facility = {{ syslog_log_facility }}{% else %}#syslog_log_facility = LOG_USER{% endif %}
+{% else %}
+#syslog_log_facility = LOG_USER
+{% endif %}
 
-# Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
+# Use JSON formatting for logging. This option is ignored if log_config_append is set.
+# Use JSON formatting for logging.
+{% if use_json is defined and use_json | length > 0 %}
+{% if use_json is defined and use_json is not none and (use_json is number or use_json is boolean or use_json | length > 0) %}use_json = {{ use_json }}{% else %}#use_json = false{% endif %}
+{% else %}
+#use_json = false
+{% endif %}
 
-# If ran as root, create /var/lock/X, /var/run/X and /var/cache/X as needed
-if [ `whoami` = "root" ] ; then
-	for i in lock run cache ; do
-		mkdir -p /var/$i/${PROJECT_NAME}
-		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
-	done
-fi
+# Log output to standard error. This option is ignored if log_config_append is set.
+# Log output to standard error.
+{% if use_stderr is defined and use_stderr | length > 0 %}
+{% if use_stderr is defined and use_stderr is not none and (use_stderr is number or use_stderr is boolean or use_stderr | length > 0) %}use_stderr = {{ use_stderr }}{% else %}#use_stderr = false{% endif %}
+{% else %}
+#use_stderr = false
+{% endif %}
 
-# This defines support functions which we use later on
-. /lib/lsb/init-functions
+# (Optional) Set the 'color' key according to log levels. This option takes effect only when logging to stderr or stdout is used. This
+# option is ignored if log_config_append is set.
+# Set the 'color' key according to log levels.
+{% if log_color is defined and log_color | length > 0 %}
+{% if log_color is defined and log_color is not none and (log_color is number or log_color is boolean or log_color | length > 0) %}log_color = {{ log_color }}{% else %}#log_color = false{% endif %}
+{% else %}
+#log_color = false
+{% endif %}
 
-RET=0
+# The amount of time before the log files are rotated. This option is ignored unless log_rotation_type is set to "interval".
+# The amount of time before the log files are rotated.
+{% if log_rotate_interval is defined and log_rotate_interval | length > 0 %}
+{% if log_rotate_interval is defined and log_rotate_interval is not none and (log_rotate_interval is number or log_rotate_interval is boolean or log_rotate_interval | length > 0) %}log_rotate_interval = {{ log_rotate_interval }}{% else %}#log_rotate_interval = 1{% endif %}
+{% else %}
+#log_rotate_interval = 1
+{% endif %}
 
-# Manage log options: logfile and/or syslog, depending on user's choosing
-[ -r /etc/default/openstack ] && . /etc/default/openstack
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
-if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
-	[ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
-fi
+# Rotation interval type. The time of the last file change (or the time when the service was started) is used when scheduling the next
+# rotation.
+# Rotation interval type.
+{% if log_rotate_interval_type is defined and log_rotate_interval_type | length > 0 %}
+{% if log_rotate_interval_type is defined and log_rotate_interval_type is not none and (log_rotate_interval_type is number or log_rotate_interval_type is boolean or log_rotate_interval_type | length > 0) %}log_rotate_interval_type = {{ log_rotate_interval_type }}{% else %}#log_rotate_interval_type = days{% endif %}
+{% else %}
+#log_rotate_interval_type = days
+{% endif %}
 
-do_start() {
-	start-stop-daemon \
-		--start \
-		--quiet \
-		--background ${STARTDAEMON_CHUID} \
-		--make-pidfile --pidfile ${PIDFILE} \
-		--chdir /var/lib/${PROJECT_NAME} \
-		--startas $DAEMON \
-		--test > /dev/null \
-		|| return 1
-	if [ -n "${PYARGV}" ] ; then
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background ${STARTDAEMON_CHUID} \
-			--make-pidfile --pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $DAEMON_ARGS --pyargv "${PYARGV}" \
-			|| return 2
-	else
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background ${STARTDAEMON_CHUID} \
-			--make-pidfile --pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $DAEMON_ARGS \
-			|| return 2
-	fi
-}
+# Maximum number of rotated log files.
+# Maximum number of rotated log files.
+{% if max_logfile_count is defined and max_logfile_count | length > 0 %}
+{% if max_logfile_count is defined and max_logfile_count is not none and (max_logfile_count is number or max_logfile_count is boolean or max_logfile_count | length > 0) %}max_logfile_count = {{ max_logfile_count }}{% else %}#max_logfile_count = 30{% endif %}
+{% else %}
+#max_logfile_count = 30
+{% endif %}
 
-do_stop() {
-	start-stop-daemon \
-		--stop \
-		--quiet \
-		--retry=TERM/30/KILL/5 \
-		--pidfile $PIDFILE
-	RETVAL=$?
-	rm -f $PIDFILE
-	return "$RETVAL"
-}
+# Log file maximum size in MB. This option is ignored if "log_rotation_type" is not set to "size".
+# Log file maximum size in MB.
+{% if max_logfile_size_mb is defined and max_logfile_size_mb | length > 0 %}
+{% if max_logfile_size_mb is defined and max_logfile_size_mb is not none and (max_logfile_size_mb is number or max_logfile_size_mb is boolean or max_logfile_size_mb | length > 0) %}max_logfile_size_mb = {{ max_logfile_size_mb }}{% else %}#max_logfile_size_mb = 200{% endif %}
+{% else %}
+#max_logfile_size_mb = 200
+{% endif %}
 
-do_systemd_start() {
-	# Set umask to ensure log files are created with 0644 mode bits
-	# Note we can't set 0026 to have files 0640, because that's going
-	# to be in use in for example neutron-dhcp-agent, which makes it
-	# so it wont be able to read /var/lib/neutron/external/pids/*.pid.haproxy
-	# and then fail hardly. However, 0022 is enough, since the log
-	# folders are owned by <project>:adm, so users don't have access
-	# to it unless they are on the adm group, which is what we want.
-	umask 0022
-	if [ -n "${PYARGV}" ] ; then
-		exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
-	else
-		exec $DAEMON $DAEMON_ARGS
-	fi
-}
+# Log rotation type.
+# Log rotation type.
+{% if log_rotation_type is defined and log_rotation_type | length > 0 %}
+{% if log_rotation_type is defined and log_rotation_type is not none and (log_rotation_type is number or log_rotation_type is boolean or log_rotation_type | length > 0) %}log_rotation_type = {{ log_rotation_type }}{% else %}#log_rotation_type = none{% endif %}
+{% else %}
+#log_rotation_type = none
+{% endif %}
 
-case "$1" in
-start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-status)
-	status_of_proc "$DAEMON" "$NAME"
-	RET=$?
-;;
-systemd-start)
-	do_systemd_start
-;;  
-show-args)
-	if [ -n "${PYARGV}" ] ; then
-		echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}"
-	else
-		echo $DAEMON $DAEMON_ARGS
-	fi
-;;
-restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1)
-			do_start
-			case $? in
-				0) log_end_msg 0 ; RET=$? ;;
-				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
-				*) log_end_msg 1 ; RET=$? ;; # Failed to start
-			esac
-		;;
-		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
-	esac
-;;
-*)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
-	RET=3
-;;
-esac
+# Enables or disables publication of error events.
+# Enables or disables publication of error events.
+{% if publish_errors is defined and publish_errors | length > 0 %}
+{% if publish_errors is defined and publish_errors is not none and (publish_errors is number or publish_errors is boolean or publish_errors | length > 0) %}publish_errors = {{ publish_errors }}{% else %}#publish_errors = false{% endif %}
+{% else %}
+#publish_errors = false
+{% endif %}
 
-exit $RET
+# Interval, number of seconds, of log rate limiting.
+# Interval, number of seconds, of log rate limiting.
+{% if rate_limit_interval is defined and rate_limit_interval | length > 0 %}
+{% if rate_limit_interval is defined and rate_limit_interval is not none and (rate_limit_interval is number or rate_limit_interval is boolean or rate_limit_interval | length > 0) %}rate_limit_interval = {{ rate_limit_interval }}{% else %}#rate_limit_interval = 0{% endif %}
+{% else %}
+#rate_limit_interval = 0
+{% endif %}
+
+# Maximum number of logged messages per rate_limit_interval.
+# Maximum number of logged messages per rate_limit_interval.
+{% if rate_limit_burst is defined and rate_limit_burst | length > 0 %}
+{% if rate_limit_burst is defined and rate_limit_burst is not none and (rate_limit_burst is number or rate_limit_burst is boolean or rate_limit_burst | length > 0) %}rate_limit_burst = {{ rate_limit_burst }}{% else %}#rate_limit_burst = 0{% endif %}
+{% else %}
+#rate_limit_burst = 0
+{% endif %}
+
+# Log level name used by rate limiting. Logs with level greater or equal to rate_limit_except_level are not filtered. An empty string means
+# that all levels are filtered.
+# Log level name used by rate limiting.
+{% if rate_limit_except_level is defined and rate_limit_except_level | length > 0 %}
+{% if rate_limit_except_level is defined and rate_limit_except_level is not none and (rate_limit_except_level is number or rate_limit_except_level is boolean or rate_limit_except_level | length > 0) %}rate_limit_except_level = {{ rate_limit_except_level }}{% else %}#rate_limit_except_level = CRITICAL{% endif %}
+{% else %}
+#rate_limit_except_level = CRITICAL
+{% endif %}
+
+# Enables or disables fatal status of deprecations.
+# Enables or disables fatal status of deprecations.
+{% if fatal_deprecations is defined and fatal_deprecations | length > 0 %}
+{% if fatal_deprecations is defined and fatal_deprecations is not none and (fatal_deprecations is number or fatal_deprecations is boolean or fatal_deprecations | length > 0) %}fatal_deprecations = {{ fatal_deprecations }}{% else %}#fatal_deprecations = false{% endif %}
+{% else %}
+#fatal_deprecations = false
+{% endif %}
+
+# Use logging handler designed to watch file system. When log file is moved or removed this handler will open a new log file
+# with specified path instantaneously. It makes sense only if log_file option is specified and Linux platform is used.
+# Uses logging handler designed to watch file system for log file rotation.
+{% if watch_log_file is defined and watch_log_file | length > 0 %}
+{% if watch_log_file is defined and watch_log_file is not none and (watch_log_file is number or watch_log_file is boolean or watch_log_file | length > 0) %}watch_log_file = {{ watch_log_file }}{% else %}#watch_log_file = false{% endif %}
+{% else %}
+#watch_log_file = false
+{% endif %}
+
+[metadata_rate_limiting]
+
+#
+# From neutron.ovn.metadata.agent
+#
+
+# Enable rate limiting on the metadata API.
+# Enable rate limiting on the metadata API.
+{% if rate_limit_enabled is defined and rate_limit_enabled | length > 0 %}
+{% if rate_limit_enabled is defined and rate_limit_enabled is not none and (rate_limit_enabled is number or rate_limit_enabled is boolean or rate_limit_enabled | length > 0) %}rate_limit_enabled = {{ rate_limit_enabled }}{% else %}#rate_limit_enabled = false{% endif %}
+{% else %}
+#rate_limit_enabled = false
+{% endif %}
+
+# Comma separated list of the metadata address IP versions (4, 6) for which rate limiting will be enabled. The default is to rate limit only
+# for the metadata IPv4 address. NOTE: at the moment, the open source version of HAProxy only allows us to rate limit for IPv4 or IPv6, but
+# not both at the same time.
+# Comma separated list of the metadata address IP versions (4, 6) for which rate limiting will be enabled.
+{% if ip_versions is defined and ip_versions | length > 0 %}
+{% if ip_versions is defined and ip_versions is not none and (ip_versions is number or ip_versions is boolean or ip_versions | length > 0) %}ip_versions = {{ ip_versions }}{% else %}#ip_versions = 4{% endif %}
+{% else %}
+#ip_versions = 4
+{% endif %}
+
+# Duration (seconds) of the base window on the metadata API.
+# Duration (seconds) of the base window on the metadata API.
+{% if base_window_duration is defined and base_window_duration | length > 0 %}
+{% if base_window_duration is defined and base_window_duration is not none and (base_window_duration is number or base_window_duration is boolean or base_window_duration | length > 0) %}base_window_duration = {{ base_window_duration }}{% else %}#base_window_duration = 10{% endif %}
+{% else %}
+#base_window_duration = 10
+{% endif %}
+
+# Max number of queries to accept during the base window.
+# Max number of queries to accept during the base window.
+{% if base_query_rate_limit is defined and base_query_rate_limit | length > 0 %}
+{% if base_query_rate_limit is defined and base_query_rate_limit is not none and (base_query_rate_limit is number or base_query_rate_limit is boolean or base_query_rate_limit | length > 0) %}base_query_rate_limit = {{ base_query_rate_limit }}{% else %}#base_query_rate_limit = 10{% endif %}
+{% else %}
+#base_query_rate_limit = 10
+{% endif %}
+
+# Duration (seconds) of the burst window on the metadata API.
+# Duration (seconds) of the burst window on the metadata API.
+{% if burst_window_duration is defined and burst_window_duration | length > 0 %}
+{% if burst_window_duration is defined and burst_window_duration is not none and (burst_window_duration is number or burst_window_duration is boolean or burst_window_duration | length > 0) %}burst_window_duration = {{ burst_window_duration }}{% else %}#burst_window_duration = 10{% endif %}
+{% else %}
+#burst_window_duration = 10
+{% endif %}
+
+# Max number of queries to accept during the burst window.
+# Max number of queries to accept during the burst window.
+{% if burst_query_rate_limit is defined and burst_query_rate_limit | length > 0 %}
+{% if burst_query_rate_limit is defined and burst_query_rate_limit is not none and (burst_query_rate_limit is number or burst_query_rate_limit is boolean or burst_query_rate_limit | length > 0) %}burst_query_rate_limit = {{ burst_query_rate_limit }}{% else %}#burst_query_rate_limit = 10{% endif %}
+{% else %}
+#burst_query_rate_limit = 10
+{% endif %}
+
+[ovs]
+
+#
+# From neutron.ovn.metadata.agent
+#
+
+# The connection string for the native OVSDB backend. Use tcp:IP:PORT for TCP connections. Use unix:FILE for unix domain socket connections.
+# The connection string for the native OVSDB backend.
+{% if ovsdb_connection is defined and ovsdb_connection | length > 0 %}
+{% if ovsdb_connection is defined and ovsdb_connection is not none and (ovsdb_connection is number or ovsdb_connection is boolean or ovsdb_connection | length > 0) %}ovsdb_connection = {{ ovsdb_connection }}{% else %}#ovsdb_connection = unix:/usr/local/var/run/openvswitch/db.sock{% endif %}
+{% else %}
+#ovsdb_connection =
+{% endif %}
+
+# Timeout in seconds for the OVSDB connection transaction
+# Timeout in seconds for the OVSDB connection transaction.
+{% if ovsdb_connection_timeout is defined and ovsdb_connection_timeout | length > 0 %}
+{% if ovsdb_connection_timeout is defined and ovsdb_connection_timeout is not none and (ovsdb_connection_timeout is number or ovsdb_connection_timeout is boolean or ovsdb_connection_timeout | length > 0) %}ovsdb_connection_timeout = {{ ovsdb_connection_timeout }}{% else %}#ovsdb_connection_timeout = 180{% endif %}
+{% else %}
+#ovsdb_connection_timeout = 180
+{% endif %}

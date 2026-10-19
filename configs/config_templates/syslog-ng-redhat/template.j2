@@ -1,0 +1,132 @@
+@version: {{ version | default('3.35') }}
+@include "scl.conf"
+
+# syslog-ng configuration file.
+#
+# This configuration emulates the standard RedHat syslog behavior.
+# See syslog-ng(8) and syslog-ng.conf(5) for detailed documentation.
+#
+# Additional configuration snippets can be placed in {{ conf_d_dir | default('/etc/syslog-ng/conf.d/') }}
+
+options {
+    # Flush buffered log lines to disk after reaching this count.
+    # A value of 0 disables batched flushing.
+    flush_lines ({{ flush_lines | default('0') }});
+
+    # Wait time in seconds before retrying to reopen a log file that was closed due to an error.
+    time_reopen ({{ time_reopen | default('10') }});
+
+    # Size of the internal log output FIFO buffer (number of messages).
+    log_fifo_size ({{ log_fifo_size | default('1000') }});
+
+    # Append the source hostname to the hostname already present in the message.
+    # Recommended 'off' if keep_hostname is on to avoid duplication.
+    chain_hostnames ({{ chain_hostnames | default('off') }});
+
+    # Enable DNS lookups on the source IP address of incoming messages.
+    # Set to 'no' for better performance if DNS is not required.
+    use_dns ({{ use_dns | default('no') }});
+
+    # Use the Fully Qualified Domain Name (FQDN) instead of the short hostname.
+    # Only applies if use_dns is enabled.
+    use_fqdn ({{ use_fqdn | default('no') }});
+
+    # Automatically create destination directories if they do not exist.
+    create_dirs ({{ create_dirs | default('no') }});
+
+    # Keep the original hostname from the message source.
+    keep_hostname ({{ keep_hostname | default('yes') }});
+};
+
+source s_sys {
+    # Capture logs from the local system.
+    system();
+
+    # Capture syslog-ng's own internal logs (useful for debugging syslog-ng itself).
+    internal();
+
+    # Optional: Enable UDP reception on port 514 from any interface.
+    # To enable, uncomment the line below and adjust firewall rules.
+    # udp(ip(0.0.0.0) port(514));
+};
+
+# Define destinations for various system log types.
+
+# Console device for critical/system messages.
+destination d_cons { file("{{ path_dev_console | default('/dev/console') }}"); };
+
+# General system messages (info and above, excluding auth/mail/cron).
+destination d_mesg { file("{{ path_var_log_messages | default('/var/log/messages') }}"); };
+
+# Authentication and security related logs.
+destination d_auth { file("{{ path_var_log_secure | default('/var/log/secure') }}"); };
+
+# Mail system logs.
+destination d_mail { file("{{ path_var_log_maillog | default('/var/log/maillog') }}" flush_lines({{ mail_flush_lines | default('10') }})); };
+
+# Spooler logs (historically used by LP print spooler).
+destination d_spol { file("{{ path_var_log_spooler | default('/var/log/spooler') }}"); };
+
+# Boot log messages.
+destination d_boot { file("{{ path_var_log_boot_log | default('/var/log/boot.log') }}"); };
+
+# Cron daemon logs.
+destination d_cron { file("{{ path_var_log_cron | default('/var/log/cron') }}"); };
+
+# Kernel messages.
+destination d_kern { file("{{ path_var_log_kern | default('/var/log/kern') }}"); };
+
+# Emergency messages sent to all logged-in users.
+destination d_mlal { usertty("*"); };
+
+# Filters to categorize messages by facility and severity.
+
+filter f_kernel     { facility(kern); };
+filter f_default    { level(info..emerg) and
+                        not (facility(mail)
+                        or facility(authpriv)
+                        or facility(cron)); };
+filter f_auth       { facility(authpriv); };
+filter f_mail       { facility(mail); };
+filter f_emergency  { level(emerg); };
+filter f_news       { facility(uucp) or
+                        (facility(news)
+                        and level(crit..emerg)); };
+filter f_boot   { facility(local7); };
+filter f_cron   { facility(cron); };
+
+# Routing rules: connect sources, filters, and destinations.
+
+# Uncommenting the line below sends kernel messages to the console.
+# log { source(s_sys); filter(f_kernel); destination(d_cons); };
+
+# Route kernel messages to kern log.
+log { source(s_sys); filter(f_kernel); destination(d_kern); };
+
+# Route default messages (info-emerg, excluding auth/mail/cron) to messages log.
+log { source(s_sys); filter(f_default); destination(d_mesg); };
+
+# Route authentication messages to secure log.
+log { source(s_sys); filter(f_auth); destination(d_auth); };
+
+# Route mail messages to maillog.
+log { source(s_sys); filter(f_mail); destination(d_mail); };
+
+# Route emergency messages to all logged-in users.
+log { source(s_sys); filter(f_emergency); destination(d_mlal); };
+
+# Route news/uucp messages to spooler log.
+log { source(s_sys); filter(f_news); destination(d_spol); };
+
+# Route boot messages to boot.log.
+log { source(s_sys); filter(f_boot); destination(d_boot); };
+
+# Route cron messages to cron log.
+log { source(s_sys); filter(f_cron); destination(d_cron); };
+
+# Source additional configuration files from the conf.d directory.
+# This allows modular configuration management.
+@include "{{ include_conf_d_glob | default('/etc/syslog-ng/conf.d/*.conf') }}"
+
+
+# vim:ft=syslog-ng:ai:si:ts=4:sw=4:et:

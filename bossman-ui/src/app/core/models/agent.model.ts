@@ -446,6 +446,10 @@ export interface StateGeneration {
   applied_at: string;
   hash: string;
   resources: number;
+  /** The files this generation changed (agent ≥ 0.57.76; absent from older agents). */
+  files?: string[];
+  /** What produced it when not a plain apply, e.g. "rollback to #3". */
+  note?: string;
 }
 
 export interface StateGenerationsResponse {
@@ -457,7 +461,8 @@ export interface StateGenerationsResponse {
 export interface StateResourceChange {
   type: string;
   path: string;
-  action: 'create' | 'update' | 'noop';
+  /** `delete`: a rollback removes a file that a later generation created. */
+  action: 'create' | 'update' | 'delete' | 'noop';
   before?: Record<string, unknown>;
   after?: Record<string, unknown>;
   changed?: Record<string, [unknown, unknown]>;

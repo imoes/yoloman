@@ -1,3 +1,46 @@
-# Cron schedule for running ceph-info
-# Default: '*/2\t* * * *'
-{{ cron_schedule | default('*/2\t* * * *') }} {{ cron_user | default('root') }} [ -e /usr/bin/ceph-info ] && /usr/bin/ceph-info
+# ==============================================================================
+# Open Infrastructure Storage Tools - Apache Alias Configuration
+# ==============================================================================
+# This template configures an Apache alias to expose the 'ceph-info' web
+# interface served from /usr/share/open-infrastructure/ceph-info/web at
+# the URL path /ceph-info.
+#
+# Self-documenting: Every directive is prefixed with its schema description.
+# Variables use defaults from the schema to ensure safe rendering.
+# ==============================================================================
+
+{% if cron_schedule is defined or cron_user is defined %}
+{# Note: The provided schema fields (cron_schedule, cron_user) relate to
+   a cron job, not the Apache alias configuration itself. They are not
+   directly used in this specific Apache config block. If these variables
+   were intended for a separate cron template, they would be used there.
+   We include them here only to acknowledge the schema context, but they
+   do not generate Apache directives in this file. #}
+{% endif %}
+
+# Alias directive: Maps the URL path /ceph-info to the local directory
+# /usr/share/open-infrastructure/ceph-info/web.
+# Schema: cron_schedule desc='Cron schedule for running ceph-info'
+# Schema: cron_user desc='User to run the ceph-info command as'
+# Note: The alias path and target directory are fixed in this package
+# and do not have configurable variables in the provided schema.
+<IfModule alias_module>
+	Alias /ceph-info /usr/share/open-infrastructure/ceph-info/web
+</IfModule>
+
+# Directory block: Configures access permissions for the alias target.
+# Schema: cron_schedule desc='Cron schedule for running ceph-info'
+# Schema: cron_user desc='User to run the ceph-info command as'
+<Directory /usr/share/open-infrastructure/ceph-info/web>
+	# Options: FollowSymlinks allows following symbolic links within this directory.
+	# Options: -Indexes disables directory listing (prevents browsing the folder structure).
+	Options FollowSymlinks
+	Options -Indexes
+
+	# AllowOverride None: Prevents .htaccess files from overriding these settings.
+	AllowOverride None
+
+	# Require all granted: Allows access from all clients (open access).
+	# Note: In production, consider restricting this with 'Require ip ...' if needed.
+	Require all granted
+</Directory>

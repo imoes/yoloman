@@ -1,0 +1,14 @@
+#!/usr/bin/sh
+
+# Generic wrapper script for SystemTap examples.
+# This script invokes 'stap' with verbose mode (-v) and executes the example
+# specified by the first argument ($1), stripping the 'autostart-' prefix.
+#
+# Configuration variables (all have sensible defaults or are passed via CLI):
+#   - The stap executable is assumed to be in PATH.
+#   - The example directory is resolved via `stap -v --example`.
+#   - The script name is derived automatically from $0.
+
+# Execute stap in verbose mode, asking it to find the example,
+# and pass all subsequent arguments to the example script.
+exec stap -v --example "$@" `basename $0 | sed -e s,autostart-,,`

@@ -1,75 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Lomiri Nextcloud CardDAV Plugin Profile Configuration
-  ================================================
-  This template generates an XML profile for the Lomiri Online Accounts plugin
-  to synchronize contacts with a Nextcloud CardDAV server.
-
-  Variables expected:
-  - enabled: Boolean string ('true'/'false'). Whether the profile is active.
-  - hidden:  Boolean string ('true'/'false'). Whether to hide this profile from UI.
-  - use_accounts: Boolean string ('true'/'false'). Use system accounts for auth.
-  - schedule_enabled: Boolean string ('true'/'false'). Enable background syncing.
-  - schedule_interval: String. Interval for sync (e.g., '15m', '1h'). Empty for default.
-  - schedule_days: String. Comma-separated day numbers (1-7).
-  - schedule_time: String. Time of day for sync trigger (HH:MM:SS).
+  Lomiri Nextcloud CardDAV Plugin Configuration Profile
+  
+  This template generates an XML profile configuration for the Lomiri
+  online accounts plugin to sync contacts with a Nextcloud CardDAV server.
+  
+  Variables expected in the Ansible inventory or vars:
+  - enabled: Whether the profile is active.
+  - hidden: Whether to hide this profile from the UI.
+  - use_accounts: Whether to leverage system-level accounts for auth.
+  - schedule_enabled: Whether background synchronization is active.
+  - schedule_interval: Duration between syncs (e.g., '15m', '1h').
+  - schedule_days: Days of the week for sync (1=Mon, 7=Sun).
+  - schedule_time: Time of day to trigger the sync.
 -->
 <profile name="lomiri-nextcloud-carddav" type="sync">
-    <!-- Category: Identifies the type of data being synchronized -->
+    <!-- Category definition: identifies this as a contact sync service -->
     <key value="contacts" name="category"/>
-
-    <!-- Remote Service Name: Identifier for the remote service -->
+    
+    <!-- Unique identifier for this remote service profile -->
     <key value="lomiri-nextcloud-carddav" name="remote_service_name"/>
-
-    <!-- Destination Type: Specifies where data is stored/synchronized -->
+    
+    <!-- Destination type: 'online' indicates network-synced data -->
     <key name="destinationtype" value="online"/>
-
+    
     <!--
-      Enabled: Controls whether this profile is active.
-      Defaults to 'false' if not specified.
+      Profile Activation Status
+      desc: Whether the Lomiri nextcloud carddav plugin profile is enabled.
     -->
     <key name="enabled" value="{{ enabled | default('false') }}"/>
-
+    
     <!--
-      Hidden: Controls visibility in the user interface.
-      Defaults to 'false' if not specified.
+      UI Visibility
+      desc: Whether the profile is hidden from the user interface.
     -->
     <key name="hidden" value="{{ hidden | default('false') }}"/>
-
+    
     <!--
-      Use Accounts: Determines if existing system accounts are used for authentication.
-      Defaults to 'true' if not specified.
+      Account Strategy
+      desc: Whether to use existing system accounts for authentication.
     -->
     <key name="use_accounts" value="{{ use_accounts | default('true') }}"/>
 
-    <!-- CardDAV Client Profile: Specific settings for the CardDAV synchronization -->
+    <!-- CardDAV Client Configuration -->
     <profile type="client" name="carddav">
-        <!-- Sync Direction: Defines how changes are propagated -->
+        <!-- Sync direction: bidirectional sync of contacts -->
         <key value="two-way" name="Sync Direction"/>
-
-        <!-- Sync Protocol: The protocol used for synchronization -->
+        
+        <!-- Protocol standard: CardDAV -->
         <key value="carddav" name="Sync Protocol"/>
-
-        <!-- Sync Transport: The transport layer protocol -->
+        
+        <!-- Transport layer: HTTPS/HTTP -->
         <key value="HTTP" name="Sync Transport"/>
-
-        <!-- Conflict Policy: Strategy for resolving conflicts between local and remote -->
+        
+        <!-- Conflict resolution: prefer the remote version upon conflict -->
         <key value="prefer remote" name="conflictpolicy" />
     </profile>
 
     <!--
-      Schedule Configuration: Defines when background synchronization occurs.
-      - enabled: Turn the schedule on or off.
-      - interval: Time interval between syncs.
-      - days: Days of the week to sync (1=Mon, ..., 7=Sun).
-      - time: Time of day to trigger the sync.
-      - syncconfiguredtime: Placeholder, usually ignored or handled internally.
+      Background Synchronization Schedule
+      desc: Configuration for automatic background syncing of contacts.
     -->
-    <schedule
-        enabled="{{ schedule_enabled | default('false') }}"
-        interval="{{ schedule_interval | default('') }}"
-        days="{{ schedule_days | default('1,2,3,4,5,6,7') }}"
-        syncconfiguredtime=""
-        time="{{ schedule_time | default('05:00:00') }}"
+    <schedule 
+        enabled="{{ schedule_enabled | default('false') }}" 
+        interval="{{ schedule_interval | default('') }}" 
+        days="{{ schedule_days | default('1,2,3,4,5,6,7') }}" 
+        syncconfiguredtime="" 
+        time="{{ schedule_time | default('05:00:00') }}" 
     />
 </profile>

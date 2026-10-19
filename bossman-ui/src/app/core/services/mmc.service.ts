@@ -38,6 +38,8 @@ export interface SnapinAction {
   confirm?: boolean;
   /** An action that cannot apply to this row is not offered: {field, equals}. */
   hide_when?: { field: string; equals: unknown };
+  /** Opens a view for the row instead of running the tool directly — 'diagnosis': why the service does not run. */
+  view?: 'diagnosis';
 }
 
 export interface SnapinNode {
@@ -77,6 +79,8 @@ export interface ToolSchema {
     required?: string[];
   };
   writes: boolean;
+  /** Set when the host HAS the tool but refuses it — its write gate is closed — with the host's reason. */
+  refused?: string;
 }
 
 export interface Snapin {
@@ -98,6 +102,8 @@ export interface ConsoleTree {
   catalog_version?: number;
   /** Why states read `unknown`: the host could not be asked for its module list. */
   tools_error?: string | null;
+  /** The host's write gate: true / false, or null when it could not be read (older agent, no answer). */
+  write?: boolean | null;
   /** Per tool named by the catalog: its description and input schema, as the agent publishes them. */
   schemas?: Record<string, ToolSchema>;
   snapins: Snapin[];

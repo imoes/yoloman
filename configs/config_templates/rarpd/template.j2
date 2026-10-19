@@ -1,20 +1,22 @@
 # Settings for rarpd(8).
 #
-# This is a shell script snippet, source from init-script.
-# Any values assigned here will override the internal ones.
-
-# The package default options, set in init-script.
+# This is a shell script snippet, intended to be sourced by the init script.
+# Any variables assigned here will override the internal defaults of the service.
 #
-# Interpretation: verbose (-v), skip image checking (-e)
+# Description: Command-line options passed to rarpd via the OPTS variable.
+# Common flags:
+#   -e : Skip image checking (faster, less secure)
+#   -v : Verbose output
+#   -b <dir> : Set the boot directory (default is usually /tftpboot)
+#   <iface> : Limit serving to a specific network interface
 #
-# rarpd_opts (default: '-e -v'): Command-line options passed to rarpd via the OPTS variable in the init script.
-# Common flags: -e (skip image checking), -v (verbose), -b <dir>
-#
-OPTS="{{ rarpd_opts | default('-e -v') }}"
+# The package default options are typically '-e'.
+{% if rarpd_opts is defined %}OPTS="{{ rarpd_opts | default('-e') }}"{% else %}#OPTS="-e"{% endif %}
 
 # More advanced settings might use a boot directory
 # differing from the hardcoded default (/tftpboot),
 # might activate image checking, and decide to only
 # serve requests on a specific network adapter.
 #
-##OPTS="{{ rarpd_opts | default('-e -v') }}"
+# Example: OPTS="-v -b /srv/tftpboot eth2"
+# (Commented out by default to use standard behavior)

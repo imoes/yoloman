@@ -483,7 +483,7 @@ migration. L3: `collect_and_dispatch` silences a confirmed-down host's other ser
 
 Found while writing L1's tests, and worse than L1: `Metric` was mapped onto the `metrics`
 VIEW with key (time, agent_id, metric), excluding labels — and the agent stamps a whole
-sampling tick with one timestamp, so vpp0221's five disk mounts shared that key and
+sampling tick with one timestamp, so pve1's five disk mounts shared that key and
 SQLAlchemy's identity map folded them into ONE object. `evaluate_host` therefore checked a
 single mount: **4 of 5 filesystems were never threshold-checked**, invisible because the
 agent's own checks write services under the same names. The view now exposes `series_id`
@@ -521,7 +521,7 @@ compressed (TimescaleDB's tuple-decompression cap; 500 → 204).
 `host_clusters` + `cluster_nodes` (migration c1b7e3a95d40 — which also had to teach the
 `ck_agents_mode` CHECK constraint the new mode). Aggregation is a port of `cluster_mode.py`:
 bucket by state, take the selector's bucket, pivot deterministically. Proven live on
-vpp0221/22/23 with one node CRIT: `best` → OK, `worst` → CRIT, from identical node states.
+pve1/22/23 with one node CRIT: `best` → OK, `worst` → CRIT, from identical node states.
 
 Deviations: "native" mode is NOT ported (no check of ours has a cluster entry point, so its
 only outcome would be Checkmk's "not implemented" UNKNOWN); ownership is an explicit
@@ -675,7 +675,7 @@ be forgotten when the prompt changes.
     cd bossman && .venv-host/bin/python scripts/retranslate_checks.py --stale --loop --concurrency 2
 
 The `agentic-check-retranslate` user service runs exactly the `--stale --loop` form. It is
-currently **stopped and disabled** on purpose: qwen79b (llamacpp03) is shared and another
+currently **stopped and disabled** on purpose: qwen79b (llm) is shared and another
 batch is using it. Start it when qwen is free — the pass is resumable, so it can be
 stopped and restarted at any point without losing work.
 

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Khmer OS Freehand Font Override Configuration
+    This template configures fontconfig to prioritize 'Khmer OS Freehand' for
+    Khmer language text and provides a fallback mechanism for unsupported scripts.
+
+    Self-documenting variables:
+    - font_family: The specific font name to be used.
+    - fallback_family: The generic font family (e.g., sans-serif, fantasy) to use if the specific font is unavailable.
+    - locale_code: The locale identifier (e.g., 'km' for Khmer) that triggers this font override.
+  -->
+
+  <!-- Generic font alias configuration -->
+  <alias>
+    <!-- Set the primary font family for generic matches -->
+    <family>{{ font_family | default('Khmer OS Freehand') }}</family>
+    <default>
+      <!-- Specify the generic fallback family name -->
+      <family>{{ fallback_family | default('fantasy') }}</family>
+    </default>
+  </alias>
+
+  <!-- Locale-specific font substitution rules -->
+  <match>
+    <!-- Check if the document language matches the configured locale code -->
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+    <!-- Check if the current font family is the configured fallback family -->
+    <test name="family">
+      <string>{{ fallback_family | default('fantasy') }}</string>
+    </test>
+    <!-- If both conditions match, prepend the specific Khmer font to the family list -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Khmer OS Freehand') }}</string>
+    </edit>
+  </match>
+</fontconfig>

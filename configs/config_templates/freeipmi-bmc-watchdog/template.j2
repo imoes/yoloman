@@ -1,40 +1,74 @@
+# ============================================================================
+# FreeIPMI BMC Watchdog Daemon Configuration
+# ============================================================================
+# This configuration file controls the behavior of the `bmc-watchdog` daemon.
+# It passes command-line arguments to the watchdog utility to manage hardware
+# watchdog timers via the BMC (Baseboard Management Controller).
 #
-# FreeIPMI BMC Watchdog Configuration Template
-#
-# This file configures the bmc-watchdog daemon from the freeipmi-bmc-watchdog package.
-# The daemon monitors the Baseboard Management Controller (BMC) hardware watchdog
-# to ensure system availability in case the OS becomes unresponsive.
-#
-# It generates a command-line options string used by the systemd service or init script.
-#
+# See `man bmc-watchdog` for detailed usage information.
+# ============================================================================
 
-# Timer use: Selects which hardware timer flag to set in the BMC.
-# Values: 1=BIOS FRB2, 2=BIOS POST, 3=OS_LOAD, 4=SMS OS, 5=OEM
-# Default is 4 (SMS OS).
-OPTIONS="-d -u {{ timer_use | default(4) }}"
+# ---------------------------------------------------------------------------
+# Option Flags for bmc-watchdog
+# ---------------------------------------------------------------------------
 
-# Pre-timeout interrupt: Specifies the interrupt mechanism triggered just before
-# the watchdog timer expires.
-# Values: 0=None, 1=SMI, 2=NMI, 3=Message Interrupt
-# Default is 0 (None).
-OPTIONS="${OPTIONS} -p {{ pre_timeout_interrupt | default(0) }}"
+# -d : Daemonize mode (run in background). Always enabled for service stability.
 
-# Timeout action: Defines what the BMC does when the watchdog timer expires
-# without being reset.
-# Values: 0=No action, 1=Hard Reset, 2=Power Down, 3=Power Cycle
-# Default is 1 (Hard Reset).
-OPTIONS="${OPTIONS} -a {{ timeout_action | default(1) }}"
+# --timer-use=INT : Sets which BIOS/OS timer the watchdog will monitor.
+# Valid values:
+#   1 = BIOS FRB2 (Framework Ready Boot 2)
+#   2 = BIOS POST (Power-On Self-Test)
+#   3 = OS_LOAD (Operating System Load)
+#   4 = SMS OS (Server Management Services / OS)
+#   5 = OEM (Original Equipment Manufacturer specific)
+# Default: 4 (SMS OS)
+OPTIONS="-d \
+-u {{ timer_use | default(4) }} \
+-p {{ pre_timeout_interrupt | default(0) }} \
+-a {{ timeout_action | default(1) }} \
+-F -P -L -S -O \
+-i {{ initial_countdown | default(900) }} \
+-e {{ reset_period | default(60) }}"
 
-# Clear flags: Ensure specific BIOS timer use flags are cleared to avoid
-# conflicts or unintended state preservation across reboots.
-OPTIONS="${OPTIONS} -F -P -L -S -O"
+# --pre-timeout-interrupt=INT : Defines the interrupt type triggered before the
+# final timeout occurs, allowing for graceful shutdown or logging.
+# Valid values:
+#   0 = None
+#   1 = SMI (System Management Interrupt)
+#   2 = NMI (Non-Maskable Interrupt)
+#   3 = Message Interrupt
+# Default: 0 (None)
 
-# Initial countdown: The initial value for the watchdog timer in seconds.
-# The daemon will attempt to reset this timer every `reset_period` seconds.
-# Default is 900 seconds.
-OPTIONS="${OPTIONS} -i {{ initial_countdown | default(900) }}"
+# --timeout-action=INT : Defines the action taken when the watchdog timer expires.
+# Valid values:
+#   0 = No action
+#   1 = Hard Reset (Reboot the system)
+#   2 = Power Down (Shutdown the system)
+#   3 = Power Cycle (Shutdown then Reboot)
+# Default: 1 (Hard Reset)
 
-# Reset period: The interval in seconds between watchdog timer resets.
-# This must be shorter than the `initial_countdown`.
-# Default is 60 seconds.
-OPTIONS="${OPTIONS} -e {{ reset_period | default(60) }}"
+# ---------------------------------------------------------------------------
+# Clear Flags
+# ---------------------------------------------------------------------------
+# The following flags clear specific timer-use flags in the BMC before setting
+# the new configuration. This ensures no conflicting timer modes are active.
+# -F : Clear BIOS FRB2 Timer Use Flag
+# -P : Clear BIOS POST Timer Use Flag
+# -L : Clear OS Load Timer Use Flag
+# -S : Clear SMS/OS Timer Use Flag
+# -O : Clear OEM Timer Use Flag
+# These are hardcoded as 'true' in this template to ensure a clean state.
+
+# ---------------------------------------------------------------------------
+# Countdown and Reset Settings
+# ---------------------------------------------------------------------------
+
+# --initial-countdown=SECS : Sets the initial value of the watchdog countdown
+# timer in seconds. The system must ping the watchdog within this period to
+# prevent a timeout.
+# Default: 900 seconds (15 minutes)
+
+# --reset-period=SECS : Specifies the time interval (in seconds) to wait before
+# resetting the timer after a ping/reset event. This controls the frequency
+# of watchdog "kicks".
+# Default: 60 seconds

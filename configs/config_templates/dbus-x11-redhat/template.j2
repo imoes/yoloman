@@ -1,0 +1,40 @@
+{#
+  # Template: dbus-x11-redhat
+  # Purpose: Ensure a valid D-Bus session bus address is available for X11 applications.
+  #
+  # This script checks if the DBUS_SESSION_BUS_ADDRESS environment variable is set.
+  # If it is unset or empty, it launches a new D-Bus session bus using dbus-launch
+  # and evaluates the resulting shell variables.
+  #
+  # This is typically used in Xsession scripts, .xinitrc, or desktop session starters
+  # on Red Hat-based systems.
+  #}
+#!/usr/bin/sh
+# Copyright (C) 2008 Red Hat, Inc.
+#
+# All rights reserved. This copyrighted material is made available to anyone
+# wishing to use, modify, copy, or redistribute it subject to the terms and
+# conditions of the GNU General Public License version 2.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+# Check if the D-Bus session bus address is already defined.
+# If the variable is empty or unset, the service cannot connect to the bus.
+{% if dbus_session_bus_address is not defined %}
+{% set dbus_session_bus_address = '' %}
+{% endif %}
+
+{% if dbus_session_bus_address | trim == '' %}
+    # No D-Bus session bus address found.
+    # Launch a new session bus. The --sh-syntax flag ensures the output
+    # is valid shell code (VAR='value') suitable for 'eval'.
+    # The --exit-with-session flag ties the bus lifetime to the shell session.
+    # Note: This modifies the environment of the current shell process.
+    eval `dbus-launch --sh-syntax --exit-with-session`
+{% else %}
+    # D-Bus session bus address is already set to: {{ dbus_session_bus_address }}
+    # No action needed.
+{% endif %}

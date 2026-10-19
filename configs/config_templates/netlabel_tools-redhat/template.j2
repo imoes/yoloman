@@ -1,0 +1,45 @@
+#
+# Configuration file for the NetLabel subsystem.  This file should contain
+# individual commands for the netlabelctl utility to be run in order from the
+# top of the file to the bottom.
+#
+# See the netlabel-config(8) and netlabelctl(8) manpages for more information.
+#
+# https://github.com/netlabel
+#
+# Self-Documentation:
+# This template configures the NetLabel subsystem on the local host.
+# The primary variable is `cipso_doi`, which defines the CIPSO DOI (Domain of
+# Interpretation) number used for labeling traffic on the loopback interface.
+# If `cipso_doi` is set, a CIPSO map is added for the local loopback address.
+# The default configuration uses the 'unlbl' protocol for unlabeled traffic.
+#
+
+##
+## Example: Remove the default configuration and replace it with an address
+##          selector based configuration that send unlabeled traffic to all
+##          IPv4 and IPv6 addresses.
+##
+#
+# map del default
+# map add default address:0.0.0.0/0 protocol:unlbl
+# map add default address:::0/0 protocol:unlbl
+
+##
+## Example: Remove the default configuration and replace it with an address
+##          selector based configuration that send unlabeled traffic to all
+##          IPv4 and IPv6 addresses except for 127.0.0.1, which uses CIPSO
+##          DOI {{ cipso_doi | default('9999') }} to pass LSM security labels
+##          over the loopback network device.
+##
+#
+
+{% if cipso_doi is defined and cipso_doi is not none %}
+# cipso add doi:{{ cipso_doi | tojson }} local
+{% else %}
+# cipso add doi:9999 local
+{% endif %}
+# map del default
+# map add default address:0.0.0.0/0 protocol:unlbl
+# map add default address:::0/0 protocol:unlbl
+# map add default address:127.0.0.1 protocol:cipso,{{ cipso_doi | default('9999') | tojson }}

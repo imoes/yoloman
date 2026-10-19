@@ -7,7 +7,7 @@
 ; preferable that this be done as the mail transport level, so that they
 ; will be valid for users of other mail clients.
 
-; everyone: {{ mail_aliases_global_everyone }}
+; everyone: *
 
 ; Blank lines and lines beginning with a ;, :, or # are ignored.
 ; < file	-> read more aliases from "file"
@@ -18,7 +18,7 @@
 ; foo: + group  -> list replacement by ALL users in /etc/passwd
 ;		      with gid == group
 ; foo: *        -> list replacement by ALL users in /etc/passwd
-;			     with uid >= 200
+;                     with uid >= 200
 ; foo*: fum     -> matches foo<string> (including the empty string)
 ;
 ; using a ';' instead of a ':' indicates that the alias should be displayed
@@ -28,3 +28,5 @@
 ; A backslash at the end of a line escapes the following newline, even
 ; in comment lines.  Thus, comments endinf with a \ will be continued even
 # without a leading ;, :, or # on the followling line.
+{% for a in aliases | default([]) %}{{ a.name }}: {{ a.members }}
+{% endfor %}

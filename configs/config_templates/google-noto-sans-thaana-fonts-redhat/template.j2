@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Configuration for Google Noto Sans Thaana font substitution.
+    This template generates a fontconfig rule that substitutes fonts for specific languages
+    and defines an alias for the font family.
+
+    Variables used:
+    - lang_code: Language code (e.g., 'dv' for Divehi) to trigger substitution.
+    - target_family: Generic font family (e.g., 'sans-serif') to match against.
+    - font_family_name: Specific name of the Noto Sans Thaana font.
+    - enable_hinting: Boolean to enable/disable font hinting.
+  -->
+
+  <!-- Match rule: Apply substitution when the requested language matches 'lang_code'
+       AND the requested family matches 'target_family'. -->
+  <match>
+    <test name="lang" compare="contains">
+      <!-- Language code to match for font substitution (default: 'dv') -->
+      <string>{{ lang_code | default('dv') }}</string>
+    </test>
+    <test name="family">
+      <!-- Generic font family name to target for substitution (default: 'sans-serif') -->
+      <string>{{ target_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the specific font family name to the stack -->
+    <edit name="family" mode="prepend">
+      <!-- Specific font family name to prepend or alias (default: 'Noto Sans Thaana') -->
+      <string>{{ font_family_name | default('Noto Sans Thaana') }}</string>
+    </edit>
+    <!-- Append hinting setting to fonthashint property -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to disable hinting ('false' if enable_hinting is false, default: 'false') -->
+      <bool>{{ enable_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias definition: Map the specific font family to the generic target family -->
+  <alias>
+    <!-- The specific font family name (default: 'Noto Sans Thaana') -->
+    <family>{{ font_family_name | default('Noto Sans Thaana') }}</family>
+    <default>
+      <!-- The generic font family name (default: 'sans-serif') -->
+      <family>{{ target_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

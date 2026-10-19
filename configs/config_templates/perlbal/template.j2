@@ -1,19 +1,22 @@
-# Defaults for perlbal initscript
-# sourced by /etc/init.d/perlbal
-# installed at /etc/default/perlbal by the maintainer scripts
+SERVER {{ server | default('pidfile = /var/run/perlbal.pid') }}
 
 #
-# This is a POSIX shell fragment
+# This is an example webserver configuration.
 #
+# See /usr/share/doc/perlbal/ for example configs.
+# See man Perlbal::Manual for for config documentation.
 
-# Change to 'true' to launch perlbal via init system.
-PERLBAL_ENABLE={{ perlbal_enable | lower }}
+CREATE SERVICE docs
+  SET listen         = 0.0.0.0:8080
+  SET role           = web_server
+  SET docroot        = /usr/share/doc/
+  SET dirindexing    = 1
+  SET persist_client = on
+ENABLE docs
 
-# Naming a user to run as is required.
-USER={{ user }}
 
-# Naming a group to run as is optional.
-#GROUP={{ group }}
-
-# Additional options that are passed to the Daemon.
-#EXTRA_OPTS="{{ extra_opts }}"
+# always good to keep an internal management port open:
+CREATE SERVICE mgmt
+  SET role   = management
+  SET listen = 127.0.0.1:16000
+ENABLE mgmt

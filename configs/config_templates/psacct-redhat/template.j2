@@ -1,0 +1,37 @@
+# Logrotate configuration for psacct accounting logs (/var/account/pacct)
+# Generated from psacct-redhat role schema.
+
+/var/account/pacct {
+    # Rotate logs daily to keep history manageable.
+    daily
+
+    # Compress rotated logs to save disk space.
+    compress
+
+    # Delay compression of the most recent rotated file until the next cycle.
+    # This allows log analysis tools or cron jobs to read the uncompressed
+    # previous day's log if needed.
+    delaycompress
+
+    # Do not rotate the log if it is empty. Prevents creation of useless
+    # empty log files.
+    notifempty
+
+    # Number of rotated log files to keep. Older files are deleted.
+    # Default: 31 days.
+    rotate {{ rotate_days | default('31') }}
+
+    # Create new log files after rotation with specified permissions and ownership.
+    # - Permissions: octal mode (e.g., 0600)
+    # - Owner: user owning the new file
+    # - Group: group owning the new file
+    create {{ file_mode | default('0600') }} {{ owner | default('root') }} {{ group | default('root') }}
+
+    # Post-rotation script: signal the psacct service to reopen log files.
+    postrotate
+        # Only reload the service if it is currently active to avoid errors.
+        if /usr/bin/systemctl --quiet is-active psacct.service ; then
+            /usr/bin/systemctl reload psacct.service
+        fi
+    endscript
+}

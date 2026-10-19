@@ -10,6 +10,7 @@ import { DashboardWidgetComponent } from '../../shared/components/dashboard-widg
 import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
 import { AddWidgetDialogComponent } from './add-widget-dialog.component';
 import { DialogService } from '../../shared/dialogs/dialog.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** The GridStack-backed, server-persisted widget dashboard on Fleet
  * Overview (see docs/plan.md's monitoring-cockpit ergänzung Block F5) —
@@ -21,11 +22,11 @@ import { DialogService } from '../../shared/dialogs/dialog.service';
 @Component({
   selector: 'app-dashboard-grid',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, DashboardWidgetComponent, FilterBarComponent],
+  imports: [BlockedReasonDirective, MatButtonModule, MatIconModule, DashboardWidgetComponent, FilterBarComponent],
   template: `
     <div class="bm-dashboard-toolbar">
       <div class="bm-dashboard-picker">
-        <select class="bm-dash-select" (change)="switchDashboard($any($event.target).value)">
+        <select class="bm-dash-select" aria-label="Dashboard" (change)="switchDashboard($any($event.target).value)">
           @for (d of dashboards(); track d.id) {
             <option [value]="d.id" [selected]="d.id === currentId()">{{ d.name }}{{ d.is_default ? ' ★' : '' }}{{ d.source === 'ai' ? ' (AI)' : '' }}</option>
           }
@@ -33,8 +34,8 @@ import { DialogService } from '../../shared/dialogs/dialog.service';
         <button mat-icon-button title="New dashboard" (click)="newDashboard()"><mat-icon>add_box</mat-icon></button>
         @if (current(); as c) {
           <button mat-icon-button title="Rename" (click)="renameDashboard()"><mat-icon>edit</mat-icon></button>
-          <button mat-icon-button title="Set as default" [disabled]="c.is_default" (click)="setDefault()"><mat-icon>{{ c.is_default ? 'star' : 'star_border' }}</mat-icon></button>
-          <button mat-icon-button title="Delete dashboard" [disabled]="dashboards().length <= 1" (click)="deleteDashboard()"><mat-icon>delete</mat-icon></button>
+          <button mat-icon-button title="Set as default" [bmBlocked]="c.is_default ? 'This is already the default dashboard' : ''" (click)="setDefault()"><mat-icon>{{ c.is_default ? 'star' : 'star_border' }}</mat-icon></button>
+          <button mat-icon-button title="Delete dashboard" [bmBlocked]="dashboards().length <= 1 ? 'The last dashboard cannot be deleted' : ''" (click)="deleteDashboard()"><mat-icon>delete</mat-icon></button>
         }
       </div>
       <div class="bm-dashboard-actions">

@@ -1,0 +1,224 @@
+{
+  "debug": {
+    "type": "string",
+    "default": "True",
+    "description": "Enable debug mode to output logs to stderr."
+  },
+  "user": {
+    "type": "string",
+    "default": "policyd-rate-limit",
+    "description": "The user policyd-rate-limit will use to drop privileges."
+  },
+  "group": {
+    "type": "string",
+    "default": "policyd-rate-limit",
+    "description": "The group policyd-rate-limit will use to drop privileges."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/policyd-rate-limit/policyd-rate-limit.pid",
+    "description": "Path where the program will try to write its pid to."
+  },
+  "mysql_user": {
+    "type": "string",
+    "default": "username",
+    "description": "MySQL connection username."
+  },
+  "mysql_passwd": {
+    "type": "string",
+    "default": "*****",
+    "description": "MySQL connection password."
+  },
+  "mysql_db": {
+    "type": "string",
+    "default": "database",
+    "description": "MySQL database name."
+  },
+  "mysql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL host address."
+  },
+  "sqlite_database": {
+    "type": "string",
+    "default": "/var/lib/policyd-rate-limit/db.sqlite3",
+    "description": "Path to the SQLite3 database file."
+  },
+  "pgsql_database": {
+    "type": "string",
+    "default": "database",
+    "description": "PostgreSQL database name."
+  },
+  "pgsql_user": {
+    "type": "string",
+    "default": "username",
+    "description": "PostgreSQL connection username."
+  },
+  "pgsql_password": {
+    "type": "string",
+    "default": "*****",
+    "description": "PostgreSQL connection password."
+  },
+  "pgsql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL host address."
+  },
+  "backend": {
+    "type": "number",
+    "default": 0,
+    "description": "Which data backend to use. 0 for sqlite3, 1 for mysql, 2 for postgresql.",
+    "enum": [
+      0,
+      1,
+      2
+    ]
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/var/spool/postfix/ratelimit/policy",
+    "description": "The socket to bind to. Path to a unix socket or [ip, port] list."
+  },
+  "socket_permission": {
+    "type": "string",
+    "default": "0666",
+    "description": "Permissions on the unix socket (if unix socket used)."
+  },
+  "limits_0_count": {
+    "type": "number",
+    "default": 10,
+    "description": "First limit: number of emails allowed in the time window."
+  },
+  "limits_0_seconds": {
+    "type": "number",
+    "default": 60,
+    "description": "First limit: time window in seconds."
+  },
+  "limits_0_interval": {
+    "type": "string",
+    "default": "minutes",
+    "description": "First limit: human-readable interval name."
+  },
+  "limits_1_count": {
+    "type": "number",
+    "default": 150,
+    "description": "Second limit: number of emails allowed in the time window."
+  },
+  "limits_1_seconds": {
+    "type": "number",
+    "default": 86400,
+    "description": "Second limit: time window in seconds."
+  },
+  "limits_1_interval": {
+    "type": "string",
+    "default": "days",
+    "description": "Second limit: human-readable interval name."
+  },
+  "sql_limits_by_id": {
+    "type": "string",
+    "default": "",
+    "description": "SQL query to fetch custom limits by user ID. Empty string disables it."
+  },
+  "limit_by_sasl": {
+    "type": "string",
+    "default": "True",
+    "description": "Apply limits by SASL usernames."
+  },
+  "limit_by_sender": {
+    "type": "string",
+    "default": "False",
+    "description": "Apply limits by sender addresses if no SASL username is found."
+  },
+  "limit_by_ip": {
+    "type": "string",
+    "default": "False",
+    "description": "Apply limits by IP addresses if no SASL username or sender is found."
+  },
+  "success_action": {
+    "type": "string",
+    "default": "dunno",
+    "description": "Action postfix should take if no limits are reached.",
+    "enum": [
+      "dunno",
+      "defer_if_permit"
+    ]
+  },
+  "fail_action": {
+    "type": "string",
+    "default": "defer_if_permit Rate limit reach, retry later",
+    "description": "Action postfix should take if a limit is reached."
+  },
+  "db_error_action": {
+    "type": "string",
+    "default": "dunno",
+    "description": "Action postfix should take if unable to connect to the database backend.",
+    "enum": [
+      "dunno",
+      "defer_if_permit"
+    ]
+  },
+  "report": {
+    "type": "string",
+    "default": "False",
+    "description": "Send a report to report_to about users reaching limits."
+  },
+  "report_from": {
+    "type": "string",
+    "default": "null",
+    "description": "From address for report emails. Must be defined if report is True."
+  },
+  "report_to": {
+    "type": "string",
+    "default": "null",
+    "description": "Address to send report emails to. Can be single address or list."
+  },
+  "report_subject": {
+    "type": "string",
+    "default": "policyd-rate-limit report",
+    "description": "Subject of the report email."
+  },
+  "report_limits_0": {
+    "type": "number",
+    "default": 86400,
+    "description": "List of number of seconds from the limits list for which you want to be reported."
+  },
+  "report_only_if_needed": {
+    "type": "string",
+    "default": "True",
+    "description": "Only send a report if some users have reached a reported limit."
+  },
+  "smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Host of the SMTP server to use to send emails."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "Port of the SMTP server."
+  },
+  "smtp_starttls": {
+    "type": "string",
+    "default": "False",
+    "description": "Whether to use STARTTLS for SMTP connections."
+  },
+  "smtp_credentials": {
+    "type": "string",
+    "default": "null",
+    "description": "SMTP credentials [user, password] or null."
+  },
+  "delay_to_close": {
+    "type": "number",
+    "default": 300,
+    "description": "Time in seconds before an unused socket gets closed."
+  },
+  "count_mode": {
+    "type": "number",
+    "default": 1,
+    "description": "How sent mails are counted. 0 for individual RCPT TO (deprecated), 1 for DATA stage.",
+    "enum": [
+      0,
+      1
+    ]
+  }
+}

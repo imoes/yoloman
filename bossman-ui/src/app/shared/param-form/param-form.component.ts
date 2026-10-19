@@ -33,9 +33,9 @@ interface Field { key: string; spec: ParamSpec; }
     }
 
     <ng-template #field let-f>
-      <div class="bm-pf-field">
-        <label class="bm-pf-label" [title]="f.spec.description || ''">{{ label(f.key) }}@if (f.spec.required) { <span class="bm-pf-req">*</span> }</label>
-        <div class="bm-pf-control">
+      <div class="bm-pf-field" [class.bm-pf-off]="!!unavailable()[f.key]" [attr.data-reason]="unavailable()[f.key] || null">
+        <label class="bm-pf-label" [title]="unavailable()[f.key] || f.spec.description || ''">{{ label(f.key) }}@if (f.spec.required) { <span class="bm-pf-req">*</span> }</label>
+        <fieldset class="bm-pf-control" [disabled]="!!unavailable()[f.key]" [attr.title]="unavailable()[f.key] || null">
           @switch (control(f.spec, values()[f.key])) {
             @case ('bool') {
               <label class="bm-pf-switch"><input type="checkbox" [checked]="asBool(values()[f.key])" (change)="set(f.key, $any($event.target).checked)" /> <span>{{ asBool(values()[f.key]) ? 'yes' : 'no' }}</span></label>
@@ -60,6 +60,13 @@ interface Field { key: string; spec: ParamSpec; }
             }
             @case ('number') {
               <input class="bm-pf-in" type="number" [value]="values()[f.key] ?? ''" (input)="set(f.key, num($any($event.target).value))" />
+            }
+            @case ('text') {
+              <!-- A site value that is a whole FILE (ctdb's node list, an exporter's .my.cnf) — written as is. -->
+              <textarea class="bm-pf-in bm-pf-text" rows="5" spellcheck="false" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)"></textarea>
+            }
+            @case ('secret-text') {
+              <textarea class="bm-pf-in bm-pf-text bm-pf-masked" rows="5" spellcheck="false" autocomplete="off" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)"></textarea>
             }
             @case ('secret') {
               <input class="bm-pf-in" type="password" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)" />
@@ -107,7 +114,7 @@ interface Field { key: string; spec: ParamSpec; }
               <input class="bm-pf-in" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)" />
             }
           }
-        </div>
+        </fieldset>
         @if (f.spec.description) { <div class="bm-pf-desc">{{ f.spec.description }}</div> }
       </div>
     </ng-template>
@@ -119,12 +126,15 @@ interface Field { key: string; spec: ParamSpec; }
     .bm-pf-field { display: grid; grid-template-columns: 190px 1fr; column-gap: 14px; row-gap: 2px; align-items: center; padding: 3px 0; }
     .bm-pf-label { font-size: 12.5px; font-weight: 500; opacity: 0.85; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bm-pf-req { color: var(--bm-red, #c62828); margin-left: 2px; }
-    .bm-pf-control { min-width: 0; }
+    .bm-pf-control { min-width: 0; border: 0; padding: 0; margin: 0; }
+    .bm-pf-off { opacity: 0.45; }
     .bm-pf-hint { display: block; font-size: 11px; opacity: 0.65; margin-top: 2px; }
       .bm-pf-in { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 4px 7px; border-radius: 5px;
       border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
     .bm-pf-in:focus { outline: none; border-color: var(--mat-sys-primary); }
     textarea.bm-pf-in { resize: vertical; line-height: 1.4; }
+    textarea.bm-pf-text { font-family: ui-monospace, monospace; }
+    textarea.bm-pf-masked { -webkit-text-security: disc; }
     .bm-pf-json { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
     .bm-pf-jsonerr { border-color: var(--bm-red, #c62828); }
     .bm-pf-jsonmsg { grid-column: 2; font-size: 11px; color: var(--bm-red, #c62828); }
@@ -146,7 +156,9 @@ interface Field { key: string; spec: ParamSpec; }
 export class ParamFormComponent implements OnInit {
   params = input.required<ParamSchema>();
   initial = input<Record<string, unknown>>({});
-  agentId = input<string>('');   // required only for widget:'file' fields (remote file-picker)
+  agentId = input<string>('');
+  /** Fields this host cannot take, each with its reason (e.g. not in its family's file) — disabled and greyed. */
+  unavailable = input<Record<string, string>>({});   // required only for widget:'file' fields (remote file-picker)
   valuesChange = output<Record<string, unknown>>();
 
   asStr(v: unknown): string { return v == null ? '' : String(v); }
@@ -214,6 +226,7 @@ export class ParamFormComponent implements OnInit {
 
   control(spec: ParamSpec, value?: unknown): string {
     if (spec.widget === 'file') return 'file';
+    if (spec.widget === 'text') return spec.secret ? 'secret-text' : 'text';
     if (spec.secret) return 'secret';
     // An open set is a different CONTROL, not a decorated dropdown: asked before 'enum' so the select
     // cannot claim it.

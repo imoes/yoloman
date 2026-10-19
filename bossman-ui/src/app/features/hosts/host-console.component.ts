@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
 import { AuthService } from '../../core/auth/auth.service';
+import { BM_GOLD, BM_GREEN, BM_RED } from '../../shared/bm-colors';
 
 type Status = 'connecting' | 'open' | 'closed';
 
@@ -96,7 +97,9 @@ export class HostConsoleComponent implements AfterViewInit, OnDestroy {
       cursorBlink: true,
       fontFamily: 'ui-monospace, "Cascadia Code", Menlo, monospace',
       fontSize: 13,
-      theme: { background: '#000000', foreground: '#e0e0e0' },
+      // The ANSI status colours are the app's status palette (shared/bm-colors = styles.scss), measured to reach
+      // AA on dark surfaces — xterm's own red drew "[disconnected]" at 3.6:1 on black.
+      theme: { background: '#000000', foreground: '#e0e0e0', red: BM_RED, green: BM_GREEN, yellow: BM_GOLD },
     });
     const fit = new FitAddon();
     term.loadAddon(fit);

@@ -1,24 +1,35 @@
-## changetrack configuration file
-##
-## This file defines which files and directories changetrack should monitor
-## for changes. It supports ls-compatible wildcards (e.g., /etc/h* or
-## /opt/apache/cgi-bin/*.sh). If a path does not start with '/', changetrack
-## interprets it as relative to the root directory '/'.
-##
-## Email notification for changes is configured by appending recipients
-## to the path, separated by colons. Example:
-##   /etc/passwd : root@localhost foo@bar.com
-## changetrack sends one email per recipient only if files monitored by them
-## are actually modified.
-##
-## Note: You can configure changetrack to automatically track all dpkg
-## conffiles via /etc/default/changetrack. Entries in this file are tracked
-## IN ADDITION to those automatically discovered conffiles.
+## This is a list of files that you want changetrack to track.  You
+## can use ls-compatible wildcards, like /etc/h* or
+## /opt/apache/cgi-bin/*.sh.  If you omit the leading '/' then
+## changetrack assumes that the files are relative to /.
 
-# List of files and directories to track, optionally with email recipients.
-# Each line follows the format: <path> : <recipient1> [recipient2 ...]
-# Paths with wildcards are supported.
-# Defaults to a safe set of system configuration files and root user dotfiles.
-{% for file in tracked_files | default(['/boot/grub/menu.lst', '/etc/aliases', '/etc/apt/preferences', '/etc/default/*', '/etc/fetchmailrc', '/etc/hosts', '/etc/lprfilter', '/etc/modprobe.d/blacklist', '/etc/network/*', '/etc/news/leafnode/config', '/etc/pam.d/*', '/etc/printcap', '/etc/samba/smb.conf', '/etc/snort/snort.debian.conf', '/etc/squid/squid.conf', '/etc/ssh/sshd_config', '/etc/sudoers', '/root/.bash*', '/root/.profile']) %}
-# {{ file }}
+## You can change /etc/default/changetrack so that all dpkg conffiles
+## on your system will be tracked automatically.  Any files you list
+## here will then be tracked in addition to your conffiles.
+
+## To email changes to users, use a line like:
+## /etc/passwd : root@localhost foo@bar.com
+## Note: one email will be sent to each user, unless none of the files
+## monitored by that user are modified.
+
+#/boot/grub/menu.lst
+#/etc/aliases
+#/etc/apt/preferences
+#/etc/default/*
+#/etc/fetchmailrc
+#/etc/hosts
+#/etc/lprfilter
+#/etc/modprobe.d/blacklist
+#/etc/network/*
+#/etc/news/leafnode/config
+#/etc/pam.d/*
+#/etc/printcap
+#/etc/samba/smb.conf
+#/etc/snort/snort.debian.conf
+#/etc/squid/squid.conf
+#/etc/ssh/sshd_config
+#/etc/sudoers
+#/root/.bash*
+#/root/.profile
+{% for f in tracked_files | default([]) %}{{ f }}
 {% endfor %}

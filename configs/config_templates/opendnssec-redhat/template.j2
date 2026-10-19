@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  OpenDNSSEC Configuration Template (RedHat/RHEL family)
+  This template configures the DNS adapter for zone signing and transfer operations.
+  It manages TSIG keys, zone transfer (XFR) endpoints, and NOTIFY message sources.
+-->
+
+<Adapter>
+	<DNS>
+		<!--
+			TSIG (Transaction Signature) Configuration
+			Used for authenticated DNS communications.
+		-->
+		<TSIG>
+			<!-- The TSIG key name used for DNS authentication. -->
+			<Name>{{ opendnssec_dns_tsig_name | default('secret.example.com') }}</Name>
+
+			<!-- The TSIG algorithm used for DNS authentication. -->
+			<Algorithm>{{ opendnssec_dns_tsig_algorithm | default('hmac-sha256') }}</Algorithm>
+
+			<!-- The base64 encoded TSIG secret. -->
+			<Secret>{{ opendnssec_dns_tsig_secret | default('sw0nMPCswVbes1tmQTm1pcMmpNRK+oGMYN+qKNR/BwQ=') }}</Secret>
+		</TSIG>
+
+		<!--
+			Inbound DNS Configuration
+			Handles incoming zone transfer requests and NOTIFY messages.
+		-->
+		<Inbound>
+			<!-- Address of host to request XFR (Zone Transfer) from. -->
+			<RequestTransfer>
+				<!--
+					IPv4 Remote Connection Settings
+					Default port is 53 unless specified in the IPv6 block logic (see below).
+					Note: The original template placed IPv6-specific port/key logic in a second Remote block.
+					We preserve this structure to maintain exact compatibility with OpenDNSSEC's XML parsing expectations,
+					while ensuring all variables have safe defaults.
+				-->
+				<Remote>
+					<!-- IPv4 Address of the host to request zone transfers from. -->
+					<Address>{{ opendnssec_dns_inbound_xfr_address | default('1.2.3.4') }}</Address>
+				</Remote>
+
+				<!--
+					IPv6 Remote Connection Settings
+					Specific overrides for IPv6 hosts including non-standard ports and TSIG keys.
+				-->
+				<Remote>
+					<!-- IPv6 Address of the host to request zone transfers from. -->
+					<Address>{{ opendnssec_dns_inbound_xfr_ipv6_address | default('dead:beef::1') }}</Address>
+					<!-- Port number to use for requesting zone transfers from the IPv6 host. -->
+					<Port>{{ opendnssec_dns_inbound_xfr_port | default('5353') }}</Port>
+					<!-- The TSIG key name to use for zone transfer requests to the IPv6 host. -->
+					<Key>{{ opendnssec_dns_inbound_xfr_key | default('secret.example.com') }}</Key>
+				</Remote>
+			</RequestTransfer>
+
+			<!-- Allow NOTIFY messages from specific hosts/IPs. -->
+			<AllowNotify>
+				<!-- IP prefix to allow NOTIFY messages from. -->
+				<Peer>
+					<Prefix>{{ opendnssec_dns_inbound_notify_address | default('1.2.3.4') }}</Prefix>
+				</Peer>
+			</AllowNotify>
+		</Inbound>
+
+		<!--
+			Outbound DNS Configuration
+			Handles outgoing zone transfers (providing zones) and NOTIFY messages.
+		-->
+		<Outbound>
+			<!-- Provide XFR (Zone Transfer) to specific hosts. -->
+			<ProvideTransfer>
+				<!--
+					Outbound Peer Configuration
+					Specifies the IP prefix of the slave server and the TSIG key for authentication.
+				-->
+				<Peer>
+					<!-- IP prefix to provide zone transfers to. -->
+					<Prefix>{{ opendnssec_dns_outbound_xfr_address | default('1.2.3.5') }}</Prefix>
+					<!-- The TSIG key name to use for providing zone transfers. -->
+					<Key>{{ opendnssec_dns_outbound_xfr_key | default('secret.example.com') }}</Key>
+				</Peer>
+			</ProvideTransfer>
+
+			<!-- Send NOTIFY messages to specific hosts. -->
+			<Notify>
+				<!-- IP address to send NOTIFY messages to. -->
+				<Remote>
+					<Address>{{ opendnssec_dns_outbound_notify_address | default('1.2.3.5') }}</Address>
+				</Remote>
+			</Notify>
+		</Outbound>
+	</DNS>
+</Adapter>

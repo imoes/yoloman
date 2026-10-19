@@ -52,11 +52,21 @@ class VmOut(BaseModel):
     disk: str
 
 
+# A lab that is configured but whose pxe container is down is UNAVAILABLE, not a bad request: the caller
+# asked nothing wrong. These are the docker daemon's words for that state.
+_UNAVAILABLE = ("not configured", "is not running", "No such container")
+
+
 def _err(exc: vm_lab.VmLabError) -> HTTPException:
-    # "not configured" is a 503 (the lab is optional); anything else is a 400 (bad request/args).
+    # An unavailable lab is a 503 (the lab is optional); anything else is a 400 (bad request/args).
     msg = str(exc)
-    code = 503 if "not configured" in msg else 400
+    code = 503 if any(m in msg for m in _UNAVAILABLE) else 400
     return HTTPException(status_code=code, detail=msg)
+
+
+class LabStatusOut(BaseModel):
+    available: bool
+    reason: str | None = Field(None, description="Why the lab cannot be used; null when available")
 
 
 @router.post("/api/v1/vm/install", response_model=str)
@@ -84,6 +94,21 @@ async def vm_pxe_test(body: PxeTestIn, _identity=Depends(get_current_identity)) 
         return await vm_lab.pxe_test(body.name, body.mac, body.disk, body.disk_gib)
     except vm_lab.VmLabError as exc:
         raise _err(exc)
+
+
+@router.get("/api/v1/vm/status", response_model=LabStatusOut)
+async def vm_lab_status(_identity=Depends(get_current_identity)) -> dict:
+    """Whether the lab can be used at all, and if not, why — always 200.
+
+    The lab is optional and its pxe container may be stopped; that is a STATE of this deployment, not an
+    error of the request, so the UI asks here first and shows the reason instead of polling `GET /api/v1/vm`
+    into a stream of 503s. Probes with the same `vm-control list` the listing uses.
+    """
+    try:
+        await vm_lab.list_vms()
+    except vm_lab.VmLabError as exc:
+        return {"available": False, "reason": str(exc)}
+    return {"available": True, "reason": None}
 
 
 @router.get("/api/v1/vm", response_model=list[VmOut])

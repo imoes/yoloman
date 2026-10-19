@@ -1,64 +1,43 @@
-{#
-  Logrotate main configuration template.
-  This template generates /etc/logrotate.conf, the global configuration file
-  for the logrotate utility. It applies global directives that affect all
-  log groups defined elsewhere or in included snippets.
+# Global configuration for logrotate
+# This file sets default behavior for all log rotation jobs unless overridden
+# in the include directory (/etc/logrotate.d).
 
-  Variables are sourced from the role's input schema. Every variable uses
-  the `default()` filter to ensure safe rendering even if the variable is
-  not provided by the caller.
-#}
-
-{#
-  frequency: Log rotation frequency (e.g., daily, weekly, monthly, or custom interval like 'daily' or 'weekly')
-  Valid values: daily, weekly, monthly, yearly.
-  The directive name in logrotate.conf matches the frequency string directly.
-#}
+# Log rotation frequency
+# Defines how often logs are rotated (e.g., daily, weekly, monthly, yearly).
+# See `man logrotate` for allowed intervals.
 {{ frequency | default('weekly') }}
 
-{#
-  su directive: Rotate logs as this user/group.
-  Prevents logrotate from needing to run as root for log files owned by
-  specific users, enhancing security.
-#}
-su {{ user | default('root') }} {{ group | default('adm') }}
-
-{#
-  rotate directive: Number of rotated log files to keep.
-  Determines how many old versions of the log file are retained before
-  the oldest one is deleted.
-#}
+# Number of rotated log files to keep
+# Specifies how many old rotated versions of the log file should be retained.
+# Older files are deleted to save disk space.
 rotate {{ rotate_count | default(4) }}
 
-{#
-  create directive: Create new empty log files after rotation.
-  When true, logrotate creates a new empty log file with the same permissions
-  as the original after moving the old one.
-#}
-{% if create | default(true) | bool %}
-create
-{% else %}
-nocreate
+# Create new log files after rotation
+# When enabled, logrotate will create a new, empty log file with the same
+# permissions and ownership after moving the old one.
+# Options: empty (default), or 'create mode owner group'.
+{% set create_val = create | default('') %}
+{% if create_val %}
+create {{ create_val }}
 {% endif %}
 
-{#
-  dateext directive: Use date-based extension for rotated files.
-  If enabled, rotated files get a date suffix (e.g., app.log.20231025) instead
-  of a numeric index. This can make identifying log ages easier.
-#}
-{% if dateext | default(false) | bool %}
+# Use date extension for rotated files
+# When enabled, rotated files get a date suffix (e.g., logfile-20230401)
+# instead of a numeric suffix (e.g., logfile.1).
+# Requires dateformat to be set if you want a specific date format.
+{% if dateext | default(false) %}
 dateext
-{% else %}
-nodateext
 {% endif %}
 
-{#
-  compress directive: Compress rotated log files.
-  If enabled, old log files are compressed using gzip (default) to save disk space.
-  This applies only to logs rotated previously; current logs are not compressed.
-#}
-{% if compress | default(false) | bool %}
+# Compress rotated log files
+# When enabled, old log files are compressed using gzip (or bzip2/xz if configured)
+# to save disk space.
+{% if compress | default('nocompress') != 'nocompress' %}
 compress
-{% else %}
-nocompress
 {% endif %}
+
+# Include additional configuration files
+# Logrotate reads all files in this directory for per-application settings.
+include /etc/logrotate.d
+
+# End of global configuration

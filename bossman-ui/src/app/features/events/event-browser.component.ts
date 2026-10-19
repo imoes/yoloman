@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface RunRow {
   id: string;
@@ -41,7 +42,7 @@ interface RunDetail extends RunRow {
 @Component({
   selector: 'app-event-browser',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule],
   template: `
     <div class="eb">
       <div class="eb-hd">
@@ -54,7 +55,7 @@ interface RunDetail extends RunRow {
               <button class="eb-segbtn" [class.on]="effect() === f.key" (click)="setEffect(f.key)">{{ f.label }}</button>
             }
           </div>
-          <button mat-stroked-button (click)="reload()" [disabled]="busy()"><mat-icon>refresh</mat-icon></button>
+          <button mat-stroked-button (click)="reload()" [disabled]="busy()" aria-label="Reload" title="Reload"><mat-icon>refresh</mat-icon></button>
         </div>
       </div>
 
@@ -64,14 +65,15 @@ interface RunDetail extends RunRow {
         <span class="eb-dim">— configured in Admin → Settings.</span>
         @if (isAdmin()) {
           <span class="eb-spacer"></span>
-          <button mat-stroked-button color="warn" (click)="purge(retention())" [disabled]="busy() || !retention()"><mat-icon>auto_delete</mat-icon> Purge older than {{ retention() }}d</button>
+          <button mat-stroked-button color="warn" (click)="purge(retention())" [disabled]="busy()" [bmBlocked]="!retention() ? 'Set a retention in days first' : ''"><mat-icon>auto_delete</mat-icon> Purge older than {{ retention() }}d</button>
           <button mat-stroked-button color="warn" (click)="purge(0)" [disabled]="busy()"><mat-icon>delete_forever</mat-icon> Clear all</button>
         }
         @if (msg()) { <span class="eb-ok">{{ msg() }}</span> }
       </div>
 
       <div class="eb-body">
-        <div class="eb-list">
+        <!-- Focusable: a scrollable list must be reachable by keyboard (WCAG 2.1.1; axe scrollable-region-focusable). -->
+        <div class="eb-list" tabindex="0" role="region" aria-label="Events">
           @for (r of visibleRuns(); track r.id) {
             <div class="eb-row" [class.sel]="selected()?.id === r.id" (click)="select(r)">
               <span class="eb-badge" [class]="'ef-' + r.effect">{{ r.effect }}</span>
@@ -150,10 +152,12 @@ interface RunDetail extends RunRow {
     .eb-when { margin-left: auto; }
     .eb-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; flex: 0 0 auto; letter-spacing: 0.3px; }
     .eb-badge.big { font-size: 12px; padding: 3px 12px; }
-    .ef-changed { background: color-mix(in srgb, #f9a825 30%, transparent); color: #7a5300; }
-    .ef-failed { background: color-mix(in srgb, #e53935 30%, transparent); color: #8e0000; }
-    .ef-unchanged { background: color-mix(in srgb, #2e7d32 22%, transparent); color: #1b5e20; }
-    @media (prefers-color-scheme: dark) { .ef-changed{color:#ffd54f} .ef-failed{color:#ff8a80} .ef-unchanged{color:#a5d6a7} }
+    /* The status tokens at the status badge's 14% tint (host-status-badge): changed = warn, failed = crit,
+       unchanged = ok. The app is dark-only (styles.scss theme-type: dark), so a prefers-color-scheme switch
+       painted the light-mode text (#7a5300, 1.4:1) onto the dark surface whenever the OS was light. */
+    .ef-changed { background: color-mix(in srgb, var(--bm-gold) 14%, transparent); color: var(--bm-gold); }
+    .ef-failed { background: color-mix(in srgb, var(--bm-red) 14%, transparent); color: var(--bm-red); }
+    .ef-unchanged { background: color-mix(in srgb, var(--bm-green) 14%, transparent); color: var(--bm-green); }
     .eb-dry { font-size: 10px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 0 6px; opacity: 0.7; }
     .eb-detail { flex: 1; min-width: 0; }
     .eb-dhd { display: flex; align-items: center; gap: 10px; } .eb-dhd h2 { margin: 0; }

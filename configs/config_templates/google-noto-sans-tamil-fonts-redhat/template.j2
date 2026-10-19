@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Google Noto Sans Tamil Font Configuration
+    -----------------------------------------
+    This configuration file performs two main tasks:
+    1. Substitution: When an application requests the generic 'sans-serif' font
+       for Tamil language text (lang='ta'), this font is prepended to the
+       available font list.
+    2. Aliasing: It defines an alias so that 'Noto Sans Tamil' resolves to
+       'sans-serif' if requested directly, ensuring consistency.
+  -->
+
+  <!--
+    Match Rule: Substitute fonts for Tamil language.
+    Trigger: Requests for the generic 'sans-serif' family where the
+    language code contains the Tamil ISO code.
+  -->
+  <match>
+    <!--
+      Test: Check if the requested language contains the specified code.
+      Variable: lang_code
+      Default: 'ta' (ISO 639-1 code for Tamil)
+      Description: The ISO language code to match for font substitution.
+    -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('ta') }}</string>
+    </test>
+
+    <!--
+      Test: Check if the requested font family is the generic sans-serif.
+      Variable: default_family
+      Default: 'sans-serif'
+      Description: The generic font family name to substitute.
+    -->
+    <test name="family">
+      <string>{{ default_family | default('sans-serif') }}</string>
+    </test>
+
+    <!--
+      Edit: Prepend the specific Noto Sans Tamil font to the family list.
+      Variable: font_family_name
+      Default: 'Noto Sans Tamil'
+      Description: The specific font family name to prepend or alias.
+      Mode 'prepend' ensures this font takes priority over others.
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family_name | default('Noto Sans Tamil') }}</string>
+    </edit>
+
+    <!--
+      Edit: Configure font hinting (rendering alignment).
+      Variable: enable_hinting
+      Default: 'false'
+      Description: Whether to enable font hinting (false disables it).
+      Note: 'fonthashint' is the internal fontconfig property for hinting.
+    -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        Convert boolean/string to proper XML boolean.
+        Jinja2 renders 'true'/'false' strings, which XML <bool> expects.
+      -->
+      <bool>{{ enable_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias Definition: Map 'Noto Sans Tamil' to the generic family.
+    This ensures that if an application explicitly requests 'Noto Sans Tamil',
+    it falls back to the generic sans-serif definition if the specific font
+    is missing, or simply creates an alias entry in the fontconfig database.
+  -->
+  <alias>
+    <!-- The preferred font family name -->
+    <family>{{ font_family_name | default('Noto Sans Tamil') }}</family>
+    <default>
+      <!-- The fallback generic family -->
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

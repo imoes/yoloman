@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenNI>
+	<!-- License vendor name -->
+	<Licenses>
+		<!-- Add application-specific licenses here. The License element requires both vendor and key attributes. -->
+		<License vendor="{{ license_vendor | default('vendor') }}" key="{{ license_key | default('key') }}"/>
+	</Licenses>
+
+	<!-- Log output configuration -->
+	<Log writeToConsole="{{ log_write_to_console | default('false') }}" writeToFile="{{ log_write_to_file | default('false') }}">
+		<!-- Log level (0 - Verbose, 1 - Info, 2 - Warning, 3 - Error) -->
+		<LogLevel value="{{ log_level | default('3') }}"/>
+
+		<Mask name="ALL" on="{{ log_mask_all_on | default('true') }}"/>
+	</Log>
+
+	<!-- Production Nodes Configuration -->
+	<ProductionNodes>
+		<!-- Set global mirror for all production nodes -->
+		<GlobalMirror on="{{ production_global_mirror | default('true') }}"/>
+
+		<!-- Depth production node configuration -->
+		<Node type="Depth" name="{{ production_depth_node_name | default('MyDepth') }}">
+			<Query>
+				<!-- Query filters can be added here -->
+			</Query>
+			<Configuration>
+				<!-- Override global mirror setting for this specific Depth node -->
+				<Mirror on="{{ production_depth_node_mirror | default('false') }}" />
+			</Configuration>
+		</Node>
+
+		<!-- Image production node configuration -->
+		<!-- If it fails, continue anyway -->
+		<Node type="Image" stopOnError="{{ production_image_node_stop_on_error | default('false') }}" />
+	</ProductionNodes>
+</OpenNI>

@@ -1,0 +1,79 @@
+{
+  "schema": "yoloman.diagnosis/v1",
+  "diagnosis_id": "d7f0c2a4-5e1b-4c3a-9f60-2b8e7d1a0c11",
+  "host": "bossman-wintest",
+  "platform": "windows",
+  "target": {
+    "kind": "service",
+    "name": "yoloman-probe-logon",
+    "display_name": "yoloman probe (logon right)"
+  },
+  "collected_at": "2026-10-17T14:05:12Z",
+  "status": "stopped",
+  "summary": "yoloman-probe-logon does not start because its account .\\probeuser lacks the right to log on as a service (SeServiceLogonRight).",
+  "evidence": [
+    {
+      "id": "scm:config:yoloman-probe-logon",
+      "source": "QueryServiceConfig",
+      "observed": null,
+      "fact": "yoloman-probe-logon runs C:\\probe\\ProbeService.exe as .\\probeuser, start type Manual, no dependencies.",
+      "raw": {"binary_path_name": "C:\\probe\\ProbeService.exe", "start_type": "demand", "service_start_name": ".\\probeuser", "dependencies": [], "load_order_group": ""}
+    },
+    {
+      "id": "scm:status:yoloman-probe-logon",
+      "source": "QueryServiceStatusEx",
+      "observed": null,
+      "fact": "yoloman-probe-logon is stopped, Win32ExitCode 1069 (the service did not start due to a logon failure).",
+      "raw": {"current_state": "stopped", "win32_exit_code": 1069, "service_specific_exit_code": 0, "process_id": 0}
+    },
+    {
+      "id": "evt:System:7038:20431",
+      "source": "EventLog/System",
+      "observed": "2026-10-17T14:04:58Z",
+      "fact": "Service Control Manager event 7038: yoloman probe (logon right) could not log on as .\\probeuser, error 1069.",
+      "raw": {"event_id": 7038, "provider": "Service Control Manager", "record_id": 20431, "event_data": ["yoloman probe (logon right)", ".\\probeuser", "%%1069"]}
+    },
+    {
+      "id": "lsa:rights:S-1-5-21-3457937927-2839227994-823803824-1004",
+      "source": "LsaEnumerateAccountRights",
+      "observed": null,
+      "fact": "Account .\\probeuser (S-1-5-21-3457937927-2839227994-823803824-1004) and its groups hold no SeServiceLogonRight; no deny right.",
+      "raw": {"sid": "S-1-5-21-3457937927-2839227994-823803824-1004", "account_rights": [], "group_rights": {"S-1-5-32-545": ["SeInteractiveLogonRight", "SeNetworkLogonRight"]}, "deny_rights": []}
+    },
+    {
+      "id": "evt:System:7045:20420",
+      "source": "EventLog/System",
+      "observed": "2026-10-17T14:02:40Z",
+      "fact": "Service Control Manager event 7045: service yoloman probe (logon right) was installed (account .\\probeuser).",
+      "raw": {"event_id": 7045, "provider": "Service Control Manager", "record_id": 20420, "event_data": ["yoloman probe (logon right)", "C:\\probe\\ProbeService.exe", "user mode service", "demand start", ".\\probeuser"]}
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "svc.logon_right_missing",
+      "claim": "yoloman-probe-logon does not start because its account .\\probeuser lacks the right to log on as a service (SeServiceLogonRight).",
+      "certainty": "Proven",
+      "evidence_ids": ["scm:status:yoloman-probe-logon", "evt:System:7038:20431", "lsa:rights:S-1-5-21-3457937927-2839227994-823803824-1004"],
+      "precedent": {
+        "evidence_id": "evt:System:7045:20420",
+        "change": "the service was installed with the account .\\probeuser",
+        "observed": "2026-10-17T14:02:40Z",
+        "gap_seconds": 138
+      },
+      "remedy": {
+        "action": "grant",
+        "target": {"kind": "user_right", "id": "SeServiceLogonRight@.\\probeuser", "attribute": null},
+        "before": {"holds": false},
+        "after": {"holds": true},
+        "rollback": {"action": "revoke", "value": "SeServiceLogonRight@.\\probeuser"},
+        "verify": {"rule_absent": "svc.logon_right_missing", "expect": {"status": "running"}}
+      },
+      "gap": null
+    }
+  ],
+  "timeline": [
+    {"observed": "2026-10-17T14:02:40Z", "evidence_id": "evt:System:7045:20420"},
+    {"observed": "2026-10-17T14:04:58Z", "evidence_id": "evt:System:7038:20431"}
+  ],
+  "gaps": []
+}

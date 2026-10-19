@@ -1,0 +1,466 @@
+# =============================================================================
+# Rootkit Hunter (rkhunter) Configuration Template
+# =============================================================================
+# This file configures rkhunter. Variables correspond to schema fields.
+# If a variable is not defined in the Ansible inventory, the schema default is used.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Mirror Update Settings
+# -----------------------------------------------------------------------------
+
+# Rotate mirrors file for load balancing.
+# Default: ''
+# Values: 0 (priority list), 1 (rotate/load balance)
+# Note: The schema default is empty string, but rkhunter defaults to 1 if unset.
+# We explicitly set it to the variable or the schema default.
+{% if ROTATE_MIRRORS is defined %}
+{% if ROTATE_MIRRORS is defined and ROTATE_MIRRORS is not none and (ROTATE_MIRRORS is number or ROTATE_MIRRORS is boolean or ROTATE_MIRRORS | length > 0) %}ROTATE_MIRRORS={{ ROTATE_MIRRORS | default('') }}{% else %}#ROTATE_MIRRORS=1{% endif %}
+{% else %}
+#ROTATE_MIRRORS={{ '1' }}
+{% endif %}
+
+# Update mirrors file during rkhunter update.
+# Default: ''
+# Values: 0 (manual update only), 1 (auto-update mirrors)
+# Note: Schema default is empty string.
+{% if UPDATE_MIRRORS is defined %}
+{% if UPDATE_MIRRORS is defined and UPDATE_MIRRORS is not none and (UPDATE_MIRRORS is number or UPDATE_MIRRORS is boolean or UPDATE_MIRRORS | length > 0) %}UPDATE_MIRRORS={{ UPDATE_MIRRORS | default('') }}{% else %}#UPDATE_MIRRORS=1{% endif %}
+{% else %}
+#UPDATE_MIRRORS={{ '1' }}
+{% endif %}
+
+# Mirror mode: 0=any, 1=local, 2=remote.
+# Default: '0'
+# Controls which mirrors are selected based on 'local=' and 'remote=' tags.
+{% if MIRRORS_MODE is defined %}
+{% if MIRRORS_MODE is defined and MIRRORS_MODE is not none and (MIRRORS_MODE is number or MIRRORS_MODE is boolean or MIRRORS_MODE | length > 0) %}MIRRORS_MODE={{ MIRRORS_MODE | default('0') }}{% else %}#MIRRORS_MODE=0{% endif %}
+{% else %}
+MIRRORS_MODE={{ '0' }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Notification Settings
+# -----------------------------------------------------------------------------
+
+# Email address for warnings.
+# Default: ''
+# Can be space-separated list.
+# See also: MAIL_CMD
+{% if MAIL_ON_WARNING is defined and MAIL_ON_WARNING | default('') | trim != '' %}
+MAIL_ON_WARNING={{ MAIL_ON_WARNING | default('') }}
+{% else %}
+#MAIL_ON_WARNING=
+{% endif %}
+
+# Command to send mail.
+# Default: ''
+# Used when MAIL_ON_WARNING is set.
+# Note: Double quotes are required around subject if it contains spaces.
+{% if MAIL_CMD is defined and MAIL_CMD | default('') | trim != '' %}
+{% if MAIL_CMD is defined and MAIL_CMD is not none and (MAIL_CMD is number or MAIL_CMD is boolean or MAIL_CMD | length > 0) %}MAIL_CMD={{ MAIL_CMD | default('') }}{% else %}#MAIL_CMD=mail -s "[rkhunter] Warnings found for ${HOST_NAME}"{% endif %}
+{% else %}
+#MAIL_CMD=mail -s "[rkhunter] Warnings found for $HOST_NAME"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Directory and Path Settings
+# -----------------------------------------------------------------------------
+
+# Directory for temporary files.
+# Default: '/var/lib/rkhunter'
+# IMPORTANT: Do not use /tmp; ensure permissions are secure.
+TMPDIR={{ TMPDIR | default('/var/lib/rkhunter') }}
+
+# Database directory.
+# Default: '/var/lib/rkhunter/db'
+# Stores file property data and rootkit hashes.
+DBDIR={{ DBDIR | default('/var/lib/rkhunter/db') }}
+
+# Script directory.
+# Default: '/usr/share/rkhunter/scripts'
+# Must exist for rkhunter to run tests.
+SCRIPTDIR={{ SCRIPTDIR | default('/usr/share/rkhunter/scripts') }}
+
+# Default language code.
+# Default: ''
+# ISO 639 language code (e.g., 'en', 'de').
+# Run 'rkhunter --lang en --list languages' to see supported languages.
+{% if LANGUAGE is defined and LANGUAGE | default('') | trim != '' %}
+{% if LANGUAGE is defined and LANGUAGE is not none and (LANGUAGE is number or LANGUAGE is boolean or LANGUAGE | length > 0) %}LANGUAGE={{ LANGUAGE | default('') }}{% else %}#LANGUAGE=en{% endif %}
+{% else %}
+#LANGUAGE=en
+{% endif %}
+
+# Log file pathname.
+# Default: '/var/log/rkhunter/rkhunter.log'
+# Created if it does not exist.
+LOGFILE={{ LOGFILE | default('/var/log/rkhunter/rkhunter.log') }}
+
+# Append to log file (1) or overwrite (0).
+# Default: '0'
+# 0 creates a new log file each run. 1 appends.
+{% if APPEND_LOG is defined %}
+APPEND_LOG={{ APPEND_LOG | default(1) }}
+{% else %}
+#APPEND_LOG=0
+{% endif %}
+
+# Copy log file on error (1) or not (0).
+# Default: '0'
+# If 1, copies log with timestamp suffix on error/warning.
+{% if COPY_LOG_ON_ERROR is defined %}
+{% if COPY_LOG_ON_ERROR is defined and COPY_LOG_ON_ERROR is not none and (COPY_LOG_ON_ERROR is number or COPY_LOG_ON_ERROR is boolean or COPY_LOG_ON_ERROR | length > 0) %}COPY_LOG_ON_ERROR={{ COPY_LOG_ON_ERROR | default('0') }}{% else %}#COPY_LOG_ON_ERROR=0{% endif %}
+{% else %}
+#COPY_LOG_ON_ERROR=0
+{% endif %}
+
+# Syslog facility.priority to use.
+# Default: ''
+# Format: facility.priority (e.g., 'authpriv.warning').
+# If empty or 'NONE', syslog logging is disabled.
+{% if USE_SYSLOG is defined and USE_SYSLOG | default('') | trim != '' %}
+{% if USE_SYSLOG is defined and USE_SYSLOG is not none and USE_SYSLOG != '' %}USE_SYSLOG={{ USE_SYSLOG }}{% else %}#USE_SYSLOG=authpriv.notice{% endif %}
+{% else %}
+#USE_SYSLOG=
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Display Settings
+# -----------------------------------------------------------------------------
+
+# Use second color set (1) or default (0).
+# Default: '0'
+# Useful for inverted terminal colors (black on white).
+{% if COLOR_SET2 is defined %}
+{% if COLOR_SET2 is defined and COLOR_SET2 is not none and (COLOR_SET2 is number or COLOR_SET2 is boolean or COLOR_SET2 | length > 0) %}COLOR_SET2={{ COLOR_SET2 | default('0') }}{% else %}#COLOR_SET2=0{% endif %}
+{% else %}
+#COLOR_SET2=0
+{% endif %}
+
+# Detect X usage (1) or not (0).
+# Default: '1'
+# If 1, rkhunter detects X session and adjusts colors automatically.
+# Note: Template had this as an unconditional assignment. We keep it but apply default.
+AUTO_X_DETECT={{ AUTO_X_DETECT | default('1') }}
+
+# Show whitelisted as white (1) or green (0).
+# Default: '0'
+# 0 displays whitelisted items in green. 1 displays in white (or black for color set 2).
+{% if WHITELISTED_IS_WHITE is defined %}
+{% if WHITELISTED_IS_WHITE is defined and WHITELISTED_IS_WHITE is not none and (WHITELISTED_IS_WHITE is number or WHITELISTED_IS_WHITE is boolean or WHITELISTED_IS_WHITE | length > 0) %}WHITELISTED_IS_WHITE={{ WHITELISTED_IS_WHITE | default('0') }}{% else %}#WHITELISTED_IS_WHITE=0{% endif %}
+{% else %}
+#WHITELISTED_IS_WHITE=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# SSH Settings
+# -----------------------------------------------------------------------------
+
+# Allowed SSH root login setting.
+# Default: 'no'
+# Matches 'PermitRootLogin' in sshd_config.
+# Values: yes, no, without-password, forced-commands-only, prohibit-password, unset.
+{% if ALLOW_SSH_ROOT_USER is defined and ALLOW_SSH_ROOT_USER | default('') | trim != '' %}
+ALLOW_SSH_ROOT_USER={{ ALLOW_SSH_ROOT_USER | default('unset') }}
+{% else %}
+#ALLOW_SSH_ROOT_USER=no
+{% endif %}
+
+# Allow SSH-1 protocol (1), disallow (0), or suppress warning (2).
+# Default: '0'
+# SSH-1 is insecure. 0 = disallow, 1 = allow, 2 = suppress warning if sshd_config is unset.
+{% if ALLOW_SSH_PROT_V1 is defined %}
+ALLOW_SSH_PROT_V1={{ ALLOW_SSH_PROT_V1 | default(2) }}
+{% else %}
+#ALLOW_SSH_PROT_V1=0
+{% endif %}
+
+# Directory containing SSH configuration file.
+# Default: ''
+# If empty, rkhunter attempts to auto-detect.
+# Set to '/etc/ssh' if not auto-detected correctly.
+{% if SSH_CONFIG_DIR is defined and SSH_CONFIG_DIR | default('') | trim != '' %}
+{% if SSH_CONFIG_DIR is defined and SSH_CONFIG_DIR is not none and (SSH_CONFIG_DIR is number or SSH_CONFIG_DIR is boolean or SSH_CONFIG_DIR | length > 0) %}SSH_CONFIG_DIR={{ SSH_CONFIG_DIR | default('') }}{% else %}#SSH_CONFIG_DIR=/etc/ssh{% endif %}
+{% else %}
+#SSH_CONFIG_DIR=
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Test Configuration
+# -----------------------------------------------------------------------------
+
+# List of tests to enable.
+# Default: 'ALL'
+# Can be 'ALL' or space-separated list of test names.
+# Run 'rkhunter --list tests' to see available tests.
+ENABLE_TESTS={{ ENABLE_TESTS | default('ALL') }}
+
+# List of tests to disable.
+# Default: 'suspscan hidden_ports deleted_files packet_cap_apps apps ipc_shared_mem'
+# Space-separated list. Applied on top of ENABLE_TESTS.
+# 'suspscan' is disabled by default as it is CPU intensive and prone to false positives.
+DISABLE_TESTS={{ DISABLE_TESTS | default('suspscan hidden_ports deleted_files packet_cap_apps apps ipc_shared_mem') }}
+
+# Hash command to use for file properties.
+# Default: 'SHA256'
+# Supported: MD5, SHA1, SHA224, SHA256, SHA384, SHA512, NONE.
+# Run 'rkhunter --propupd' if changed.
+{% if HASH_CMD is defined and HASH_CMD | default('') | trim != '' %}
+{% if HASH_CMD is defined and HASH_CMD is not none and (HASH_CMD is number or HASH_CMD is boolean or HASH_CMD | length > 0) %}HASH_CMD={{ HASH_CMD | default('SHA256') }}{% else %}#HASH_CMD=SHA256{% endif %}
+{% else %}
+#HASH_CMD=SHA256
+{% endif %}
+
+# Field index of hash value in HASH_CMD output.
+# Default: ''
+# Integer > 0. Default 1 for most, 4 for *BSD.
+# Run 'rkhunter --propupd' if changed.
+{% if HASH_FLD_IDX is defined and HASH_FLD_IDX | default('') | trim != '' %}
+{% if HASH_FLD_IDX is defined and HASH_FLD_IDX is not none and (HASH_FLD_IDX is number or HASH_FLD_IDX is boolean or HASH_FLD_IDX | length > 0) %}HASH_FLD_IDX={{ HASH_FLD_IDX | default('') }}{% else %}#HASH_FLD_IDX=4{% endif %}
+{% else %}
+#HASH_FLD_IDX=
+{% endif %}
+
+# Package manager to use (NONE, RPM, DPKG, BSD, BSDng, SOLARIS).
+# Default: 'NONE'
+# RPM for RedHat/CentOS/Fedora. DPKG for Debian/Ubuntu.
+# Run 'rkhunter --propupd' if changed.
+{% if PKGMGR is defined and PKGMGR | default('') | trim != '' %}
+PKGMGR={{ PKGMGR | default('RPM') }}
+{% else %}
+#PKGMGR=NONE
+{% endif %}
+
+# Use Solaris sum checksum (1) or not (0).
+# Default: '0'
+# Only applies if PKGMGR=SOLARIS. 16-bit checksum, less secure.
+{% if USE_SUNSUM is defined %}
+{% if USE_SUNSUM is defined and USE_SUNSUM is not none and (USE_SUNSUM is number or USE_SUNSUM is boolean or USE_SUNSUM | length > 0) %}USE_SUNSUM={{ USE_SUNSUM | default('0') }}{% else %}#USE_SUNSUM=0{% endif %}
+{% else %}
+#USE_SUNSUM=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# File Properties and Whitelisting
+# -----------------------------------------------------------------------------
+
+# Reverse immutable-bit test (1) or normal (0).
+# Default: '0'
+# 0 = expect no immutable bit. 1 = expect immutable bit.
+{% if IMMUTABLE_SET is defined %}
+{% if IMMUTABLE_SET is defined and IMMUTABLE_SET is not none and (IMMUTABLE_SET is number or IMMUTABLE_SET is boolean or IMMUTABLE_SET | length > 0) %}IMMUTABLE_SET={{ IMMUTABLE_SET | default('0') }}{% else %}#IMMUTABLE_SET=0{% endif %}
+{% else %}
+#IMMUTABLE_SET=0
+{% endif %}
+
+# Skip inode change check (1) or not (0).
+# Default: '0'
+# Useful for filesystems like Btrfs that handle inodes differently.
+{% if SKIP_INODE_CHECK is defined %}
+{% if SKIP_INODE_CHECK is defined and SKIP_INODE_CHECK is not none and (SKIP_INODE_CHECK is number or SKIP_INODE_CHECK is boolean or SKIP_INODE_CHECK | length > 0) %}SKIP_INODE_CHECK={{ SKIP_INODE_CHECK | default('0') }}{% else %}#SKIP_INODE_CHECK=0{% endif %}
+{% else %}
+#SKIP_INODE_CHECK=0
+{% endif %}
+
+# Scan mode for /dev directory (THOROUGH or LAZY).
+# Default: 'LAZY'
+# THOROUGH is recommended but slower.
+{% if SCAN_MODE_DEV is defined and SCAN_MODE_DEV | default('') | trim != '' %}
+{% if SCAN_MODE_DEV is defined and SCAN_MODE_DEV is not none and (SCAN_MODE_DEV is number or SCAN_MODE_DEV is boolean or SCAN_MODE_DEV | length > 0) %}SCAN_MODE_DEV={{ SCAN_MODE_DEV | default('LAZY') }}{% else %}#SCAN_MODE_DEV=THOROUGH{% endif %}
+{% else %}
+#SCAN_MODE_DEV=LAZY
+{% endif %}
+
+# Maximum shared memory segment size in bytes.
+# Default: ''
+# Segments larger than this with world-writable permissions trigger warnings.
+{% if IPC_SEG_SIZE is defined and IPC_SEG_SIZE | default('') | trim != '' %}
+{% if IPC_SEG_SIZE is defined and IPC_SEG_SIZE is not none and (IPC_SEG_SIZE is number or IPC_SEG_SIZE is boolean or IPC_SEG_SIZE | length > 0) %}IPC_SEG_SIZE={{ IPC_SEG_SIZE | default('') }}{% else %}#IPC_SEG_SIZE=1048576{% endif %}
+{% else %}
+#IPC_SEG_SIZE=
+{% endif %}
+
+# Phalanx2 check depth (0=basic, 1=thorough).
+# Default: '0'
+# 1 scans /etc and /usr extensively.
+{% if PHALANX2_DIRTEST is defined %}
+{% if PHALANX2_DIRTEST is defined and PHALANX2_DIRTEST is not none and (PHALANX2_DIRTEST is number or PHALANX2_DIRTEST is boolean or PHALANX2_DIRTEST | length > 0) %}PHALANX2_DIRTEST={{ PHALANX2_DIRTEST | default('0') }}{% else %}#PHALANX2_DIRTEST=0{% endif %}
+{% else %}
+#PHALANX2_DIRTEST=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Network and Service Configuration
+# -----------------------------------------------------------------------------
+
+# Path to inetd configuration file.
+# Default: ''
+# Auto-detected if empty.
+{% if INETD_CONF_PATH is defined and INETD_CONF_PATH | default('') | trim != '' %}
+{% if INETD_CONF_PATH is defined and INETD_CONF_PATH is not none and (INETD_CONF_PATH is number or INETD_CONF_PATH is boolean or INETD_CONF_PATH | length > 0) %}INETD_CONF_PATH={{ INETD_CONF_PATH | default('') }}{% else %}#INETD_CONF_PATH=/etc/inetd.conf{% endif %}
+{% else %}
+#INETD_CONF_PATH=
+{% endif %}
+
+# Path to xinetd configuration file.
+# Default: ''
+# Auto-detected if empty.
+{% if XINETD_CONF_PATH is defined and XINETD_CONF_PATH | default('') | trim != '' %}
+{% if XINETD_CONF_PATH is defined and XINETD_CONF_PATH is not none and (XINETD_CONF_PATH is number or XINETD_CONF_PATH is boolean or XINETD_CONF_PATH | length > 0) %}XINETD_CONF_PATH={{ XINETD_CONF_PATH | default('') }}{% else %}#XINETD_CONF_PATH=/etc/xinetd.conf{% endif %}
+{% else %}
+#XINETD_CONF_PATH=
+{% endif %}
+
+# Allow syslog remote logging (1) or not (0).
+# Default: '0'
+# 0 disallows remote logging configuration.
+{% if ALLOW_SYSLOG_REMOTE_LOGGING is defined %}
+{% if ALLOW_SYSLOG_REMOTE_LOGGING is defined and ALLOW_SYSLOG_REMOTE_LOGGING is not none and (ALLOW_SYSLOG_REMOTE_LOGGING is number or ALLOW_SYSLOG_REMOTE_LOGGING is boolean or ALLOW_SYSLOG_REMOTE_LOGGING | length > 0) %}ALLOW_SYSLOG_REMOTE_LOGGING={{ ALLOW_SYSLOG_REMOTE_LOGGING | default('0') }}{% else %}#ALLOW_SYSLOG_REMOTE_LOGGING=0{% endif %}
+{% else %}
+#ALLOW_SYSLOG_REMOTE_LOGGING=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Suspicious Scan (suspscan) Settings
+# -----------------------------------------------------------------------------
+
+# Maximum filesize for suspscan test in bytes.
+# Default: ''
+# Files larger than this are skipped.
+{% if SUSPSCAN_MAXSIZE is defined and SUSPSCAN_MAXSIZE | default('') | trim != '' %}
+{% if SUSPSCAN_MAXSIZE is defined and SUSPSCAN_MAXSIZE is not none and (SUSPSCAN_MAXSIZE is number or SUSPSCAN_MAXSIZE is boolean or SUSPSCAN_MAXSIZE | length > 0) %}SUSPSCAN_MAXSIZE={{ SUSPSCAN_MAXSIZE | default('') }}{% else %}#SUSPSCAN_MAXSIZE=1024000{% endif %}
+{% else %}
+#SUSPSCAN_MAXSIZE=
+{% endif %}
+
+# Score threshold for suspscan test.
+# Default: ''
+# Below this score, no hits are reported.
+{% if SUSPSCAN_THRESH is defined and SUSPSCAN_THRESH | default('') | trim != '' %}
+{% if SUSPSCAN_THRESH is defined and SUSPSCAN_THRESH is not none and (SUSPSCAN_THRESH is number or SUSPSCAN_THRESH is boolean or SUSPSCAN_THRESH | length > 0) %}SUSPSCAN_THRESH={{ SUSPSCAN_THRESH | default('') }}{% else %}#SUSPSCAN_THRESH=200{% endif %}
+{% else %}
+#SUSPSCAN_THRESH=
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# OS and Locking Settings
+# -----------------------------------------------------------------------------
+
+# Path to OS release file.
+# Default: ''
+# Used to detect OS changes.
+{% if OS_VERSION_FILE is defined and OS_VERSION_FILE | default('') | trim != '' %}
+{% if OS_VERSION_FILE is defined and OS_VERSION_FILE is not none and (OS_VERSION_FILE is number or OS_VERSION_FILE is boolean or OS_VERSION_FILE | length > 0) %}OS_VERSION_FILE={{ OS_VERSION_FILE | default('') }}{% else %}#OS_VERSION_FILE=/etc/release{% endif %}
+{% else %}
+#OS_VERSION_FILE=
+{% endif %}
+
+# Warn on OS change (1) or not (0).
+# Default: '0'
+# 1 = warn if OS version changed since last propupd.
+{% if WARN_ON_OS_CHANGE is defined %}
+{% if WARN_ON_OS_CHANGE is defined and WARN_ON_OS_CHANGE is not none and (WARN_ON_OS_CHANGE is number or WARN_ON_OS_CHANGE is boolean or WARN_ON_OS_CHANGE | length > 0) %}WARN_ON_OS_CHANGE={{ WARN_ON_OS_CHANGE | default('0') }}{% else %}#WARN_ON_OS_CHANGE=1{% endif %}
+{% else %}
+#WARN_ON_OS_CHANGE=0
+{% endif %}
+
+# Auto update on OS change (1) or not (0).
+# Default: '0'
+# 1 = automatically run propupd if OS change detected.
+# WARNING: Ensure DBDIR is writable and valid hash function exists.
+{% if UPDT_ON_OS_CHANGE is defined %}
+{% if UPDT_ON_OS_CHANGE is defined and UPDT_ON_OS_CHANGE is not none and (UPDT_ON_OS_CHANGE is number or UPDT_ON_OS_CHANGE is boolean or UPDT_ON_OS_CHANGE | length > 0) %}UPDT_ON_OS_CHANGE={{ UPDT_ON_OS_CHANGE | default('0') }}{% else %}#UPDT_ON_OS_CHANGE=0{% endif %}
+{% else %}
+#UPDT_ON_OS_CHANGE=0
+{% endif %}
+
+# Use file locking (1) or not (0).
+# Default: '0'
+# Prevents corruption if multiple rkhunter instances run simultaneously.
+{% if USE_LOCKING is defined %}
+{% if USE_LOCKING is defined and USE_LOCKING is not none and (USE_LOCKING is number or USE_LOCKING is boolean or USE_LOCKING | length > 0) %}USE_LOCKING={{ USE_LOCKING | default('0') }}{% else %}#USE_LOCKING=0{% endif %}
+{% else %}
+#USE_LOCKING=0
+{% endif %}
+
+# Directory for lock files.
+# Default: ''
+# If empty, rkhunter tries /run/lock, /var/lock, etc., or TMPDIR.
+# Use a memory-resident dir (e.g., /run) to avoid persistence across reboots.
+{% if LOCKDIR is defined and LOCKDIR | default('') | trim != '' %}
+{% if LOCKDIR is defined and LOCKDIR is not none and (LOCKDIR is number or LOCKDIR is boolean or LOCKDIR | length > 0) %}LOCKDIR={{ LOCKDIR | default('') }}{% else %}#LOCKDIR=""{% endif %}
+{% else %}
+#LOCKDIR=
+{% endif %}
+
+# Lock timeout in seconds.
+# Default: ''
+# Max time to wait for lock before aborting. Retries every 10s.
+# Default in rkhunter code is 300s if not set.
+{% if LOCK_TIMEOUT is defined and LOCK_TIMEOUT | default('') | trim != '' %}
+{% if LOCK_TIMEOUT is defined and LOCK_TIMEOUT is not none and (LOCK_TIMEOUT is number or LOCK_TIMEOUT is boolean or LOCK_TIMEOUT | length > 0) %}LOCK_TIMEOUT={{ LOCK_TIMEOUT | default('') }}{% else %}#LOCK_TIMEOUT=300{% endif %}
+{% else %}
+#LOCK_TIMEOUT=
+{% endif %}
+
+# Show lock waiting messages (1) or not (0).
+# Default: '0'
+# 1 = print messages while waiting for lock.
+{% if SHOW_LOCK_MSGS is defined %}
+{% if SHOW_LOCK_MSGS is defined and SHOW_LOCK_MSGS is not none and (SHOW_LOCK_MSGS is number or SHOW_LOCK_MSGS is boolean or SHOW_LOCK_MSGS | length > 0) %}SHOW_LOCK_MSGS={{ SHOW_LOCK_MSGS | default('0') }}{% else %}#SHOW_LOCK_MSGS=1{% endif %}
+{% else %}
+#SHOW_LOCK_MSGS=0
+{% endif %}
+
+# Rootkit scan mode (THOROUGH or empty).
+# Default: ''
+# THOROUGH = search file names in all directories (/ -xdev).
+# WARNING: Very slow. Enable only for specific investigations.
+{% if SCANROOTKITMODE is defined and SCANROOTKITMODE | default('') | trim != '' %}
+{% if SCANROOTKITMODE is defined and SCANROOTKITMODE is not none and (SCANROOTKITMODE is number or SCANROOTKITMODE is boolean or SCANROOTKITMODE | length > 0) %}SCANROOTKITMODE={{ SCANROOTKITMODE | default('') }}{% else %}#SCANROOTKITMODE=THOROUGH{% endif %}
+{% else %}
+#SCANROOTKITMODE=
+{% endif %}
+
+# Tests to run for unhide.
+# Default: ''
+# Space-separated list (e.g., 'sys proc net').
+# Run 'rkhunter --unhide --list unhide' for options.
+{% if UNHIDE_TESTS is defined and UNHIDE_TESTS | default('') | trim != '' %}
+{% if UNHIDE_TESTS is defined and UNHIDE_TESTS is not none and (UNHIDE_TESTS is number or UNHIDE_TESTS is boolean or UNHIDE_TESTS | length > 0) %}UNHIDE_TESTS={{ UNHIDE_TESTS | default('') }}{% else %}#UNHIDE_TESTS=sys{% endif %}
+{% else %}
+#UNHIDE_TESTS=
+{% endif %}
+
+# Show warning count (1) or 'One or more' (0).
+# Default: '0'
+# 1 = show exact number. 0 = show phrase.
+{% if SHOW_SUMMARY_WARNINGS_NUMBER is defined %}
+{% if SHOW_SUMMARY_WARNINGS_NUMBER is defined and SHOW_SUMMARY_WARNINGS_NUMBER is not none and (SHOW_SUMMARY_WARNINGS_NUMBER is number or SHOW_SUMMARY_WARNINGS_NUMBER is boolean or SHOW_SUMMARY_WARNINGS_NUMBER | length > 0) %}SHOW_SUMMARY_WARNINGS_NUMBER={{ SHOW_SUMMARY_WARNINGS_NUMBER | default('0') }}{% else %}#SHOW_SUMMARY_WARNINGS_NUMBER=0{% endif %}
+{% else %}
+#SHOW_SUMMARY_WARNINGS_NUMBER=0
+{% endif %}
+
+# Show scan time: 0=none, 1=screen, 2=log, 3=both.
+# Default: '1'
+# 1 = screen only (common default). 3 = screen and log.
+{% if SHOW_SUMMARY_TIME is defined %}
+{% if SHOW_SUMMARY_TIME is defined and SHOW_SUMMARY_TIME is not none and (SHOW_SUMMARY_TIME is number or SHOW_SUMMARY_TIME is boolean or SHOW_SUMMARY_TIME | length > 0) %}SHOW_SUMMARY_TIME={{ SHOW_SUMMARY_TIME | default('1') }}{% else %}#SHOW_SUMMARY_TIME=3{% endif %}
+{% else %}
+#SHOW_SUMMARY_TIME=1
+{% endif %}
+
+# Enable recursive globbing (1) or not (0).
+# Default: '0'
+# Allows ** in pathnames for USER_FILEPROP_FILES_DIRS, etc.
+{% if GLOBSTAR is defined %}
+{% if GLOBSTAR is defined and GLOBSTAR is not none and (GLOBSTAR is number or GLOBSTAR is boolean or GLOBSTAR | length > 0) %}GLOBSTAR={{ GLOBSTAR | default('0') }}{% else %}#GLOBSTAR=0{% endif %}
+{% else %}
+#GLOBSTAR=0
+{% endif %}
+
+# Installation directory prefix.
+# Default: '/usr'
+# Used for determining default paths if not explicitly set.
+INSTALLDIR={{ INSTALLDIR | default('"/usr"') }}

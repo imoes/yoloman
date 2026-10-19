@@ -1,19 +1,65 @@
-# AppArmor profile for cockpit-desktop.
-#
-# This profile confines the Cockpit desktop client application.
-# It is generated from the package's configuration schema, ensuring
-# that all variables have safe defaults and are self-documented.
+# PAM configuration for Cockpit WebSocket service.
+# This file configures the Pluggable Authentication Modules (PAM) stack
+# used by cockpit-ws for authenticating and authorizing users.
 
-abi <abi/4.0>,
+# Standard PAM version header.
+#%PAM-1.0
 
-include <tunables/global>
+# Authentication section: Verify the user's identity.
 
-# The absolute path to the cockpit-desktop executable to be profiled.
-# Default: /usr/lib/cockpit/cockpit-desktop
-profile cockpit-desktop {{ cockpit_desktop_path | default('/usr/lib/cockpit/cockpit-desktop') }} flags=(unconfined) {
-    userns,
+# Require SELinux user mapping for the connecting user.
+auth       required     pam_sepermit.so
 
-    # Site-specific additions and overrides.
-    # See local/README for details on how to extend this profile.
-    include if exists <local/cockpit-desktop>
-}
+# Stack with the common authentication modules (e.g., password check, Kerberos).
+auth       substack     common-auth
+
+# Automatically add SSH keys from the user's authorized_keys file if the
+# cockpit_desktop_path is configured and the user logs in via a desktop session.
+# The path to the cockpit-desktop executable is defined in the package schema.
+auth       optional     pam_ssh_add.so
+
+# Authorization section: Determine if the authenticated user is allowed to use the service.
+
+# Deny access to users listed in /etc/cockpit/disallowed-users.
+# By default, the root user is included in this deny list.
+account    required     pam_listfile.so item=user sense=deny file=/etc/cockpit/disallowed-users onerr=succeed
+
+# Deny login if the file /var/log/nologin exists (system in maintenance mode).
+account    required     pam_nologin.so
+
+# Stack with the common account validation modules.
+account    include      common-account
+
+# Password section: Handle password changes (often inherited from common-password).
+password   include      common-password
+
+# Session section: Setup and teardown of user sessions.
+
+# Close any SELinux context before starting a new session.
+session    required     pam_selinux.so close
+
+# Reset the login UID to prevent privilege escalation issues.
+session    required     pam_loginuid.so
+
+# Open a new SELinux context for the user session, inheriting environment parameters.
+session    required     pam_selinux.so open env_params
+
+# Force-revoke any previous keyring/session associations to start clean.
+session    optional     pam_keyinit.so force revoke
+
+# Re-add SSH keys to the agent if the session supports it (e.g., desktop environment).
+# This uses the cockpit_desktop_path schema field for context.
+session    optional     pam_ssh_add.so
+
+# Stack with the common session setup/teardown modules.
+session    include      common-session
+
+# Environment variable handling.
+
+# Read environment variables from /etc/environment and /etc/security/pam_env.conf.
+# [1] Standard behavior for system-wide environment settings.
+session    required     pam_env.so
+
+# In Debian 4.0 (etch) and later, locale variables are stored in /etc/default/locale.
+# Read these specifically to ensure correct language/region settings for the session.
+session    required     pam_env.so user_readenv=1 envfile=/etc/default/locale

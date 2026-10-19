@@ -1,0 +1,159 @@
+# TetriNET Game Configuration File
+#
+# This file contains configuration for the TetriNET server.
+# Each configuration value consists of a TAG name, followed by an equal sign
+# and a value. Any text after a '#' is ignored.
+
+#############################################
+# GENERAL SETTINGS
+#############################################
+
+# pidfile [game.pid] - Where should the Process ID be written
+pidfile={{ pidfile | default('/var/run/tetrinetx/game.pid') }}
+
+# bindip [0.0.0.0] - What IP should server be bound to (0.0.0.0 means all)
+# Note: If left empty (default), it binds to all interfaces.
+# If set, it restricts binding to the specified IP.
+{% if (bindip | default('')) is string and (bindip | default('')) != '' %}
+bindip={{ bindip | default('') }}
+{% else %}
+bindip=0.0.0.0
+{% endif %}
+
+# maxchannels [1] - How many channels should be available on server
+maxchannels={{ maxchannels | default('8') }}
+
+# timeout_ingame [60] - How many seconds of no activity during a game before timeout occurs
+timeout_ingame={{ timeout_ingame | default('60') }}
+
+# timeout_outgame [1000] - How many seconds of no activity out of game before timeout occurs
+timeout_outgame={{ timeout_outgame | default('1000') }}
+
+# verbose [4] - How verbose the logs should be. 0=critical, 10=noisy
+verbose={{ verbose | default('4') }}
+
+#############################################
+# DEFAULT SETTINGS
+# Settings under here will be used by default in
+# any new channels created.
+#############################################
+
+# serverannounce [1] - Server Announces winners?
+serverannounce={{ serverannounce | default('1') }}
+
+# pingintercept [1] - Intercept pings in game messages?
+pingintercept={{ pingintercept | default('1') }}
+
+# stripcolour [1] - Strip colour from game messages?
+stripcolour={{ stripcolour | default('1') }}
+
+# game_type [normal, nick_only]
+game_type={{ game_type | default('normal') }}
+
+# winlist_file [1 or 2 or 3]
+winlist_file={{ winlist_file | default('1') }}
+
+# starting_level [1] - What level each player starts at
+starting_level={{ starting_level | default('1') }}
+
+# lines_per_level [2] - How many lines to make before player level increases
+lines_per_level={{ lines_per_level | default('2') }}
+
+# level_increase [1] - Number of levels to increase each time
+level_increase={{ level_increase | default('1') }}
+
+# lines_per_special [1] - Lines to make to get a special block
+lines_per_special={{ lines_per_special | default('1') }}
+
+# special_added [1] - Number of special blocks added each time
+special_added={{ special_added | default('1') }}
+
+# special_capacity [18] - Capacity of Special block inventory
+special_capacity={{ special_capacity | default('18') }}
+
+# classic_rules [1] - Play by classic rules?
+classic_rules={{ classic_rules | default('1') }}
+
+# average_levels [1] - Average together all player's game level?
+average_levels={{ average_levels | default('1') }}
+
+# sd_timeout [0] - Sudden death timeout. After this many secs, server will add lines. 0=disable
+sd_timeout={{ sd_timeout | default('0') }}
+
+# sd_lines_per_add [1] - Number of lines server adds each time
+sd_lines_per_add={{ sd_lines_per_add | default('1') }}
+
+# sd_secs_between_lines [30] - Number of secs to wait between adding each line
+sd_secs_between_lines={{ sd_secs_between_lines | default('30') }}
+
+# sd_message [Time's up! It's SUDDEN DEATH MODE!] - Message to display when suddendeath triggers
+sd_message={{ sd_message | default("Time's up! It's SUDDEN DEATH MODE!") }}
+
+#############################################
+# COMMAND PERMISSIONS
+# command_xxxxx rules. These set permissions to /commands in the partline.
+# For all, the following apply:
+#    0 = Disable command for anyone
+#    1 = Enable anyone to use command
+#    2 = Enable command only for people who are chanop or better
+#    3 = Enable command ONLY for authenticated ops (/op)
+# Special Case:
+#    join 4 = Can join other channels. Can't create new channel (unless authop)
+#    set  4 = Chanop can only modify settings of NON-preset channels (unless authop)
+#############################################
+
+command_help={{ command_help | default('1') }}
+command_kick={{ command_kick | default('2') }}
+command_msg={{ command_msg | default('1') }}
+command_op={{ command_op | default('1') }}
+command_list={{ command_list | default('1') }}
+command_join={{ command_join | default('1') }}
+command_who={{ command_who | default('1') }}
+command_topic={{ command_topic | default('2') }}
+command_priority={{ command_priority | default('2') }}
+command_move={{ command_move | default('2') }}
+command_winlist={{ command_winlist | default('1') }}
+command_set={{ command_set | default('4') }}
+command_persistant={{ command_persistant | default('3') }}
+command_save={{ command_save | default('3') }}
+command_reset={{ command_reset | default('3') }}
+
+#############################################
+# BLOCK OCCURANCY
+# Percentage value 0-100. Must add up to 100
+#############################################
+
+block_leftl={{ block_leftl | default('14') }}
+block_leftz={{ block_leftz | default('14') }}
+block_square={{ block_square | default('15') }}
+block_rightl={{ block_rightl | default('14') }}
+block_rightz={{ block_rightz | default('14') }}
+block_halfcross={{ block_halfcross | default('14') }}
+block_line={{ block_line | default('15') }}
+
+#############################################
+# SPECIAL BLOCK OCCURANCY
+# Percentage value 0-100. Must add up to 100
+#############################################
+
+special_addline={{ special_addline | default('32') }}
+special_clearline={{ special_clearline | default('18') }}
+special_nukefield={{ special_nukefield | default('1') }}
+special_randomclear={{ special_randomclear | default('11') }}
+special_switchfield={{ special_switchfield | default('3') }}
+special_clearspecial={{ special_clearspecial | default('14') }}
+special_gravity={{ special_gravity | default('1') }}
+special_quakefield={{ special_quakefield | default('6') }}
+special_blockbomb={{ special_blockbomb | default('14') }}
+
+#############################################
+# CUSTOM CHANNELS
+# Below exists (if any) definitions of preset non-removable
+# channels. They exist in the following form:
+#  [CHANNELNAME]  # Note NO # in front of name.
+#  maxplayers=6   # Number of players allowed in (6max)
+#  topic=My Topic # The channel Topic
+#  priority=50    # Priority of channel
+#  block_halfcross=12 #etc... any of the default options here
+#
+# End of File

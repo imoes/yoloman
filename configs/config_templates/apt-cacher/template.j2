@@ -11,7 +11,7 @@
 # The location of the local cache/working directory. This can become quite
 # large, so make sure it is somewhere with plenty of space.
 #
-cache_dir = {{ cache_dir | default('/var/cache/apt-cacher') }}
+{% if cache_dir is defined and cache_dir is not none and cache_dir != '' %}cache_dir = {{ cache_dir }}{% else %}#cache_dir = /var/cache/apt-cacher{% endif %}
 
 # The directory to use for apt-cacher access and error logs.
 # The access log records every request in the format:
@@ -21,12 +21,12 @@ cache_dir = {{ cache_dir | default('/var/cache/apt-cacher') }}
 # The error log is slightly more free-form, and is also used for debug messages
 # if debug mode is turned on.
 #
-log_dir = {{ log_dir | default('/var/log/apt-cacher') }}
+{% if log_dir is defined and log_dir is not none and log_dir != '' %}log_dir = {{ log_dir }}{% else %}#log_dir = /var/log/apt-cacher{% endif %}
 
 # The email address of the administrator is displayed in the info page and
 # traffic reports.
 #
-admin_email = {{ admin_email | default('root@localhost') }}
+{% if admin_email is defined and admin_email is not none and admin_email != '' %}admin_email = {{ admin_email }}{% else %}#admin_email = root@localhost{% endif %}
 
 # Daemon port setting, only useful in stand-alone mode. You need to run the
 # daemon as root to use privileged ports (<1024).
@@ -34,7 +34,7 @@ admin_email = {{ admin_email | default('root@localhost') }}
 # For standalone daemon auto startup settings please edit the file
 # /etc/default/apt-cacher.
 #
-daemon_port = {{ daemon_port | default(3142) }}
+{% if daemon_port is defined and daemon_port is not none and daemon_port != '' %}daemon_port = {{ daemon_port }}{% else %}#daemon_port = 3142{% endif %}
 
 # Optional settings, user and group to run the daemon as. Make sure they have
 # sufficient permissions within the cache and log directories. Comment the
@@ -45,26 +45,26 @@ daemon_user = {{ daemon_user | default('www-data') }}
 
 # optional setting, binds the listening daemon to specified IP(s).
 #
-daemon_addr = {{ daemon_addr | default('localhost') }}
+{% if daemon_addr is defined and daemon_addr is not none and daemon_addr != '' %}daemon_addr = {{ daemon_addr }}{% else %}#daemon_addr = localhost{% endif %}
 
 # Apt-cacher can be used in offline mode which just uses files already cached,
 # but doesn't make any new outgoing connections by setting this to 1.
 #
-offline_mode = {{ offline_mode | default(0) }}
+{% if offline_mode is defined and offline_mode is not none and offline_mode != '' %}offline_mode = {{ offline_mode }}{% else %}#offline_mode = 1{% endif %}
 
 # To enable data checksumming, install libberkeleydb-perl and set this option to
 # 1. Then wait until the Packages/Sources files have been refreshed once (and so
 # the database has been built up). You can also delete them from the cache to
 # trigger the database update.
 #
-checksum = {{ checksum | default(0) }}
+{% if checksum is defined and checksum is not none and checksum != '' %}checksum = {{ checksum }}{% else %}#checksum = 1{% endif %}
 
 # Importing checksums from new index files into the checksum database can cause
 # high CPU usage on slower systems. This option sets a limit to the number of
 # index files that are imported simultaneously, thereby limiting CPU load
 # average, but, possibly, taking longer. Set to 0 for no limit.
 #
-concurrent_import_limit = {{ concurrent_import_limit | default(1) }}
+{% if concurrent_import_limit is defined and concurrent_import_limit is not none and concurrent_import_limit != '' %}concurrent_import_limit = {{ concurrent_import_limit }}{% else %}#concurrent_import_limit = 1{% endif %}
 
 # CGI mode is deprecated.
 #
@@ -73,12 +73,12 @@ concurrent_import_limit = {{ concurrent_import_limit | default(1) }}
 # apt-cacher server is being relocated (via apt-get's error messages while
 # running "update")
 #
-cgi_advise_to_use = {{ cgi_advise_to_use | default('Please use http://cacheserver:3142/ as apt-cacher access URL') }}
+{% if cgi_advise_to_use is defined and cgi_advise_to_use is not none and cgi_advise_to_use != '' %}cgi_advise_to_use = {{ cgi_advise_to_use }}{% else %}#cgi_advise_to_use = Please use http://cacheserver:3142/ as apt-cacher access URL{% endif %}
 
 # To further facilitate migration from CGI to daemon mode this setting will
 # automatically redirect incoming CGI requests to the specified daemon URL.
 #
-cgi_redirect = {{ cgi_redirect | default('http://localhost:3142/') }}
+{% if cgi_redirect is defined and cgi_redirect is not none and cgi_redirect != '' %}cgi_redirect = {{ cgi_redirect }}{% else %}#cgi_redirect = http://localhost:3142/{% endif %}
 
 ### UPSTREAM PROXY ###
 
@@ -87,18 +87,18 @@ cgi_redirect = {{ cgi_redirect | default('http://localhost:3142/') }}
 # requires all web traffic to go through its proxy. The format is
 # 'http://[user[:password]@]hostname:port', eg: 'http://proxy.example.com:8080'.
 #
-http_proxy = {{ http_proxy | default('proxy.example.com:8080') }}
+{% if http_proxy is defined and http_proxy is not none and http_proxy != '' %}http_proxy = {{ http_proxy }}{% else %}#http_proxy = proxy.example.com:8080{% endif %}
 
 # This sets the interface to use for the upstream connection.
 # Specify an interface name, an IP address or a host name.
 # If unset, the default route is used.
 #
-interface = {{ interface | default('eth0') }}
+{% if interface is defined and interface is not none and interface != '' %}interface = {{ interface }}{% else %}#interface = eth0{% endif %}
 
 # Rate limiting sets the maximum bandwidth in bytes per second to use for
 # fetching packages.  Use 0 value for no rate limiting.
 #
-limit = {{ limit | default(0) }}
+{% if limit is defined and limit is not none and limit != '' %}limit = {{ limit }}{% else %}#limit = 0{% endif %}
 
 ### ACCESS and SECURITY ###
 
@@ -113,7 +113,7 @@ limit = {{ limit | default(0) }}
 # The keys are also used to separate the caching of multiple distributions
 # within a single apt-cacher instance if distinct_namespaces is also set.
 #
-path_map = {{ path_map | default('debian ftp.uni-kl.de/pub/linux/debian ftp2.de.debian.org/debian ; ubuntu archive.ubuntu.com/ubuntu ; security security.debian.org/debian-security ftp2.de.debian.org/debian-security') }}
+{% if path_map is defined and path_map is not none and path_map != '' %}path_map = {{ path_map }}{% else %}#path_map = debian ftp.uni-kl.de/pub/linux/debian ftp2.de.debian.org/debian ; {% endif %}
 
 # There are 2 default internal path_map settings for the Debian and Ubuntu
 # changelog servers which will be merged with this option.
@@ -136,7 +136,7 @@ path_map_debian_changelogs_override = {{ path_map_debian_changelogs_override | d
 #
 #  /usr/share/apt-cacher/apt-cacher-import.pl -u {{ (cache_dir | default('/var/cache/apt-cacher')) }}/packages
 #
-distinct_namespaces = {{ distinct_namespaces | default(0) }}
+{% if distinct_namespaces is defined and distinct_namespaces is not none and distinct_namespaces != '' %}distinct_namespaces = {{ distinct_namespaces }}{% else %}#distinct_namespaces = 0{% endif %}
 
 # If the apt-cacher machine is directly exposed to the Internet and you are
 # worried about unauthorised machines fetching packages through it, you can
@@ -156,26 +156,26 @@ distinct_namespaces = {{ distinct_namespaces | default(0) }}
 # are deprecated (but will still be honoured, if set). IPv6 addresses can now be
 # added directly to allowed_hosts and denied_hosts along with IPv4 addresses.
 #
-allowed_hosts = {{ allowed_hosts | default('*') }}
-denied_hosts = {{ denied_hosts | default('') }}
+{% if allowed_hosts is defined and allowed_hosts is not none and allowed_hosts != '' %}allowed_hosts = {{ allowed_hosts }}{% else %}#allowed_hosts = *{% endif %}
+{% if denied_hosts is defined and denied_hosts is not none and denied_hosts != '' %}denied_hosts = {{ denied_hosts }}{% else %}#denied_hosts = {% endif %}
 
 # Only allow HTTPS/SSL proxy CONNECT to hosts or IPs which match an item in this
 # list.
 #
-allowed_ssl_locations = {{ allowed_ssl_locations | default('') }}
+{% if allowed_ssl_locations is defined and allowed_ssl_locations is not none and allowed_ssl_locations != '' %}allowed_ssl_locations = {{ allowed_ssl_locations }}{% else %}#allowed_ssl_locations ={% endif %}
 
 # Only allow HTTPS/SSL proxy CONNECT to ports which match an item in this list.
 # Adding further items to this option can pose a significant security risk.  DO
 # NOT do it unless you understand the full implications.
 #
-allowed_ssl_ports = {{ allowed_ssl_ports | default('443') }}
+{% if allowed_ssl_ports is defined and allowed_ssl_ports is not none and allowed_ssl_ports != '' %}allowed_ssl_ports = {{ allowed_ssl_ports }}{% else %}#allowed_ssl_ports = 443{% endif %}
 
 # Optional setting to limit access to upstream mirrors based on server names in
 # the URLs. This is matched before any path_map settings are expanded. If
 # '%PATH_MAP%' in included in this option, it will be expanded to the keys of
 # the path_map setting. Note these items are strings, not regexps.
 #
-allowed_locations = {{ allowed_locations | default('ftp.uni-kl.de, ftp.nerim.net, debian.tu-bs.de/debian') }}
+{% if allowed_locations is defined and allowed_locations is not none and allowed_locations != '' %}allowed_locations = {{ allowed_locations }}{% else %}#allowed_locations = ftp.uni-kl.de, ftp.nerim.net, debian.tu-bs.de/debian{% endif %}
 
 ### HOUSEKEEPING ###
 

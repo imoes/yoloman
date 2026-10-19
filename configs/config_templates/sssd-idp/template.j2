@@ -1,0 +1,28 @@
+# SSSD Identity Provider (IdP) OAuth2 Configuration
+#
+# This file configures the SSSD plugins section to enable OAuth2-based
+# Kerberos preauthentication. It allows the system to obtain Kerberos
+# Ticket-Granting Tickets (TGTs) using OAuth2 credentials.
+#
+# To disable the OAuth2 plugin, simply comment out or remove the
+# `module` directives below.
+
+[plugins]
+  # OAuth2 Client Preauthentication Plugin
+  #
+  # Specifies the module path and identifier for the OAuth2 Client (CL)
+  # preauthentication plugin used by SSSD.
+  {# The default points to the standard RHEL/CentOS system module path. #}
+  clpreauth = {
+    module = {{ sssd_idp_clpreauth_module | default('idp:/usr/lib64/sssd/modules/sssd_krb5_idp_plugin.so') }}
+  }
+
+  # OAuth2 KDC Preauthentication Plugin
+  #
+  # Specifies the module path and identifier for the OAuth2 Key Distribution
+  # Center (KDC) preauthentication plugin. This works in tandem with the
+  # CL plugin to facilitate the auth flow.
+  {# The default matches the CL plugin, ensuring compatibility. #}
+  kdcpreauth = {
+    module = {{ sssd_idp_kdcpreauth_module | default('idp:/usr/lib64/sssd/modules/sssd_krb5_idp_plugin.so') }}
+  }

@@ -1,8 +1,23 @@
-# OVN Central Controller Configuration
-# This template configures OVN (Open Virtual Network) central components.
-# It generates a POSIX shell fragment to be sourced by the OVN service startup scripts.
+# OVN Central Controller Configuration Fragment
+#
+# This file is a POSIX shell fragment intended to be sourced by OVN service
+# start-up scripts (typically ovs-ctl). It configures environment variables
+# that control the behavior of the OVN central services (northd, southbound,
+# northbound).
+#
+# Field: ovn_ctl_opts
+# Description: Extra command-line options to pass to ovs-ctl when starting OVN services.
+# Usage: This is a suitable place to specify debugging wrappers (e.g., valgrind)
+#        or specific daemon flags supported by ovs-ctl.
+#
+# The variable OVN_CTL_OPTS is set to the value of the 'ovn_ctl_opts' schema field.
+# If the field is unset, null, or empty, the variable is commented out to ensure
+# ovs-ctl uses its internal defaults.
 
-# OVN_CTL_OPTS: Extra command-line options to pass to ovs-ctl when starting OVN services.
-# This is, for example, a suitable place to specify --ovn-northd-wrapper=valgrind.
-# Default is empty string.
-# {{ ovn_ctl_opts | default('') }}
+{% if (ovn_ctl_opts is defined) and (ovn_ctl_opts is not none) and (ovn_ctl_opts is not string or (ovn_ctl_opts | length) > 0) %}
+# Set extra options for ovs-ctl
+OVN_CTL_OPTS={{ ovn_ctl_opts }}
+{% else %}
+# OVN_CTL_OPTS=
+# No extra options provided; ovs-ctl will use its default behavior.
+{% endif %}

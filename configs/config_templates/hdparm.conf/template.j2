@@ -15,22 +15,22 @@
 # Global acoustic management level.
 # 0=off, 1–127=quiet, 128–254=performance.
 # Default: 128
-acoustic_management = {{ acoustic_management | default(128) }}
+{% if acoustic_management is defined and acoustic_management is not none and (acoustic_management is number or acoustic_management is boolean or acoustic_management | length > 0) %}acoustic_management = {{ acoustic_management | default(128) }}{% else %}#        acoustic_management = 128{% endif %}
 
 # Global Advanced Power Management (APM) level.
 # 1=lowest power, 254=highest performance, 255=off.
 # Default: 128
-apm = {{ apm_level | default(128) }}
+{% if apm_level is defined and apm_level is not none and apm_level != '' %}apm = {{ apm_level }}{% else %}#apm = 255{% endif %}
 
 # Global write-back caching setting.
 # 'on' enables write caching, 'off' disables it.
 # Default: 'on'
-write_cache = {{ write_cache | default('on') }}
+{% if write_cache is defined and write_cache is not none and write_cache != '' %}write_cache = {{ write_cache }}{% else %}#write_cache = off{% endif %}
 
 # Global standby (spindown) timeout in seconds.
 # 0=disabled, max 7200 with encoding.
 # Default: 60
-spindown_time = {{ standby_timeout | default(60) }}
+{% if standby_timeout is defined and standby_timeout is not none and standby_timeout != '' %}spindown_time = {{ standby_timeout }}{% else %}#spindown_time = 24{% endif %}
 
 # Global deep sleep level.
 # 0=off, >0 enables deep sleep (limited hardware support).
@@ -51,12 +51,12 @@ read_ahead_sectors = {{ read_ahead_sectors | default(256) }}
 # Global DMA (Direct Memory Access) setting.
 # 'on' enables DMA, 'off' disables it.
 # Default: 'on'
-dma = {{ dma_enabled | default('on') }}
+{% if dma_enabled is defined and dma_enabled is not none and dma_enabled != '' %}dma = {{ dma_enabled }}{% else %}#dma = off{% endif %}
 
 # Global multi-sector I/O setting.
 # Number of sectors per command, 1–16.
 # Default: 16
-mult_sect_io = {{ multi_sector_io | default(16) }}
+{% if multi_sector_io is defined and multi_sector_io is not none and multi_sector_io != '' %}mult_sect_io = {{ multi_sector_io }}{% else %}#mult_sect_io = 32{% endif %}
 
 # Global power settings reapplied on system resume.
 # If true, power settings are re-applied after PM resume.

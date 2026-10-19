@@ -1,110 +1,62 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          zabbix-java-gateway
-# Required-Start:    $remote_fs $network
-# Required-Stop:     $remote_fs
-# Default-Start:      2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start zabbix-java-gateway daemon
-# Description: Control zabbix-java-gateway daemon
-### END INIT INFO
+# ==============================================================================
+# Zabbix Java Gateway Configuration
+# This file is sourced by the init script (/etc/init.d/zabbix-java-gateway).
+# ==============================================================================
 
-NAME=zabbix-java-gateway
-DAEMON=/usr/bin/java
-# Exit if executable is not installed
-[ -x $DAEMON ] || exit 0
+### Option: zabbix.listenIP
+# Description: IP address to listen on.
+# Default: None (listens on all interfaces)
+{# If listen_ip is not defined or empty, omit the variable entirely so the init script uses its default or binds all interfaces #}
+{%- if listen_ip is defined and listen_ip is not none and listen_ip | trim | length > 0 %}
+{% if listen_ip is defined and listen_ip is not none and (listen_ip is number or listen_ip is boolean or listen_ip | length > 0) %}LISTEN_IP="{{ listen_ip }}"{% else %}# LISTEN_IP="0.0.0.0"{% endif %}
+{%- endif %}
 
-# The directory where the PID file and runtime data are stored.
-DIR={{ run_directory | default('/run/zabbix') }}
-PID_FILE=$DIR/$NAME.pid
+### Option: zabbix.listenPort
+# Description: Port to listen on.
+# Default: 10052
+{% if listen_port is defined and listen_port is not none and (listen_port is number or listen_port is boolean or listen_port | length > 0) %}LISTEN_PORT={{ listen_port | default(10052) }}{% else %}# LISTEN_PORT=10052{% endif %}
 
-# The shutdown retry policy for start-stop-daemon, specifying signal, timeout, second signal, and second timeout.
-RETRY={{ shutdown_retry | default('TERM/30/KILL/5') }}
+### Option: zabbix.pidFile
+# Description: Name of PID file.
+# Default: /run/zabbix/zabbix_java_gateway.pid
+# Note: The directory containing this file is specified by run_directory.
+PID_FILE="{{ pid_file | default('/run/zabbix/zabbix_java_gateway.pid') }}"
 
-#if [ "$(id -u)" -ne 0 ]; then
-#    echo "Error: root privileges are needed to run $0"
-#    exit 1
-#fi
+### Option: zabbix.startPollers
+# Description: Number of worker threads to start.
+# Default: 5
+# Range: 1-1000
+{% if start_pollers is defined and start_pollers is not none and (start_pollers is number or start_pollers is boolean or start_pollers | length > 0) %}START_POLLERS={{ start_pollers | default(5) }}{% else %}# START_POLLERS=5{% endif %}
 
-# Source Zabbix java gateway configuration file
-. /etc/zabbix/zabbix_java_gateway.conf
+### Option: zabbix.timeout
+# Description: How long to wait for network operations.
+# Default: 3
+# Range: 1-30
+{% if timeout is defined and timeout is not none and (timeout is number or timeout is boolean or timeout | length > 0) %}TIMEOUT={{ timeout | default(3) }}{% else %}# TIMEOUT=3{% endif %}
 
-ZABBIX_OPTIONS=""
-if [ -n "$PID_FILE" ]; then
-    ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.pidFile=$PID_FILE"
-fi
-if [ -n "$LISTEN_IP" ]; then
-    ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.listenIP=$LISTEN_IP"
-fi
-if [ -n "$LISTEN_PORT" ]; then
-    ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.listenPort=$LISTEN_PORT"
-fi
-if [ -n "$START_POLLERS" ]; then
-    ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.startPollers=$START_POLLERS"
-fi
-if [ -n "$TIMEOUT" ]; then
-    ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.timeout=$TIMEOUT -Dsun.rmi.transport.tcp.responseTimeout=${TIMEOUT}000"
-fi
-DAEMON_ARGS="${JAVA_OPTIONS} -server ${ZABBIX_OPTIONS} -Dlogback.configurationFile=/etc/zabbix/zabbix_java_gateway.logback.xml -Djava.library.path=/usr/lib/jni -jar /usr/sbin/zabbix-java-gateway.jar"
-#COMMAND_LINE="${DAEMON} $DAEMON_ARGS -classpath $CLASSPATH com.zabbix.gateway.JavaGateway"
+### Option: zabbix.propertiesFile
+# Description: Name of properties file. Can be used to set additional properties
+# in a such way that they are not visible on a command line or to overwrite existing ones.
+# Default: None (no extra properties file)
+{# If properties_file is not defined or empty, omit the variable entirely #}
+{%- if properties_file is defined and properties_file is not none and properties_file | trim | length > 0 %}
+{% if properties_file is defined and properties_file is not none and (properties_file is number or properties_file is boolean or properties_file | length > 0) %}PROPERTIES_FILE="{{ properties_file }}"{% else %}# PROPERTIES_FILE={% endif %}
+{%- endif %}
 
-# Load the VERBOSE setting and other rcS variables
-[ -f /etc/default/rcS ] && . /etc/default/rcS
+### JVM options (passed to /usr/bin/java).
+# Description: JVM options passed to /usr/bin/java.
+# Default: -Xmx256m
+JAVA_OPTIONS="{{ java_options | default('-Xmx256m') }}"
 
-# define LSB log_* functions.
-. /lib/lsb/init-functions
+### Run Directory
+# Description: The directory where the PID file and runtime data are stored.
+# Default: /run/zabbix
+# Note: This is primarily used by the init script, but stored here for reference
+# if the service needs to create it.
+RUN_DIRECTORY="{{ run_directory | default('/run/zabbix') }}"
 
-_ev_ () {
-  [ "$VERBOSE" = "no" ] || eval $@
-}
-
-[ -d "$DIR" ] || mkdir "$DIR"
-chown -R zabbix:zabbix "$DIR"
-export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
-
-case "$1" in
-  start)
-    start-stop-daemon --start --pidfile $PID_FILE --exec $DAEMON --test --quiet > /dev/null
-    [ $? -ne 0 ] && log_action_msg "$NAME is already running" && exit 0
-    _ev_ log_action_begin_msg \"$NAME starting\"
-    R=$(start-stop-daemon --start --background --make-pidfile --user zabbix --group zabbix --chuid zabbix --pidfile $PID_FILE --exec $DAEMON --oknodo -- ${DAEMON_ARGS} 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  stop)
-    _ev_ log_action_begin_msg "$NAME stopping"
-    R=$(start-stop-daemon --stop --pidfile $PID_FILE --oknodo --retry=$RETRY 2>&1)
-    if [ $? -ne 0 ]; then
-        _ev_ log_action_end_msg 1 \"$R\"
-    else
-        t=5
-        while $0 status >/dev/null; do
-            _ev_ log_action_cont_msg \"[$t]\"
-            t=$(($t-1))
-            if [ $t -ne 0 ]; then
-                sleep 1
-                continue
-            else
-                break
-            fi
-        done
-        $0 status >/dev/null \
-        && _ev_ log_action_end_msg 1 \"still running after 5 sec., unable to stop\" \
-        || _ev_ log_action_end_msg 0 \"$R\"
-    fi
-  ;;
-  status)
-    ## return status 0 if process is running.
-    status_of_proc -p $PID_FILE "$DAEMON" "$NAME"
-  ;;
-  restart|force-reload)
-    $0 stop
-    $0 status >/dev/null \
-    &&  exit 1  \
-    || $0 start
-  ;;
-  *)
-    echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
-    exit 1
-  ;;
-esac
+### Shutdown Retry Policy
+# Description: The shutdown retry policy for start-stop-daemon, specifying signal,
+# timeout, second signal, and second timeout.
+# Default: TERM/30/KILL/5
+SHUTDOWN_RETRY="{{ shutdown_retry | default('TERM/30/KILL/5') }}"

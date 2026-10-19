@@ -230,7 +230,7 @@ CORE: dict[str, dict] = {
     # keyed "nfs.conf" below). Exports (/etc/exports) are NOT a role — they are
     # managed in the NFS exports snap-in — so there is no nfs-exports entry here.
     "bind9": {"label": "BIND DNS Server", "category": "network", "icon": "dns",
-              "description": "Authoritative/recursive DNS name server.", "validate_cmd": "named-checkconf /etc/bind/named.conf",
+              "description": "Authoritative/recursive DNS name server.", "validate_cmd": "named-checkconf",
               "families": {"debian": _fam(["bind9"], "named", "/etc/bind/named.conf.options"),
                            "redhat": _fam(["bind"], "named", "/etc/named.conf")}},
     "dnsmasq": {"label": "dnsmasq", "category": "network", "icon": "dns",
@@ -264,7 +264,33 @@ CORE: dict[str, dict] = {
                               "redhat": _fam(["nfs-utils"], "nfs-server", "/etc/nfs.conf")}},
 }
 
-TEMPLATE_ALIAS = {"mariadb": "mariadb", "sshd": "sshd", "php-fpm": "php-fpm",
+TEMPLATE_ALIAS = {"mariadb": "mariadb", "sshd": "sshd_config", "php-fpm": "php-fpm",
+                  # `mysql` renders /etc/mysql/my.cnf (the include wrapper); the role configures mysqld.cnf, which
+                  # `mysql_server` renders (its meta.json target). Found by the wrong-file refusal in nt_engine.
+                  "mysql-server": "mysql_server",
+                  # `samba` is a ufw application profile ("[Samba] … ports=…"); smb.conf is the template of the file
+                  # (testparm -s accepts it). Found through the Bossman path: the role wrote the profile over smb.conf.
+                  "samba": "smb.conf",
+                  # `fail2ban` renders /etc/default/fail2ban (FAIL2BAN_OPTS=…); the role's file is jail.local.
+                  "fail2ban": "fail2ban-jail",
+                  # `cups` renders /etc/cups/snmp.conf; cupsd.conf is parametrized from the file cups-daemon's postinst
+                  # copies (/usr/share/cups/cupsd.conf.default — cupsd -t accepts defaults and variant).
+                  "cups": "cupsd.conf",
+                  # `miredo` renders /etc/default/miredo, which no unit reads; miredo.conf is the daemon's file.
+                  "miredo": "miredo.conf",
+                  # rsync/radicale rendered /etc/default/<name>, which their systemd units do not read.
+                  "rsync": "rsyncd.conf", "radicale": "radicale-config",
+                  # `sniproxy` is /etc/default/sniproxy (DAEMON_ARGS=…) — sniproxy.conf is the daemon's file.
+                  "sniproxy": "sniproxy.conf",
+                  # `iodined` was an invented template recorded against a logcheck rule file.
+                  "iodined": "iodine-default",
+                  # ntp merged into ntpsec: the Debian-faithful template is ntp.conf (+ ntp.conf-redhat on EL).
+                  "ntpsec": "ntp.conf",
+                  # opendkim had no template; opendkim.conf (+ -redhat) are made from each family's shipped file.
+                  "opendkim": "opendkim.conf",
+                  # The Debian file of these roles had no template (the role's template renders another file and the
+                  # wrong-file refusal stopped it): file-named templates parametrized from the shipped file.
+                  "collectd": "collectd.conf", "ntp": "ntp.conf", "opendmarc": "opendmarc.conf",
                   "docker-daemon": "docker-daemon", "nfs-exports": "nfs-exports",
                   # The CORE role is named after the FUNCTION, the template after the PACKAGE the
                   # qualify pipeline processed. Without the alias the builder looks for a template
@@ -289,7 +315,14 @@ TEMPLATE_ALIAS = {"mariadb": "mariadb", "sshd": "sshd", "php-fpm": "php-fpm",
                   # places 1 of those 12, so the placeholder rule does not catch it — a template can
                   # be parameterised and still describe the wrong file. config_templates/chrony.conf
                   # is the real one: 42 fields, 32 placed, header "Chrony Configuration Template".
-                  "chrony": "chrony.conf"}
+                  "chrony": "chrony.conf",
+                  # The chrony shape once more, found by the Playwright scenario: the `memcached` template
+                  # is /etc/default/memcached (one field, ENABLE_MEMCACHED) and was bound to
+                  # /etc/memcached.conf, so "Edit via template" rendered `ENABLE_MEMCACHED=yes` over the
+                  # daemon's -m/-p/-u/-l options. config_templates/memcached.conf renders the real file. Both
+                  # directories now RECORD their target (meta.json target_path), so the template index
+                  # refuses the wrong pairing by itself even if a name binding proposes it again.
+                  "memcached": "memcached.conf"}
 
 # Category by keyword in the config path (mirrors the UI's config-categories).
 _CAT = [
@@ -442,7 +475,7 @@ def main() -> int:
     if withdrawn:
         print(f"  {len(withdrawn)} template(s) withdrawn (do not configure their own file): "
               + ", ".join(sorted(withdrawn)))
-    with_tpl = sum(1 for e in catalog.values() if e["template"])
+    with_tpl = sum(1 for e in catalog.values() if e.get("template"))
     print(f"wrote {DEST} ({len(catalog)} packages, {with_tpl} with a template, "
           f"{preserved} classified entries preserved)")
 

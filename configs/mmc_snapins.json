@@ -24,14 +24,16 @@
     "all; showing them as broken would be a different lie.",
     "",
     "FIELDS:",
-    "  requires[]        all must hold: {os_family} | {module} | {feature} (a Windows role/feature name)\n                    | {endpoint} — the node's own route must answer (for nodes served from Bossman's\n                      database rather than from the host, where no module exists to ask about)",
+    "  requires[]        all must hold: {os_family} | {module} | {any_of: [requirement, …]} (one alternative suffices —\n                    one snap-in over two platforms' modules) | {feature} (a Windows role/feature name)\n                    | {endpoint} — the node's own route must answer (for nodes served from Bossman's\n                      database rather than from the host, where no module exists to ask about)",
     "  source.kind       'endpoint' (an existing Bossman route) or 'tool' (a module call, params fixed here)",
     "  source.rows       dotted path to the row array in the response; '' means the response IS the array",
     "  columns[].badge   render the value as a state pill rather than text",
     "  actions[].tool    the module to call; {row.<field>} placeholders are filled from the selected row",
     "  actions[].confirm ask before running — for anything that changes a host",
     "  node_actions[]    actions that belong to the NODE, not to a row (\"New user…\"). The form is GENERATED\n                    from the module's own input_schema, which every agent publishes in GET /api/v1/tools —\n                    so a create dialog needs no markup here and cannot drift from what the module accepts.\n                    `prefill` sets initial values; `dry_run_first: true` makes the form open with the\n                    module's own preview switched on, so the first click shows a plan instead of a change.\n  actions[].hide_when  {field, equals}: an action that cannot apply to this row is not offered at all",
-    "                       (greying out is the logical answer to an impossible action, not an error after)"
+    "                       (greying out is the logical answer to an impossible action, not an error after)",
+    "  actions[].view    open a view for the row instead of running the tool — 'diagnosis': why the service does",
+    "                    not run (POST /api/v1/agents/{id}/diagnose, kept by Bossman; docs/diagnosis.md)"
   ],
   "version": 1,
   "snapins": [
@@ -135,6 +137,16 @@
               "hide_when": {
                 "field": "active",
                 "equals": "stopped"
+              }
+            },
+            {
+              "id": "diagnose",
+              "title": "Why is it not running?",
+              "icon": "troubleshoot",
+              "tool": "service_diagnose",
+              "view": "diagnosis",
+              "params": {
+                "name": "{row.name}"
               }
             }
           ],
@@ -1731,10 +1743,17 @@
       "id": "updates",
       "title": "Software updates",
       "icon": "system_update",
-      "description": "Pending package updates as the host's own package manager reports them, with the security ones marked.",
+      "description": "Pending updates as the host itself reports them — the package manager on Linux (security ones marked), Windows Update on Windows (KB, MsrcSeverity, reboot behaviour) with install and history.",
       "requires": [
         {
-          "module": "yoloman.package_updates"
+          "any_of": [
+            {
+              "module": "yoloman.package_updates"
+            },
+            {
+              "module": "windows_update_facts"
+            }
+          ]
         }
       ],
       "nodes": [
@@ -1772,6 +1791,139 @@
             {
               "key": "source",
               "title": "From",
+              "grow": true
+            }
+          ],
+          "actions": [],
+          "requires": [
+            {
+              "module": "yoloman.package_updates"
+            }
+          ]
+        },
+        {
+          "id": "windows-pending",
+          "title": "Windows Update — pending",
+          "requires": [
+            {
+              "module": "windows_update_facts"
+            }
+          ],
+          "source": {
+            "kind": "tool",
+            "tool": "windows_update_facts",
+            "params": {},
+            "rows": "pending"
+          },
+          "sort": "kb",
+          "columns": [
+            {
+              "key": "kb",
+              "title": "KB",
+              "width": 110
+            },
+            {
+              "key": "title",
+              "title": "Update",
+              "grow": true
+            },
+            {
+              "key": "msrc_severity",
+              "title": "Severity",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "reboot_behavior",
+              "title": "Reboot",
+              "width": 160
+            },
+            {
+              "key": "downloaded",
+              "title": "Downloaded",
+              "width": 100
+            },
+            {
+              "key": "size_bytes",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 100
+            }
+          ],
+          "actions": [
+            {
+              "id": "install",
+              "title": "Install this update",
+              "icon": "system_update_alt",
+              "tool": "windows_update",
+              "params": {
+                "accept_list": "{row.kb}",
+                "category_names": "*",
+                "reboot": "never"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "windows-update",
+              "title": "Install updates…",
+              "icon": "system_update_alt",
+              "tool": "windows_update",
+              "prefill": {
+                "reboot": "never"
+              },
+              "dry_run_first": true
+            }
+          ]
+        },
+        {
+          "id": "windows-history",
+          "title": "Update history",
+          "requires": [
+            {
+              "module": "windows_update_facts"
+            }
+          ],
+          "source": {
+            "kind": "tool",
+            "tool": "windows_update_facts",
+            "params": {},
+            "rows": "history"
+          },
+          "sort": "-date",
+          "columns": [
+            {
+              "key": "date",
+              "title": "When",
+              "kind": "time",
+              "width": 170
+            },
+            {
+              "key": "operation",
+              "title": "Operation",
+              "width": 120
+            },
+            {
+              "key": "result",
+              "title": "Result",
+              "badge": true,
+              "width": 150
+            },
+            {
+              "key": "hresult",
+              "title": "HRESULT",
+              "width": 110
+            },
+            {
+              "key": "kb",
+              "title": "KB",
+              "width": 110
+            },
+            {
+              "key": "title",
+              "title": "Update",
               "grow": true
             }
           ],

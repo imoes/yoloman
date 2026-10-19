@@ -1,60 +1,76 @@
-# =============================================================================
-# Partimage Server (partimaged) SSL Key/Certificate Generation Configuration
-# =============================================================================
-# This file configures OpenSSL to generate a self-signed certificate used by
-# the Partimage server for secure (SSL) disk imaging transfers.
-# It defines the RANDFILE location and the Distinguished Name (DN) fields
-# for the generated certificate.
-# =============================================================================
+# ==============================================================================
+# Partimage Server SSL Certificate Generation Configuration
+# ==============================================================================
+# This file is used by the `partimaged` service to generate a self-signed SSL
+# certificate for client-server communication. The certificate ensures that
+# disk imaging clients can verify the server's identity before transferring data.
+#
+# Variables are sourced from the Ansible inventory/role defaults.
+# ==============================================================================
 
-# RANDFILE: Path to the random number generator file for SSL key generation.
+# Path to the RANDFILE for SSL key generation.
+# This file stores random state to improve the entropy of the generated key.
 RANDFILE = {{ randfile | default('/etc/partimaged/partimaged.rand') }}
 
-# [ req ] Section: General OpenSSL request/certificate generation options.
 [ req ]
-# default_bits: Number of bits in the generated RSA private key and certificate.
-# Higher values (e.g., 4096) increase security but slow down generation and verification.
-default_bits = {{ default_bits | default(4096) }}
+# Configuration section for `openssl req` command.
 
-# encrypt_key: Whether to encrypt the generated private key with a passphrase.
-# If true, the key file will be protected; if false, it will be unencrypted (less secure).
-encrypt_key = {{ encrypt_key | default(True) | lower }}
+# Number of bits in the generated SSL key.
+# 4096 bits is recommended for strong security; 2048 is the minimum acceptable.
+default_bits = {{ default_bits | default('4096') }}
 
-# distinguished_name: Specifies the section containing the DN fields for the cert.
+# Whether to encrypt the generated SSL private key.
+# If 'yes', the key will be encrypted with a passphrase (not used here as
+# partimaged typically expects the key for automated startup, but this
+# flag controls the request format).
+encrypt_key = {{ encrypt_key | default('yes') }}
+
+# Reference to the distinguished name section below.
 distinguished_name = req_dn
 
-# x509_extensions: Specifies the section containing X.509 v3 certificate extensions.
+# Reference to the certificate extensions section.
 x509_extensions = cert_type
 
-# prompt: If 'no', the DN fields below are used directly without prompting the user.
+# Disable prompt for input; all values are taken from the configuration file.
 prompt = no
 
-# [ req_dn ] Section: Distinguished Name fields for the SSL Certificate.
 [ req_dn ]
-# C: Country Name (2 letter code).
+# Distinguished Name (DN) fields for the SSL Certificate.
+# These fields identify the server in the certificate subject.
+
+# Country Code (C) for the SSL certificate.
+# ISO 3166-1 alpha-2 two-letter code.
 C={{ country | default('US') }}
 
-# ST: State or Province Name (full name).
+# State or Province (ST) for the SSL certificate.
+# The full name of the state or province.
 ST={{ state | default('NY') }}
 
-# L: Locality Name (e.g., city).
+# Locality or City (L) for the SSL certificate.
+# The city or locality where the organization is located.
 L={{ locality | default('New York') }}
 
-# O: Organization Name (e.g., company).
+# Organization Name (O) for the SSL certificate.
+# The legal name of the organization or server owner.
 O={{ organization | default('Partimage Server') }}
 
-# OU: Organizational Unit Name (e.g., section or department).
+# Organizational Unit (OU) for the SSL certificate.
+# The unit or department responsible for the server.
 OU={{ organizational_unit | default('Automatically-generated Partimage SSL key') }}
 
-# CN: Common Name (e.g., server FQDN or YOUR name).
+# Common Name (CN) for the SSL certificate.
+# Typically the Fully Qualified Domain Name (FQDN) or IP address of the server.
+# Clients verify this CN against the hostname they use to connect.
 CN={{ common_name | default('localhost') }}
 
-# emailAddress: Email address for the certificate subject.
+# Email Address (emailAddress) for the SSL certificate.
+# Administrative contact email for the certificate/organization.
 emailAddress={{ email_address | default('postmaster@example.com') }}
 
-
-# [ cert_type ] Section: X.509 Certificate Extensions.
 [ cert_type ]
-# nsCertType: Specifies the type of certificate.
-# 'server' indicates this cert is for a server (TLS/SSL endpoint).
+# X.509 Certificate Extension definitions.
+
+# Specifies the type of certificate.
+# 'server' indicates this certificate is intended for server authentication
+# (TLS/SSL server side), which is required for partimaged.
 nsCertType = server

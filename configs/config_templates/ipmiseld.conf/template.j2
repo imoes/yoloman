@@ -1,244 +1,185 @@
-# =============================================================================
-# ipmiseld.conf - IPMI SEL Event Logging Daemon Configuration
-# =============================================================================
-# This file configures ipmiseld, the daemon responsible for monitoring the System
-# Event Log (SEL) via the IPMI interface.
-# =============================================================================
+{# Every option is written only when the operator sets it; otherwise it stays commented with the package's example,
+   as in the shipped file (which has no active line). The earlier template activated the examples — hostname
+   "myhost(s)", username "myusername", password "mypassword" — and ipmiseld refused the file. #}
+##########################################################################################################
+#
+# IPMIseld configuration file.
+#
+# For more information on the fields below, please see the manpage
+# ipmiseld.conf(5).
+#
+# P.S.  If you configure different values, remember to uncomment the line :-)
+#
+##########################################################################################################
 
-# ------------------------------------------------------------------------------
-# Global Logging Configuration
-# ------------------------------------------------------------------------------
+#
+# Specify the driver type to use (e.g., linux). Optional.
+#
+{% if driver_type is defined and driver_type is not none and driver_type != '' %}driver-type {{ driver_type }}{% else %}# driver-type {% endif %}
 
-# Specify the log facility to use (e.g., daemon, local0).
-# Default: 'daemon'
-log-facility = {{ log_facility | default('daemon') }}
+#
+# Specify if IPMI devices should be probed for settings (ENABLE|DISABLE). Optional.
+#
+{% if disable_auto_probe is defined and disable_auto_probe is not none and disable_auto_probe != '' %}disable-auto-probe {{ disable_auto_probe }}{% else %}# disable-auto-probe DISABLE{% endif %}
 
-# Specify the log priority to use (e.g., info, warning, error).
-# Default: 'info'
-log-priority = {{ log_priority | default('info') }}
+#
+# Specify the in-band driver address to use. Optional.
+#
+{% if driver_address is defined and driver_address is not none and driver_address != '' %}driver-address {{ driver_address }}{% else %}# driver-address 0xCA2{% endif %}
 
-# Specify the poll interval to check the SEL for new events (in seconds).
-# Default: 60
-poll-interval = {{ poll_interval | default(60) }}
+#
+# Specify the in-band driver device path to use. Optional.
+#
+{% if driver_device is defined and driver_device is not none and driver_device != '' %}driver-device {{ driver_device }}{% else %}# driver-device /my/device/path{% endif %}
 
-# ------------------------------------------------------------------------------
-# Global BMC Connection Settings
-# ------------------------------------------------------------------------------
+#
+# register-spacing 1
+#
+# target-channel-number 0
+#
+# target-slave-address 0x20
+#
 
-# Specify the remote host(s) to communicate with.
-# Multiple hostnames may be separated by comma or in range format.
-# If left empty, ipmiseld attempts to access local BMCs.
-# Default: ''
-hostname = {{ hostname | default('') }}
+#
+# Specify the remote host(s) to communicate with. Multiple hostnames may be separated by comma or in range format.
+#
+{% if hostname is defined and hostname is not none and hostname != '' %}hostname {{ hostname }}{% else %}# hostname myhost(s){% endif %}
 
-# Specify the username to use for BMC authentication.
-# Default: '' (empty)
-username = {{ username | default('') }}
+#
+# Specify the username to use. Optional.
+#
+{% if username is defined and username is not none and username != '' %}username {{ username }}{% else %}# username myusername{% endif %}
 
-# Specify the password to use for BMC authentication.
-# Default: '' (empty)
-password = {{ password | default('') }}
+#
+# Specify the password to use. Optional.
+#
+{% if password is defined and password is not none and password != '' %}password {{ password }}{% else %}# password mypassword{% endif %}
 
-# ------------------------------------------------------------------------------
-# Explicitly Configured Remote Hosts
-# ------------------------------------------------------------------------------
-# If the 'hosts' list is provided, these entries are written here.
-# Each host gets its own section with overrides for username/password/etc.
-# If 'hosts' is empty or undefined, this block is omitted.
-{% if hosts | default([]) | length > 0 %}
+#
+# Specify the key (k_g) to use. Optional.
+#
+{% if k_g is defined and k_g is not none and k_g != '' %}k_g {{ k_g }}{% else %}# k_g mykey{% endif %}
 
-# Explicitly configured remote hosts from the 'hosts' list
-{% for host in hosts %}
-# --- Host: {{ host.name | default('unknown') }} ---
-{{ host.name }}
-{{ host.name }}.username = {{ host.username | default('') }}
-{{ host.name }}.password = {{ host.password | default('') }}
-{% endfor %}
-{% endif %}
+#
+## session-timeout specified in milliseconds
+# Specify the session timeout in milliseconds. Optional.
+#
+{% if session_timeout is defined and session_timeout is not none and session_timeout != '' %}session-timeout {{ session_timeout }}{% else %}# session-timeout 20000{% endif %}
 
-# ------------------------------------------------------------------------------
-# In-Band Driver Configuration
-# ------------------------------------------------------------------------------
+#
+## retransmission-timeout specified in milliseconds
+# Specify the retransmission timeout in milliseconds. Optional.
+#
+{% if retransmission_timeout is defined and retransmission_timeout is not none and retransmission_timeout != '' %}retransmission-timeout {{ retransmission_timeout }}{% else %}# retransmission-timeout 1000{% endif %}
 
-# Specify the driver type to use (e.g., linux).
-# Optional. Default: ''
-driver-type = {{ driver_type | default('') }}
+#
+# Specify the authentication type to use (NONE, STRAIGHT_PASSWORD_KEY, MD2, MD5). Optional.
+#
+{% if authentication_type is defined and authentication_type is not none and authentication_type != '' %}authentication-type {{ authentication_type }}{% else %}# authentication-type MD5{% endif %}
 
-# Specify the in-band driver address to use.
-# Optional. Default: ''
-driver-address = {{ driver_address | default('') }}
+#
+# Specify the cipher suite id to use. Optional.
+#
+{% if cipher_suite_id is defined and cipher_suite_id is not none and cipher_suite_id != '' %}cipher-suite-id {{ cipher_suite_id }}{% else %}# cipher-suite-id 3{% endif %}
 
-# Specify the in-band driver device path to use.
-# Optional. Default: ''
-driver-device = {{ driver_device | default('') }}
+#
+# privilege-level ADMIN
+#
+# workaround-flags workaround1 workaround2 workaround3
+#
 
-# Specify the in-band driver register spacing to use.
-# Optional. Default: ''
-register-spacing = {{ register_spacing | default('') }}
+#
+# Specify the verbose count. Optional.
+#
+{% if verbose_count is defined and verbose_count is not none and verbose_count != '' %}verbose-count {{ verbose_count }}{% else %}# verbose-count 0{% endif %}
 
-# Specify the in-band driver target channel number.
-# Optional. Default: 0
-target-channel-number = {{ target_channel_number | default(0) }}
+#
+# sensor-types temperature fan
+#
 
-# Specify the in-band driver target slave address.
-# Optional. Default: ''
-target-slave-address = {{ target_slave_address | default('') }}
+#
+# Specify sensor types of SEL events to not log. Optional.
+#
+{% if exclude_sensor_types is defined and exclude_sensor_types is not none and exclude_sensor_types != '' %}exclude-sensor-types {{ exclude_sensor_types }}{% else %}# exclude-sensor-types {% endif %}
 
-# ------------------------------------------------------------------------------
-# Device Probing Configuration
-# ------------------------------------------------------------------------------
+#
+# system-event-only DISABLE
+#
+# oem-event-only DISABLE
+#
 
-# Specify if IPMI devices should be probed for settings.
-# Values: ENABLE | DISABLE
-# Default: 'DISABLE'
-disable-auto-probe = {{ disable_auto_probe | default('DISABLE') }}
+#
+# Specify the event state configuration file. Optional.
+#
+{% if event_state_config_file is defined and event_state_config_file is not none and event_state_config_file != '' %}event-state-config-file {{ event_state_config_file }}{% else %}# event-state-config-file {% endif %}
 
-# ------------------------------------------------------------------------------
-# Session and Timeout Configuration
-# ------------------------------------------------------------------------------
+#
+# interpret-oem-data DISABLE
+#
 
-# Specify the session timeout length to use in milliseconds.
-# 0 means no timeout.
-# Default: 0
-session-timeout = {{ session_timeout | default(0) }}
+#
+# Specify if output of sensor names should include entity ids and instances or not (ENABLE|DISABLE). Optional.
+#
+{% if entity_sensor_names is defined and entity_sensor_names is not none and entity_sensor_names != '' %}entity-sensor-names {{ entity_sensor_names }}{% else %}# entity-sensor-names DISABLE{% endif %}
 
-# Specify the retransmission timeout length to use in milliseconds.
-# 0 uses system default.
-# Default: 0
-retransmission-timeout = {{ retransmission_timeout | default(0) }}
+#
+# non-abbreviated-units DISABLE
+#
 
-# ------------------------------------------------------------------------------
-# Authentication and Security Configuration
-# ------------------------------------------------------------------------------
+#
+# Specify event states to be filtered out and not logged. Optional.
+#
+{% if event_state_filter is defined and event_state_filter is not none and event_state_filter != '' %}event-state-filter {{ event_state_filter }}{% else %}# event-state-filter {% endif %}
 
-# Specify the authentication type to use (NONE, STRAIGHT_PASSWORD_KEY, MD2, MD5).
-# Optional. Default: ''
-authentication-type = {{ authentication_type | default('') }}
+#
+# Specify the warning threshold. Optional.
+#
+{% if warning_threshold is defined and warning_threshold is not none and warning_threshold != '' %}warning-threshold {{ warning_threshold }}{% else %}# warning-threshold 80{% endif %}
 
-# Specify the cipher suite id to use.
-# Optional. Default: 0
-cipher-suite-id = {{ cipher_suite_id | default(0) }}
+#
+# Specify SEL fullness clear threshold as an integer percentage. Optional.
+#
+{% if clear_threshold is defined and clear_threshold is not none and clear_threshold != '' %}clear-threshold {{ clear_threshold }}{% else %}# clear-threshold 0{% endif %}
 
-# Specify the privilege type to use (USER, OPERATOR, ADMIN).
-# Optional. Default: ''
-privilege-level = {{ privilege_level | default('') }}
+#
+# system-event-format "SEL System Event: %s, %I, %E"
+#
+# oem-timestamped-event-format "SEL OEM Event: %I, %o"
+#
+# oem-non-timestamped-event-format "SEL OEM Event: %I, %o"
+#
 
-# Specify workaround flags to use.
-# Optional. Default: ''
-workaround-flags = {{ workaround_flags | default('') }}
+#
+# Specify the polling interval in seconds. Optional.
+#
+{% if poll_interval is defined and poll_interval is not none and poll_interval != '' %}poll-interval {{ poll_interval }}{% else %}# poll-interval 300{% endif %}
 
-# Specify the BMC key (K_g) to use.
-# Prefix with '0x' for hex values.
-# Optional. Default: ''
-k_g = {{ k_g | default('') }}
+#
+# log-facility LOG_DAEMON
+#
 
-# ------------------------------------------------------------------------------
-# SEL Event Logging Filter Configuration
-# ------------------------------------------------------------------------------
+#
+# Specify the log priority to use. Optional.
+#
+{% if log_priority is defined and log_priority is not none and log_priority != '' %}log-priority {{ log_priority }}{% else %}# log-priority LOG_ERR{% endif %}
 
-# Specify default verbose count to use for ipmi-sel(8).
-# Optional. Default: 0
-verbose-count = {{ verbose_count | default(0) }}
+#
+# Specify the cache directory to use. Optional.
+#
+{% if cache_directory is defined and cache_directory is not none and cache_directory != '' %}cache-directory {{ cache_directory }}{% else %}# cache-directory {% endif %}
 
-# Specify sensor types of SEL events to log.
-# Optional. Default: ''
-sensors-types = {{ sensors_types | default('') }}
+#
+# ignore-sdr DISABLE
+#
+# re-download-sdr DISABLE
+#
 
-# Specify sensor types of SEL events to NOT log.
-# Optional. Default: ''
-exclude-sensor-types = {{ exclude_sensor_types | default('') }}
+#
+# Specify if the SEL should be cleared on start (ENABLE|DISABLE). Optional.
+#
+{% if clear_sel is defined and clear_sel is not none and clear_sel != '' %}clear-sel {{ clear_sel }}{% else %}# clear-sel DISABLE{% endif %}
 
-# Specify if output should only include system event records.
-# Values: ENABLE | DISABLE
-# Default: 'DISABLE'
-system-event-only = {{ system_event_only | default('DISABLE') }}
-
-# Specify if output should only include OEM event records.
-# Values: ENABLE | DISABLE
-# Default: 'DISABLE'
-oem-event-only = {{ oem_event_only | default('DISABLE') }}
-
-# Specify the event state configuration file.
-# Optional. Default: ''
-event-state-config-file = {{ event_state_config_file | default('') }}
-
-# Specify if ipmiseld should attempt to interpret OEM data or not.
-# Values: ENABLE | DISABLE
-# Default: 'ENABLE'
-interpret-oem-data = {{ interpret_oem_data | default('ENABLE') }}
-
-# Specify if output of sensor names should include entity ids and instances.
-# Values: ENABLE | DISABLE
-# Default: 'ENABLE'
-entity-sensor-names = {{ entity_sensor_names | default('ENABLE') }}
-
-# Specify if output should have units abbreviated by default or not.
-# Values: ENABLE | DISABLE
-# Default: 'DISABLE'
-non-abbreviated-units = {{ non_abbreviated_units | default('DISABLE') }}
-
-# Specify event states to be filtered out and not logged.
-# Optional. Default: ''
-event-state-filter = {{ event_state_filter | default('') }}
-
-# ------------------------------------------------------------------------------
-# SEL Threshold Configuration
-# ------------------------------------------------------------------------------
-
-# Specify SEL fullness warning threshold as an integer percentage.
-# 0 disables warning.
-# Default: 0
-warning-threshold = {{ warning_threshold | default(0) }}
-
-# Specify SEL fullness clear threshold as an integer percentage.
-# 0 disables clear action.
-# Default: 0
-clear-threshold = {{ clear_threshold | default(0) }}
-
-# ------------------------------------------------------------------------------
-# Log Output Format Configuration
-# ------------------------------------------------------------------------------
-
-# Specify the format of the log output when a SEL system event is encountered.
-# Optional. Default: ''
-system-event-format = {{ system_event_format | default('') }}
-
-# Specify the format of the log output when a SEL OEM timestamped event is encountered.
-# Optional. Default: ''
-oem-timestamped-event-format = {{ oem_timestamped_event_format | default('') }}
-
-# Specify the format of the log output when a SEL OEM non-timestamped event is encountered.
-# Optional. Default: ''
-oem-non-timestamped-event-format = {{ oem_non_timestamped_event_format | default('') }}
-
-# ------------------------------------------------------------------------------
-# Cache and SDR (Sensor Data Record) Configuration
-# ------------------------------------------------------------------------------
-
-# Specify the cache directory to use for SDR repository caching.
-# Optional. Default: ''
-cache-directory = {{ cache_directory | default('') }}
-
-# Specify if the SDR should be ignored.
-# Note: 'DISABLE' means do NOT ignore (i.e., use SDR). 'ENABLE' means ignore.
-# Default: 'DISABLE'
-ignore-sdr = {{ ignore_sdr | default('DISABLE') }}
-
-# Specify if the SDR should be re-downloaded on start.
-# Values: ENABLE | DISABLE
-# Default: 'DISABLE'
-re-download-sdr = {{ re_download_sdr | default('DISABLE') }}
-
-# Specify if the SEL should be cleared on start.
-# Values: ENABLE | DISABLE
-# Default: 'DISABLE'
-clear-sel = {{ clear_sel | default('DISABLE') }}
-
-# ------------------------------------------------------------------------------
-# Threading Configuration
-# ------------------------------------------------------------------------------
-
-# Specify the threadpool count for parallel SEL polling.
-# 0 uses default threadpool size.
-# Default: 0
-threadpool-count = {{ threadpool_count | default(0) }}
+#
+# Specify the thread pool count. Optional.
+#
+{% if threadpool_count is defined and threadpool_count is not none and threadpool_count != '' %}threadpool-count {{ threadpool_count }}{% else %}# threadpool-count 8{% endif %}

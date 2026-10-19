@@ -1,0 +1,28 @@
+{# ============================================================================ #}
+{# EDAC Motherboard DIMM Labels Configuration                                   #}
+{# This file defines the mapping between hardware memory controllers/channels     #}
+{# and human-readable labels for the EDAC (Error Detection And Correction)       #}
+{# subsystem in the Linux kernel.                                               #}
+{#                                                                              #}
+{# Structure:                                                                   #}
+{# Vendor: <vendor-name>                                                        #}
+{#   Model: <model-name>                                                        #}
+{#     <label>:  <mc>.<row>.<channel>                                           #}
+{#                                                                              #}
+{# This template uses Ansible variables to inject the correct vendor, model,     #}
+{# and label definitions for the target system's hardware.                      #}
+{# ============================================================================ #}
+
+{# The Vendor line: identifies the motherboard manufacturer. #}
+{# Uses the schema field edac_default_vendor if no specific variable overrides it. #}
+{{ (edac_default_vendor | default('Vendor: Tyan Computer Corp')) }}
+
+{# The Model line: identifies the specific motherboard model associated with the vendor. #}
+{# Uses the schema field edac_default_model if no specific variable overrides it. #}
+
+  Model: {{ (edac_default_model | default('S2895')) }}
+
+{# The Labels section: defines the mapping for memory controllers (MC), rows, and channels #}
+{# to readable labels (e.g., CPU slots). This section is indented to match the config format. #}
+{# Uses the schema field edac_default_labels if no specific variable overrides it. #}
+{{ (edac_default_labels | default('     CPU1A1: 0.0.0, 0.1.0; CPU2A1: 1.0.0, 1.1.0;\n     CPU1A2: 0.0.1, 0.1.1; CPU2A2: 1.0.1, 1.1.1;\n     CPU1B1: 0.2.0, 0.3.0; CPU2B1: 1.2.0, 1.3.0; \n     CPU1B2: 0.2.1, 0.3.1; CPU2B2: 1.2.1, 1.3.1; ')) }}

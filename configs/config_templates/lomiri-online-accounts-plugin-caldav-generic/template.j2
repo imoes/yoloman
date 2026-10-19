@@ -1,67 +1,68 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Lomiri Online Accounts Plugin: CalDAV Generic Profile
-  -----------------------------------------------------
-  This template generates a CalDAV account profile configuration for
-  the Lomiri online accounts plugin. It defines the synchronization
-  settings, protocol details, and schedule for calendar data.
+  Lomiri Online Accounts Plugin: CalDAV Generic Profile Configuration
+  
+  This file defines a CalDAV synchronization profile for the Lomiri desktop environment.
+  It configures account metadata, client behavior, synchronization parameters,
+  and scheduling intervals.
 
-  All variable references are safe and provide defaults to ensure
-  valid output even if variables are undefined.
+  Variables are derived from Ansible role variables. All variables use the
+  `| default(...)` filter to ensure safe rendering even if a variable is undefined.
 -->
-<profile name="{{ profile_name | default('lomiri-generic-caldav') }}"
-         type="{{ profile_type | default('sync') }}">
+<profile 
+    <!-- The name of the main profile. -->
+    name="{{ profile_name | default('lomiri-generic-caldav') }}" 
+    <!-- The type of the main profile. -->
+    type="{{ profile_type | default('sync') }}" >
 
-    <!-- The category of the account. -->
+    <!-- Category of the account (e.g., calendar, mail). -->
     <key name="category" value="{{ category | default('calendar') }}"/>
-
-    <!-- The remote service name identifier. -->
+    
+    <!-- Remote service name identifier. -->
     <key name="remote_service_name" value="{{ remote_service_name | default('lomiri-generic-caldav') }}"/>
-
-    <!-- The destination type for the account. -->
+    
+    <!-- Destination type for the account (e.g., online, offline). -->
     <key name="destinationtype" value="{{ destinationtype | default('online') }}"/>
-
+    
     <!-- Whether the profile is enabled by default. -->
-    <key name="enabled" value="{{ enabled | default(false) | lower }}"/>
+    <key name="enabled" value="{{ enabled | default('false') }}"/>
+    
+    <!-- Whether the profile is hidden in the UI. -->
+    <key name="hidden" value="{{ hidden | default('false') }}"/>
+    
+    <!-- Whether to use system accounts for authentication. -->
+    <key name="use_accounts" value="{{ use_accounts | default('true') }}"/>
 
-    <!-- Whether the profile is hidden in UI. -->
-    <key name="hidden" value="{{ hidden | default(false) | lower }}"/>
+    <!-- Nested Client Profile Configuration -->
+    <profile 
+        <!-- The type of the client profile. -->
+        type="{{ client_profile_type | default('client') }}" 
+        <!-- The name of the client profile. -->
+        name="{{ client_profile_name | default('caldav') }}">
 
-    <!-- Whether to use system accounts. -->
-    <key name="use_accounts" value="{{ use_accounts | default(true) | lower }}"/>
-
-    <!-- Client Profile Section: Specific synchronization parameters -->
-    <profile type="{{ client_profile_type | default('client') }}"
-             name="{{ client_profile_name | default('caldav') }}">
-
-        <!-- The synchronization direction. -->
-        <key name="{{ sync_direction_name | default('Sync Direction') }}"
-             value="{{ sync_direction | default('two-way') }}"/>
-
-        <!-- The synchronization protocol. -->
-        <key name="{{ sync_protocol_name | default('Sync Protocol') }}"
-             value="{{ sync_protocol | default('caldav') }}"/>
-
-        <!-- The synchronization transport layer. -->
-        <key name="{{ sync_transport_name | default('Sync Transport') }}"
-             value="{{ sync_transport | default('HTTP') }}"/>
-
-        <!-- The conflict resolution policy. -->
-        <key name="{{ conflictpolicy_name | default('conflictpolicy') }}"
-             value="{{ conflictpolicy | default('prefer remote') }}"/>
+        <!-- The synchronization direction (e.g., one-way, two-way). -->
+        <key value="{{ sync_direction | default('two-way') }}" name="{{ sync_direction_name | default('Sync Direction') }}"/>
+        
+        <!-- The synchronization protocol (e.g., caldav, webdav). -->
+        <key value="{{ sync_protocol | default('caldav') }}" name="{{ sync_protocol_name | default('Sync Protocol') }}"/>
+        
+        <!-- The synchronization transport layer (e.g., HTTP, HTTPS). -->
+        <key value="{{ sync_transport | default('HTTP') }}" name="{{ sync_transport_name | default('Sync Transport') }}"/>
+        
+        <!-- The conflict resolution policy (e.g., prefer local, prefer remote). -->
+        <key value="{{ conflictpolicy | default('prefer remote') }}" name="{{ conflictpolicy_name | default('conflictpolicy') }}" />
     </profile>
 
-    <!-- Schedule Configuration -->
-    <!--
-      enabled: Whether the schedule is enabled.
-      interval: The synchronization interval (empty string implies default or manual).
-      days: Comma-separated list of days for synchronization (1=Mon ... 7=Sun).
-      syncconfiguredtime: The sync configured time override (empty string).
-      time: The scheduled time for synchronization (HH:MM:SS).
-    -->
-    <schedule enabled="{{ schedule_enabled | default(false) | lower }}"
-              interval="{{ schedule_interval | default('') }}"
-              days="{{ schedule_days | default('1,2,3,4,5,6,7') }}"
-              syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}"
-              time="{{ schedule_time | default('05:00:00') }}" />
+    <!-- Scheduling Configuration -->
+    <schedule 
+        <!-- Whether the schedule is enabled. -->
+        enabled="{{ schedule_enabled | default(False) }}" 
+        <!-- The synchronization interval (e.g., 15m, 1h). -->
+        interval="{{ schedule_interval | default('') }}" 
+        <!-- The days on which synchronization occurs (1=Mon, 7=Sun). -->
+        days="{{ schedule_days | default('1,2,3,4,5,6,7') }}" 
+        <!-- The sync configured time override (if any). -->
+        syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}" 
+        <!-- The scheduled time for synchronization (HH:MM:SS). -->
+        time="{{ schedule_time | default('05:00:00') }}" />
 </profile>

@@ -13,6 +13,7 @@ import { ClusterService } from '../../core/services/cluster.service';
 import { Agent } from '../../core/models/agent.model';
 import { AgentService } from '../../core/services/agent.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** The three modes, each with the sentence that says what it MEANS operationally. A mode
  * name alone ("worst") does not tell an operator what the cluster will do. */
@@ -61,7 +62,7 @@ const MODES: { value: AggregationMode; label: string; meaning: string }[] = [
 @Component({
   selector: 'app-clusters',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatIconModule, MatButtonModule, MatCheckboxModule,
   ],
@@ -239,7 +240,7 @@ const MODES: { value: AggregationMode; label: string; meaning: string }[] = [
                   <input matInput [ngModel]="newPattern()" (ngModelChange)="newPattern.set($event)"
                          placeholder="Disk *" (keyup.enter)="addPattern()" />
                 </mat-form-field>
-                <button mat-stroked-button [disabled]="!canAddPattern()" (click)="addPattern()">
+                <button mat-stroked-button [bmBlocked]="!canAddPattern() ? 'Enter a pattern that is not in the list yet' : ''" (click)="addPattern()">
                   <mat-icon>add</mat-icon> Add
                 </button>
                 @if (newPattern().trim() && d.service_patterns.includes(newPattern().trim())) {
@@ -248,11 +249,10 @@ const MODES: { value: AggregationMode; label: string; meaning: string }[] = [
               </div>
 
               <div class="bm-save-row">
-                <button mat-flat-button [disabled]="!canSave() || saving()" (click)="save()">
+                <button mat-flat-button [disabled]="saving()" [bmBlocked]="blocker()" (click)="save()">
                   <mat-icon>save</mat-icon> {{ isNew() ? 'Create' : 'Save' }}
                 </button>
                 <button mat-button (click)="cancel()">Cancel</button>
-                @if (blocker(); as b) { <span class="bm-hint">{{ b }}</span> }
               </div>
 
               <!-- observation point -->
@@ -313,8 +313,8 @@ const MODES: { value: AggregationMode; label: string; meaning: string }[] = [
       .bm-nodes .bm-dim { margin-left: 8px; font-size: 12px; }
       .bm-primary { width: 100%; max-width: 320px; margin-top: 6px; }
       .bm-table { width: 100%; border-collapse: collapse; max-width: 820px; }
-      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: 3px 12px 3px 0; }
-      .bm-table td { padding: 5px 12px 5px 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13.5px; }
+      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; }
+      .bm-table td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
       .bm-mono { font-family: monospace; }
       .bm-dim { opacity: 0.6; }
       .bm-right { text-align: right; }

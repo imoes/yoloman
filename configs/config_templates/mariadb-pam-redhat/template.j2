@@ -1,0 +1,42 @@
+# ==============================================================================
+# PAM User Map Configuration
+# ==============================================================================
+#
+# This file configures the `pam_user_map` PAM module.
+# It defines rules for mapping an incoming PAM username to a different
+# system username. This is often used in conjunction with MariaDB's
+# PAM authentication (`auth_pam_service` + `auth_pam_use_map`) to allow
+# database connections using a short alias (e.g., `db_user`) that maps
+# to a real system account (e.g., `mysql`).
+#
+# Format:
+#   <source_user>:<target_user>
+#   @<group_name>:<target_user>
+#
+# Lines starting with # are comments. Empty lines are ignored.
+# ==============================================================================
+
+{% if user_mappings is defined and user_mappings | length > 0 %}
+# --------------------------------------------------------------------------
+# User and Group Mapping Rules
+# --------------------------------------------------------------------------
+# Each line maps a PAM login name (left) to a local system account (right).
+# Groups are prefixed with @.
+# --------------------------------------------------------------------------
+
+{% for rule in user_mappings %}
+# {{ rule.description | default('Map user/group to system account') }}
+{{ rule.source }}:{{ rule.target }}
+{% endfor %}
+{% else %}
+# --------------------------------------------------------------------------
+# No user mappings defined
+# --------------------------------------------------------------------------
+# To enable user mapping, provide the `user_mappings` variable in your
+# Ansible inventory or role variables. Example:
+#   user_mappings:
+#     - source: "app_user"
+#       target: "mysql"
+#       description: "Map app_user PAM login to mysql system account"
+# --------------------------------------------------------------------------
+{% endif %}

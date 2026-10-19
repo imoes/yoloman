@@ -34,7 +34,7 @@ import { MmcConsoleComponent } from './mmc-console.component';
         </div>
         <label class="bm-picker">
           <mat-icon>dns</mat-icon>
-          <select [ngModel]="agentId()" (ngModelChange)="pick($event)">
+          <select [ngModel]="agentId()" (ngModelChange)="pick($event)" aria-label="Host">
             <option [ngValue]="null" disabled>choose a host…</option>
             @for (h of hosts(); track h.id) {
               <option [ngValue]="h.id">{{ h.name }}{{ h.os_family ? ' · ' + h.os_family : '' }}</option>

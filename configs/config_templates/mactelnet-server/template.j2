@@ -1,40 +1,20 @@
-# MAC-Telnet Server Users File
+# Users file for MAC-Telnetd
 #
-# This file defines the users allowed to authenticate to the MAC-Telnet daemon (mactelnetd).
-# Each line represents a single user entry.
+####################################################################
+# WARNING: This file may have passwords written in plain-text.     #
+#          Make sure this file is owned and only readable by root. #
+####################################################################
+#
+# Each line consists username, hash, and salt separated by :.
+# If you need to add a new user, use the -a option in mactelnetd.
 #
 # Format:
-# username:hash:salt
-# OR
-# username:plaintext_password
+# username:hash:salt or username:password
 #
-# WARNING: If plaintext passwords are used, they may be visible in configuration management
-#          or process listings depending on how the service is started. Ensure file permissions
-#          are restrictive (e.g., 0600 owned by root).
-#
-# Example:
-# admin:$6$rounds=65535$salt$hash...
 
-# List of user entries for MAC-Telnet authentication
-# Each user object should contain 'name', and optionally 'hash', 'salt', or 'password'.
-{% set users = mactelnet_users | default([]) %}
-
-{% if users | length > 0 %}
-{% for user in users %}
-# User: {{ user.name | default('unknown') }}
-# Hash: {{ user.hash | default('') }}
-# Salt: {{ user.salt | default('') }}
-# Note: If 'hash' and 'salt' are not provided but 'password' is, use the plain password format below.
-
-{% if user.hash is defined and user.salt is defined and user.hash and user.salt %}
-{{ user.name }}:{{ user.hash }}:{{ user.salt }}
-{% elif user.password is defined and user.password %}
-# WARNING: Using plaintext password. Consider using hash:salt format for security.
-{{ user.name }}:{{ user.password }}
-{% elif user.name is defined and user.name %}
-# Incomplete entry for user {{ user.name }} - skipping
-{% endif %}
+{# Iterate over the list of MAC-Telnet users defined in the schema. #}
+{# Each user is a string in the format 'username:hash:salt' or 'username:password'. #}
+{# If no users are defined, the file remains empty of user entries. #}
+{% for user in mactelnetd_users | default([], true) %}
+{{ user }}
 {% endfor %}
-{% else %}
-# No users defined. Add users to the 'mactelnet_users' list in variables.
-{% endif %}

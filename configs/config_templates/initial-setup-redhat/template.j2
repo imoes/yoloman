@@ -1,0 +1,46 @@
+# Initial Setup configuration file
+# This template configures the 'initial-setup' service on Red Hat-based systems.
+# It defines the Anaconda kickstart modules, installation system settings,
+# and UI help pages. All variables use safe defaults based on the provided schema.
+
+[Anaconda]
+# List of enabled kickstart modules for initial setup configuration.
+# These modules control how Anaconda handles system configuration during installation.
+kickstart_modules =
+    # Kickstart module ID for Timezone configuration.
+    {{ kickstart_modules_timezone | default('org.fedoraproject.Anaconda.Modules.Timezone') }}
+    # Kickstart module ID for Network configuration.
+    {{ kickstart_modules_network | default('org.fedoraproject.Anaconda.Modules.Network') }}
+    # Kickstart module ID for Localization configuration.
+    {{ kickstart_modules_localization | default('org.fedoraproject.Anaconda.Modules.Localization') }}
+    # Kickstart module ID for Security configuration.
+    {{ kickstart_modules_security | default('org.fedoraproject.Anaconda.Modules.Security') }}
+    # Kickstart module ID for Users configuration.
+    {{ kickstart_modules_users | default('org.fedoraproject.Anaconda.Modules.Users') }}
+    # Kickstart module ID for Services configuration.
+    {{ kickstart_modules_services | default('org.fedoraproject.Anaconda.Modules.Services') }}
+
+[Installation System]
+# Type of the installation system.
+# Determines whether the installer is running on a live media or a booted OS.
+type = {{ installation_system_type | default('BOOTED_OS') }}
+
+[Installation Target]
+# A path to the physical root of the target.
+# The mount point for the physical disk/partition structure.
+physical_root = {{ installation_target_physical_root | default('/') }}
+
+# A path to the system root of the target.
+# The mount point for the operating system root filesystem.
+system_root = {{ installation_target_system_root | default('/') }}
+
+[User Interface]
+# Default help pages for TUI, GUI and Live OS.
+# Specifies the filenames for the help documentation displayed in different UI modes.
+default_help_pages =
+    # Default help page filename for Text User Interface.
+    {{ ui_help_pages_tui | default('FedoraPlaceholder.txt') }}
+    # Default help page filename for Graphical User Interface.
+    {{ ui_help_pages_gui | default('FedoraPlaceholder.html') }}
+    # Default help page filename for Live OS.
+    {{ ui_help_pages_live_os | default('FedoraPlaceholderWithLinks.html') }}

@@ -1,154 +1,216 @@
-#!/bin/sh
-set +e;
+# ==============================================================================
+# Sendmail Binary Help Configuration (/etc/mail/help)
+# ==============================================================================
+# This file provides help text for the Sendmail SMTP service.
+# It is generally static and does not require dynamic variable injection.
+# However, it can be customized to reflect the specific site's policies
+# or contact information.
 
-#------------------------------------------------------------------------------
-# Autoconf variables - in a form suitable for sh, perl
-# Generated automatically from autoconf.sh.in by configure.
-#
-# This script provides shell-accessible variables for the Sendmail installation
-# layout. Each variable is documented with its source description from the
-# package schema to ensure self-documentation and safe reuse in Ansible roles.
-#------------------------------------------------------------------------------
+# --- Copyright and Version Information ---
+# These lines are standard boilerplate provided by the Sendmail distribution.
+# They should generally not be modified, but can be overridden if specific
+# legal or branding requirements exist.
 
-# Variables for, and by, Autoconf (Don't touch these! edit config step)
+#vers	2
+cpyr
+cpyr	Copyright (c) 1998-2000, 2002, 2004-2007 Proofpoint, Inc. and its suppliers.
+cpyr	    All rights reserved.
+cpyr	Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
+cpyr	Copyright (c) 1988, 1993
+cpyr	    The Regents of the University of California.  All rights reserved.
+cpyr
+cpyr
+cpyr	By using this file, you agree to the terms and conditions set
+cpyr	forth in the LICENSE file which can be found at the top level of
+cpyr	the sendmail distribution.
 
-# The installation prefix directory for Sendmail.
-PACKAGE_NAME="Sendmail";
-PACKAGE_VERSION="8.18.1";
+# --- SMTP Welcome Banner ---
+# This text is displayed immediately after a successful SMTP connection.
+# It provides users with information about the server and supported commands.
+# The version string is dynamic based on the installed sendmail version.
+smtp	This is sendmail version {{ sendmail_version | default('$v') }}
+smtp	Topics:
+smtpt		HELO	EHLO	MAIL	RCPT	DATA
+smtp		RSET	NOOP	QUIT	HELP	VRFY
+smtp		EXPN	VERB	ETRN	DSN	AUTH
+smtp		STARTTLS
 
-# The installation prefix directory for Sendmail.
-# Default: /usr
-prefix="{{ prefix | default('/usr') }}";
+# --- Local Information ---
+# Defines the contact for the Postmaster.
+# If `sendmail_postmaster` is defined in the Ansible inventory, it overrides
+# the default "Postmaster". If not, "Postmaster" is used.
+# The default fallback is "Postmaster" if the variable is unset or empty.
+{% if sendmail_postmaster | default('') | trim | length > 0 %}
+smtp	For local information send email to {{ sendmail_postmaster | default('') | trim }} at your site.
+{% else %}
+smtp	For local information send email to Postmaster at your site.
+{% endif %}
 
-# The installation execution prefix directory.
-# Default: /usr
-exec_prefix="{{ exec_prefix | default('/usr') }}";
+# --- Command Help Definitions ---
+# Each section below defines the help text for a specific SMTP command.
+# Format: <command>	<help text>
+# Sub-commands or details are indented with a tab character.
 
-# The directory for user-executable binaries.
-# Default: /usr/bin
-bindir="{{ bindir | default('/usr/bin') }}";
+# HELP command help
+help	HELP [ <topic> ]
+help		The HELP command gives help info.
 
-# The directory for system administrator binaries.
-# Default: /usr/sbin
-sbindir="{{ sbindir | default('/usr/sbin') }}";
+# HELO command help
+helo	HELO <hostname>
+helo		Introduce yourself.
 
-# The directory for non-user-invokable libraries and programs.
-# Default: /usr/libexec/sendmail
-libexecdir="{{ libexecdir | default('/usr/libexec/sendmail') }}";
+# EHLO command help (Extended SMTP)
+ehlo	EHLO <hostname>
+ehlo		Introduce yourself, and request extended SMTP mode.
+ehlo	Possible replies include:
+ehlo		SEND		Send as mail			[RFC821]
+ehlo		SOML		Send as mail or terminal	[RFC821]
+ehlo		SAML		Send as mail and terminal	[RFC821]
+ehlo		EXPN		Expand the mailing list		[RFC821]
+ehlo		HELP		Supply helpful information	[Allman]
+ehlo		TURN		Turn the operation around	[Allman]
+ehlo		8BITMIME	Use 8-bit data			[RFC1652]
+ehlo		SIZE		Message size declaration	[RFC1870]
+ehlo		VERB		Verbose				[Allman]
+ehlo		BINARYMIME	Binary MIME			[RFC1830]
+ehlo		PIPELINING	Command Pipelining		[RFC1854]
+ehlo		DSN		Delivery Status Notification	[RFC1891]
+ehlo		ETRN		Remote Message Queue Starting	[RFC1985]
+ehlo		STARTTLS	Secure SMTP			[RFC2487]
+ehlo		AUTH		Authentication			[RFC2554]
+ehlo		ENHANCEDSTATUSCODES	Enhanced status codes	[RFC2034]
+ehlo		DELIVERBY	Deliver By			[RFC2852]
+ehlo		SMTPUTF8	Internationalized Email		[RFC6530]
 
-# The read-only architecture-independent data directory.
-# Default: /usr/share
-datadir="{{ datadir | default('/usr/share') }}";
+# MAIL command help
+mail	MAIL From:<sender> [ <parameters> ]
+mail		Specifies the sender.  Parameters are ESMTP extensions.
+mail		See "HELP DSN" for details.
 
-# The read-only single-machine data directory for configuration files.
-# Default: /etc
-sysconfdir="{{ sysconfdir | default('/etc') }}";
+# RCPT command help
+rcpt	RCPT To:<recipient> [ <parameters> ]
+rcpt		Specifies the recipient.  Can be used any number of times.
+rcpt		Parameters are ESMTP extensions.  See "HELP DSN" for details.
 
-# The directory for modifiable architecture-independent data.
-# Default: /usr/com
-sharedstatedir="{{ sharedstatedir | default('/usr/com') }}";
+# DATA command help
+data	DATA
+data		Following text is collected as the message.
+data		End with a single dot on a line by itself.
 
-# The directory for modifiable single-machine data (logs, spool, etc.).
-# Default: /var
-localstatedir="{{ localstatedir | default('/var') }}";
+# RSET command help
+rset	RSET
+rset		Resets the system.
 
-# The directory for object code libraries.
-# Default: /usr/lib/x86_64-linux-gnu
-libdir="{{ libdir | default('/usr/lib/x86_64-linux-gnu') }}";
+# QUIT command help
+quit	QUIT
+quit		Exit sendmail (SMTP).
 
-# The directory for C header files.
-# Default: /usr/include
-includedir="{{ includedir | default('/usr/include') }}";
+# AUTH command help
+auth	AUTH mechanism [initial-response]
+auth		Start authentication.
 
-# The directory for Info documentation.
-# Default: /usr/share/info
-infodir="{{ infodir | default('/usr/share/info') }}";
+# STARTTLS command help
+starttls	STARTTLS
+starttls		Start TLS negotiation.
 
-# The directory for man page documentation.
-# Default: /usr/share/man
-mandir="{{ mandir | default('/usr/share/man') }}";
+# VERB command help
+verb	VERB
+verb		Go into verbose mode.  This sends 0xy responses that are
+verb		not RFC821 standard (but should be).  They are recognized
+verb		by humans and other sendmail implementations.
 
-# The directory for package documentation.
-# Default: /usr/share/doc
-docdir="{{ docdir | default('/usr/share/doc') }}";
+# VRFY command help
+vrfy	VRFY <recipient>
+vrfy		Verify an address.  If you want to see what it aliases
+vrfy		to, use EXPN instead.
 
-# Source directory placeholder.
-srcdir=".";
+# EXPN command help
+expn	EXPN <recipient>
+expn		Expand the mailing list.  If the address indicates a mailing
+expn		list, return the contents of that list.
 
-# Number of backup copies to retain for sendmail configuration files.
-# Default: 2
-copies={{ copies | default(2) }};
+# NOOP command help
+noop	NOOP
+noop		Do nothing.
 
-# backup "/etc/mail/sendmail.mc"
-if [ -f ${sysconfdir}/mail/sendmail.mc ]; then
-	if [ ! -f ${localstatedir}/backups/sendmail.mc.bak ]; then
-		cp -pf ${sysconfdir}/mail/sendmail.mc \
-			${localstatedir}/backups/sendmail.mc.bak;
-		;
-	if ! cmp -s ${localstatedir}/backups/sendmail.mc.bak \
-		${sysconfdir}/mail/sendmail.mc ; then
-		cd ${localstatedir}/backups;
-		/usr/bin/savelog -p -c $copies sendmail.mc.bak > /dev/null;
-		cp -pf ${sysconfdir}/mail/sendmail.mc \
-			${localstatedir}/backups/sendmail.mc.bak;
-		;
-	;
+# SEND command help
+send	SEND FROM:<sender>
+send		replaces the MAIL command, and can be used to send
+send		directly to a users terminal.  Not supported in this
+send		implementation.
 
-# backup "/etc/mail/submit.mc"
-if [ -f ${sysconfdir}/mail/submit.mc ]; then
-	if [ ! -f ${localstatedir}/backups/submit.mc.bak ]; then
-		cp -pf ${sysconfdir}/mail/submit.mc \
-			${localstatedir}/backups/submit.mc.bak;
-		;
-	if ! cmp -s ${localstatedir}/backups/submit.mc.bak \
-		${sysconfdir}/mail/submit.mc ; then
-		cd ${localstatedir}/backups;
-		/usr/bin/savelog -p -c $copies submit.mc.bak > /dev/null;
-		cp -pf ${sysconfdir}/mail/submit.mc \
-			${localstatedir}/backups/submit.mc.bak;
-		;
-	;
+# SOML command help
+soml	SOML FROM:<sender>
+soml		Send or mail.  If the user is logged in, send directly,
+soml		otherwise mail.  Not supported in this implementation.
 
-# while we're here, might as well do sendmail.cf
-if [ -f ${sysconfdir}/mail/sendmail.cf ]; then
-	if [ ! -f ${localstatedir}/backups/sendmail.cf.bak ]; then
-		cp -pf ${sysconfdir}/mail/sendmail.cf \
-			${localstatedir}/backups/sendmail.cf.bak;
-		;
-	if ! cmp -s ${localstatedir}/backups/sendmail.cf.bak \
-		${sysconfdir}/mail/sendmail.cf ; then
-		cd ${localstatedir}/backups;
-		# save previous generation only if differences are significant
-		diff -bBwI "^\\#\\#\\#\\#\\# " \
-			${localstatedir}/backups/sendmail.cf.bak \
-			${sysconfdir}/mail/sendmail.cf > /dev/null;
-		if [ $? -ne 0 ]; then
-			/usr/bin/savelog -p -c $copies sendmail.cf.bak \
-				> /dev/null;
-			;
-		cp -pf ${sysconfdir}/mail/sendmail.cf \
-			${localstatedir}/backups/sendmail.cf.bak;
-		;
-	;
+# SAML command help
+saml	SAML FROM:<sender>
+saml		Send and mail.  Send directly to the user's terminal,
+saml		and also mail a letter.  Not supported in this
+saml		implementation.
 
-# while we're here, might as well do submit.cf
-if [ -f ${sysconfdir}/mail/submit.cf ]; then
-	if [ ! -f ${localstatedir}/backups/submit.cf.bak ]; then
-		cp -pf ${sysconfdir}/mail/submit.cf \
-			${localstatedir}/backups/submit.cf.bak;
-		;
-	if ! cmp -s ${localstatedir}/backups/submit.cf.bak \
-		${sysconfdir}/mail/submit.cf ; then
-		cd ${localstatedir}/backups;
-		# save previous generation only if differences are significant
-		diff -bBwI "^\\#\\#\\#\\#\\# " \
-			${localstatedir}/backups/submit.cf.bak \
-			${sysconfdir}/mail/submit.cf > /dev/null;
-		if [ $? -ne 0 ]; then
-			/usr/bin/savelog -p -c $copies submit.cf.bak \
-				> /dev/null;
-			;
-		cp -pf ${sysconfdir}/mail/submit.cf \
-			${localstatedir}/backups/submit.cf.bak;
-		;
-	;
+# TURN command help
+turn	TURN
+turn		Reverses the direction of the connection.  Not currently
+turn		implemented.
+
+# ETRN command help
+etrn	ETRN [ <hostname> | @<domain> | \#<queuename> ]
+etrn		Run the queue for the specified <hostname>, or
+etrn		all hosts within a given <domain>, or a specially-named
+etrn		<queuename> (implementation-specific).
+
+# DSN (Delivery Status Notification) command help
+dsn	MAIL From:<sender> [ RET={ FULL | HDRS} ] [ ENVID=<envid> ]
+dsn	RCPT To:<recipient> [ NOTIFY={NEVER,SUCCESS,FAILURE,DELAY} ]
+dsn			     [ ORCPT=<recipient> ]
+dsn		SMTP Delivery Status Notifications.
+dsn	Descriptions:
+dsn		RET	Return either the full message or only headers.
+dsn		ENVID	Sender's "envelope identifier" for tracking.
+dsn		NOTIFY	When to send a DSN. Multiple options are OK, comma-
+dsn		delimited. NEVER must appear by itself.
+dsn		ORCPT	Original recipient.
+
+# --- Test Mode Help (-bt flag) ---
+# Help text displayed when running sendmail in test mode.
+-bt	Help for test mode:
+-bt	?		 :this help message.
+-bt	.Dmvalue	 :define macro `m' to `value'.
+-bt	.Ccvalue	 :add `value' to class `c'.
+-bt	=Sruleset	 :dump the contents of the indicated ruleset.
+-bt	=M		 :display the known mailers.
+-bt	-ddebug-spec	 :equivalent to the command-line -d debug flag.
+-bt	$$m		 :print the value of macro $$m.
+-bt	$$=c		 :print the contents of class $$=c.
+-bt	/mx host	 :returns the MX records for `host'.
+-bt	/gethostbyname host [family]  :calls gethostbyname() for `host'.
+-bt	/dnslookup host [qtype] [flags]	 :Does a qtype DNS lookup for `host'.
+-bt	/parse address	 :parse address, returning the value of crackaddr, and
+-bt			  the parsed address.
+-bt	/sender address	 :parse sender address, returning the value of
+-bt			  setsender.
+-bt	/expand string	 :expands string, returning the value of expand.
+-bt	/try mailer addr :rewrite address into the form it will have when
+-bt			  presented to the indicated mailer.
+-bt	/tryflags flags	 :set flags used by parsing.  The flags can be `H' for
+-bt			  Header or `E' for Envelope, and `S' for Sender or `R'
+-bt			  for Recipient.  These can be combined, `HR' sets
+-bt			  flags for header recipients.
+-bt	/canon hostname	 :try to canonify hostname.
+-bt	/map mapname key :look up `key' in the indicated `mapname'.
+-bt	/header header	 :parses header, returning header flags
+-bt	/quit		 :quit address test mode.
+-bt	rules addr	 :run the indicated address through the named rules.
+-bt			  Rules can be a comma separated list of rules.
+
+# --- Control Command Help (smcontrol) ---
+# Help text for the smcontrol utility, used to manage a running Sendmail daemon.
+control	Help for smcontrol:
+control	help		This message.
+control	restart		Restart sendmail.
+control	shutdown	Shutdown sendmail.
+control	status		Show sendmail status.
+control	mstat		Show sendmail status (machine readable format).
+control	memdump		Dump allocated memory list (for debugging only).

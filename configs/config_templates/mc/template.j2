@@ -1,0 +1,100 @@
+#! /bin/sh
+#
+# *** External Formatter (Indenter) for GNU Midnight Commander.
+#
+# This script serves as the external formatting engine for GNU Midnight
+# Commander (mc). It is invoked by mc to reformat files of specific types
+# before or after editing, depending on the user's configuration.
+#
+# Usage:
+#   This script should be referenced in mc's menu configuration or
+#   user-defined external tools.
+#   Arguments passed by mc:
+#      $1 - Name of the file being edited (the source file)
+#      $2 - Name of the file to be processed (usually a copy or the file itself)
+#
+# Exit Code:
+#   The script exits via the last command executed (typically the formatter).
+#   Standard exit codes from the formatters apply (0 for success, non-zero for error).
+#
+# Security Note:
+#   This script executes external binaries (indent, astyle, tidy, fmt) based
+#   on file extension. Ensure that the system's PATH is secure and that these
+#   tools are verified to be installed and free of vulnerabilities, as they
+#   process user-provided files.
+
+# Redirect stdout to /dev/null to prevent formatter output from cluttering
+# the terminal or mc's interface, unless debugging is required.
+exec >/dev/null
+
+# Determine the file extension from the first argument ($1) and match it
+# against known file types to invoke the appropriate formatter.
+case `echo $1 |sed 's/^.*\.//'` in
+    # C and C++ Header files
+    c|h)
+        # Formatter: GNU indent
+        # Reference: http://www.gnu.org/software/indent/
+        #
+        # Note: Indent options are typically configured via ~/.indent.pro.
+        # Adding options directly here may conflict with user preferences.
+        # Invoke indent on the target file ($2) to reformat it in place or
+        # generate a new file depending on indent's flags.
+        indent "$2"
+        ;;
+
+    # C++ Source files (various common extensions)
+    C|cc|CC|cxx|CXX|cpp|CPP)
+        # Formatter: AStyle (Artistic Style)
+        # Reference: http://astyle.sourceforge.net/
+        #
+        # AStyle provides consistent code formatting for C, C++, C#, and Java.
+        # Invoke astyle on the target file ($2).
+        astyle "$2"
+        ;;
+
+    # Java Source files
+    java|JAVA)
+        # Formatter: AStyle (Artistic Style) with Java-specific settings
+        # Reference: http://astyle.sourceforge.net/
+        #
+        # The --style=java and --mode=java flags enforce conventions typical
+        # for Java code (e.g., K&R style with specific indentation rules).
+        astyle --style=java --mode=java "$2"
+        ;;
+
+    # HTML and XHTML files
+    htm|html|HTM|HTML)
+        # Formatter: HTML Tidy
+        # Reference: http://tidy.sourceforge.net/
+        #
+        # Options used:
+        #   -q          Quiet mode (suppress warnings unless errors occur)
+        #   -m          Modify the file in place (make)
+        #   -ascii      Convert output to ASCII (or Latin-1)
+        #   -wrap 80    Wrap text lines at 80 characters for readability
+        tidy -q -m -ascii -wrap 80 "$2"
+        ;;
+
+    # Default: Other text files
+    *)
+        # Formatter: fmt (GNU coreutils)
+        # Reference: http://www.gnu.org/software/coreutils/
+        #
+        # 'fmt' is a simple paragraph reformatter. It is used here as a
+        # fallback for unsupported file types to ensure basic text wrapping
+        # and cleanup.
+        #
+        # Strategy:
+        #   1. Format $2 and redirect output to $2.tmp
+        #   2. Remove the original file $2
+        #   3. Move $2.tmp to $2
+        #
+        # Warning: This is a destructive operation on $2. If $2 is a symlink
+        # or has special permissions, this may alter metadata. Ensure mc
+        # handles this correctly or use a non-destructive alternative if
+        # possible.
+        fmt "$2" >"$2.tmp" && rm -f "$2" && mv -f "$2.tmp" "$2"
+        ;;
+esac
+
+# End of script

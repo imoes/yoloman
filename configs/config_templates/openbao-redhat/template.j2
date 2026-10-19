@@ -1,0 +1,42 @@
+# =============================================================================
+# OpenBao Configuration Template
+# =============================================================================
+# This template generates the main configuration file for OpenBao.
+# OpenBao is a tool for managing secrets, encryption key management,
+# and providing privacy-control services.
+#
+# Self-Documenting: Every configuration directive below is preceded by
+# a comment explaining its purpose and default value, derived directly
+# from the schema definitions.
+# =============================================================================
+
+# Enable or disable the UI.
+# Default: true
+ui = {{ ui_value | default('true') }}
+
+# Storage backend configuration.
+# OpenBao uses a storage backend to persist its state.
+# Here, we configure the file-based storage backend.
+storage "file" {
+  # Path for the file-based storage backend.
+  # Default: /var/lib/openbao/data
+  path = "{{ storage_path_value | default('/var/lib/openbao/data') }}"
+}
+
+# =============================================================================
+# Listener Configuration
+# =============================================================================
+# Listeners define how OpenBao accepts incoming connections.
+# The TCP listener is the primary interface for API requests.
+
+listener "tcp" {
+  # The address and port for the HTTP listener.
+  # Format: host:port
+  # Default: 127.0.0.1:8200
+  address = "{{ listener_address_value | default('127.0.0.1:8200') }}"
+
+  # Set to 1 to disable TLS for the listener.
+  # Setting this to 0 requires valid tls_cert_file and tls_key_file.
+  # Default: 1
+  tls_disable = {{ tls_disable_value | default('1') }}
+}

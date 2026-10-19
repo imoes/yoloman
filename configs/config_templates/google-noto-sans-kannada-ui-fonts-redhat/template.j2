@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Match block: Inject the Noto Sans Kannada UI font specifically for
+    the Kannada language script, ensuring it appears before the generic
+    fallback family in the resolution chain.
+  -->
+  <match>
+    <!-- Test if the current font request's language matches 'kn' (Kannada) -->
+    <test name="lang" compare="contains">
+      <string>{{ lang | default('kn') }}</string>
+    </test>
+    
+    <!-- Test if the requested font family is the generic fallback -->
+    <test name="family">
+      <string>{{ fallback_family | default('sans-serif') }}</string>
+    </test>
+    
+    <!-- Edit: Prepend the specific UI font to the list of candidates -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Kannada UI') }}</string>
+    </edit>
+    
+    <!-- Edit: Enable font hinting to improve screen readability -->
+    <!-- Note: Fontconfig hinting values are typically integers (0-7) or boolean-like strings. -->
+    <!-- The schema default is 'false', which Fontconfig interprets as disabling hinting. -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ hinting_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias block: Ensure that any application requesting the generic
+    fallback family (e.g., 'sans-serif') can also directly resolve
+    to the specific Noto Sans Kannada UI font if needed.
+  -->
+  <alias>
+    <family>{{ font_family | default('Noto Sans Kannada UI') }}</family>
+    <default>
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

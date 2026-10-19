@@ -32,6 +32,10 @@ func boolProp(description string, def bool) map[string]any {
 
 // stringArrayProp builds a JSON Schema array-of-strings property with a
 // description.
+func intProp(description string) map[string]any {
+	return map[string]any{"type": "integer", "description": description}
+}
+
 func stringArrayProp(description string) map[string]any {
 	return map[string]any{
 		"type":        "array",

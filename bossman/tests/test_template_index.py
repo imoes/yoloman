@@ -269,7 +269,9 @@ def test_same_path_two_families_picks_the_host_s_own_template(tmp_path):
 
     el = build_template_index(cat, cod, tpl, "redhat")
     assert el["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy-redhat"
-    assert any(c["path"] == "/etc/caddy/Caddyfile" for c in el["conflicts"]), \
+    # Reported either as a conflict or — since a template recorded for another family is not offered to this
+    # one at all — as an `other-family` withdrawal. Never dropped.
+    assert any(c["path"] == "/etc/caddy/Caddyfile" for c in el["conflicts"] + el["withdrawn"]), \
         "the losing template must still be reported"
 
     deb = build_template_index(cat, cod, tpl, "debian")
@@ -339,3 +341,22 @@ def test_a_family_specific_record_does_not_override_when_no_family_was_asked(tmp
     assert build_template_index(cat, cod, tpl)["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy"
     idx = build_template_index(cat, cod, tpl, family="redhat")
     assert idx["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy-redhat"
+
+
+def test_the_real_memcached_conf_binds_the_template_that_renders_it():
+    """Measured by the Playwright scenario on Debian: /etc/memcached.conf was bound to `memcached`, which is
+    the /etc/default/memcached shape (ENABLE_MEMCACHED=yes) — "Edit via template" rendered that one line over
+    the daemon's options. Both directories now record their target, so the index's recorded-target rule refuses
+    the wrong pairing even if a name binding proposes it again; checked over the REAL configs."""
+    configs = Path(__file__).resolve().parents[2] / "configs"
+    idx = build_template_index(configs / "package_catalog.json", configs / "config_codecs.json",
+                               configs / "config_templates", family="debian")
+    assert idx["paths"]["/etc/memcached.conf"]["template"] == "memcached.conf"
+
+
+def test_a_catalog_binding_to_a_template_that_records_another_file_is_refused(tmp_path):
+    cat, cod, tpl = _fixture(tmp_path, {"memcached": _role("memcached", "/etc/memcached.conf")}, {}, [])
+    _tpl(tpl, "memcached", meta={"target_path": "/etc/default/memcached"})
+    idx = build_template_index(cat, cod, tpl)
+    assert "/etc/memcached.conf" not in idx["paths"]
+    assert any(c["path"] == "/etc/memcached.conf" and c["chosen"] is None for c in idx["conflicts"])

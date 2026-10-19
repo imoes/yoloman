@@ -1,0 +1,95 @@
+// ============================================================================
+// Kea DHCP DDNS Daemon Configuration Template
+// ============================================================================
+// This file configures the kea-dhcp-ddns daemon, which handles Dynamic DNS
+// updates for DHCP leases. It listens on a specified interface and port,
+// provides a control socket for management, and defines logging behavior.
+//
+// Self-Documenting: All configuration parameters are sourced from Ansible
+// variables defined in the role's defaults/main.yml or vars. Each parameter
+// includes a comment derived from the schema description to ensure clarity.
+// ============================================================================
+
+{
+    // -------------------------------------------------------------------------
+    // DhcpDdns: The main configuration block for the DHCP DDNS daemon.
+    // -------------------------------------------------------------------------
+    "DhcpDdns":
+    {
+        // IP address for the DDNS daemon to listen on.
+        // Default: 127.0.0.1 (Loopback)
+        "ip-address": "{{ IP_ADDRESS | default('127.0.0.1') }}",
+
+        // Port number for the DDNS daemon to listen on.
+        // Default: 53001
+        "port": {{ PORT | default(53001) }},
+
+        // Control socket configuration for managing the daemon.
+        "control-socket": {
+            // Type of socket (unix for local IPC).
+            "socket-type": "unix",
+
+            // Name of the Unix socket file for the control interface.
+            // Default: kea-ddns-ctrl-socket
+            "socket-name": "{{ SOCKET_NAME | default('kea-ddns-ctrl-socket') }}"
+        },
+
+        // TSIG keys for authenticating DNS updates.
+        // Kea uses these keys to sign DNS update messages securely.
+        "tsig-keys": [],
+
+        // Forward DNS update configuration.
+        // Defines how and where to send forward DNS A/AAAA record updates.
+        "forward-ddns" : {},
+
+        // Reverse DNS update configuration.
+        // Defines how and where to send reverse DNS PTR record updates.
+        "reverse-ddns" : {},
+
+        // ---------------------------------------------------------------------
+        // Loggers: Logging configuration for the DHCP DDNS daemon (inside
+        // DhcpDdns - Kea refuses a top-level "loggers").
+        // ---------------------------------------------------------------------
+        "loggers": [
+        {
+            // Logger name specific to the DHCP DDNS daemon.
+            "name": "kea-dhcp-ddns",
+
+            // Output options for logs.
+            "output-options": [
+                {
+                    // Logging output destination.
+                    // Supported values: stdout, stderr, syslog, or a file path.
+                    // Default: stdout
+                    "output": "{{ LOG_OUTPUT | default('kea-ddns.log') }}"
+
+                    // Log message pattern.
+                    // This pattern defines the format of each log line.
+                    // %-5p: severity level, padded to 5 chars.
+                    // %m: message text.
+                    // \n: newline.
+                    // "pattern": "%-5p %m\n",
+
+                    // The following options are commented out by default.
+                    // Uncomment and set if file rotation or flushing is needed.
+                    // "flush": false,
+                    // "maxsize": 1048576,
+                    // "maxver": 8
+                }
+            ],
+
+            // Minimum log severity level.
+            // Supported levels: FATAL, ERROR, WARN, INFO, DEBUG.
+            // Messages with severity lower than this will be discarded.
+            // Default: INFO
+            "severity": "{{ LOG_SEVERITY | default('INFO') }}",
+
+            // Debug level for logging.
+            // Range: 0-99. Higher values produce more verbose output.
+            // Use 0 for normal operation, >0 for troubleshooting.
+            // Default: 0
+            "debuglevel": {{ LOG_DEBUGLEVEL | default(0) }}
+        }
+        ]
+    }
+}

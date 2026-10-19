@@ -1,70 +1,88 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          net-acct
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:      2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: User-mode IP accounting daemon
-### END INIT INFO
-#
-# /etc/init.d/net-acct start/stop/restart nacctd
-#
-# See /usr/share/doc/net-acct/ for information
-#
+# =========================================================================
+# net-acct daemon configuration template
+# =========================================================================
+# This file configures the net-acct daemon, which accounts for network
+# traffic per user/host.
+# =========================================================================
 
-DAEMON=/usr/sbin/nacctd
-NAME=nacctd
-DESC="User-mode IP accounting daemon"
+# =========================================================================
+# 1. Timing & Output Configuration
+# =========================================================================
 
-# Path to the PID file for the nacctd daemon.
-# Default: /var/run/nacctd.pid
-PIDFILE={{ pidfile | default('/var/run/nacctd.pid') }}
+# flush: Interval in seconds to flush accumulated data to the output file.
+# Controls how often the daemon writes buffered packet counts to disk.
+flush {{ flush_interval | default('300                       # flush every 5 minutes') }}
 
-# Path to the nacctd configuration file.
-# Default: /etc/naccttab
-CONFFILE={{ conffile | default('/etc/naccttab') }}
+# fdelay: Seconds of inactivity after which a traffic record is written out.
+# Helps reduce log file size by consolidating related traffic records into one.
+fdelay {{ fdelay | default('60			# this defines after how many seconds') }}
 
-test -r "$CONFFILE" || exit 0
-test -x "$DAEMON" || exit 0
+# file: Path to the regular output log file for the daemon.
+# This is the primary accounting log.
+file {{ logfile | default('/var/log/net-acct/net-acct.log # defines output file') }}
 
-# Function used to determine if the program is alive
-is_alive () {
-    ret=1
-    if [ -r "$PIDFILE" ] ; then
-        pid=`cat $PIDFILE`
-        if [ -e /proc/$pid ] ; then
-            procname=`/bin/ps h -p $pid -C ${DAEMON##*/}`
-            [ -n "$procname" ] && ret=0
-        fi
-    fi
-    return $ret
-}
+# dumpfile: Path to the dump file to save unwritten information in case of a crash.
+# If the daemon crashes, this file is loaded on next start to recover lost data.
+dumpfile {{ dumpfile | default('/var/log/net-acct/dump	# defines dump file') }}
 
+# =========================================================================
+# 2. Network Ignoring Rules
+# =========================================================================
 
-case "$1" in
-  start)
-    start-stop-daemon --start --verbose --exec "$DAEMON"
-    ;;
-  stop)
-    start-stop-daemon --stop --verbose --pidfile "$PIDFILE"
-    ;;
-  restart|force-reload|reload)
-    start-stop-daemon --stop --retry 5 --verbose --pidfile "$PIDFILE"
-    start-stop-daemon --start --verbose --exec "$DAEMON"
-    ;;
-  status)
-    echo -n "Status of $DAEMON: "
-    if is_alive; then
-        echo "alive."
-    else
-        echo "dead."
-        exit 1
-    fi
-    ;;
-  *)
-    echo "Usage: /etc/init.d/net-acct {start|stop|restart|status}"
-    exit 1
-esac
+# ignoremask: Subnet mask to ignore traffic on the same Class C network (local LAN).
+# Traffic within this mask is not counted. This prevents local LAN traffic
+# from cluttering the logs and degrading performance.
+ignoremask {{ ignore_mask | default('255.255.255.0        # Ignore traffic on same class C net') }}
 
-exit 0
+# ignorenet: Network address to explicitly ignore (e.g., loopback).
+# Requires a subsequent mask value. Less efficient than ignoremask, so use
+# ignoremask for local networks where possible.
+# Format: ignorenet <network> <mask>
+ignorenet {{ ignore_network | default('127.0.0.0') }} {{ ignore_mask_net | default('255.0.0.0') }}
+
+# =========================================================================
+# 3. Debugging Configuration
+# =========================================================================
+
+# debug: Debugging level for the daemon.
+# Higher values produce more verbose output in the debug logfile.
+debug {{ debug_level | default('2                         # set debugging level') }}
+
+# debugfile: Path to the debugging information log file.
+debugfile {{ debug_logfile | default('/var/log/net-acct/net-acct.debug	# where to put debugging info') }}
+
+# =========================================================================
+# 4. Device Headers Configuration
+# =========================================================================
+# Defines where the real data starts for each type of interface.
+# Syntax: headers <prefix> <offset> <type_offset>
+# - prefix: Interface name prefix (e.g., eth, lo, isdn).
+# - offset: Offset in bytes to the start of the real data.
+# - type_offset: Offset of the type field in bytes (0 if no type field).
+# Note: Do not specify SLIP or PPP devices here to ensure correct IP-to-user association.
+# Devices with more traffic should be listed last for performance.
+
+headers tr {{ 40 }} {{ 38 }}
+headers lo {{ 14 }} {{ 12 }}
+headers isdn {{ 4 }} {{ 0 }}
+headers eth {{ 14 }} {{ 12 }}
+headers plip {{ 14 }} {{ 12 }}
+
+# =========================================================================
+# 5. Dynamic IP / PPP Configuration (Optional)
+# =========================================================================
+# Uncomment and configure if using dynamic IP assignment via slip/ppp.
+# dynamicip /var/run
+# dynamicnet <network> <mask>
+
+# =========================================================================
+# 6. Exclusions & Limits (Optional)
+# =========================================================================
+# Exclude specific hosts from name lookup or ignoring rules.
+# exclude-name-lookup <host> <mask>
+# dontignore <host> <mask>
+
+# Limit logging to specific hosts or interfaces.
+# hostlimit <host>
+# iflimit <interface>
+# Note: hostlimit and iflimit are mutually exclusive.

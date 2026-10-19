@@ -171,7 +171,7 @@ def test_all_six_fields_are_anded():
         "service_label_groups": [["and", [["and", "tier:gold"]]]],
     }
     ok = _ctx(
-        host_name="vpp0221", ou_paths=["/", "/prod"], host_tags={"env": "prod"},
+        host_name="pve1", ou_paths=["/", "/prod"], host_tags={"env": "prod"},
         host_labels={"os": "linux"}, service_name="Disk /var", service_labels={"tier": "gold"},
     )
     assert matches(cond, ok)

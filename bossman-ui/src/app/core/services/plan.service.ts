@@ -103,7 +103,7 @@ export interface PlanVersion { version: number; source_format: string; content_h
 /** Per-file verdict of a bulk/directory import. Three buckets, never a single yes/no: a real tree always
  *  contains files that are not plans at all (`skipped`) next to ones a parser refuses (`failed`). */
 export interface BulkImportResult {
-  imported: { path: string; prefix: string; name: string; version: number }[];
+  imported: { path: string; prefix: string; name: string; version: number; kind?: 'runbook' | 'plan'; status?: 'created' | 'updated' | 'unchanged'; folder?: string }[];
   skipped: { path: string; reason: string }[];
   failed: { path: string; error: string }[];
 }

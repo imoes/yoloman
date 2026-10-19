@@ -1,130 +1,355 @@
 {
-  "port": {
-    "type": "number",
-    "default": 22,
-    "description": "The port on which the SSH daemon listens for incoming connections."
-  },
-  "listen_address": {
+  "accept_env": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "The IP address the SSH daemon binds to. Use '' or '0.0.0.0' to listen on all interfaces."
+    "description": "AcceptEnv (sshd_config(5)). Debian sets LANG LC_* COLORTERM NO_COLOR.",
+    "default": "LANG LC_* COLORTERM NO_COLOR"
   },
-  "protocol_version": {
-    "type": "number",
-    "default": 2,
-    "description": "SSH protocol version to use. Only version 2 is secure and supported."
+  "address_family": {
+    "type": "string",
+    "description": "AddressFamily (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: any).",
+    "enum": [
+      "any",
+      "inet",
+      "inet6"
+    ],
+    "default": null
   },
-  "password_auth_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable password-based authentication. Recommended false in favor of public keys."
+  "allow_agent_forwarding": {
+    "type": "string",
+    "description": "AllowAgentForwarding (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
   },
-  "pubkey_auth_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable public key (key-based) authentication."
+  "allow_tcp_forwarding": {
+    "type": "string",
+    "description": "AllowTcpForwarding (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "authorized_keys_command": {
+    "type": "string",
+    "description": "AuthorizedKeysCommand (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: none).",
+    "default": null
+  },
+  "authorized_keys_command_user": {
+    "type": "string",
+    "description": "AuthorizedKeysCommandUser (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: nobody).",
+    "default": null
   },
   "authorized_keys_file": {
     "type": "string",
-    "default": ".ssh/authorized_keys",
-    "description": "Path to the file containing user public keys (relative to user's home directory)."
+    "description": "AuthorizedKeysFile (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: .ssh/authorized_keys .ssh/authorized_keys2).",
+    "default": null
+  },
+  "authorized_principals_file": {
+    "type": "string",
+    "description": "AuthorizedPrincipalsFile (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: none).",
+    "default": null
+  },
+  "banner": {
+    "type": "string",
+    "description": "Banner (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: none).",
+    "default": null
+  },
+  "chroot_directory": {
+    "type": "string",
+    "description": "ChrootDirectory (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: none).",
+    "default": null
+  },
+  "client_alive_count_max": {
+    "type": "string",
+    "description": "ClientAliveCountMax (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 3).",
+    "default": null
+  },
+  "client_alive_interval": {
+    "type": "string",
+    "description": "ClientAliveInterval (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 0).",
+    "default": null
+  },
+  "compression": {
+    "type": "string",
+    "description": "Compression (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: delayed).",
+    "enum": [
+      "yes",
+      "delayed",
+      "no"
+    ],
+    "default": null
+  },
+  "gateway_ports": {
+    "type": "string",
+    "description": "GatewayPorts (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "gssapi_authentication": {
+    "type": "string",
+    "description": "GSSAPIAuthentication (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "gssapi_cleanup_credentials": {
+    "type": "string",
+    "description": "GSSAPICleanupCredentials (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "gssapi_key_exchange": {
+    "type": "string",
+    "description": "GSSAPIKeyExchange (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "gssapi_strict_acceptor_check": {
+    "type": "string",
+    "description": "GSSAPIStrictAcceptorCheck (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "hostbased_authentication": {
+    "type": "string",
+    "description": "HostbasedAuthentication (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "ignore_rhosts": {
+    "type": "string",
+    "description": "IgnoreRhosts (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "ignore_user_known_hosts": {
+    "type": "string",
+    "description": "IgnoreUserKnownHosts (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "kbd_interactive_authentication": {
+    "type": "string",
+    "description": "KbdInteractiveAuthentication (sshd_config(5)). Debian sets no.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "kerberos_authentication": {
+    "type": "string",
+    "description": "KerberosAuthentication (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "kerberos_get_afs_token": {
+    "type": "string",
+    "description": "KerberosGetAFSToken (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "kerberos_or_local_passwd": {
+    "type": "string",
+    "description": "KerberosOrLocalPasswd (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "kerberos_ticket_cleanup": {
+    "type": "string",
+    "description": "KerberosTicketCleanup (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "log_level": {
+    "type": "string",
+    "description": "LogLevel (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: INFO).",
+    "enum": [
+      "QUIET",
+      "FATAL",
+      "ERROR",
+      "INFO",
+      "VERBOSE",
+      "DEBUG",
+      "DEBUG1",
+      "DEBUG2",
+      "DEBUG3"
+    ],
+    "default": null
   },
   "login_grace_time": {
-    "type": "number",
-    "default": 120,
-    "description": "Time (in seconds) the server waits for client to complete authentication before disconnecting."
+    "type": "string",
+    "description": "LoginGraceTime (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 2m).",
+    "default": null
+  },
+  "max_auth_tries": {
+    "type": "string",
+    "description": "MaxAuthTries (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 6).",
+    "default": null
+  },
+  "max_sessions": {
+    "type": "string",
+    "description": "MaxSessions (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 10).",
+    "default": null
+  },
+  "max_startups": {
+    "type": "string",
+    "description": "MaxStartups (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 10:30:100).",
+    "default": null
+  },
+  "password_authentication": {
+    "type": "string",
+    "description": "PasswordAuthentication (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "permit_empty_passwords": {
+    "type": "string",
+    "description": "PermitEmptyPasswords (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
   },
   "permit_root_login": {
     "type": "string",
-    "default": "prohibit-password",
-    "description": "Whether root login is allowed. Options: 'no', 'yes', 'without-password', 'forceroot'.",
+    "description": "PermitRootLogin (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: prohibit-password).",
     "enum": [
-      "no",
+      "yes",
       "prohibit-password",
       "forced-commands-only",
-      "without-password"
-    ]
-  },
-  "max_auth_tries": {
-    "type": "number",
-    "default": 6,
-    "description": "Maximum number of authentication attempts per connection."
-  },
-  "max_sessions": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of open sessions per network connection."
-  },
-  "allow_users": {
-    "type": "list",
-    "default": [],
-    "description": "List of usernames allowed to log in. If non-empty, only these users may log in.",
-    "item_type": "string"
-  },
-  "allow_groups": {
-    "type": "list",
-    "default": [],
-    "description": "List of group names whose members are allowed to log in. If non-empty, only members of these groups may log in.",
-    "item_type": "string"
-  },
-  "host_key_algorithms": {
-    "type": "list",
-    "default": [
-      "ssh-ed25519",
-      "ecdsa-sha2-nistp256",
-      "ecdsa-sha2-nistp384",
-      "ecdsa-sha2-nistp521",
-      "rsa-sha2-512",
-      "rsa-sha2-256"
+      "no"
     ],
-    "description": "Ordered list of accepted host key algorithms (for server identification).",
-    "item_type": "string"
+    "default": null
   },
-  "kex_algorithms": {
-    "type": "list",
-    "default": [
-      "curve25519-sha256",
-      "curve25519-sha256@libssh.org",
-      "ecdh-sha2-nistp256",
-      "ecdh-sha2-nistp384",
-      "ecdh-sha2-nistp521"
+  "permit_tty": {
+    "type": "string",
+    "description": "PermitTTY (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
     ],
-    "description": "Ordered list of key exchange algorithms to support.",
-    "item_type": "string"
+    "default": null
   },
-  "ciphers": {
-    "type": "list",
-    "default": [
-      "chacha20-poly1305@openssh.com",
-      "aes256-gcm@openssh.com",
-      "aes128-gcm@openssh.com",
-      "aes256-ctr",
-      "aes192-ctr",
-      "aes128-ctr"
+  "permit_tunnel": {
+    "type": "string",
+    "description": "PermitTunnel (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
     ],
-    "description": "Ordered list of encryption ciphers to support (cipher modes only).",
-    "item_type": "string"
+    "default": null
   },
-  "macs": {
-    "type": "list",
-    "default": [
-      "hmac-sha2-512-etm@openssh.com",
-      "hmac-sha2-256-etm@openssh.com",
-      "hmac-sha2-512",
-      "hmac-sha2-256"
+  "permit_user_environment": {
+    "type": "string",
+    "description": "PermitUserEnvironment (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
     ],
-    "description": "Ordered list of message authentication code (MAC) algorithms to support.",
-    "item_type": "string"
+    "default": null
   },
-  "log_level": {
-    "type": "number",
-    "default": 20,
-    "description": "Verbosity level of logs. Use values like 10 (ERROR), 20 (WARN), 30 (INFO), 40 (DEBUG)."
+  "pid_file": {
+    "type": "string",
+    "description": "PidFile (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: /run/sshd.pid).",
+    "default": null
+  },
+  "port": {
+    "type": "string",
+    "description": "Port (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 22).",
+    "default": null
+  },
+  "print_last_log": {
+    "type": "string",
+    "description": "PrintLastLog (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "print_motd": {
+    "type": "string",
+    "description": "PrintMotd (sshd_config(5)). Debian sets no.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "pubkey_authentication": {
+    "type": "string",
+    "description": "PubkeyAuthentication (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "rekey_limit": {
+    "type": "string",
+    "description": "RekeyLimit (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: default none).",
+    "default": null
+  },
+  "strict_modes": {
+    "type": "string",
+    "description": "StrictModes (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "subsystem": {
+    "type": "string",
+    "description": "Subsystem (sshd_config(5)). Debian sets sftp\t/usr/lib/openssh/sftp-server.",
+    "default": "sftp\t/usr/lib/openssh/sftp-server"
   },
   "syslog_facility": {
     "type": "string",
-    "default": "AUTH",
-    "description": "Syslog facility for SSH logs. Options: DAEMON, USER, AUTH, LOCAL0\u2013LOCAL7.",
+    "description": "SyslogFacility (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: AUTH).",
     "enum": [
       "DAEMON",
       "USER",
@@ -134,119 +359,65 @@
       "LOCAL2",
       "LOCAL3",
       "LOCAL4",
+      "LOCAL5",
       "LOCAL6",
       "LOCAL7"
-    ]
-  },
-  "x11_forwarding_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable X11 forwarding for GUI applications over SSH."
-  },
-  "x11_display_offset": {
-    "type": "number",
-    "default": 10,
-    "description": "First X11 display number to use for forwarded connections."
-  },
-  "tcp_forwarding_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow TCP port forwarding (tunnels)."
-  },
-  "agent_forwarding_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Allow authentication agent forwarding."
-  },
-  "sftp_subsystems": {
-    "type": "list",
-    "default": [
-      {
-        "name": "sftp",
-        "executable": "/usr/lib/openssh/sftp-server"
-      }
     ],
-    "description": "Define one or more SFTP subsystems with name and executable path.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "sftp",
-        "description": "Subsystem name (e.g., 'sftp')"
-      },
-      "executable": {
-        "type": "string",
-        "default": "/usr/lib/openssh/sftp-server",
-        "description": "Path to the SFTP subsystem binary"
-      }
-    }
-  },
-  "match_blocks": {
-    "type": "list",
-    "default": [],
-    "description": "List of Match blocks for conditional configuration. Each block has criteria (e.g., 'User admin') and directives.",
-    "items": {
-      "reason": {
-        "type": "string",
-        "default": "",
-        "description": "Optional human-readable comment describing the match block purpose"
-      },
-      "criteria": {
-        "type": "string",
-        "default": "",
-        "description": "Match criteria (e.g., 'User alice', 'Group sftponly')"
-      },
-      "directives": {
-        "type": "list",
-        "default": [],
-        "description": "List of directives to apply when the match criteria is satisfied.",
-        "items": {
-          "key": {
-            "type": "string",
-            "default": "",
-            "description": "Config directive name (e.g., 'PasswordAuthentication')"
-          },
-          "value": {
-            "type": "string",
-            "default": "",
-            "description": "Directive value (as string; do not quote unless required)"
-          }
-        }
-      }
-    }
-  },
-  "client_alive_interval": {
-    "type": "number",
-    "default": 0,
-    "description": "Seconds between server\u2192client keep-alive messages (0=disabled)."
-  },
-  "client_alive_count_max": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of missed keep-alive messages before server disconnects client."
+    "default": null
   },
   "tcp_keep_alive": {
-    "type": "bool",
-    "default": true,
-    "description": "Send TCP keep-alive packets (use false with connection managers like SSH Multiplexing)."
-  },
-  "banner": {
     "type": "string",
-    "default": "",
-    "description": "Path to banner file to display before authentication (e.g., /etc/issue.net). Leave empty to disable."
+    "description": "TCPKeepAlive (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
   },
-  "strict_modes": {
-    "type": "bool",
-    "default": true,
-    "description": "Require strict permissions on user files and directories (recommended true for security)."
-  },
-  "ignore_rhosts": {
-    "type": "bool",
-    "default": true,
-    "description": "Ignore .rhosts and .shosts files (recommended true for security)."
+  "use_dns": {
+    "type": "string",
+    "description": "UseDNS (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
   },
   "use_pam": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable PAM for authentication (required for many advanced features like account/session modules)."
+    "type": "string",
+    "description": "UsePAM (sshd_config(5)). Debian sets yes.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "yes"
+  },
+  "version_addendum": {
+    "type": "string",
+    "description": "VersionAddendum (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: none).",
+    "default": null
+  },
+  "x11_display_offset": {
+    "type": "string",
+    "description": "X11DisplayOffset (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: 10).",
+    "default": null
+  },
+  "x11_forwarding": {
+    "type": "string",
+    "description": "X11Forwarding (sshd_config(5)). Debian sets yes.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "yes"
+  },
+  "x11_use_localhost": {
+    "type": "string",
+    "description": "X11UseLocalhost (sshd_config(5)). Unset keeps the shipped commented line (sshd's default: yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
   }
 }

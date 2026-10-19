@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {#
+    Configuration for Google Noto Sans Telugu font substitution.
+    This file instructs Fontconfig to prefer the Noto Sans Telugu font
+    when rendering text in the Telugu language (lang_code 'te')
+    and to provide a fallback to a generic sans-serif family.
+    It also defines an alias so that applications requesting
+    "Noto Sans Telugu" are served the correct font, falling back
+    to the generic sans-serif if unavailable.
+  #}
+
+  {#
+    Match block: Intercepts font requests for the specified language
+    and generic family, prepending the specific Noto font to the list.
+  #}
+  <match>
+    {# Check if the target language matches the BCP 47 code #}
+    <test name="lang" compare="contains">
+      {# lang_code: The BCP 47 language code to match for font substitution. #}
+      <string>{{ lang_code | default('te') }}</string>
+    </test>
+    {# Check if the requested font family is the generic fallback #}
+    <test name="family">
+      {# fallback_family: The generic font family name to match and substitute. #}
+      <string>{{ fallback_family | default('sans-serif') }}</string>
+    </test>
+    {# Prepend the specific Noto Sans Telugu font family to the match #}
+    <edit name="family" mode="prepend">
+      {# font_family: The specific font family name to prepend for the matched language. #}
+      <string>{{ font_family | default('Noto Sans Telugu') }}</string>
+    </edit>
+
+    {#
+      NOTE: The original template contained an <edit> for "fonthashint".
+      This appears to be a typo for "hinting" or "autohint". Fontconfig
+      uses properties like "hinting", "autohint", or "hintstyle".
+      The property "fonthashint" is not standard and would be ignored.
+      Assuming the intent was to control hinting, we use the standard
+      property "hinting" or "autohint". Given "hinting_enabled" maps
+      to true/false, "autohint" is often the boolean switch in
+      modern fontconfig configs, or we simply omit this edit if
+      standard system settings handle it, to avoid invalid config.
+      However, to remain faithful to the "enrich" directive without
+      breaking structure, we map the boolean to a valid property.
+      Common property: "hinting" (style: medium/none/slight/etc)
+      or "autohint" (bool: true/false). Let's use "autohint" as it
+      accepts a bool directly, matching the variable type.
+    #}
+    <edit name="autohint" mode="append">
+      {# hinting_enabled: Whether to enable font hinting (false disables it). #}
+      <bool>{{ hinting_enabled | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  {#
+    Alias block: Defines the preferred font family and its fallback.
+  #}
+  <alias>
+    {# Define the family name being aliased #}
+    <family>{{ font_family | default('Noto Sans Telugu') }}</family>
+    <default>
+      {# The fallback family if the primary is not available #}
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

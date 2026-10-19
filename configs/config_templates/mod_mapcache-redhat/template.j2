@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- see the accompanying mapcache.xml.sample for a fully commented configuration file -->
+
+<mapcache>
+   <!-- Disk Cache Configuration -->
+   <!-- Base directory for disk cache storage. -->
+   <cache name="disk" type="disk">
+      <base>{{ mapcache_cache_disk_base | default('/tmp') }}</base>
+      <symlink_blank/>
+   </cache>
+
+   <!-- SQLite Cache Configuration -->
+   <!-- Path pattern for SQLite database files. -->
+   <cache name="sqlite" type="sqlite3">
+     <dbfile>{{ mapcache_cache_sqlite_dbfile_pattern | default('/tmp/{tileset}-{z}-{grid}.db') }}</dbfile>
+      <detect_blank/>
+   </cache>
+
+   <!-- WMS Source: VMAP0 -->
+   <source name="vmap0" type="wms">
+      <getmap>
+         <params>
+            <!-- Output format for the VMAP0 WMS source. -->
+            <FORMAT>{{ mapcache_source_vmap0_format | default('image/png') }}</FORMAT>
+            <!-- Layers to request from the VMAP0 WMS source. -->
+            <LAYERS>{{ mapcache_source_vmap0_layers | default('basic') }}</LAYERS>
+         </params>
+      </getmap>
+      
+      <http>
+         <!-- URL of the VMAP0 WMS source. -->
+         <url>{{ mapcache_source_vmap0_url | default('http://vmap0.tiles.osgeo.org/wms/vmap0') }}</url>
+      </http>
+   </source>
+   
+   <!-- Tileset: t1 -->
+   <tileset name="t1">
+      <source>vmap0</source>
+      <cache>sqlite</cache>
+      <grid>WGS84</grid>
+      <grid>GoogleMapsCompatible</grid>
+      <!-- Tile format for tileset t1. -->
+      <format>{{ mapcache_tileset_t1_format | default('PNG') }}</format>
+      <!-- Metatile dimensions (x y) for tileset t1. -->
+      <metatile>{{ mapcache_tileset_t1_metatile | default('5 5') }}</metatile>
+      <!-- Metabuffer size for tileset t1. -->
+      <metabuffer>{{ mapcache_tileset_t1_metabuffer | default('10') }}</metabuffer>
+      <!-- Cache expiry time in seconds for tileset t1. -->
+      <expires>{{ mapcache_tileset_t1_expires | default('3600') }}</expires>
+	  <dimensions>
+		  <dimension name="dim1" type="postgresql" default="d1">
+			  <!-- Database connection string for t1 dimension dim1. -->
+			  <connection>{{ mapcache_tileset_t1_dimension_dim1_connection | default('host=localhost user=mapcache password=mapcache dbname=mapcache port=5433') }}</connection>
+			  <validate_query>select dim from dims where tileset=:tileset and dim=:dim</validate_query>
+			  <list_query>select dim from dims where tileset=:tileset and tileset=:tileset</list_query>
+		  </dimension>
+	  </dimensions>
+   </tileset>
+
+   <!-- Tileset: t2 -->
+   <tileset name="t2">
+      <source>vmap0</source>
+      <cache>sqlite</cache>
+      <grid>WGS84</grid>
+      <grid>GoogleMapsCompatible</grid>
+      <!-- Tile format for tileset t2. -->
+      <format>{{ mapcache_tileset_t2_format | default('PNG') }}</format>
+      <!-- Metatile dimensions (x y) for tileset t2. -->
+      <metatile>{{ mapcache_tileset_t2_metatile | default('5 5') }}</metatile>
+      <!-- Metabuffer size for tileset t2. -->
+      <metabuffer>{{ mapcache_tileset_t2_metabuffer | default('10') }}</metabuffer>
+      <!-- Cache expiry time in seconds for tileset t2. -->
+      <expires>{{ mapcache_tileset_t2_expires | default('3600') }}</expires>
+	  <dimensions>
+		  <!-- Whether to store assemblies for tileset t2. -->
+		  <store_assemblies>{{ mapcache_tileset_t2_store_assemblies | default('false') }}</store_assemblies>
+		  <!-- Assembly type for tileset t2. -->
+		  <assembly_type>{{ mapcache_tileset_t2_assembly_type | default('stack') }}</assembly_type>
+		  <dimension name="dim1" type="postgresql" default="d1" time="true">
+			  <!-- Database connection string for t2 dimension dim1. -->
+			  <connection>{{ mapcache_tileset_t2_dimension_dim1_connection | default('host=localhost user=mapcache password=mapcache dbname=mapcache port=5433') }}</connection>
+			  <validate_query>select to_char(ts,'YYYY-MM-DD"T"HH24:MI:SS"Z"') from timedims where tileset=:tileset and ts&gt;=to_timestamp(:start_timestamp) and ts&lt;=to_timestamp(:end_timestamp) order by ts desc</validate_query>
+			  <list_query>select to_char(ts,'YYYY-MM-DD"T"HH24:MI:SS"Z"') from timedims where tileset=:tileset</list_query>
+		  </dimension>
+	  </dimensions>
+   </tileset>
+
+   <!-- Default tile format if not specified in tileset. -->
+   <default_format>{{ mapcache_default_format | default('JPEG') }}</default_format>
+
+   <!-- WMS Service Configuration -->
+   <service type="wms" enabled="{{ mapcache_service_wms_enabled | default('true') }}">
+      <!-- Full WMS assembly mode. -->
+      <full_wms>{{ mapcache_service_wms_full_wms | default('assemble') }}</full_wms>
+      <!-- Resampling mode for WMS. -->
+      <resample_mode>{{ mapcache_service_wms_resample_mode | default('bilinear') }}</resample_mode>
+      <!-- Format for WMS service. -->
+      <format>{{ mapcache_service_wms_format | default('JPEG') }}</format>
+      <!-- Maximum image size for WMS. -->
+      <maxsize>{{ mapcache_service_wms_maxsize | default('4096') }}</maxsize>
+   </service>
+
+   <!-- WMTS Service Configuration -->
+   <!-- Enable WMTS service. -->
+   <service type="wmts" enabled="{{ mapcache_service_wmts_enabled | default('true') }}"/>
+
+   <!-- TMS Service Configuration -->
+   <!-- Enable TMS service. -->
+   <service type="tms" enabled="{{ mapcache_service_tms_enabled | default('true') }}"/>
+
+   <!-- KML Service Configuration -->
+   <!-- Enable KML service. -->
+   <service type="kml" enabled="{{ mapcache_service_kml_enabled | default('true') }}"/>
+
+   <!-- GMaps Service Configuration -->
+   <!-- Enable GMaps service. -->
+   <service type="gmaps" enabled="{{ mapcache_service_gmaps_enabled | default('true') }}"/>
+
+   <!-- Virtual Earth Service Configuration -->
+   <!-- Enable Virtual Earth service. -->
+   <service type="ve" enabled="{{ mapcache_service_ve_enabled | default('true') }}"/>
+
+   <!-- MapGuide Service Configuration -->
+   <!-- Enable MapGuide service. -->
+   <service type="mapguide" enabled="{{ mapcache_service_mapguide_enabled | default('true') }}"/>
+
+   <!-- Demo Service Configuration -->
+   <!-- Enable Demo service. -->
+   <service type="demo" enabled="{{ mapcache_service_demo_enabled | default('true') }}"/>
+
+   <!-- Error reporting mode. -->
+   <errors>{{ mapcache_errors | default('report') }}</errors>
+
+   <!-- Disk-based Locker Configuration -->
+   <locker type="disk">
+     <!-- Directory for disk-based locking. -->
+     <directory>{{ mapcache_locker_disk_directory | default('/tmp') }}</directory>
+     <!-- Lock timeout in seconds. -->
+     <timeout>{{ mapcache_locker_disk_timeout | default('300') }}</timeout>
+    </locker>
+
+   <!-- Logging level. -->
+   <log_level>{{ mapcache_log_level | default('debug') }}</log_level>
+
+</mapcache>

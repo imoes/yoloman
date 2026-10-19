@@ -1,107 +1,140 @@
-# OpenStack Tempest CI Configuration Template
-# This file configures the environment variables required to run
-# OpenStack Tempest CI tests against a target OpenStack cloud.
-# It supports multiple virtualization modes: Xen VM, OpenStack native,
-# and IPMI for bare-metal provisioning.
+# ============================================================================
+# OpenStack Tempest CI Configuration
+# This template generates the environment configuration for the Tempest CI runner.
+# It supports multiple virtualization modes: Xen, OpenStack (cloud), or IPMI (bare metal).
+# ============================================================================
 
-########################################
-### Virtualization Mode Selection    ###
-########################################
-# Virtualization mode for the test environment: xen, openstack, or ipmi.
+# Virtualization mode for the test environment.
+# Valid values: 'live-booter' (Xen), 'openstack' (Cloud), or 'ipmi' (Bare Metal via IPMI).
+# Defaults to 'live-booter' if not specified.
 OTCI_VIRT_MODE={{ OTCI_VIRT_MODE | default('live-booter') }}
 
 ############################
-### Xen VM Provisioning    ###
+### Xen VM Provisioning ###
 ############################
+
 # IP address of the Xen dom0 host used to provision VMs.
+# Required when OTCI_VIRT_MODE is set to 'live-booter' or 'xen'.
+# Defaults to '185.8.56.70'.
 OTCI_XEN_DOM0_IP={{ OTCI_XEN_DOM0_IP | default('185.8.56.70') }}
 
-# Name of the Xen VM to provision.
+# Name of the Xen VM instance to provision on the dom0.
+# Defaults to 'xen03'.
 OTCI_XEN_VM_NAME={{ OTCI_XEN_VM_NAME | default('xen03') }}
 
 ##################################
-### OpenStack VM Provisioning  ###
+### OpenStack Cloud Provisioning ###
 ##################################
-# Credentials for the OpenStack cloud where CI tests run.
 
-# Authentication URL for the OpenStack cloud (e.g. Keystone endpoint).
+# Authentication URL for the OpenStack Identity service (Keystone).
+# Used to authenticate CI tests against the target cloud.
+# Defaults to 'http://158.85.165.2:5000/v2.0'.
 export OS_AUTH_URL={{ OS_AUTH_URL | default('http://158.85.165.2:5000/v2.0') }}
 
 # Tenant ID for OpenStack authentication.
+# Defaults to '73e92bdb131f4316b709c0f8613e7b59'.
 export OS_TENANT_ID={{ OS_TENANT_ID | default('73e92bdb131f4316b709c0f8613e7b59') }}
 
-# Tenant name for OpenStack authentication.
+# Tenant Name for OpenStack authentication.
+# Defaults to 'tgoirand@mirantis.com'.
 export OS_TENANT_NAME="{{ OS_TENANT_NAME | default('tgoirand@mirantis.com') }}"
 
 # Username for OpenStack authentication.
+# Defaults to 'tgoirand@mirantis.com'.
 export OS_USERNAME="{{ OS_USERNAME | default('tgoirand@mirantis.com') }}"
 
 # Password for OpenStack authentication.
+# Defaults to 'XXXXXX'.
 export OS_PASSWORD={{ OS_PASSWORD | default('XXXXXX') }}
 
 # Hostname of the VM where Tempest tests will execute.
+# Defaults to 'tempest-ci.debian.net'.
 OTCI_VM_HOSTNAME={{ OTCI_VM_HOSTNAME | default('tempest-ci.debian.net') }}
 
-# ID of the Debian image used to launch test VMs.
+# ID of the Debian image used to launch test VMs in OpenStack.
+# Defaults to '46a82126-c210-43c9-8f83-015a56451a36'.
 OTCI_DEBIAN_IMAGE_ID={{ OTCI_DEBIAN_IMAGE_ID | default('46a82126-c210-43c9-8f83-015a56451a36') }}
 
 # Flavor ID used when launching test VMs.
-OTCI_INSTANCE_FLAVOR={{ OTCI_INSTANCE_FLAVOR | default(2) }}
+# Determines the compute resources (vCPU, RAM, Disk) for the instance.
+# Defaults to '2'.
+OTCI_INSTANCE_FLAVOR={{ OTCI_INSTANCE_FLAVOR | default('2') }}
 
-# Name of the SSH keypair to use for VM access.
+# Name of the SSH keypair to inject into VMs for access.
+# Defaults to 'jenkins'.
 OTCI_KEYPAIR_NAME={{ OTCI_KEYPAIR_NAME | default('jenkins') }}
 
 # ID of the floating IP allocated for the test VM.
+# Used to provide external access to the test instance.
+# Defaults to '1dd50df2-0ddc-4605-93ca-5ea22f977003'.
 OTCI_FLOATING_IP_ID={{ OTCI_FLOATING_IP_ID | default('1dd50df2-0ddc-4605-93ca-5ea22f977003') }}
 
 # Network ID for the primary network interface (eth0) of the VM.
+# Typically the public/external network.
+# Defaults to '1f35e850-f354-414d-bc43-1b0b91e5d731'.
 OTCI_ETH0_NET_ID={{ OTCI_ETH0_NET_ID | default('1f35e850-f354-414d-bc43-1b0b91e5d731') }}
 
 # Network ID for the management network interface (eth1) of the VM.
+# Typically the private/internal network.
+# Defaults to '0b2f4c7c-c8d0-4740-9e52-b411c80ecdf9'.
 OTCI_ETH1_NET_ID={{ OTCI_ETH1_NET_ID | default('0b2f4c7c-c8d0-4740-9e52-b411c80ecdf9') }}
 
 ##########################
-### IPMI Provisioning    ###
+### IPMI Provisioning ###
 ##########################
+
 # IP address of the IPMI interface on the physical hardware.
+# Used for out-of-band management when OTCI_VIRT_MODE is 'ipmi'.
+# Defaults to empty string.
 OTCI_IPMI_IP_ADDR={{ OTCI_IPMI_IP_ADDR | default('') }}
 
 # Login username for the IPMI interface.
+# Defaults to empty string.
 OTCI_IPMI_LOGIN={{ OTCI_IPMI_LOGIN | default('') }}
 
 # Password for the IPMI interface.
+# Defaults to empty string.
 OTCI_IPMI_PASS={{ OTCI_IPMI_PASS | default('') }}
 
 ########################################################
-### Tempest Machine Networking Configuration         ###
+### Tempest Machine Networking Configuration ###
 ########################################################
-# Floating IP address of the machine where OpenStack is installed,
-# used for SSH access.
+
+# Floating IP address of the machine where OpenStack is installed.
+# This IP is used for SSH access into the test VM (distinct from eth0).
+# Defaults to '192.168.100.2'.
 OTCI_FLOATING_IP_ADDR={{ OTCI_FLOATING_IP_ADDR | default('192.168.100.2') }}
 
 # SSH port number for the test machine.
-OTCI_SSH_PORT={{ OTCI_SSH_PORT | default(22) }}
+# Defaults to '22'.
+OTCI_SSH_PORT={{ OTCI_SSH_PORT | default('22') }}
 
-# Name of the management network interface.
+# Name of the management network interface (e.g., ens4, eth1).
+# Defaults to 'ens4'.
 OTCI_MANAGEMENT_IFACE_NAME={{ OTCI_MANAGEMENT_IFACE_NAME | default('ens4') }}
 
 # CIDR notation for the management network.
+# Defaults to '172.17.1.0/24'.
 OTCI_ETH1_CIDR={{ OTCI_ETH1_CIDR | default('172.17.1.0/24') }}
 
-# Start of the public IP pool.
+# Start of the public IP pool for floating IPs.
+# Defaults to '192.168.100.103'.
 OTCI_PUBIP_START={{ OTCI_PUBIP_START | default('192.168.100.103') }}
 
-# End of the public IP pool.
+# End of the public IP pool for floating IPs.
+# Defaults to '192.168.100.119'.
 OTCI_PUBIP_END={{ OTCI_PUBIP_END | default('192.168.100.119') }}
 
-# Local IP address for the OVS (Open vSwitch) agent.
+# Local IP address for the Open vSwitch (OVS) agent.
+# Defaults to '172.17.1.1'.
 OTCI_LOCAL_IP={{ OTCI_LOCAL_IP | default('172.17.1.1') }}
 
-# Whether to perform last-minute fixups for management IP and restart agents.
+# Whether to perform last-minute fixups: delete/re-add management IP and restart agents.
+# Defaults to 'yes'.
 OTCI_LASTMINUTE_FIXUPS={{ OTCI_LASTMINUTE_FIXUPS | default('yes') }}
 
-# URL of the default Debian repository.
-OTCI_DEBIAN_REPO_URL={{ OTCI_DEBIAN_REPO_URL | default('http://deb.debian.org/debian') }}
+# URL to set as the default Debian repository mirror.
+OTCI_DEBIAN_REPO_URL=http://deb.debian.org/debian
 
-# Whether to use Swift storage in the test environment.
-OTCI_USE_SWIFT={{ OTCI_USE_SWIFT | default('yes') }}
+# Enable Swift integration tests.
+OTCI_USE_SWIFT=yes

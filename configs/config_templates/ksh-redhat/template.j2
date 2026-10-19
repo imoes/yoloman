@@ -1,0 +1,79 @@
+#
+# /etc/kshrc is sourced in interactive shells.
+# This file configures the interactive KornShell (ksh) environment.
+# It sets up aliases, functions, options, key bindings, and PATH modifications.
+#
+
+# Set prompts for the shell.
+# PROMPT: The main command prompt. Default: "[%n@%m]%~%# "
+#   %n: username, %m: hostname, %~: current working directory, %#: # for root, $ for user
+# RPROMPT: The prompt displayed on the right side of the screen. Default: " %~"
+# These are commented out by default to allow system-wide defaults or user-specific overrides in ~/.kshrc
+# PROMPT='[%n@%m]%~%# '    # default prompt
+# RPROMPT=' %~'     # prompt for right side of screen
+
+# Function to source scripts from /etc/profile.d/
+# This mimics the behavior of zsh/bash in loading global profile scripts.
+# It checks if the current shell is a login shell to avoid re-sourcing in subshells.
+_src_etc_profile_d()
+{
+    # from zshrc, with ksh fixes
+    # Check if this is NOT a login shell
+    if [[ ! -o login ]]; then
+        # Iterate over all .sh scripts in /etc/profile.d/
+        for i in /etc/profile.d/*.sh; do
+            # Check if the file is readable
+            if [ -r "$i" ]; then
+                # Source the script
+                . "$i"
+            fi
+        done
+        # Clean up loop variable
+        unset i
+    fi
+}
+
+# Function to safely add directories to PATH
+# pathmunge <directory> [after|before]
+# If the directory is already in PATH, it is not added again.
+pathmunge () {
+    case ":${PATH}:" in
+        *:"$1":*)
+            # Directory already in PATH, do nothing
+            ;;
+        *)
+            if [ "$2" = "after" ]; then
+                PATH="${PATH}:$1"
+            else
+                PATH="$1:${PATH}"
+            fi
+        ;;
+    esac
+}
+
+# Source the global profile.d scripts
+_src_etc_profile_d
+
+# Unload internal helper functions to keep the shell environment clean
+unset -f _src_etc_profile_d
+unset -f pathmunge
+
+# Key bindings configuration
+# This trap ensures that standard keyboard keys (Home, End, Delete, PgUp, PgDn)
+# work correctly in interactive ksh shells by mapping them to readline commands.
+keybd_trap () {
+  case ${.sh.edchar} in
+    # Home key -> beginning-of-line (Ctrl+A)
+    $'\e[1~') .sh.edchar=$'\001';;
+    # End key -> end-of-line (Ctrl+E)
+    $'\e[F')  .sh.edchar=$'\005';;
+    # Page Up -> history-previous
+    $'\e[5~') .sh.edchar=$'\e>';;
+    # Page Down -> history-next
+    $'\e[6~') .sh.edchar=$'\e<';;
+    # Delete key -> delete-char (Ctrl+D)
+    $'\e[3~') .sh.edchar=$'\004';;
+  esac
+}
+# Install the keybd_trap function to trigger on keypress events
+trap keybd_trap KEYBD

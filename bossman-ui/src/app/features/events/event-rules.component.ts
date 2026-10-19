@@ -20,6 +20,7 @@ import { HostGroupService } from '../../core/services/host-group.service';
 import { OUNode } from '../../core/models/ou.model';
 import { OuService } from '../../core/services/ou.service';
 import { WizardService } from '../../core/services/wizard.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** One sentence per guardrail. A number without its consequence is a setting nobody can judge. */
 const GUARDRAIL_TEXT = {
@@ -61,7 +62,7 @@ function emptyDraft(): EventRuleInput {
 @Component({
   selector: 'app-event-rules',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     DatePipe, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatIconModule, MatButtonModule, MatCheckboxModule,
   ],
@@ -296,11 +297,10 @@ function emptyDraft(): EventRuleInput {
               <p class="bm-note">{{ guard.rollback_runbook }}</p>
 
               <div class="bm-save-row">
-                <button mat-flat-button [disabled]="!canSave() || saving()" (click)="save()">
+                <button mat-flat-button [disabled]="saving()" [bmBlocked]="blocker()" (click)="save()">
                   <mat-icon>save</mat-icon> {{ isNew() ? 'Create' : 'Save' }}
                 </button>
                 <button mat-button (click)="cancel()">Cancel</button>
-                @if (blocker(); as b) { <span class="bm-dim">{{ b }}</span> }
               </div>
 
               <!-- runs -->
@@ -353,7 +353,7 @@ function emptyDraft(): EventRuleInput {
                     <input matInput [ngModel]="triggerService()" (ngModelChange)="triggerService.set($event)"
                            [placeholder]="d.match_service_name || 'Disk /'" />
                   </mat-form-field>
-                  <button mat-stroked-button [disabled]="!triggerHost() || !triggerService()"
+                  <button mat-stroked-button [bmBlocked]="!triggerHost() || !triggerService() ? 'Enter a host and a service to test with' : ''"
                           (click)="trigger()"><mat-icon>bolt</mat-icon> Run matching rules</button>
                 </div>
                 <p class="bm-note">
@@ -408,8 +408,8 @@ function emptyDraft(): EventRuleInput {
       .bm-src-btn.active { border-color: var(--bm-green); background: color-mix(in srgb, var(--bm-green) 12%, transparent); }
       .bm-checks { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
       .bm-table { width: 100%; border-collapse: collapse; }
-      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: 3px 12px 3px 0; }
-      .bm-table td { padding: 5px 12px 5px 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; vertical-align: top; }
+      .bm-table th { text-align: left; font-size: 12px; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; }
+      .bm-table td { padding: var(--bm-cell-py) 12px var(--bm-cell-py) 0; border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); vertical-align: top; }
       .bm-in { width: 100%; max-width: 220px; background: transparent; color: inherit; font: inherit;
                font-size: 12.5px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; padding: 4px 6px; }
       .bm-mono { font-family: monospace; font-size: 12px; }

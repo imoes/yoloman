@@ -1,161 +1,44 @@
-# ==============================================================================
-# DRBL (Diskless Remote Boot in Linux) Configuration
-#
-# This file configures the DRBL server environment. It controls paths for
-# diskless clients, PXE boot resources, package management for various Linux
-# distributions, and server-side service definitions.
-#
-# IMPORTANT: Variables defined here are referenced by DRBL setup scripts.
-# Do not modify variable names; use defaults or override via Ansible variables.
-# ==============================================================================
+# Author: Steven Shiau <steven _at_ clonezilla org>
+# License: GPL
+# Setting for DRBL environment.
+# WARNING! DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING!
+# WARNING! DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING!
+# WARNING! DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING!
 
-# --------------------------------------------------------------------------
-# Paths and Directories
-# --------------------------------------------------------------------------
+# drblroot: DRBL root directory for client-specific files
+# drbl_common_root: DRBL common root directory shared by all clients
+# Logic: If drblroot is explicitly provided and non-empty, print the enforced values.
+# Otherwise, print the comment showing the default paths.
+{% if drblroot is defined and drblroot is not none and (drblroot is string and drblroot | length > 0) %}
+Keep drblroot="{{ drblroot | default('/tftpboot/nodes') }}" and drbl_common_root="{{ drbl_common_root | default('/tftpboot/node_root') }}". These settings are already fixed in some programs.
+{% else %}
+# Keep drblroot="/tftpboot/nodes" and drbl_common_root="/tftpboot/node_root". These settings are already fixed in some programs.
+{% endif %}
 
-# DRBL root directory for client-specific files.
-# Default: /tftpboot/nodes
+# //NOTE// The variable "DRBL_SCRIPT_PATH" is from system environment variable, and if not defined, it will be "/usr/share/drbl" by default.
+drbl_setup_path="$DRBL_SCRIPT_PATH/setup"
+
+# Do NOT put / in the end of $drblroot, it's important
+# when using rsync in drbl-setup
+# DO NOT modify t$drblroot and $drbl_common_root, it's already fixed for the
+# whole system, drblsrv and drblpush use /tftpboot/nodes and /tftpboot/node_root
+# Why we put here is only for sometimes we can use them.
+
+# drblroot: DRBL root directory for client-specific files
+# Default: /tftpboot/nodes (implied by context, but schema default is None. Logic above handles display. Here we set the var).
 drblroot="{{ drblroot | default('/tftpboot/nodes') }}"
 
-# DRBL common root directory shared by all clients.
+# drbl_common_root: DRBL common root directory shared by all clients
 # Default: /tftpboot/node_root
 drbl_common_root="{{ drbl_common_root | default('/tftpboot/node_root') }}"
 
-# Base URL for downloading syslinux/pxelinux binaries.
-# Default: http://free.nchc.org.tw/syslinux
-syslinux_binsrc_url="{{ syslinux_binsrc_url | default('http://free.nchc.org.tw/syslinux') }}"
+# drbl_nfs_prot: Assign the NFS protocol, either "nfs3" or "nfs4" (not ready yet). If not assigned, default is nfs3.
+drbl_nfs_prot=""
 
-# EFI boot loader option for live systems: 'syslinux' or 'grub'.
-# Default: grub
-live_efi_boot_loader="{{ live_efi_boot_loader | default('grub') }}"
-
-# Prefix URL for DRBL-related resources and documentation.
-# Default: http://free.nchc.org.tw
-url_prefix="{{ url_prefix | default('http://free.nchc.org.tw') }}"
-
-# Clonezilla image directory (must NOT end with '/').
-# Default: /home/partimag
-ocsroot="{{ ocsroot | default('/home/partimag') }}"
-
-# --------------------------------------------------------------------------
-# System Accounts and Authentication
-# --------------------------------------------------------------------------
-
-# Administrator account ID used for MS Windows remote management.
-# Different Windows languages may require different IDs (e.g., Administrator, Administrateur).
-# Default: Administrator
-mswin_admin_id="{{ mswin_admin_id | default('Administrator') }}"
-
-# --------------------------------------------------------------------------
-# Localization and Timeouts
-# --------------------------------------------------------------------------
-
-# Default language code: 0=English, 1=Traditional Chinese (Big5), 2=Traditional Chinese (UTF-8).
-# Default: 0
-default_language="{{ default_language | default('0') }}"
-
-# Default PXE menu timeout in 1/10 seconds.
-# Default: 70
-default_pxe_timeout="{{ default_pxe_timeout | default('70') }}"
-
-# --------------------------------------------------------------------------
-# User and Password Policies
-# --------------------------------------------------------------------------
-
-# Minimum UID for normal users (UIDs >= this value).
-# Default: 500
-uid_begin_default="{{ uid_begin_default | default('500') }}"
-
-# Default GDM timeout in seconds.
-# Default: 30
-timed_gdm_time_default="{{ timed_gdm_time_default | default('30') }}"
-
-# Default LightDM timeout in seconds.
-# Default: 30
-timed_lightdm_time_default="{{ timed_lightdm_time_default | default('30') }}"
-
-# Default minimum password length.
-# Default: 8
-passwd_length_default="{{ passwd_length_default | default('8') }}"
-
-# Time (in seconds) before deleting old auto_login_id_passwd.txt.
-# Default: 1200
-time_2_kill="{{ time_2_kill | default('1200') }}"
-
-# --------------------------------------------------------------------------
-# Disk and RAM Configuration
-# --------------------------------------------------------------------------
-
-# Default max swap file size (MB).
-# Default: 1024
-maxswapsize_default="{{ maxswapsize_default | default('1024') }}"
-
-# Default RAM disk size for PXE/NBI initrd (MB).
-# Default: 9600
-default_ramdisk_size="{{ default_ramdisk_size | default('9600') }}"
-
-# Buffer ratio for disk space calculations (client filesystem).
-# Default: 1.5
-buffer_ratio_for_client_space="{{ buffer_ratio_for_client_space | default('1.5') }}"
-
-# --------------------------------------------------------------------------
-# Network Services and DHCP/DNS
-# --------------------------------------------------------------------------
-
-# Path to dnsmasq configuration file.
-# Default: /etc/dnsmasq.conf
-dnsmasq_cfg="{{ dnsmasq_cfg | default('/etc/dnsmasq.conf') }}"
-
-# Whether to use existing DHCP service when only one network interface exists.
-# Default: no
-use_existing_dhcp_srv="{{ use_existing_dhcp_srv | default('no') }}"
-
-# --------------------------------------------------------------------------
-# XFS Font Server
-# --------------------------------------------------------------------------
-
-# XFS font server ratio.
-# Default: 1.2
-xfs_ratio="{{ xfs_ratio | default('1.2') }}"
-
-# XFS font server port.
-# Default: 7100
-fs_port="{{ fs_port | default('7100') }}"
-
-# --------------------------------------------------------------------------
-# Rsync and File Exclusions
-# --------------------------------------------------------------------------
-
-# Directories in /etc excluded when rsyncing to clients (must end with '/' except trailing).
-# Default: /etc/selinux/targeted/ /etc/netplan/
-etc_exclude_dirs="{{ etc_exclude_dirs | default('/etc/selinux/targeted/ /etc/netplan/') }}"
-
-# Symbolic files in /var to handle specially (space-separated).
-# Default: run lock
-symbolic_files_in_var_chklist="{{ symbolic_files_in_var_chklist | default('run lock') }}"
-
-# Directories in /lib excluded from being copied to common root.
-# Default: modules live/mount
-lib_NOT_2_be_copied_2_common_root="{{ lib_NOT_2_be_copied_2_common_root | default('modules live/mount') }}"
-
-# --------------------------------------------------------------------------
-# Graphical Boot
-# --------------------------------------------------------------------------
-
-# Enable graphical boot (e.g., rhgb) for Fedora-style clients.
-# Default: no
-graphical_boot="{{ graphical_boot | default('no') }}"
-
-# ==============================================================================
-# DYNAMIC SERVICE DETECTION (OS-specific)
-# The following block detects the operating system and sets appropriate
-# service names, paths, and package query commands.
-# ==============================================================================
-
-{% if '/etc/debian_version' is string and '/etc/debian_version' in ['/etc/debian_version'] %}
-{# Debian #}
+if [ -e /etc/debian_version ]; then
+  # Debian
   SYSCONF_PATH="/etc/default/"
-  # From Debian Squeeze, isc-dhcp-server is used, no more dhcp3-server
+  # From Debian Squeeze, isc-dhcp-server is used, no more dhcp3-server (as that in etch, lenny...)
   if [ -x "/usr/sbin/dhcpd3" ]; then
     DHCPDCONF_DIR="/etc/dhcp3"
     DHCP_SRV_NAME="dhcp3-server"
@@ -167,6 +50,9 @@ graphical_boot="{{ graphical_boot | default('no') }}"
   NFS_SRV_NAME="nfs-kernel-server"
   YP_SRV_NAME="nis"
   # Now GDM_CFG, FAC_GDM_CFG and KDM_CFG are got in drbl-functions.
+  #GDM_CFG="/etc/X11/gdm/gdm.conf"
+  #FAC_GDM_CFG="/etc/X11/gdm/factory-gdm.conf"
+  #KDM_CFG="/etc/kde3/kdm/kdmrc"
   RCX_ROOTDIR="/etc"
   # The releative path between init.d and rcx.d, for Debian, it's same, so
   # in when working dir is in rc.d, service is in ../init.d/
@@ -176,8 +62,8 @@ graphical_boot="{{ graphical_boot | default('no') }}"
   # instead of using dpkg -s, we use dpkg -L, since dpkg -s will give the wrong
   # return code if a package is installed but removed later.
   query_pkglist_exist_cmd="dpkg -L"
-{% elif '/etc/SuSE-release' is string and '/etc/SuSE-release' in ['/etc/SuSE-release'] %}
-{# SuSE #}
+elif [ -e /etc/SuSE-release ]; then
+  # SuSE
   SYSCONF_PATH="/etc/sysconfig/"
   DHCPDCONF_DIR="/etc"
   # DHCPDLEASE_DIR is got from get_dhcpdlease_dir() in drbl-functions
@@ -185,6 +71,9 @@ graphical_boot="{{ graphical_boot | default('no') }}"
   NFS_SRV_NAME="nfs"
   YP_SRV_NAME="ypserv"
   # Now GDM_CFG, FAC_GDM_CFG and KDM_CFG are got in drbl-functions.
+  #GDM_CFG="/etc/opt/gnome/gdm/gdm.conf"
+  #FAC_GDM_CFG="/etc/opt/gnome/gdm/factory-gdm.conf"
+  #KDM_CFG="/etc/opt/kde3/share/config/kdm/kdmrc"
   RCX_ROOTDIR="/etc/init.d"
   # The releative path between init.d and rcx.d, for SuSE, it's not same,
   # rcx.d is under init.d. So in when working dir is in rc.d, service is in ../
@@ -192,8 +81,8 @@ graphical_boot="{{ graphical_boot | default('no') }}"
   query_allpkgs_cmd="rpm -qa"
   query_pkglist_cmd="rpm -ql"
   query_pkglist_exist_cmd="rpm -q"
-{% else %}
-{# RH-like #}
+else
+  # RH-like
   SYSCONF_PATH="/etc/sysconfig/"
   # From Fedora 11, the dhcpd config dir is in /etc/dhcp
   if [ -d "/etc/dhcp" ]; then
@@ -214,6 +103,9 @@ graphical_boot="{{ graphical_boot | default('no') }}"
   done
   YP_SRV_NAME="ypserv"
   # Now GDM_CFG, FAC_GDM_CFG and KDM_CFG are got in drbl-functions.
+  #GDM_CFG="/etc/X11/gdm/gdm.conf"
+  #FAC_GDM_CFG="/etc/X11/gdm/factory-gdm.conf"
+  #KDM_CFG="/etc/kde/kdm/kdmrc"
   RCX_ROOTDIR="/etc"
   # The releative path between init.d and rcx.d, for RH-like, it's same, so
   # in when working dir is in rc.d, service is in ../init.d/
@@ -221,15 +113,16 @@ graphical_boot="{{ graphical_boot | default('no') }}"
   query_allpkgs_cmd="rpm -qa"
   query_pkglist_cmd="rpm -ql"
   query_pkglist_exist_cmd="rpm -q"
-{% endif %}
+fi
 
-# System configuration path
 drbl_syscfg="/etc/drbl"
 cache_dir="/var/cache/apt/archives"
 drbl_pkgdir="/usr/share/drbl/share"
 pxecfg_pd="/tftpboot/nbi_img"
 
-# Path to PXELinux binaries directory
+# syslinux_binsrc_url: Base URL for downloading syslinux/pxelinux binaries
+# Default: http://free.nchc.org.tw/syslinux
+syslinux_binsrc_url="{{ syslinux_binsrc_url | default('http://free.nchc.org.tw/syslinux') }}"
 SYS_PXELINUX_VER_DEF="6.03"
 pxelinux_binsrc_dir="$DRBL_SCRIPT_PATH/pkg/syslinux/"
 pxelinux_file="$pxelinux_binsrc_dir/bios/pxelinux.0"
@@ -242,68 +135,126 @@ pxelinux_chain_file="$pxelinux_binsrc_dir/bios/chain.c32"
 pxelinux_mboot_file="$pxelinux_binsrc_dir/bios/mboot.c32"
 pxelinux_sanboot_file="$pxelinux_binsrc_dir/bios/sanboot.c32"
 # For Syslinux 5, new .c32 are required: ldlinux.c32, libcom32.c32, libutil.c32
+# Do not list ldlinux.e32 and ldlinux.e64 here. This is only about bios, not EFI.
 sys_pxelinux_v5p_required_c32="ldlinux.c32 libcom32.c32 libutil.c32"
 
-# PXELinux configuration paths
+# live_efi_boot_loader: EFI boot loader option for live systems: 'syslinux' or 'grub'
+# Default: grub
+live_efi_boot_loader="{{ live_efi_boot_loader | default('grub') }}"
+
+# Note, we can not use - or other charactor, since isolinux won't accept that (drbl-pxe.png is not accepted by syslinux, however, it's ok for pxelinux). To fit both, we use drblwp.png.
+pxelinux_bg_img="$DRBL_SCRIPT_PATH/image/drblwp.png"
 PXELINUX_DIR="/tftpboot/nbi_img/pxelinux.cfg"
 PXE_CONF_DEF="$PXELINUX_DIR/default"
 isolinux_file="$pxelinux_binsrc_dir/bios/isolinux.bin"
-
-# Grub EFI network boot settings
+# Grub EFI network boot
 grub_bg_img="$DRBL_SCRIPT_PATH/image/drblwp.png"
 GRUB_EFINB_DIR="/tftpboot/nbi_img/grub"
 GRUB_EFINB_CONF_DEF="$GRUB_EFINB_DIR/grub.cfg"
-
-# Common grub2 file modules for DRBL and Clonezilla
+# Common grub2 file modules for DRBL and Clonezilla. Used in drbl-gen-grub-efi-nb and ocs-gen-grub2-efi-bldr
 GRUB_FS_MOD_drbl_ocs="ext2 xfs reiserfs jfs hfsplus fat ntfs"
-
-# Clonezilla logo images
+# Note, we can not use - or other charactor, since isolinux won't accept that (ocs-logo.png is not accepted by syslinux, however, it's ok for pxelinux). To fit both, we use ocswp.png.
 ocs_logo_img_png="$DRBL_SCRIPT_PATH/image/ocswp.png"
 ocs_logo_img_xpm="$DRBL_SCRIPT_PATH/image/ocswp.xpm.gz"
 ocs_logo_grub2_img_png="$DRBL_SCRIPT_PATH/image/ocswp-grub2.png"
-
-# Memtest86+ settings
 MEMTEST86_URL="http://www.memtest.org/download/"
 MEMTEST86_VER_DEF="6.00"
 memtest86_dir="$DRBL_SCRIPT_PATH/pkg/memtest86+/"
-
-# FreeDOS image settings
+# memtest86_file="$DRBL_SCRIPT_PATH/pkg/memtest86+/memtest86.bin"
 fdos_img_src="/usr/lib/freedos/fdos1440.img"
 fdos_img_output="fdos1440_drbl.img"
-
-# PXE RAMDISK defaults
 PXE_RAMDISK_SIZE_DEF="19456"
 PXE_RAMDISK_BLOCKSIZE="1024"
 NETINSTALL_RAMDISK_SIZE_DEF="65535"
-
-# DHCP Lease Time defaults (seconds)
+# The default-lease-time and max-lease-time in dhcpd.conf (secs)
 DHCPD_DEFAULT_LEASE_TIME="300"
 DHCPD_MAX_LEASE_TIME="300"
 
-# PXE Menu Labels
+# The default image might show in menu if user want to show them.
+# note! use lowercase for the image name!!!
 IMG_SHOW_IN_MENU="drbl local memtest drbl-terminal"
+# pxelinux menu
 powerful_client_menu_label="Linux (DRBL mode, mostly local resources)"
 thin_client_menu_label="Linux (Terminal mode, mostly remote resources)"
 clonezilla_client_menu_label_prefix="Clonezilla"
+# local OS label in pxelinux menu
+# Some might want to change it as: Debian Linux, or MS windows...
 local_os_menu_label="Local operating system (if available)"
 
-# Clonezilla directories
+# url_prefix: Prefix URL for DRBL-related resources and documentation
+# Default: http://free.nchc.org.tw
+url_prefix="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+
+# graphical_boot: Enable graphical boot (e.g., rhgb) for Fedora-style clients
+# Default: no
+graphical_boot="{{ graphical_boot | default('no') }}"
+
+# ocsroot: Clonezilla image directory (must NOT end with '/')
+# Default: /home/partimag
+ocsroot="{{ ocsroot | default('/home/partimag') }}"
+# clonezilla.lock path
 ocs_lock_dir="/var/lock/clonezilla"
+# clonezilla log files path
 ocs_log_dir="/var/log/clonezilla/"
+# log file for sfdisk when restoring
 RESTORE_SFDISK_LOG="/var/log/clonezilla-restore-sfdisk.log"
+# Output file for busybox udhcpc when detecting DHCP server
 udhdpc_query_result="/tmp/ocs-udhcpc-rlt.txt"
 
-# Auto-login password file handling
+# mswin_admin_id: Administrator account ID used for MS Windows remote management
+# Default: Administrator
+MSWIN_ADMIN_ID="{{ mswin_admin_id | default('Administrator') }}"
+
+# default_language: Default language code: 0=English, 1=Traditional Chinese (Big5), 2=Traditional Chinese (UTF-8)
+# Default: 0
+DEFAULT_LANGUAGE="{{ default_language | default('0') }}"
+
+# default_pxe_timeout: Default PXE menu timeout in 1/10 seconds
+# Default: 70
+DEFAULT_PXE_TIMEOUT="{{ default_pxe_timeout | default('70') }}"
+
+# uid_begin_default: Minimum UID for normal users (UIDs >= this value)
+# Default: 500
+UID_BEGIN_DEFAULT="{{ uid_begin_default | default('500') }}"
+
+# timed_gdm_time_default: Default GDM timeout in seconds
+# Default: 30
+TIMED_GDM_TIME_DEFAULT="{{ timed_gdm_time_default | default('30') }}"
+
+# timed_lightdm_time_default: Default LightDM timeout in seconds
+# Default: 30
+TIMED_LIGHTDM_TIME_DEFAULT="{{ timed_lightdm_time_default | default('30') }}"
+
+# passwd_length_default: Default minimum password length
+# Default: 8
+PASSWD_LENGTH_DEFAULT="{{ passwd_length_default | default('8') }}"
+
 AUTO_LOGIN_ID_PASSWD="$drbl_syscfg/auto_login_id_passwd.txt"
 
-# Client space checking parameters
+# time_2_kill: Time (in seconds) before deleting old auto_login_id_passwd.txt
+# Default: 1200
+TIME_2_KILL="{{ time_2_kill | default('1200') }}"
+
+# maxswapsize_default: Default max swap file size (MB)
+# Default: 1024
+maxswapsize_default="{{ maxswapsize_default | default('1024') }}"
+
+# default_ramdisk_size: Default RAM disk size for PXE/NBI initrd (MB)
+# Default: 9600
+default_ramdisk_size="{{ default_ramdisk_size | default('9600') }}"
+
+# parameter for checking space
 common_root_dir="/bin /etc /lib /sbin"
 
-# MAC/IP Tables
+# buffer_ratio_for_client_space: Buffer ratio for disk space calculations (client filesystem)
+# Default: 1.5
+buffer_ratio_for_client_space="{{ buffer_ratio_for_client_space | default('1.5') }}"
+
+#
 HOST_MAC_TABLE="$drbl_syscfg/HOST_MAC_TABLE"
 IP_HOST_TABLE="$drbl_syscfg/IP_HOST_TABLE"
 
-# User management scripts
+# drbl-useradd need these:
 useradd_range_exec_file="drbl-useradd-range"
 userdel_range_exec_file="drbl-userdel-range"
 useradd_file_exec_file="drbl-useradd-file"
@@ -312,33 +263,121 @@ useradd_list_exec_file="drbl-useradd-list"
 userdel_list_exec_file="drbl-userdel-list"
 useradd_gen="username_pw.txt"
 
-# DRBL Server Services Checklist
+# xfs_ratio: XFS font server ratio
+# Default: 1.2
+XFS_RATIO="{{ xfs_ratio | default('1.2') }}"
+
+# fs_port: XFS font server port
+# Default: 7100
+fs_port="{{ fs_port | default('7100') }}"
+
+# List those packages has different arch rpms (i386, i486, i586, i686) in repository except kernel. This is specially for Redhat, Fedora, CentOS.
+# Ex: glibc-2.6-3.i386.rpm, glibc-2.6-3.i686.rpm
+# openssl-0.9.8b-12.fc7.i386.rpm, openssl-0.9.8b-12.fc7.i686.rpm
+# openssl-perl is specially for CentOS (4.x).
+i686_pkg_check_list_RH_like="glibc openssl openssl-perl pm-utils libbeagle libbeagle-devel libbeagle-python beagle beagle-evolution beagle-gui"
+
+# DRBL server necessary services checklist, both for RH-like and Debian.
+# list all the possible services, if it exists, will start it.
+# RH-like: dhcpd xinetd portmap iptables ypserv ypbind yppasswdd ypxfrd nfs nfslock nis (Note! Since Fedora Core 7, portmap is replaced by rpcbind)
+# Debian: nfs-common dhcp3-server nis nfs-kernel-server tftpd-hpa drbl-clients-nat inetd (woody). unfs3 is for DRBL Live if it is installed.
+# From Debian Squeeze, isc-dhcp-server is used, no more dhcp3-server (as that in etch, lenny...)
+# Note: nfs-common should be before nfs-kernel-server
+# SuSE: nfsserver instead of nfs (nfs is client server)
+# Mandriva 2008: nfs-server instead of nfs
+# Add :'tftp' for Fedora 21, by Ceasar
 drbl_server_service_chklist="dhcpd dhcp3-server isc-dhcp-server xinetd rpcbind iptables nis ypserv ypbind yppasswdd ypxfrd nfs nfslock rpc-statd statd nfs-common nfs-kernel-server nfs-server unfs3 tftpd-hpa inetd nfsserver SuSEfirewall2_init SuSEfirewall2_setup drbl-clients-nat tftp dnsmasq"
 
-# DRBL Client Services Checklist
+# DRBL client necessary services checklist, both for RH-like and Debian.
+# list the possible services which are necessary for cleitns,
+# we will test all that in RedHat/Fedora/Mandrake/Debian...
+# Note: "nfs" is server in RH, but it's client in SuSE. So we have to add it
+# separately for SuSE.
+# Note: hwscan for suse will be processed later, check the session "# Take care the hardware config files, clean old, make them be detected at boot"
+# For Ubuntu, we add: acpid, acpi-support, and usplash for clients.
+# Note! for OpenSuSE 10.1, we add powersaved resmgr
+# For Fedora 7, we add ConsoleKit, which is necessary for CD/USB stick automount. Sep/12/2008.
+# For Mandriva 2008, we add consolekit, which is necessary for CD/USB stick automount. Oct/10/2008.
+# Note! service network or network-up is not necessary since network is already done in initrd of client.
 client_services_chklist="netfs rpcbind crond nfslock rpc-statd sshd xfs ypbind kudzu harddrake dm alsa sound keytable haldaemon messagebus nis nfs-common makedev ssh dbus-1 hal dbus kbd acpid acpi-support powersaved resmgr usplash gpm ConsoleKit consolekit cups cupsys pcscd cpuspeed abrtd binfmt-support systemd-timesyncd nscd"
 
-# Package Lists for RedHat/Fedora/CentOS
-i686_pkg_check_list_RH_like="glibc openssl openssl-perl pm-utils libbeagle libbeagle-devel libbeagle-python beagle beagle-evolution beagle-gui"
+# dnsmasq_cfg: Path to dnsmasq configuration file
+# Default: /etc/dnsmasq.conf
+dnsmasq_cfg="{{ dnsmasq_cfg | default('/etc/dnsmasq.conf') }}"
+
+# use_existing_dhcp_srv: Whether to use existing DHCP service when only one network interface exists
+# Default: no
+use_existing_dhcp_srv="{{ use_existing_dhcp_srv | default('no') }}"
+
+# necessary packages for DRBL environment,
+# we separate them as RH, MDK, SUSE and Debian
+# //NOTE// Packages lzop ntfsprogs partimage maybe are not included in distribution repository (e.g. CentOS). If so, the backup plan is to use those in drbl repository.
 PKG_FROM_RH="dhcp tftp-server nfs-utils ypserv ypbind yp-tools iptables wget dialog initscripts rsync parted tcpdump bc dos2unix curl lftp openssh-server openssh-clients coreutils gzip bzip2 nc file ethtool net-tools syslinux zip unzip iproute binutils expect lzop ntfsprogs partimage pigz pbzip2 udpcast memtest86+ yum yum-utils ecryptfs-utils shadow-utils ncurses"
 PKG_TO_UNINSTALL_PART1_RH="dhcp tftp-server nfs-utils ypserv ypbind yp-tools dos2unix"
 PKG_TO_UNINSTALL_PART2_RH=""
 
-# Package Lists for Mandriva
 PKG_FROM_MDK="dhcp-server tftp-server nfs-utils ypserv ypbind yp-tools iptables wget cdialog initscripts rsync parted drakxtools pciutils autologin tcpdump bc dos2unix curl lftp openssh-server openssh-clients coreutils gzip bzip2 nc file ethtool net-tools syslinux glibc-i18ndata zip unzip iproute2 binutils expect lzop ntfsprogs partimage pigz pbzip2 udpcast ncurses"
 PKG_TO_UNINSTALL_PART1_MDK="dhcp-server tftp-server nfs-utils ypserv ypbind yp-tools dos2unix"
 PKG_TO_UNINSTALL_PART2_MDK=""
 
-# Package Lists for SuSE
+# The reason we need pbbuttonsd in SuSE is we need "run-parts"
 PKG_FROM_SUSE="dhcp-server tftp nfs-utils ypserv ypbind yp-tools iptables wget dialog rsync parted tcpdump bc dos2unix curl lftp openssh insserv coreutils gzip bzip2 netcat file ethtool netdiag syslinux glibc-i18ndata zip unzip iproute2 pbbuttonsd binutils expect lzop ntfsprogs partimage pigz pbzip2 udpcast memtest86+ ecryptfs-utils"
 PKG_TO_UNINSTALL_SUSE="dhcp-server tftp nfs-utils ypserv ypbind yp-tools ncurses-utils"
 
-# Package Lists for Debian/Ubuntu
-PKG_FROM_DBN_MINIMAL_NEED="util-linux tar gzip bzip2 lzop pigz pbzip2 procps dialog rsync parted pciutils tcpdump bc gawk hdparm sdparm netcat-traditional file ethtool etherwake ssh mtools reiserfsprogs e2fsprogs psmisc locales wget disktype zip unzip patch iproute2 traceroute iputils-ping binutils expect udpcast debconf-utils txt2html dosfstools init ncurses-bin iptables net-tools chntpw curl"
-PKG_FROM_DBN_WHICH_OCS_LIVE_MUST_HAVE="$PKG_FROM_DBN_MINIMAL_NEED perl less ntfs-3g screen tmux whiptail sshfs cifs-utils lftp dhcp*-client$ fbset gddrescue lvm2 xfsprogs xfsdump jfsutils console-setup console-common kbd hfsutils pwgen testdisk tofrodos dvd+rw-tools udftools pcmciautils nfs-common man pppoe pppoeconf ethtool mc wodim lshw efibootmgr lsscsi open-iscsi aoetools mdadm gpm ifupdown usbutils dmidecode mbr wipe hexedit vim lbzip2 lzma xz-utils pixz lzip plzip lrzip bsdmainutils iw w3m smartmontools vmfs-tools dbus dmsetup kpartx wpasupplicant fsarchiver cdrdao bind9-host nano rsyslog fbcat foremost eject gzrt sudo busybox user-setup xorriso btrfs-progs gdisk pcscd dirvish rsnapshot pv dnsutils tree exfatprogs tcplay libdata-validate-ip-perl udisks2 keyutils f2fs-tools lziprecover nwipe lsof htop bcache-tools diskscan fstransform rfkill f2fs-tools ntpsec-ntpdate bindfs zbackup ifenslave ca-certificates s3fs tinc zerofree strace fatresize nilfs-tools fancontrol lm-sensors dos2unix powertop qemu-utils os-prober dislocker ext4magic myrescue p7zip-full sysstat iftop nmap sshpass keychain lighttpd dnsmasq alsa-utils casync hashrat syslinux-common syslinux-efi isolinux pxelinux lz4 zstd haveged network-manager ldmtool nuttcp rdfind hwinfo scdaemon xen-tools uuid-runtime jq jc mutt telnet music123 sound-icons scrub nvme-cli bluetooth bluez bluez-tools mtr-tiny dcfldd iotop pax pmount util-linux-extra libfsapfs-utils usb-modeswitch"
-PKG_FROM_DBN_WHICH_OCS_LIVE_NICE_TO_HAVE="mpg123 partimage ecryptfs-utils ipmitool monitoring-plugins-basic encfs davfs2 partclone-utils console-data bogl-bterm vlan brltty espeakup plocate scsitools blktool safecopy gpart f6calc atop usbtop bashtop python3-psutil vnstat iperf3 glances virt-what ncdu ncdt vifm ytree lfm openfortivpn openconnect wavemon dtrx memtester edac-utils shc uml-utilities ngrep duf duff dfc ufw dvtm dtach zfsutils-linux ntfs2btrfs acpitool pdsh powermgmt-base yq"
+# PKG_FROM_DBN_MINIMAL_NEED are those required packages in Debian Live, DRBL and Clonezilla
+# PKG_FROM_DBN_WHICH_OCS_LIVE_NEED are what we create drbl live and clonezilla live need.
+# PKG_FROM_DBN is those required packages when drbl server is setup ($PKG_FROM_DBN_MINIMAL_NEED is included in $PKG_FROM_DBN).
+# Therefore PKG_FROM_DBN_MINIMAL_NEED is the common one for "Debian Live CD for ocs" and DRBL/Clonezilla
+PKG_FROM_DBN_MINIMAL_NEED="util-linux tar gzip bzip2 lzop pigz pbzip2 procps \
+dialog rsync parted pciutils tcpdump bc gawk hdparm sdparm netcat-traditional file ethtool \
+etherwake ssh mtools \
+reiserfsprogs e2fsprogs psmisc locales wget disktype zip unzip patch iproute2 \
+traceroute iputils-ping binutils expect udpcast debconf-utils \
+txt2html dosfstools init ncurses-bin iptables \
+net-tools chntpw curl"
+# Use dhcp*-client$ for dhcp3-client, dhcp-client, and isc-dhcp-client (yes, debian will select 'dhcp-client' for regex 'dhcp*-client', then select 'isc-dhcp-client' for regex 'dhcp*-client'. With "$" in the end means we do not want "isc-dhcp-client-dbg"
+# We separate PKG_FROM_DBN_WHICH_OCS_LIVE_NEED as PKG_FROM_DBN_WHICH_OCS_LIVE_MUST_HAVE and PKG_FROM_DBN_WHICH_OCS_LIVE_NICE_TO_HAVE so that it's easier to be used in other scenario, like for singularity.
+PKG_FROM_DBN_WHICH_OCS_LIVE_MUST_HAVE="$PKG_FROM_DBN_MINIMAL_NEED perl \
+less ntfs-3g screen tmux whiptail sshfs cifs-utils lftp \
+dhcp*-client$ fbset gddrescue lvm2 xfsprogs xfsdump jfsutils \
+console-setup console-common kbd hfsutils pwgen \
+testdisk tofrodos dvd+rw-tools udftools pcmciautils nfs-common man \
+pppoe pppoeconf ethtool mc wodim lshw efibootmgr \
+lsscsi open-iscsi aoetools mdadm gpm ifupdown usbutils \
+dmidecode mbr wipe hexedit vim lbzip2 lzma xz-utils \
+pixz lzip plzip lrzip bsdmainutils iw w3m smartmontools \
+vmfs-tools dbus dmsetup kpartx wpasupplicant fsarchiver cdrdao \
+bind9-host nano rsyslog fbcat foremost eject gzrt sudo busybox \
+user-setup xorriso btrfs-progs gdisk pcscd \
+dirvish rsnapshot pv dnsutils tree \
+exfatprogs tcplay libdata-validate-ip-perl udisks2 \
+keyutils f2fs-tools lziprecover nwipe lsof htop bcache-tools \
+diskscan fstransform rfkill f2fs-tools \
+ntpsec-ntpdate bindfs zbackup ifenslave ca-certificates s3fs tinc \
+zerofree strace fatresize nilfs-tools fancontrol lm-sensors dos2unix \
+powertop qemu-utils os-prober dislocker ext4magic myrescue p7zip-full \
+sysstat iftop nmap sshpass keychain \
+lighttpd dnsmasq alsa-utils casync hashrat \
+syslinux-common syslinux-efi isolinux pxelinux \
+lz4 zstd haveged network-manager ldmtool \
+nuttcp rdfind hwinfo scdaemon xen-tools uuid-runtime jq jc \
+mutt telnet music123 sound-icons scrub nvme-cli \
+bluetooth bluez bluez-tools mtr-tiny dcfldd iotop pax pmount \
+util-linux-extra libfsapfs-utils usb-modeswitch"
+
+PKG_FROM_DBN_WHICH_OCS_LIVE_NICE_TO_HAVE="mpg123 partimage \
+ecryptfs-utils ipmitool monitoring-plugins-basic encfs \
+davfs2 partclone-utils console-data bogl-bterm vlan \
+brltty espeakup plocate scsitools blktool safecopy gpart f3 ipv6calc \
+atop usbtop bashtop python3-psutil vnstat iperf3 glances virt-what \
+ncdu ncdt vifm ytree lfm openfortivpn openconnect wavemon dtrx \
+memtester edac-utils shc uml-utilities ngrep duf duff dfc ufw \
+dvtm dtach zfsutils-linux ntfs2btrfs acpitool pdsh powermgmt-base yq"
+
 PKG_FROM_DBN_WHICH_OCS_LIVE_NEED="$PKG_FROM_DBN_WHICH_OCS_LIVE_MUST_HAVE $PKG_FROM_DBN_WHICH_OCS_LIVE_NICE_TO_HAVE"
-PKG_FROM_DBN_WHICH_OCS_LIVE_NEED_X86_ONLY="syslinux acpi extlinux syslinux-utils grub-pc grub-efi-amd64-bin mbmon vbetool"
+
+PKG_FROM_DBN_WHICH_OCS_LIVE_NEED_X86_ONLY="syslinux acpi extlinux syslinux-utils \
+grub-pc grub-efi-amd64-bin mbmon vbetool"
 PKG_FROM_DBN_WHICH_OCS_LIVE_NEED_X86_64_ONLY="$PKG_FROM_DBN_WHICH_OCS_LIVE_NEED_X86_ONLY grub-efi-amd64-signed shim-signed"
 PKG_FROM_DBN_WHICH_OCS_LIVE_NEED_ARM64_ONLY="grub-efi-arm64-signed shim-signed"
 PKG_FROM_DBN_WHICH_OCS_LIVE_NEED_ARMHF_ONLY="grub-efi-arm"
@@ -347,86 +386,168 @@ PKG_FROM_DBN="$PKG_FROM_DBN_MINIMAL_NEED tftpd-hpa nfs-kernel-server nis lftp nt
 PKG_TO_UNINSTALL_PART1_DBN="$DHCP_SRV_NAME tftpd-hpa nfs-kernel-server nis"
 PKG_TO_UNINSTALL_PART2_DBN=""
 
-# Packages to query before installation (to avoid aborting apt/yum if missing)
+# Some package we are not sure it exists in repository or not, so query before
+# install it, otherwise such as apt, one package does not exist, all the
+# installation will be aborted.
+# This is only for DRBL and DRBL live, nothing to do with Clonezilla live.
+# PKG_TO_QUERY is for common, and PKG_TO_QUERY_RH is for Redhat-like distributions
+# Add "tftp-server", "iptables-services" for Fedora 21, by Ceasar, 2015/01/14
 PKG_TO_QUERY="mkinitrd initscripts lvm2 ntfs-3g xorriso genisoimage mkisofs lshw hwinfo aoetools dmidecode lzop lzma xz xz-utils pixz lzip pigz pbzip2 lbzip2 plzip lrzip pv hfsutils hfsprogs dmsetup dmraid kpartx device-mapper tofrodos dos2unix unix2dos dhcp3-server isc-dhcp-server gdisk btrfs-progs ufsutils disktype efibootmgr syslinux syslinux-utils tftp-server iptables-services grub-efi-amd64-bin grub-efi-arm64-bin grub-efi-ia32-bin grub2-efi-modules grub2-efi-x64-modules grub2-efi-ia32-modules monitoring-plugins-basic nmap dnsmasq memtest86+ freedos lz4 zstd nscd shim-signed grub-efi-amd64-signed grub-efi-arm64-signed ldmtool ecryptfs-utils partimage thin-provisioning-tools device-mapper-persistent-data nuttcp cryptsetup"
+#
+# By Ceasar (15/12/11, for Fedora 22, dnf install return '1' if any package failed to install , but not in yum )
 PKG_TO_QUERY_RH="dracut firstboot"
 
-# Packages from DRBL repo
+# package from DRBL
+# PKG_FROM_DRBL_FOR_CLONEZILLA_LIVE is the packages which clonezilla live need.
 PKG_FROM_DRBL_FOR_CLONEZILLA_LIVE="clonezilla partclone "
 PKG_FROM_DRBL="$PKG_FROM_DRBL_FOR_CLONEZILLA_LIVE mkpxeinitrd-net ipxe "
 
 # i686 package list for SUSE
+# TODO: make use list_available_rpm to get the lists.
 i686_pkg_check_list_SUSE="glibc glibc-devel db db-devel db41 db41-devel"
 
-# Packages for gparted (Debian)
+# Packages for gparted, this is for Debian.
+# vim-common is for /usr/bin/xdd, which is required for NTFS moves and copies.
 debian_pkgs_for_gparted="gparted hfsutils jfsutils xfsprogs xfsdump reiserfsprogs btrfs-progs parted ntfs-3g dosfstools mtools lvm2 mbr vim-common dmsetup kpartx exfatprogs util-linux-extra"
 
-# NFS Configuration
+# etc_exclude_dirs: Directories in /etc excluded when rsyncing to clients (must end with '/' except trailing)
+# Default: /etc/selinux/targeted/ /etc/netplan
+# NOTE: The template adds a trailing "/" to this variable in the output, so we preserve the schema default without the final slash if it wasn't there, but the script logic expects it.
+etc_exclude_dirs="{{ etc_exclude_dirs | default('/etc/selinux/targeted/ /etc/netplan') | replace('/ ', '/ ') }}"
+
+# symbolic_files_in_var_chklist: Symbolic files in /var to handle specially (space-separated)
+# Default: run lock
+symbolic_files_in_var_chklist="{{ symbolic_files_in_var_chklist | default('run lock') }}"
+
+# The directory with its content that will NOT to be copied to common root's /lib
+# /lib/modules not all copied to /tftpboot/node_root/, since the kernel on the server is not always the same as that on the client. We will let mknic-nbi to take care of this.
+# 2013/06/09 /lib/live/mount is a mounting point for Debian live 3.x. We have to exclude it otherwise the files on DRBL live will be copied, too. Those files are not required for client.
+# NOTE!!! Do not append "/" in the end of the dir name
+lib_NOT_2_be_copied_2_common_root="modules live/mount"
+
+#
+# The directory with its content that will NOT to be copied to common root's /var/lib
+# This is for rsyncing /var/lib/ to /tftpboot/node_root/var/lib/
+# The reason that varlib_NOT_2_be_copied_2_common_root and varlib_NOT_2_be_copied_2_each_client can not share the same is that for some dir, e.g. /var/lib/{rpm,dpkg}, client will mount from /tftpboot/node_root/, so we do not have to waste the space to copy to each client's /var/lib/.
+# NOTE!!! Do not append "/" in the end of the dir name
+varlib_NOT_2_be_copied_2_common_root="tftpboot mysql vmware-server boinc-client/projects hadoop backuppc ntp/proc docker lxcfs"
+
+#
+# The directory with its content that will be copied to common root's /var/cache
+# This is for rsyncing /var/cache/ to /tftpboot/node_root/var/cache/
+# NOTE!!! Do not append "/" in the end of the dir name
+varcache_2_be_copied_2_common_root="debconf sax man"
+
+#
+# The directory with its content that will NOT to be copied to client's /var/lib
+# This is for rsyncing /tftpboot/node_root to /tftpboot/nodes/$IP
+# Ugly here....
+# lib to be copied due to those necessary files for some packages,
+# especially rpm database and alternatives
+# Do NOT copy others if you are not sure, such as /var/lib/nfs will cause
+# nfslock refuse to start...
+# NOTE!!! Do not append "/" in the end of the dir name
+# sax is for SuSE's DRBL firstboot.
+varlib_NOT_2_be_copied_2_each_client="dhcp nfs rpm dpkg apt synaptic yum urpmi snapd"
+# For SuSE, we need to copy /var/X11R6 to clients also. How about /var/adm ?
+
+# set the DIA as dialog, whiptail or xdialog
+if type whiptail >/dev/null 2>&1; then
+  DIA="whiptail"
+else
+  DIA="dialog"
+fi
+
+# Prompt messages preference. Could be "tui" or "cmd" (default)
+# //NOTE// This parameter has been moved to drbl-ocs.conf and renamed as "ocs_prompt_mode"
+# //NOTE// Not all the messages are supported to be shown in dialog/whiptail
+#messages_shown_preference="cmd"
+
+# NFS
+# default ratio for nfsd and total client number, i.e. the nfs daemon number
+# (RPCNFSDCOUNT) running in server = $NFSD_RATIO * total_client_no.
 NFSD_RATIO=2.5
+# The upper limit for NFS daemons
 NFSD_MAX=120
+# Extra options for NFS client in /etc/fstab
 nfs_client_extra_opt=""
 
-# Yum Repository Blacklist
+# Yum repository blacklist, Ex. http://ftp.isu.edu.tw, it uses page by page output, it it NOT compatable with DRBL scripts.
 yum_repo_blacklists="http://ftp.isu.edu.tw"
 
-# DRBL Yum Repo List
+# DRBL yum repo list
 drbl_yum_repo_list="drbl.repo drbl-testing.repo drbl-unstable.repo drbl-extra.repo drbl-legacy.repo"
 
-# RPM MD repository config file path
+# RPM MD repository config file (drbl.repo, drbl-testing.repo, drbl-unstable.repo). This is for OpenSuSE 11.1 or later.
 rpm_md_conf_dir_path="$drbl_setup_path/rpm-md-repos"
 
-# DRBL GDM Greeting Background
+# Set DRBL gdm greeting background for DRBL clients ?
 set_drbl_gdmgreeter="yes"
 
-# Pre/Post Run Directories for drblpush
+# PRE_RUN_DIR and POST_RUN_DIR
+# The script in the direcoty $DRBLPUSH_PRERUN_DIR will be run before drblpush is run, and script in the direcoty $DRBLPUSH_POSTRUN_DIR will be run after it is finished. You need to put your own scripts in those directories if you want to use this.
 DRBLPUSH_PRERUN_DIR="$DRBL_SCRIPT_PATH/prerun/drbl/"
 DRBLPUSH_POSTRUN_DIR="$DRBL_SCRIPT_PATH/postrun/drbl/"
 
-# ==============================================================================
-# Diskless Client Root Directory Structure
-# ==============================================================================
 
-# Necessary directories for mount point (diskless_root_dir_1)
+## drbl client common root dir##
+# WARNING! DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING!
+# diskless_root_dir_1 are those necessary dir for mount point.
+# WARNING! DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING!
 diskless_root_dir_1="home mnt proc tmp usr opt root dev var lib initrd sys snap"
-
-# Necessary directories for mount point (diskless_root_dir_2)
+# diskless_root_dir_2 are those necessary dir for mount point (from drbl.conf), too. These dirs depend on distribution, so we will test it before create it.
+# Add misc net srv on 6/14/2005 for FC4
+# WARNING! DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU ARE DOING!
 diskless_root_dir_2="media misc net srv selinux"
 
-# Memory filesystem directories for RH client fstab
+# If the dir (tmpfs) exists on server's /etc/fstab, append it to client's /etc/fstab:
 memfs_dir_in_rh_client_fstab="/dev/shm /dev/pts /sys /proc"
 
-# Dummy ethernet card port config in client (for RH-like only)
+# dummy ethernet card port config in client (for RH-like only)
+# The dummy files are automatically created by DRBL to avoid to be regenerated.
+# They will be saved to $drblroot/$ip/etc/sysconfig/network-scripts/ifcfg-$ethx
+# Normally 4 NICs will be enough, if you have more NICs in DRBL client, append them.
 dummy_eth_nics="eth0 eth1 eth2 eth3"
 
-# Exclude some network devices which we do not want to be used to connect to DRBL clients
+# Exclude some network devices which we do not want to be used to connect to DRBL clients, e.g. vmnet8, ppp0...
 exclude_eth_nics=""
 
-# User assigned directories for clients
+# diskless_root_dir_ro_user_add and diskless_root_dir_rw_user_add are user assigned directores so that client can see those directories (NFS mounted).
 # diskless_root_dir_ro_user_add is ReadOnly dir for client
-# diskless_root_dir_rw_user_add is ReadWrite dir for client
+# diskless_root_dir_ro_user_add is ReadWrite dir for client
+# Ex: "/data /work", then
+# 1. /tftpboot/node_root/data and /tftpboot/node_root/work will be created (done in drblpush)
+# 2. /data and /work will be exported (/etc/exports) (done in drbl-nfs-exports)
+# 3. client will NFS mount /data (from server) as /data and /work (from server) as /work (/etc/fstab) (done in drbl-gen-client-files)
+# ///Note///
+# (1) You must use the absolute path, for example, in the above example, "/" is necessary for /data.
+# (2) Do not use the dir under /media as mount point to share. /media in client is based on tmpfs, it's created everytime when it boots.
 diskless_root_dir_ro_user_add=""
 diskless_root_dir_rw_user_add=""
 
-# Debian/Ubuntu user group for users created by drbl-useradd
+# Debian/Ubuntu user group to be added for the users created by drbl-useradd
 desktop_user_group_debian="dialout audio cdrom plugdev floppy video"
 
-# Client kernels to exclude (Debian)
+# List the tags about client kernels which will be excluded.
+# //NOTE// This is regular expression syntax.
 drbl_client_debian_exclude_kernels="(-xen|-vserver|-openvz|rt|-dbg|-grsec|-unsigned|-cloud)"
 
-# UEFI network secure boot for clients
+# uEFI network secure boot for clients. This is still in testing.
 secure_boot_client="no"
 
-# ==============================================================================
-# Netinstall Image Settings
-# ==============================================================================
-
-# Turn off BSD netinstall by default
+#####################################
+# GNU/Linux netinstall image settings:
+#####################################
+# This is used in drbl-netinstall
+# Be default, we turn off BSD netinstall. If you want to use BSD netintsall, set this as "yes"
 setup_bsd_netinst="no"
 
 # Debian netinstall
 debian_netinstall_ver="bookworm"
 debian_netinstall_arch="i386 amd64"
+# debian_url_site: Reuses url_prefix
 debian_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to Debian where directory $ver (Ex. etch) exists
 path_to_debian="debian/dists"
 debian_netinstall_kernel="linux"
 debian_netinstall_initrd="initrd.gz"
@@ -434,7 +555,9 @@ debian_netinstall_initrd="initrd.gz"
 # Ubuntu netinstall
 ubuntu_netinstall_ver="focal"
 ubuntu_netinstall_arch="i386 amd64"
+# ubuntu_url_site: Reuses url_prefix
 ubuntu_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to Ubuntu where directory $ver (Ex. dapper) exists
 path_to_ubuntu="ubuntu/dists"
 ubuntu_netinstall_kernel="linux"
 ubuntu_netinstall_initrd="initrd.gz"
@@ -442,7 +565,9 @@ ubuntu_netinstall_initrd="initrd.gz"
 # Fedora netinstall
 fedora_netinstall_ver="41"
 fedora_netinstall_arch="x86_64"
+# fedora_url_site: Reuses url_prefix
 fedora_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to Fedora where directory core or releases exists
 path_to_fedora="fedora/linux"
 fedora_netinstall_kernel="vmlinuz"
 fedora_netinstall_initrd="initrd.img"
@@ -450,15 +575,29 @@ fedora_netinstall_initrd="initrd.img"
 # CentOS netinstall
 centos_netinstall_ver="7 8"
 centos_netinstall_arch="x86_64"
+# centos_url_site: Reuses url_prefix
 centos_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to CentOS where directory $ver (Ex. 4.4) exists
 path_to_centos="centos"
 centos_netinstall_kernel="vmlinuz"
 centos_netinstall_initrd="initrd.img"
 
+# RedHat netinstall
+#redhat_netinstall_ver="8.0 9"
+#redhat_netinstall_arch="i386"
+# redhat_url_site: Reuses url_prefix
+{% if url_prefix is defined and url_prefix is not none %}redhat_url_site="{{ url_prefix }}"{% else %}redhat_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"{% endif %}
+# Path to RedHat where directory $ver (Ex. 9) exists
+#path_to_redhat="redhat/linux"
+#redhat_netinstall_kernel="vmlinuz"
+#redhat_netinstall_initrd="initrd.img"
+
 # Mandriva netinstall
 mandriva_netinstall_ver="2010.0"
 mandriva_netinstall_arch="i586"
+# mandriva_url_site: Reuses url_prefix
 mandriva_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to Mandriva where directory $ver (Ex. 2007.1) exists
 path_to_mandriva="mandrake/official"
 mandriva_netinstall_kernel="vmlinuz"
 mandriva_netinstall_initrd="all.rdz"
@@ -466,7 +605,9 @@ mandriva_netinstall_initrd="all.rdz"
 # Mageia netinstall
 mageia_netinstall_ver="cauldron"
 mageia_netinstall_arch="i586"
+# mageia_url_site: Reuses url_prefix
 mageia_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to Mageia where directory $ver (Ex. cauldron) exists
 path_to_mageia="mageia/distrib"
 mageia_netinstall_kernel="vmlinuz"
 mageia_netinstall_initrd="all.rdz"
@@ -474,35 +615,48 @@ mageia_netinstall_initrd="all.rdz"
 # Scientific netinstall
 scientific_netinstall_ver="7x"
 scientific_netinstall_arch="x86_64"
+# scientific_url_site: Reuses url_prefix
 scientific_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to Scientific where directory $ver (Ex. 50) exists
 path_to_scientific="scientific"
 scientific_netinstall_kernel="vmlinuz"
 scientific_netinstall_initrd="initrd.img"
 
 # OpenSuSE netinstall
+# Note! Works only from 10.1
 opensuse_netinstall_ver="16.0"
 opensuse_netinstall_arch="x86_64"
+# opensuse_url_site: Reuses url_prefix
 opensuse_url_site="{{ url_prefix | default('http://free.nchc.org.tw') }}"
+# Path to OpenSUSE where directory $ver (Ex. 10.2) exists
 path_to_opensuse="opensuse/distribution"
 opensuse_netinstall_kernel="linux"
 opensuse_netinstall_initrd="initrd"
 
 # FreeBSD netinstall
+# Note! Works only for 1 version
+# Ex: ftp://ftp.twaren.net/BSD/FreeBSD/releases/i386/ISO-IMAGES/8.0/8.0-RELEASE-i386-bootonly.iso
 freebsd_netinstall_ver="8.0"
 freebsd_netinstall_arch="i386"
 freebsd_url_site="ftp://ftp.twaren.net"
+# Path to FreeBSD where releases exists
 path_to_freebsd="BSD/FreeBSD/"
 
 # OpenBSD netinstall
+# Note! Works only for 1 version
+# Ex: ftp://ftp.twaren.net/BSD/OpenBSD/4.6/i386/
 openbsd_netinstall_ver="4.6"
 openbsd_netinstall_arch="i386"
 openbsd_url_site="ftp://ftp.twaren.net"
+# Path to OpenBSD where version (e.g. 4.6) exists
 path_to_openbsd="BSD/OpenBSD/"
 
-# DRBL Live Private IP Alias Definition
+# For DRBL live
+# try IP from 192.168."100".254 for alias IP address subnet
 drbl_live_private_IP_alias_eth_def="100"
 
-# SAN booting (AoE/iSCSI booting) settings
+# For SAN booting (AoE/iSCSI booting)
+# Only 1 dir is allowed here, since we will use it as the target dir to dump AoE file by drbl-aoe-img-dump. Later you can use drbl-aoe-srv to assign different image dirs, including multiple dirs
 sanboot_img_dump_dir="/home/sanboot-img"
 aoe_shelf_max="15"
 aoe_slot_max="15"

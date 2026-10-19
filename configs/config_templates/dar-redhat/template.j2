@@ -1,0 +1,188 @@
+#############################################################
+# This is the default system wide configuration file for dar
+#
+# This file provide a set of options referred each by a target
+# name. They are not applied unless you specify that target on
+# command line or included file. For example for par2:
+# dar <...list of options...> par2
+#
+# This options set are available automatically for dar unless
+# you define a .darrc in your home directory or use -N option
+# on command-line.
+# You can continue using this default file even if you use your
+# own .darrc file, by including the following in it or explicitly
+# command-line:
+#
+#     -B /etc/darrc
+#
+# In the following we are using short options here because long
+# options may not be available everywhere.
+
+##############################################################
+# target: par2
+# activates:
+#   - par2 file generation when creating an archive
+#   - par2 file verification and correction when testing an archive
+# usage: dar <options...>  par2
+# Description: Path to the PAR2 default configuration file.
+par2:
+  -B "{{ par2_dcf_path | default('/usr/share/dar/samples/dar_par.dcf') }}"
+
+##############################################################
+# target: compress-exclusion
+# avoid compressing types of file known to already be compressed
+# or to have very bad compression ratio
+#
+# usage: dar <options...> compress-exclusion
+# Description: Enables case-insensitive mode for mask matching.
+compress-exclusion:
+# here we define some files that have not to be compressed.
+# First setting case insensitive mode on:
+{{ compress_exclusion_case_insensitive | default('-an') }}
+# Then telling dar that the following masks are glob expression
+# which is the default, right, but if sooner on command-line the
+# user swapped to regex, the following mask would not work as expected
+# any more, so we force back to glob expression in any case:
+# Description: Forces glob expression mode for masks.
+{{ compress_exclusion_glob_mode | default('-ag') }}
+
+# Now follows all the file specification to never try to compress:
+
+# Compressed video format.
+# Description: List of exclusions for compressed video formats.
+{% for item in compress_exclusion_video_extensions | default(['-Z "*.avi"', '-Z "*.cr2"', '-Z "*.flv"', '-Z "*.jng"', '-Z "*.m4v"', '-Z "*.mkv"', '-Z "*.mov"', '-Z "*.mp4*"', '-Z "*.mpeg"', '-Z "*.mpg"', '-Z "*.oga"', '-Z "*.swf"', '-Z "*.vob"', '-Z "*.webm"', '-Z "*.wmv"']) %}
+{{ item }}
+{% endfor %}
+
+# Compressed animation.
+# Description: List of exclusions for compressed animation formats.
+{% for item in compress_exclusion_animation_extensions | default(['-Z "*.mng"']) %}
+{{ item }}
+{% endfor %}
+
+# Compressed image format.
+# Description: List of exclusions for compressed image formats.
+{% for item in compress_exclusion_image_extensions | default(['-Z "*.bmp"', '-Z "*.gif"', '-Z "*.ico"', '-Z "*.jpe"', '-Z "*.jpeg"', '-Z "*.jpg"', '-Z "*.mmpz"', '-Z "*.mpeg"', '-Z "*.png"', '-Z "*.tif"', '-Z "*.tiff"', '-Z "*.webp"']) %}
+{{ item }}
+{% endfor %}
+
+# Compressed audio format.
+# Description: List of exclusions for compressed audio formats.
+{% for item in compress_exclusion_audio_extensions | default(['-Z "*.ac3"', '-Z "*.als"', '-Z "*.ape"', '-Z "*.bonk"', '-Z "*.flac"', '-Z "*.m4a"', '-Z "*.mp2"', '-Z "*.mp3"', '-Z "*.mpc"', '-Z "*.nsf"', '-Z "*.ogg"', '-Z "*.speex"', '-Z "*.spx"', '-Z "*.weba"', '-Z "*.wv"']) %}
+{{ item }}
+{% endfor %}
+
+# Compressed package.
+# Description: List of exclusions for compressed package formats.
+{% for item in compress_exclusion_package_extensions | default(['-Z "*.deb"', '-Z "*.rpm"', '-Z "*.run"', '-Z "*.sis"', '-Z "*.xpi"']) %}
+{{ item }}
+{% endfor %}
+
+# Compressed data.
+# Description: List of exclusions for compressed data formats.
+{% for item in compress_exclusion_data_extensions | default(['-Z "*.7z"', '-Z "*.Z"', '-Z "*.bz2"', '-Z "*.cab"', '-Z "*.gz"', '-Z "*.jar"', '-Z "*.rar"', '-Z "*.tbz"', '-Z "*.tbz2"', '-Z "*.tgz"', '-Z "*.txz"', '-Z "*.wsz"', '-Z "*.wz"', '-Z "*.xz"', '-Z "*.zst"']) %}
+{{ item }}
+{% endfor %}
+# These are zip files. Not all are compressed, but considering that they can
+# get quite large it is probably more prudent to leave this uncommented.
+# Description: List of exclusions for zip file formats.
+{% for item in compress_exclusion_zip_extensions | default(['-Z "*.pk3"', '-Z "*.zip"']) %}
+{{ item }}
+{% endfor %}
+# You can get better compression on these files, but then you should be
+# de/recompressing with an actual program, not dar.
+# Description: List of exclusions for other specific compressed formats (lz4, zoo).
+{% for item in compress_exclusion_other_extensions | default(['-Z "*.lz4"', '-Z "*.zoo"']) %}
+{{ item }}
+{% endfor %}
+
+# Other, in alphabetical order.
+# Description: List of exclusions for other file types in alphabetical order.
+{% for item in compress_exclusion_other_list_extensions | default(['-Z "*.Po"', '-Z "*.aar"', '-Z "*.bx"', '-Z "*.chm"', '-Z "*.doc"', '-Z "*.epub"', '-Z "*.f3d"', '-Z "*.gpg"', '-Z "*.htmlz"', '-Z "*.iix"', '-Z "*.iso"', '-Z "*.jin"', '-Z "*.ods"', '-Z "*.odt"', '-Z "*.ser"', '-Z "*.svgz"', '-Z "*.swx"', '-Z "*.sxi"', '-Z "*.whl"', '-Z "*.wings"']) %}
+{{ item }}
+{% endfor %}
+
+# These are blender bake files. Compression on these is optional in blender.
+# Blender's compression algorithm is better at compressing these than xz or
+# any other compression program that I have tested.
+# Comment only if you use uncompressed blender bake files.
+# Description: List of exclusions for Blender bake files.
+{% for item in compress_exclusion_blender_extensions | default(['-Z "*.bphys"']) %}
+{{ item }}
+{% endfor %}
+
+# Dar archives (may be compressed).
+# Description: List of exclusions for Dar archive files.
+{% for item in compress_exclusion_dar_extensions | default(['-Z "*.dar"']) %}
+{{ item }}
+{% endfor %}
+
+# Now we swap back to case sensitive mode for masks which is the default
+# mode:
+# Description: Swaps back to case sensitive mode for masks.
+{{ compress_exclusion_case_sensitive | default('-acase') }}
+
+##############################################################
+#  target: verbose
+#  show both skipped files and files being processed
+#
+# usage: dar <options> verbose
+# Description: Option to show both skipped files and files being processed.
+verbose:
+{{ verbose_option | default('-va') }}
+
+
+##############################################################
+# target: no-emacs-backup
+# ignore temporary files or backup files generated by emacs
+#
+# Description: Forces glob expression mode for emacs backup exclusion.
+no-emacs-backup:
+{{ no_emacs_backup_glob | default('-ag') }}
+# Description: Exclude files ending in ~ (emacs backup).
+{{ no_emacs_backup_exclude_tilde | default('-X "*~"') }}
+# Description: Exclude hidden files ending in ~ (emacs backup).
+{{ no_emacs_backup_exclude_dot_tilde | default('-X ".*~"') }}
+
+##############################################################
+# target: samba
+# take care of daylight saving time for the samba file system
+# type
+#
+# Description: Samba file system timestamp handling option.
+samba:
+{{ samba_option | default('-H 1') }}
+# samba file system need this to properly report date
+# and not lead dar to resave all files when changing
+# from summer to winter time and vice versa.
+
+##############################################################
+# target: dry-run
+# an alias for --empty option, that get its name because the
+# only available option letter was 'e' that leads to this non
+# intuitive option name "empty".
+#
+# Description: Option for dry-run (empty) operation.
+dry-run:
+{{ dry_run_option | default('-e') }}
+
+##############################################################
+# target: bell
+# ring the terminal upon user interaction request
+#
+# Description: Option to ring the terminal upon user interaction.
+bell:
+{{ bell_option | default('-b') }}
+
+##############################################################
+# target: full-from-diff
+# rebuilds a full backup from a differential backup and its
+# full backup of reference
+# usage: dar -+ new_full -A old_ref_full -@ diff full-from-diff
+#
+# can also be used to rebuild a full backup from a decremental
+# backup and a full backup
+# usage: dar -+ old_full -A recent_fill -@ decr full-from-diff
+# Description: Option string to rebuild a full backup from differential backup.
+full-from-diff:
+{{ full_from_diff_option | default("-/ '{!(~I)}[Rr] {~S}[O*] P* ; {~s}[*o] *p'") }}

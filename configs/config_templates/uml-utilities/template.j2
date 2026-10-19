@@ -1,22 +1,79 @@
-# UML Switch Configuration
+# ==============================================================================
+# UML (User Mode Linux) Utilities Configuration
+# ==============================================================================
+# This template configures the uml_switch daemon. uml_switch is a user-mode
+# network switch used to connect User Mode Linux instances together or to
+# the host network.
 #
-# This file configures `uml_switch`, a userspace Ethernet switch for User Mode Linux (UML).
-# It controls whether the service starts, how it is invoked, under which user, and where its
-# control socket resides.
-#
+# See /usr/share/doc/uml-utilities/examples/interfaces.example for advanced
+# tap setup configurations.
+# ==============================================================================
 
-# Start uml_switch with SysV/init scripts?
-# Default: false (disabled)
-UML_SWITCH_START="{{ uml_switch_start | default('false') }}"
+# ------------------------------------------------------------------------------
+# UML_SWITCH_START: Enable/Disable Service
+# ------------------------------------------------------------------------------
+# Description: Set to 'true' to enable uml_switch to start with SysV scripts,
+#              or 'false' to prevent it from starting.
+# Default:     "false" (commented out in this template, effectively disabled)
+# ------------------------------------------------------------------------------
+{%- set start_val = uml_switch_start | default('false') %}
+{%- if start_val is defined and start_val is not none and start_val is not boolean and start_val | length > 0 %}
+# Determine the effective boolean/string value for comparison
+{%- if start_val is boolean %}
+{%- set is_active = start_val %}
+{%- else %}
+{# Treat non-empty string as true unless it explicitly says 'false' #}
+{%- set is_active = start_val | lower != 'false' %}
+{%- endif %}
 
-# Options to pass to uml_switch (e.g., tap setup configurations, socket arguments).
-# Default: empty string
-UML_SWITCH_OPTIONS="{{ uml_switch_options | default('') }}"
+{%- if is_active %}
+UML_SWITCH_START="true"
+{%- else %}
+UML_SWITCH_START="false"
+{%- endif %}
+{%- else %}
+# UML_SWITCH_START="false"
+{%- endif %}
 
-# User account under which uml_switch runs.
-# Default: 'uml-net'
-UML_SWITCH_USER="{{ uml_switch_user | default('uml-net') }}"
+# ------------------------------------------------------------------------------
+# UML_SWITCH_OPTIONS: Daemon Options
+# ------------------------------------------------------------------------------
+# Description: Options to pass to uml_switch, e.g., tap setup configurations.
+# Default:     Empty string (no options)
+# ------------------------------------------------------------------------------
+{%- set options_val = uml_switch_options | default('') %}
+{%- if options_val is defined and options_val is not none and options_val | trim | length > 0 %}
+UML_SWITCH_OPTIONS="{{ options_val }}"
+{%- else %}
+# UML_SWITCH_OPTIONS="-tap tap0"
+{%- endif %}
 
-# Path to the control socket file for uml_switch.
-# Default: /var/run/uml-utilities/uml_switch.ctl
-UML_SWITCH_CTL="{{ uml_switch_ctl | default('/var/run/uml-utilities/uml_switch.ctl') }}"
+# ------------------------------------------------------------------------------
+# UML_SWITCH_USER: Run-as User
+# ------------------------------------------------------------------------------
+# Description: User account under which uml_switch runs.
+#              If empty, the daemon may run as root (default behavior of some
+#              init systems) or a predefined user if specified by distribution
+#              defaults.
+# Default:     "" (empty)
+# ------------------------------------------------------------------------------
+{%- set user_val = uml_switch_user | default('') %}
+{%- if user_val is defined and user_val is not none and user_val | trim | length > 0 %}
+UML_SWITCH_USER="{{ user_val }}"
+{%- else %}
+# UML_SWITCH_USER=""
+{%- endif %}
+
+# ------------------------------------------------------------------------------
+# UML_SWITCH_CTL: Control Socket Path
+# ------------------------------------------------------------------------------
+# Description: Path to the control socket file for uml_switch.
+#              This socket is used to send management commands to the switch.
+# Default:     "/var/run/uml-utilities/uml_switch.ctl"
+# ------------------------------------------------------------------------------
+{%- set ctl_val = uml_switch_ctl | default('/var/run/uml-utilities/uml_switch.ctl') %}
+{%- if ctl_val is defined and ctl_val is not none and ctl_val | trim | length > 0 %}
+UML_SWITCH_CTL="{{ ctl_val }}"
+{%- else %}
+UML_SWITCH_CTL="/var/run/uml-utilities/uml_switch.ctl"
+{%- endif %}

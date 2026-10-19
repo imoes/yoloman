@@ -1,9 +1,10 @@
-# === Ayatana Indicator Display Desktop Entry Template ===
-# Self-documenting Jinja2 template for generating a .desktop file for the Ayatana Indicator Display service.
-# This template ensures all fields have safe defaults and are clearly described.
+# Desktop Entry for Ayatana Indicator Display
+# This file generates a .desktop file to register the application entry in the system menu.
+# It ensures the service is only shown on compatible desktop environments and is not displayed
+# in standard application menus (NoDisplay=true).
 
 [Desktop Entry]
-# Standard desktop entry type; identifies this as an application launcher.
+# Standard desktop entry type
 Type=Application
 
 # The display name for the application entry.
@@ -15,17 +16,20 @@ Name={{ name | default('Ayatana Indicator Display') }}
 Exec={{ exec_path | default('/usr/libexec/ayatana-indicator-display/ayatana-indicator-display-service') }}
 
 # Semicolon-separated list of desktop environments where this application should be shown.
-# Default: ['Unity', 'MATE', 'XFCE', 'Budgie', 'GNOME']
-OnlyShowIn={{ only_show_in | default(['Unity', 'MATE', 'XFCE', 'Budgie', 'GNOME']) | join(';') }}
+# Default: 'Unity;MATE;XFCE;Budgie:GNOME;'
+OnlyShowIn={{ only_show_in | default('Unity;MATE;XFCE;Budgie:GNOME;') }}
 
 # Whether to hide the application from menus.
-# Default: True
-NoDisplay={{ nodisplay | default(True) | lower }}
+# Since this is a background indicator service, it should typically be hidden.
+# Default: 'true'
+NoDisplay={{ nodisplay | default('true') }}
 
 # Whether to show a startup notification when the application is launched.
-# Default: False
-StartupNotify={{ startup_notify | default(False) | lower }}
+# Background services usually do not need user-facing startup notifications.
+# Default: 'false'
+StartupNotify={{ startup_notify | default('false') }}
 
 # Whether the application runs in a terminal window.
-# Default: False
-Terminal={{ terminal | default(False) | lower }}
+# GUI indicator services run in the background, so this is false.
+# Default: 'false'
+Terminal={{ terminal | default('false') }}

@@ -1,0 +1,105 @@
+# ==============================================================================
+# openNDS Captive Portal Configuration
+# ==============================================================================
+# This is the legacy configuration file and is currently used by all non-OpenWrt installations.
+# It is deprecated and will be replaced by the UCI style configuration file as used in OpenWrt in a future release.
+# For details of possible options, please see the OpenWrt UCI config file or the documentation at:
+# https://opennds.readthedocs.io/
+# ==============================================================================
+
+# The "#" character at the beginning of a line indicates that the whole line is a comment.
+# "#" characters within a line are assumed to be part of the configured option
+
+# ==============================================================================
+# GatewayName
+# The name of the gateway displayed on the splash page.
+# ==============================================================================
+# Default: openNDS
+{% set gw_name = gateway_name | default('openNDS') %}
+GatewayName {{ gw_name }}
+
+# ==============================================================================
+# GatewayInterface
+# The network interface managed by openNDS.
+# Set GatewayInterface to the interface on your router that is to be managed by openNDS.
+# The selected interface must be allocated an IPv4 address.
+# Typically on OpenWrt it is br-lan for the wired and wireless lan combined in a bridge.
+# On generic Linux though, it might be wlan0 or eth0.
+# ==============================================================================
+{% set gw_iface = gateway_interface | default('') %}
+{% if gw_iface | length > 0 %}
+GatewayInterface {{ gw_iface }}
+{% else %}
+# GatewayInterface <interface>
+# Note: GatewayInterface is currently empty. Ensure it is set to the correct LAN interface (e.g., br-lan, eth0).
+{% endif %}
+
+# ==============================================================================
+# LoginOptionEnabled
+# Login mode: 1 (Click to Continue), 2 (Username/Email), 3 (Custom Theme).
+# Integer value sent to PreAuth script as login mode.
+#
+# 1 - Default Dynamic Click to Continue splash sequence
+# 2 - Username/Emailaddress Dynamic Login
+# 3 - Use ThemeSpecPath to select a custom ThemeSpec file
+# ==============================================================================
+{% set login_opt = login_option_enabled | default('1') %}
+LoginOptionEnabled {{ login_opt }}
+
+# ==============================================================================
+# UseOutdatedMHD
+# Use outdated libmicrohttpd.
+# 0 (default) terminates if MHD < 0.9.71.
+# 1 attempts start with error if MHD is outdated (may be unstable or fail entirely).
+# Warning: It is better to upgrade MHD rather than using this option.
+# ==============================================================================
+{% set outdated_mhd = use_outdated_mhd | default('0') %}
+UseOutdatedMHD {{ outdated_mhd }}
+
+# ==============================================================================
+# FirewallRules
+# Firewall configuration for openNDS captive portal behavior.
+# ==============================================================================
+
+# FirewallRuleSet: authenticated-users
+# Control access for users after authentication.
+FirewallRuleSet authenticated-users {
+    # Allow all authenticated users to pass through
+    FirewallRule passthrough all
+}
+
+# FirewallRuleSet: preauthenticated-users
+# Control access for users BEFORE authentication.
+# Usually restricted to DNS, DHCP, and HTTP/HTTPS to the gateway for login.
+FirewallRuleSet preauthenticated-users {
+    # Allow DNS resolution (required for captive portal detection and domain lookup)
+    FirewallRule allow udp port 53
+    FirewallRule allow tcp port 53
+
+    # Allow DHCP (if clients need IP leases via this router)
+    FirewallRule allow udp port 67
+
+    # Allow HTTP/HTTPS to the gateway itself for the splash page
+    FirewallRule allow tcp port 80
+    FirewallRule allow tcp port 443
+}
+
+# FirewallRuleSet: users-to-router
+# Control access to the router itself from the GatewayInterface.
+# Essential - Allow ports for DNS and DHCP (disabling these will soft brick your router).
+# Also allows SSH and Web UI for administration.
+FirewallRuleSet users-to-router {
+    # DNS
+    FirewallRule allow udp port 53
+    FirewallRule allow tcp port 53
+
+    # DHCP
+    FirewallRule allow udp port 67
+
+    # Administration (SSH and Web Interface)
+    # Uncomment below if you want users on the captive portal interface to be able to
+    # manage the router before or after authentication.
+    FirewallRule allow tcp port 22
+    FirewallRule allow tcp port 80
+    FirewallRule allow tcp port 443
+}

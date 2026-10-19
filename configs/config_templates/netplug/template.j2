@@ -1,120 +1,71 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          netplug
-# Required-Start:    $local_fs
-# Required-Stop:    $local_fs
-# Should-Start:      $network $syslog
-# Should-Stop:       $network $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Brings up/down network automatically
-# Description:       Brings networks interfaces up and down automatically when
-#                    the cable is removed / inserted
-### END INIT INFO
+#!/bin/sh
+#
+# netplug - policy agent for netplugd
+#
+# This script is managed by Ansible. Do not edit manually.
+# It serves as the default handler script for netplugd, invoked when
+# interface link state changes occur (plug/unplug/probe).
+#
+# Copyright 2003 Key Research, Inc.
+# Licensed under GNU GPL v2.
 
-PATH=/usr/sbin:/sbin:/usr/bin:/bin
-DAEMON=/usr/sbin/netplugd
-NAME=netplugd
-DESC="network plug daemon"
-PIDFILE=/var/run/$NAME.pid
+# Path to standard utilities for the netplugd environment
+# The netplugd daemon may not inherit a full PATH from the login shell.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
 
-# Global script path to run for *all* interfaces (used when per-interface scripts are omitted).
-# Default: '' (empty string, meaning no global script is executed)
-DEFAULT_SCRIPT={{ default_script | default('') }}
+# --- Arguments provided by netplugd ---
+# $1: The interface name (e.g., eth0)
+# $2: The action type (in, out, probe)
+dev="$1"
+action="$2"
 
-# Seconds to wait after a link change before considering the link stable and triggering scripts.
-# Default: 2
-LINK_STABLE_DELAY={{ link_stable_delay | default(2) }}
+# --- Configuration Defaults from Schema ---
+# These variables are not used in the logic below but represent the
+# global configuration context for netplugd. The actual script logic
+# here is hardcoded to use standard tools (ifup/ifdown/ip).
+# If you need to use `default_script` or `script_timeout`, you must
+# invoke netplugd with the appropriate command-line flags or configure
+# the daemon globally, as this specific policy script is a simple
+# case-statement dispatcher.
+#
+# default_script: "{{ default_script | default('') }}"
+# link_stable_delay: "{{ link_stable_delay | default(2) }}"
+# script_timeout: "{{ script_timeout | default(30) }}"
+# interfaces: "{{ interfaces | default([]) }}"
 
-# Maximum seconds to wait for a script to finish before sending SIGKILL.
-# Default: 30
-SCRIPT_TIMEOUT={{ script_timeout | default(30) }}
-
-# List of network interfaces to monitor for link state changes (e.g., ['eth0', 'wlan0']).
-# Default: [] (empty list, meaning no specific interfaces are configured, likely relying on defaults)
-interfaces={{ interfaces | default([]) | join(" ") }}
-
-test -x "$DAEMON" || exit 0
-
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
-
-do_start () {
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
-		--exec "$DAEMON" --test >/dev/null || return 1
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
-		--exec "$DAEMON" -- -p "$PIDFILE" -l "$LINK_STABLE_DELAY" -t "$SCRIPT_TIMEOUT" ${DEFAULT_SCRIPT:+-s "$DEFAULT_SCRIPT"} ${interfaces:+-i "$interfaces"} >/dev/null || return 2
-}
-
-do_stop () {
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	local RETVAL
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile "$PIDFILE" --name "$NAME"
-	RETVAL="$?"
-	[ "$RETVAL" = 2 ] && return 2
-	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec "$DAEMON"
-	[ "$?" = 2 ] && return 2
-	return "$RETVAL"
-}
-
-
-case "$1" in
-start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
-	do_start
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-status)
-	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-	;;
-restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case "$?" in
-	0|1)
-		sleep 1
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	*)
-		# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
+case "$action" in
+in)
+    # Action: Interface plugged in (link established)
+    # Try to bring the interface up using the system's ifup command.
+    if [ -x /sbin/ifup ]; then
+        # Use exec to replace the shell process with ifup
+        exec /sbin/ifup "$dev"
+    else
+        echo "Please teach me how to plug in an interface!" 1>&2
+        exit 1
+    fi
+    ;;
+out)
+    # Action: Interface unplugged (link lost)
+    # Try to bring the interface down using the system's ifdown command.
+    if [ -x /sbin/ifdown ]; then
+        # Note: Some systems may require flushing addresses (ip addr flush)
+        # after ifdown, but this is often handled by ifdown itself or network managers.
+        exec /sbin/ifdown "$dev"
+    else
+        echo "Please teach me how to unplug an interface!" 1>&2
+        exit 1
+    fi
+    ;;
+probe)
+    # Action: Probe requested
+    # Force the interface up to check link state or initialize it.
+    exec ip link set "$dev" up >/dev/null 2>&1
+    ;;
 *)
-	N=/etc/init.d/"$NAME"
-	echo "Usage: $N {start|stop|status|restart|force-reload}" >&2
-	exit 3
-	;;
+    # Action: Unknown/Invalid
+    echo "I have been called with a funny action of '${action}'!" 1>&2
+    exit 1
+    ;;
 esac
-
-exit 0
-# vim:set ft=sh sw=4 ts=4:

@@ -100,24 +100,24 @@ up() {
     fi
   done < <(dhcp_settings)
 
-  if [[ "${#dns_servers[*]}" -gt 0 ]]; then #}
+  if [[ "${{ '{#' }}dns_servers[*]}" -gt 0 ]]; then
     busctl_params=("$if_index" "$dns_server_count" "${dns_servers[@]}")
     info "SetLinkDNS(${busctl_params[*]})"
     busctl_call SetLinkDNS 'ia(iay)' "${busctl_params[@]}" || return $?
   fi
 
-  if [[ "${#dns_domain[*]}" -gt 0 \
-     || "${#dns_search[*]}" -gt 0 \
-     || "${#dns_routed[*]}" -gt 0 ]]; then
+  if [[ "${{ '{#' }}dns_domain[*]}" -gt 0 \
+     || "${{ '{#' }}dns_search[*]}" -gt 0 \
+     || "${{ '{#' }}dns_routed[*]}" -gt 0 ]]; then
     dns_count=$((dns_domain_count+dns_search_count+dns_routed_count))
     busctl_params=("$if_index" "$dns_count")
-    if [[ "${#dns_domain[*]}" -gt 0 ]]; then
+    if [[ "${{ '{#' }}dns_domain[*]}" -gt 0 ]]; then
       busctl_params+=("${dns_domain[@]}")
     fi
-    if [[ "${#dns_search[*]}" -gt 0 ]]; then
+    if [[ "${{ '{#' }}dns_search[*]}" -gt 0 ]]; then
       busctl_params+=("${dns_search[@]}")
     fi
-    if [[ "${#dns_routed[*]}" -gt 0 ]]; then
+    if [[ "${{ '{#' }}dns_routed[*]}" -gt 0 ]]; then
       busctl_params+=("${dns_routed[@]}")
     fi
     info "SetLinkDomains(${busctl_params[*]})"
@@ -172,14 +172,14 @@ process_dns6() {
 looks_like_ipv4() {
   [[ -n "$1" ]] && {
     local dots="${1//[^.]}"
-    (( ${#dots} == 3 ))
+    (( ${{ '{#' }}dots} == 3 ))
   }
 }
 
 looks_like_ipv6() {
   [[ -n "$1" ]] && {
     local colons="${1//[^:]}"
-    (( ${#colons} >= 2 ))
+    (( ${{ '{#' }}colons} >= 2 ))
   }
 }
 
@@ -224,7 +224,7 @@ parse_ipv6() {
 
   IFS=$':' read -r -a raw_segments <<<"$raw_address"
 
-  local -i raw_length="${#raw_segments[@]}"
+  local -i raw_length="${{ '{#' }}raw_segments[@]}"
 
   if (( raw_length > length )); then
     log_invalid_ipv6 "expected ${length} segments, got ${raw_length}"
@@ -279,13 +279,13 @@ parse_ipv6() {
   done
 
   if [[ "$raw_address" == *::* ]]; then
-    if (( ${#tokenized_segments[*]} == length )); then
+    if (( ${{ '{#' }}tokenized_segments[*]} == length )); then
       log_invalid_ipv6 "single '0' fields should not be compressed"
       return 1
     else
       local -i largest_run_i=0 largest_run=0
 
-      for (( i = 0 ; i < ${#tokenized_segments[@]}; i ++ )); do
+      for (( i = 0 ; i < ${{ '{#' }}tokenized_segments[@]}; i ++ )); do
         # Skip groups that aren't zero-runs
         [[ "${tokenized_segments[i]:0:1}" == "$nonzero_prefix" ]] && continue
 
@@ -309,7 +309,7 @@ parse_ipv6() {
 
   for segment in "${tokenized_segments[@]}"; do
     if [[ "${segment:0:1}" == "$nonzero_prefix" ]]; then
-      printf -- '%04x\n' "${segment#${nonzero_prefix}}"
+      printf -- '%04x\n' "${segment#${nonzero_prefix{{ '}}' }}"
     else
       for (( n = 0 ; n < segment ; n++ )); do
         echo 0000

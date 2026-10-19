@@ -45,7 +45,7 @@ ovs-vsctl add-br {{ ovs_bridge_name | default('br0') }} -- set Bridge {{ ovs_bri
 ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} type={% if ovs_bridge_type | default('system') == 'dpdk' %}dpdk{% else %}system{% endif %}
 
 # Key-value pairs to set as open_vswitch external_ids (e.g., 'system-id', 'hostname').
-{% for key, value in external_ids | default({}) | dict2items %}
+{% for key, value in external_ids | default({}) | dictsort %}
 ovs-vsctl set open_vswitch . external_ids:{{ key }}="{{ value | default('') }}"
 {% endfor %}
 

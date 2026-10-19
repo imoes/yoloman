@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Khmer OS Muol Fonts Configuration
+    ----------------------------------
+    This template configures Fontconfig (fontconfig.org) to use the
+    'Khmer OS Muol' font family for the Khmer locale (km). It handles:
+    1. Alias definitions (mapping generic names to specific families).
+    2. Locale-specific overrides (forcing Khmer fonts for monospace when lang=km).
+    3. Scan match edits (correcting font metadata during font scanning).
+  -->
+
+  <!-- Generic names aliasing -->
+  <alias>
+    <!-- Primary family name for the main Khmer font -->
+    <family>{{ primary_family | default('Khmer OS Muol') }}</family>
+    <default>
+      <!-- Default fallback for this alias -->
+      <family>monospace</family>
+    </default>
+  </alias>
+  <alias>
+    <!-- Secondary family name (e.g., Light variant) -->
+    <family>{{ secondary_family | default('Khmer OS Muol Light') }}</family>
+    <default>
+      <!-- Default fallback for this alias -->
+      <family>monospace</family>
+    </default>
+  </alias>
+
+  <!-- Locale-specific overrides -->
+  <!--
+    Rule: When the document language contains the locale code 'km',
+    prepend the primary Khmer font to monospace families.
+  -->
+  <match>
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+    <test name="family">
+      <string>monospace</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <string>{{ primary_family | default('Khmer OS Muol') }}</string>
+    </edit>
+  </match>
+
+  <!--
+    Rule: When the document language contains the locale code 'km',
+    prepend the secondary Khmer font (Light) to monospace families.
+  -->
+  <match>
+    <test name="lang" compare="contains">
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+    <test name="family">
+      <string>monospace</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <string>{{ secondary_family | default('Khmer OS Muol Light') }}</string>
+    </edit>
+  </match>
+
+  <!-- Scan match edit -->
+  <!--
+    Rule: During font scanning, if the font matches the secondary family
+    and style 'Regular', rename the family to the primary family variant
+    and adjust the style and weight.
+  -->
+  <match target="scan">
+    <test name="fullname">
+      <string>{{ secondary_family | default('Khmer OS Muol Light') }}</string>
+    </test>
+    <test name="family">
+      <string>{{ secondary_family | default('Khmer OS Muol Light') }}</string>
+    </test>
+    <test name="style">
+      <string>Regular</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <string>{{ primary_family_no_trailing_space | default('Khmer OS Muol ') }}</string>
+    </edit>
+    <edit name="style" mode="prepend">
+      <string>{{ secondary_style | default('Light') }}</string>
+    </edit>
+    <edit name="weight">
+      <!-- Font weight value (integer) for the secondary family -->
+      <int>{{ weight_value | default('50') }}</int>
+    </edit>
+  </match>
+</fontconfig>

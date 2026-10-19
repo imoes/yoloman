@@ -1,0 +1,59 @@
+# ALSA Sample Rate Conversion Plugin Configuration
+# Managed by Ansible for package: alsa-plugins-samplerate-redhat
+#
+# This template generates an ALSA configuration snippet for the `samplerate` rate conversion plugin.
+# It defines a PCM (P CM) device that intercepts audio playback/capture and resamples it to
+# the desired rate using the specified converter algorithm.
+
+pcm.samplerate {
+	# Arguments for the rate converter plugin: SLAVE (device), RATE (Hz), CONVERTER (algo)
+	@args [ SLAVE RATE CONVERTER ]
+
+	# The ALSA PCM device to slave to for rate conversion.
+	# Default: 'plug:hw' (automatically selects hardware with format/rate conversion)
+	@args.SLAVE {
+		type string
+		# {{ slave | default('plug:hw') }}
+		default "{{ slave | default('plug:hw') }}"
+	}
+
+	# The sample rate for the rate conversion plugin, in Hz.
+	# Default: 48000
+	@args.RATE {
+		type integer
+		# {{ rate | default(48000) }}
+		default {{ rate | default(48000) }}
+	}
+
+	# The converter algorithm to use (e.g., samplerate, speex).
+	# Default: 'samplerate'
+	@args.CONVERTER {
+		type string
+		# {{ converter | default('samplerate') }}
+		default "{{ converter | default('samplerate') }}"
+	}
+
+	type rate
+
+	# The converter algorithm instance name.
+	# Uses the CONVERTER argument value.
+	converter $CONVERTER
+
+	slave {
+		# The slave PCM device name.
+		# Uses the SLAVE argument value.
+		pcm $SLAVE
+
+		# The slave sample rate.
+		# Uses the RATE argument value.
+		rate $RATE
+	}
+
+	hint {
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+                description "Rate Converter Plugin Using Samplerate Library"
+	}
+}

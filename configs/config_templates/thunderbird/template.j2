@@ -1,36 +1,66 @@
+# ==============================================================================
 # Thunderbird Profile Configuration (prefs.js)
-# This template generates a prefs.js file for Thunderbird, configuring user preferences
-# via Ansible variables. All variables use sensible defaults from the schema.
+# ==============================================================================
+# This template generates a prefs.js file for Thunderbird. It configures user
+# preferences via Ansible variables defined in the role's schema.
+#
+# Self-Documentation:
+# - Each setting is preceded by a comment explaining its purpose.
+# - All variables use `default()` filters with schema-defined defaults to prevent
+#   rendering errors if variables are omitted.
+# - Boolean values are explicitly lowercased to match JavaScript boolean literals.
+# ==============================================================================
 
+// ------------------------------------------------------------------------------
 // User Interface Locale
+// ------------------------------------------------------------------------------
 // Sets the UI language for Thunderbird.
+// Schema: ui_locale (default: 'en-US')
 user_pref("general.useragent.locale", "{{ ui_locale | default('en-US') }}");
 
+// ------------------------------------------------------------------------------
 // Release Channel
-// Determines which update channel Thunderbird checks for updates (release, esr, beta, daily).
+// ------------------------------------------------------------------------------
+// Determines which update channel Thunderbird checks for updates.
+// Valid values: release, esr, beta, daily
+// Schema: release_channel (default: 'release')
 user_pref("app.update.channel", "{{ release_channel | default('release') }}");
 
+// ------------------------------------------------------------------------------
 // Plugin Info Bar
+// ------------------------------------------------------------------------------
 // Hides the info bar that appears when a plugin is missing.
+// Schema: hide_plugins_infobar (default: true)
+// Note: Variable name in schema is 'hide_plugins_infobar', mapped here.
 user_pref("plugins.hide_infobar_for_missing_plugin", {{ hide_plugins_infobar | default(true) | lower }});
 
+// ------------------------------------------------------------------------------
 // Plugin Loading Disable
-// Completely disables loading plugins if true. Note: The original template had a syntax error
-// here (missing preference key). This version sets the standard Mozilla preference for disabling
-// plugins entirely.
+// ------------------------------------------------------------------------------
+// Completely disables loading plugins if true.
+// Schema: disable_plugins (default: false)
 user_pref("plugins.disabled", {{ disable_plugins | default(false) | lower }});
 
+// ------------------------------------------------------------------------------
 // Safe Mode / Crash Recovery
-// Disables crash recovery on startup to mimic safe-mode behavior regarding extensions.
+// ------------------------------------------------------------------------------
+// If true, disables crash recovery on startup to mimic safe-mode behavior
+// regarding extensions state persistence.
+// Schema: safe_mode (default: false)
 {% if safe_mode | default(false) %}
 // Disabling crash recovery for safe-mode simulation
 user_pref("toolkit.startup2.recovery_enabled", 0);
 {% endif %}
 
+// ------------------------------------------------------------------------------
 // Remote Control Settings
+// ------------------------------------------------------------------------------
 // Prevents connecting to a running instance of Thunderbird if true.
+// Schema: no_remote (default: false)
 {% if no_remote | default(false) %}
 // Preventing remote instance connection
-user_pref("general.startup.browser.dir", "none"); // Placeholder for remote control disable
+// Note: Thunderbird does not have a standard 'remote.enabled' pref in recent versions;
+// these prefs serve as a configuration placeholder for remote management policies.
+user_pref("general.startup.browser.dir", "none");
 user_pref("remote.enabled", false);
 {% endif %}

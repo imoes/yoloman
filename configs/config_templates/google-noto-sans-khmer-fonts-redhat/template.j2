@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Google Noto Sans Khmer (Red Hat variant).
+  This file configures Fontconfig to:
+  1. Substitute specific language-specific fonts when a generic family is requested.
+  2. Provide an alias mapping the specific font to a generic family for legacy applications.
+-->
+<fontconfig>
+  <!--
+    Rule 1: Language-based substitution.
+    When an application requests the generic family specified in `target_family`
+    for a document containing the language code specified in `lang_code`,
+    prepend `font_family` to the list of available fonts.
+  -->
+  <match>
+    <!--
+      Test: Check if the document language contains the target language code.
+      Schema field: lang_code
+      Default: 'km' (Khmer)
+    -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('km') }}</string>
+    </test>
+
+    <!--
+      Test: Check if the requested generic font family matches.
+      Schema field: target_family
+      Default: 'sans-serif'
+    -->
+    <test name="family">
+      <string>{{ target_family | default('sans-serif') }}</string>
+    </test>
+
+    <!--
+      Action: Prepend the specific Noto font to the font list.
+      Schema field: font_family
+      Default: 'Noto Sans Khmer'
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Khmer') }}</string>
+    </edit>
+  </match>
+
+  <!--
+    Rule 2: Alias mapping.
+    Maps the specific font family to the generic family so that
+    applications explicitly requesting the generic family can find
+    the specific font if the generic one is not available.
+  -->
+  <alias>
+    <!--
+      The specific font family to alias.
+      Schema field: font_family
+      Default: 'Noto Sans Khmer'
+    -->
+    <family>{{ font_family | default('Noto Sans Khmer') }}</family>
+
+    <default>
+      <!--
+        The generic family this font should map to.
+        Schema field: target_family
+        Default: 'sans-serif'
+      -->
+      <family>{{ target_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Rule 3: Font hinting preference.
+    Appends a boolean value to the font hash hinting settings.
+    Note: 'fonthashint' is not a standard Fontconfig edit target for global hinting;
+    this appears to be a specific configuration for this font package's internal caching/hinting.
+    Schema field: font_hinting
+    Default: 'false'
+  -->
+  <edit name="fonthashint" mode="append">
+    <bool>{{ font_hinting | default(false) }}</bool>
+  </edit>
+</fontconfig>

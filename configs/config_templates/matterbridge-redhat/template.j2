@@ -1,0 +1,215 @@
+# ============================================================================
+# matterbridge-redhat Configuration Template
+# ============================================================================
+# This template generates the configuration file for `matterbridge`.
+# It uses an INI-style format with sections for global settings, accounts,
+# and gateways (bridges between accounts).
+#
+# Self-documentation guide:
+# - [global]: Top-level settings.
+# - [accounts]: Definitions of chat services (Mattermost, Slack, etc.).
+# - [gateways]: Rules defining how messages flow between accounts.
+# ============================================================================
+
+[global]
+
+# Loglevel: 0-9 (0=debug, 9=emergency). Default is 5.
+# Sets the verbosity of the matterbridge log output.
+LogLevel={{ (matterbridge_config | default({})).LogLevel | default(5) }}
+
+# Logdir: Directory where log files are stored.
+# Only used if Logtype is set to file.
+# LogDir={{ (matterbridge_config | default({})).LogDir | default('/var/log/matterbridge') }}
+
+# Logfilename: Name of the log file.
+# Only used if Logtype is set to file.
+# LogFileName={{ (matterbridge_config | default({})).LogFileName | default('matterbridge.log') }}
+
+# LogToStderr: If true, logs are sent to stderr instead of a file.
+# LogToStderr={{ (matterbridge_config | default({})).LogToStderr | default(false) }}
+
+# ListenAddr: Address for the HTTP admin API listener.
+# Set to an empty string to disable the admin API.
+# ListenAddr={{ (matterbridge_config | default({})).ListenAddr | default('') }}
+
+# UpstreamDelay: Time in milliseconds to wait before sending a message.
+# Useful to avoid rate limits on some services.
+# UpstreamDelay={{ (matterbridge_config | default({})).UpstreamDelay | default(0) }}
+
+# MessageDelay: Time in milliseconds to wait between sending messages.
+# MessageDelay={{ (matterbridge_config | default({})).MessageDelay | default(0) }}
+
+# EditDelay: Time in milliseconds to wait before sending an edited message.
+# EditDelay={{ (matterbridge_config | default({})).EditDelay | default(1000) }}
+
+# SendTimestampt: If true, send a timestamp with each message.
+# SendTimestampt={{ (matterbridge_config | default({})).SendTimestampt | default(false) }}
+
+# TimestampFormat: Format for timestamps when SendTimestampt is true.
+# TimestampFormat={{ (matterbridge_config | default({})).TimestampFormat | default('2006-01-02 15:04:05') }}
+
+# LogDownload: If true, log when messages are downloaded.
+# LogDownload={{ (matterbridge_config | default({})).LogDownload | default(false) }}
+
+# RemoteEditMsg: If true, allow editing messages on remote services that support it.
+# RemoteEditMsg={{ (matterbridge_config | default({})).RemoteEditMsg | default(false) }}
+
+# RemoteEditMsgKeepTimestamp: If true, keep the original timestamp when editing remotely.
+# RemoteEditMsgKeepTimestamp={{ (matterbridge_config | default({})).RemoteEditMsgKeepTimestamp | default(false) }}
+
+# AntiSpam: Configuration for basic anti-spam measures.
+# AntiSpam={{ (matterbridge_config | default({})).AntiSpam | default({}) }}
+
+# AntiSpam.MaxRetries: Maximum number of retries for a message.
+# AntiSpam.MaxRetries={{ ((matterbridge_config | default({})).AntiSpam | default({})).MaxRetries | default(3) }}
+
+# AntiSpam.RetryWaitTime: Wait time in seconds between retries.
+# AntiSpam.RetryWaitTime={{ ((matterbridge_config | default({})).AntiSpam | default({})).RetryWaitTime | default(60) }}
+
+# AntiSpam.MaxTraffic: Maximum traffic in MB per hour per account.
+# AntiSpam.MaxTraffic={{ ((matterbridge_config | default({})).AntiSpam | default({})).MaxTraffic | default('50MB') }}
+
+# PrefixMessagesWithHost: If true, prepend the sender's host name to messages.
+# PrefixMessagesWithHost={{ (matterbridge_config | default({})).PrefixMessagesWithHost | default(false) }}
+
+# ShowJoinPart: If true, show join/part messages.
+# ShowJoinPart={{ (matterbridge_config | default({})).ShowJoinPart | default(false) }}
+
+# ShowTopicChange: If true, show topic change messages.
+# ShowTopicChange={{ (matterbridge_config | default({})).ShowTopicChange | default(false) }}
+
+# ShowTimestamp: If true, show message timestamps in the chat.
+# ShowTimestamp={{ (matterbridge_config | default({})).ShowTimestamp | default(false) }}
+
+# TimestampLayout: Layout for timestamps shown in chat.
+# TimestampLayout={{ (matterbridge_config | default({})).TimestampLayout | default('2006-01-02 15:04:05') }}
+
+# StripNicknames: If true, strip nicknames from messages in some protocols.
+# StripNicknames={{ (matterbridge_config | default({})).StripNicknames | default(false) }}
+
+# InsecureSkipVerify: If true, skip TLS certificate verification.
+# InsecureSkipVerify={{ (matterbridge_config | default({})).InsecureSkipVerify | default(false) }}
+
+# RateLimitBurst: Burst size for rate limiting.
+# RateLimitBurst={{ (matterbridge_config | default({})).RateLimitBurst | default(1) }}
+
+# RateLimitSecs: Seconds per rate limit bucket.
+# RateLimitSecs={{ (matterbridge_config | default({})).RateLimitSecs | default(1) }}
+
+# MediaDownloadFolder: Folder to store downloaded media files.
+# MediaDownloadFolder={{ (matterbridge_config | default({})).MediaDownloadFolder | default('./downloads') }}
+
+# MediaDownloadSize: Maximum size of media to download (e.g. 5MB).
+# MediaDownloadSize={{ (matterbridge_config | default({})).MediaDownloadSize | default('5MB') }}
+
+# MediaDownloadConcurrency: Number of concurrent media downloads.
+# MediaDownloadConcurrency={{ (matterbridge_config | default({})).MediaDownloadConcurrency | default(4) }}
+
+# MediaDownloadTimeout: Timeout for media downloads in seconds.
+# MediaDownloadTimeout={{ (matterbridge_config | default({})).MediaDownloadTimeout | default(60) }}
+
+# MediaDownloadRetry: If true, retry failed media downloads.
+# MediaDownloadRetry={{ (matterbridge_config | default({})).MediaDownloadRetry | default(false) }}
+
+# MediaDownloadRetryCount: Number of retries for media downloads.
+# MediaDownloadRetryCount={{ (matterbridge_config | default({})).MediaDownloadRetryCount | default(3) }}
+
+# MediaDownloadRetryWaitTime: Wait time in seconds between media download retries.
+# MediaDownloadRetryWaitTime={{ (matterbridge_config | default({})).MediaDownloadRetryWaitTime | default(10) }}
+
+# MediaDownloadProxy: Proxy URL for media downloads.
+# MediaDownloadProxy={{ (matterbridge_config | default({})).MediaDownloadProxy | default('') }}
+
+# MediaDownloadUserAgent: User agent for media downloads.
+# MediaDownloadUserAgent={{ (matterbridge_config | default({})).MediaDownloadUserAgent | default('matterbridge') }}
+
+# MediaDownloadAccept: List of file extensions to accept for media downloads.
+# MediaDownloadAccept={{ (matterbridge_config | default({})).MediaDownloadAccept | default(['jpg', 'jpeg', 'png', 'gif', 'mp3', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'ogg', 'ogv', 'opus']) }}
+
+# MediaDownloadExclude: List of file extensions to exclude from media downloads.
+# MediaDownloadExclude={{ (matterbridge_config | default({})).MediaDownloadExclude | default([]) }}
+
+# MediaDownloadIgnoreError: If true, ignore errors during media download.
+# MediaDownloadIgnoreError={{ (matterbridge_config | default({})).MediaDownloadIgnoreError | default(false) }}
+
+# MediaDownloadKeepOriginalName: If true, keep the original filename for downloaded media.
+# MediaDownloadKeepOriginalName={{ (matterbridge_config | default({})).MediaDownloadKeepOriginalName | default(false) }}
+
+# MediaDownloadRename: Rename downloaded media files.
+# MediaDownloadRename={{ (matterbridge_config | default({})).MediaDownloadRename | default(false) }}
+
+# MediaDownloadRenameFormat: Format for renaming downloaded media files.
+# MediaDownloadRenameFormat={{ (matterbridge_config | default({})).MediaDownloadRenameFormat | default('') }}
+
+# MediaDownloadRenameIgnoreError: If true, ignore errors during media renaming.
+# MediaDownloadRenameIgnoreError={{ (matterbridge_config | default({})).MediaDownloadRenameIgnoreError | default(false) }}
+
+# MediaDownloadRenameRetry: If true, retry failed media renaming.
+# MediaDownloadRenameRetry={{ (matterbridge_config | default({})).MediaDownloadRenameRetry | default(false) }}
+
+# MediaDownloadRenameRetryCount: Number of retries for media renaming.
+# MediaDownloadRenameRetryCount={{ (matterbridge_config | default({})).MediaDownloadRenameRetryCount | default(3) }}
+
+# MediaDownloadRenameWaitTime: Wait time in seconds between media rename retries.
+# MediaDownloadRenameWaitTime={{ (matterbridge_config | default({})).MediaDownloadRenameWaitTime | default(10) }}
+
+# MediaDownloadRenameProxy: Proxy URL for media renaming.
+# MediaDownloadRenameProxy={{ (matterbridge_config | default({})).MediaDownloadRenameProxy | default('') }}
+
+# MediaDownloadRenameUserAgent: User agent for media renaming.
+# MediaDownloadRenameUserAgent={{ (matterbridge_config | default({})).MediaDownloadRenameUserAgent | default('matterbridge') }}
+
+# MediaDownloadRenameAccept: List of file extensions to accept for media renaming.
+# MediaDownloadRenameAccept={{ (matterbridge_config | default({})).MediaDownloadRenameAccept | default(['jpg', 'jpeg', 'png', 'gif', 'mp3', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'ogg', 'ogv', 'opus']) }}
+
+# MediaDownloadRenameExclude: List of file extensions to exclude from media renaming.
+# MediaDownloadRenameExclude={{ (matterbridge_config | default({})).MediaDownloadRenameExclude | default([]) }}
+
+# MediaDownloadRenameIgnoreError: If true, ignore errors during media renaming.
+# MediaDownloadRenameIgnoreError={{ (matterbridge_config | default({})).MediaDownloadRenameIgnoreError | default(false) }}
+
+# MediaDownloadRenameRetry: If true, retry failed media renaming.
+# MediaDownloadRenameRetry={{ (matterbridge_config | default({})).MediaDownloadRenameRetry | default(false) }}
+
+# MediaDownloadRenameRetryCount: Number of retries for media renaming.
+# MediaDownloadRenameRetryCount={{ (matterbridge_config | default({})).MediaDownloadRenameRetryCount | default(3) }}
+
+# MediaDownloadRenameWaitTime: Wait time in seconds between media rename retries.
+# MediaDownloadRenameWaitTime={{ (matterbridge_config | default({})).MediaDownloadRenameWaitTime | default(10) }}
+
+# MediaDownloadRenameProxy: Proxy URL for media renaming.
+# MediaDownloadRenameProxy={{ (matterbridge_config | default({})).MediaDownloadRenameProxy | default('') }}
+
+# MediaDownloadRenameUserAgent: User agent for media renaming.
+# MediaDownloadRenameUserAgent={{ (matterbridge_config | default({})).MediaDownloadRenameUserAgent | default('matterbridge') }}
+
+[accounts]
+# ============================================================================
+# Account Configurations
+# ============================================================================
+# Each block defines a connection to a chat service.
+# The key in brackets (e.g. [mattermost.local]) is the account identifier.
+# Fields include:
+# - Login: Username for the service.
+# - Password: Password for the service.
+# - Server: Server URL or address.
+# - Port: Port number for the connection.
+# - Token: Authentication token (e.g. for Slack or Discord).
+#
+# This variable (`accounts`) contains the raw INI text for all accounts.
+{{ accounts | default('[mattermost.local]\nLogin="user"\nPassword="password"\nServer="localhost"\nPort="8080"\n\n[slack.local]\nToken="xoxb-example-token"') }}
+
+[gateways]
+# ============================================================================
+# Gateway Configurations
+# ============================================================================
+# Each block defines a bridge between two accounts.
+# The key in brackets (e.g. [mattermost.local-slack.local]) identifies the gateway.
+# Fields include:
+# - Account: The local account identifier.
+# - Channel: The local channel name.
+# - RemoteAccount: The remote account identifier.
+# - RemoteChannel: The remote channel name.
+#
+# This variable (`gateways`) contains the raw INI text for all gateways.
+{{ gateways | default('[mattermost.local-slack.local]\nAccount=mattermost.local\nChannel=somechannel\nRemoteAccount=slack.local\nRemoteChannel=somechannel') }}

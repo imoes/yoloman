@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+    <!--
+        ZBar D-Bus Service Configuration
+        ==================================
+        This file configures the D-Bus access policies for the ZBar barcode scanning service.
+        It grants the service ownership of its bus name and allows other clients to interact
+        with its specific interfaces.
+    -->
+
+    <!-- Default policy block: defines rules for all messages on this bus -->
+    <policy context="default">
+        
+        <!-- Allow the service to own its specific bus name -->
+        <!-- Field: zbar_bus_name (default: 'org.linuxtv.Zbar') -->
+        <!-- The D-Bus bus name owned by the ZBar service. -->
+        <allow own="{{ zbar_bus_name | default('org.linuxtv.Zbar') }}"/>
+
+        <!-- Allow messages sent to the service's bus name -->
+        <!-- Field: zbar_bus_name (default: 'org.linuxtv.Zbar') -->
+        <allow send_destination="{{ zbar_bus_name | default('org.linuxtv.Zbar') }}"/>
+
+        <!-- Allow clients to call code-reading methods -->
+        <!-- Field: zbar_code_interface (default: 'org.linuxtv.Zbar1.Code') -->
+        <!-- The D-Bus interface for ZBar code reading methods. -->
+        <allow send_destination="{{ zbar_bus_name | default('org.linuxtv.Zbar') }}"
+               send_interface="{{ zbar_code_interface | default('org.linuxtv.Zbar1.Code') }}"/>
+
+        <!-- Allow clients to get/set properties via the standard interface -->
+        <!-- Field: zbar_properties_interface (default: 'org.freedesktop.DBus.Properties') -->
+        <!-- The standard D-Bus interface for properties. -->
+        <allow send_destination="{{ zbar_bus_name | default('org.linuxtv.Zbar') }}"
+               send_interface="{{ zbar_properties_interface | default('org.freedesktop.DBus.Properties') }}"/>
+
+        <!-- Allow clients to introspect the service's methods and interfaces -->
+        <!-- Field: zbar_introspectable_interface (default: 'org.freedesktop.DBus.Introspectable') -->
+        <!-- The standard D-Bus interface for introspection. -->
+        <allow send_destination="{{ zbar_bus_name | default('org.linuxtv.Zbar') }}"
+               send_interface="{{ zbar_introspectable_interface | default('org.freedesktop.DBus.Introspectable') }}"/>
+        
+    </policy>
+</busconfig>

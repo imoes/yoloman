@@ -1,14 +1,31 @@
-# Configuration for DEP-11 HiDPI Icon Acquisition via APT
-# This file controls the download of large (HiDPI) icons for software
-# centers like GNOME Software and Plasma Discover.
+# ==============================================================================
+# APT Configuration: DEP-11 HiDPI Icons
+# ==============================================================================
+# This file configures APT to download larger, HiDPI-compatible icons for
+# software centers like GNOME Software and Plasma Discover.
+#
+# Schema Fields:
+#   - icon_size: Pixel dimension of icons (e.g., '128' for 128x128px)
+#   - default_enabled: Whether to enable DEP-11 HiDPI icon downloads by default
+#
+# ==============================================================================
 
-# Pixel dimension of icons (e.g., '128' for 128x128px)
-# Default: 128
+{#
+# Set the icon size description.
+# If icon_size is not provided or is empty/null, defaults to '128'.
+# The output format is "128x128px".
+#}
+This file enables the download of {{ (icon_size | default('128')) | string }}x{{ (icon_size | default('128')) | string }}px icons
+
+## suitable for HiDPI displays for use in software
+## centers like GNOME Software and Plasma Discover.
+
 Acquire::IndexTargets {
-    deb::DEP-11-icons-hidpi {
-        # Whether to enable DEP-11 HiDPI icon downloads by default
-        # Valid values: "true" or "false" (string type required for APT config)
-        # Default: true
+    deb::DEP-11-icons-hidpi  {
+        {#
+        # DefaultEnabled: Controls whether DEP-11 HiDPI icons are downloaded.
+        # Must be a string 'true' or 'false' for APT configuration.
+        #}
         DefaultEnabled "{{ default_enabled | default('true') }}";
     };
 };

@@ -12,6 +12,7 @@ import { ChatPlanGraphComponent } from './chat-plan-graph.component';
 import { ChatFormComponent } from './chat-form.component';
 import { ChatTaskComponent } from './chat-task.component';
 import { plantumlToGraph } from './plantuml-graph';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 const WIDGET_TYPES: WidgetType[] = [
   'top_hosts', 'problems', 'gauge', 'timeseries', 'donut', 'stat',
@@ -41,7 +42,7 @@ const BACKEND_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-chat-dock',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent, ChatFormComponent, ChatTaskComponent],
+  imports: [BlockedReasonDirective, MatIconModule, MatButtonModule, MatProgressSpinnerModule, DashboardWidgetComponent, ChatPlanGraphComponent, ChatFormComponent, ChatTaskComponent],
   template: `
     <div class="bm-dock" [class.bm-dock-collapsed]="!open()" [class.bm-dock-max]="maximized() && open()" [style.height.px]="open() && !maximized() ? height() : null">
       <div class="bm-dock-resize" (mousedown)="startResize($event)"></div>
@@ -51,7 +52,7 @@ const BACKEND_LABELS: Record<string, string> = {
         </button>
         <mat-icon class="bm-dock-icon">smart_toy</mat-icon>
         <span class="bm-dock-title">Assistant</span>
-        <select class="bm-dock-backend" [value]="backend()" (change)="onBackendChange($any($event.target).value)" [disabled]="streaming()">
+        <select class="bm-dock-backend" aria-label="Chat backend" [value]="backend()" (change)="onBackendChange($any($event.target).value)" [disabled]="streaming()">
           @for (b of visibleBackends(); track b) { <option [value]="b">{{ label(b) }}</option> }
         </select>
         <span class="bm-dock-spacer"></span>
@@ -143,7 +144,7 @@ const BACKEND_LABELS: Record<string, string> = {
               @if (claudeLogin(); as c) {
                 <span>Open <a [href]="c.authorize_url" target="_blank" rel="noopener">the Claude authorize page</a>, then paste the code:</span>
                 <input class="bm-login-input" type="text" [value]="claudeCode()" (input)="claudeCode.set($any($event.target).value)" placeholder="code#state" />
-                <button mat-stroked-button (click)="completeClaudeLogin()" [disabled]="loginBusy() || !claudeCode().trim()">Complete</button>
+                <button mat-stroked-button (click)="completeClaudeLogin()" [disabled]="loginBusy()" [bmBlocked]="!claudeCode().trim() ? 'Paste the code from the login page first' : ''">Complete</button>
               } @else {
                 <button mat-flat-button color="primary" (click)="startClaudeLogin()" [disabled]="loginBusy()">Log in with Claude</button>
               }
@@ -163,7 +164,7 @@ const BACKEND_LABELS: Record<string, string> = {
           @if (streaming()) {
             <button type="button" mat-stroked-button (click)="stop()">Stop</button>
           } @else {
-            <button type="submit" mat-flat-button color="primary" [disabled]="!input().trim() || needsAuth()">Send</button>
+            <button type="submit" mat-flat-button color="primary" [bmBlocked]="needsAuth() ? 'Log in to this backend first' : !input().trim() ? 'Type a message first' : ''" bmBlockedMode="tip">Send</button>
           }
         </form>
       }

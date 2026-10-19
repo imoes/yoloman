@@ -1,7 +1,7 @@
 [Journal]
 # Where to store journal data: 'auto', 'persistent', 'volatile', or 'none'
 # Defaults to 'auto' (systemd decides based on /var/log/journal existence).
-Storage={{ storage | default('auto') }}
+{% if storage is defined and storage is not none and (storage is number or storage is boolean or storage | length > 0) %}Storage={{ storage | default('auto') }}{% else %}#Storage=auto{% endif %}
 
 # Directory where journal files are stored.
 # Only applies if Storage=persistent. If empty, systemd uses default paths.
@@ -10,64 +10,64 @@ RuntimeDirectory={{ runtime_directory | default('') }}
 
 # Maximum disk space to use for system journal files.
 # Defaults to 100M.
-SystemMaxUse={{ system_max_use | default('100M') }}
+{% if system_max_use is defined and system_max_use is not none and (system_max_use is number or system_max_use is boolean or system_max_use | length > 0) %}SystemMaxUse={{ system_max_use | default('100M') }}{% else %}#SystemMaxUse={% endif %}
 
 # Minimum free disk space to preserve on the system partition.
 # Defaults to 10%.
-SystemKeepFree={{ system_keep_free | default('10%') }}
+{% if system_keep_free is defined and system_keep_free is not none and (system_keep_free is number or system_keep_free is boolean or system_keep_free | length > 0) %}SystemKeepFree={{ system_keep_free | default('10%') }}{% else %}#SystemKeepFree={% endif %}
 
 # Maximum size per system journal file.
 # Defaults to 10G.
-SystemMaxFileSize={{ system_max_file_size | default('10G') }}
+{% if system_max_file_size is defined and system_max_file_size is not none and (system_max_file_size is number or system_max_file_size is boolean or system_max_file_size | length > 0) %}SystemMaxFileSize={{ system_max_file_size | default('10G') }}{% else %}#SystemMaxFileSize={% endif %}
 
 # Maximum number of system journal files to keep (0 = unlimited).
 # Defaults to 0.
-SystemMaxFiles={{ system_max_files | default(0) }}
+{% if system_max_files is defined and system_max_files is not none and (system_max_files is number or system_max_files is boolean or system_max_files | length > 0) %}SystemMaxFiles={{ system_max_files | default(0) }}{% else %}#SystemMaxFiles=100{% endif %}
 
 # Maximum disk space to use for runtime journal files.
 # Defaults to 10%.
-RuntimeMaxUse={{ runtime_max_use | default('10%') }}
+{% if runtime_max_use is defined and runtime_max_use is not none and (runtime_max_use is number or runtime_max_use is boolean or runtime_max_use | length > 0) %}RuntimeMaxUse={{ runtime_max_use | default('10%') }}{% else %}#RuntimeMaxUse={% endif %}
 
 # Minimum free space to preserve on /run.
 # Defaults to 15%.
-RuntimeKeepFree={{ runtime_keep_free | default('15%') }}
+{% if runtime_keep_free is defined and runtime_keep_free is not none and (runtime_keep_free is number or runtime_keep_free is boolean or runtime_keep_free | length > 0) %}RuntimeKeepFree={{ runtime_keep_free | default('15%') }}{% else %}#RuntimeKeepFree={% endif %}
 
 # Maximum size per runtime journal file.
 # Defaults to 1G.
-RuntimeMaxFileSize={{ runtime_max_file_size | default('1G') }}
+{% if runtime_max_file_size is defined and runtime_max_file_size is not none and (runtime_max_file_size is number or runtime_max_file_size is boolean or runtime_max_file_size | length > 0) %}RuntimeMaxFileSize={{ runtime_max_file_size | default('1G') }}{% else %}#RuntimeMaxFileSize={% endif %}
 
 # Maximum number of runtime journal files to keep (0 = unlimited).
 # Defaults to 0.
-RuntimeMaxFiles={{ runtime_max_files | default(0) }}
+{% if runtime_max_files is defined and runtime_max_files is not none and (runtime_max_files is number or runtime_max_files is boolean or runtime_max_files | length > 0) %}RuntimeMaxFiles={{ runtime_max_files | default(0) }}{% else %}#RuntimeMaxFiles=100{% endif %}
 
 # Maximum time to retain journal files (e.g., '3days', '6months').
 # Defaults to 2weeks.
-MaxFileSec={{ max_file_sec | default('2weeks') }}
+{% if max_file_sec is defined and max_file_sec is not none and (max_file_sec is number or max_file_sec is boolean or max_file_sec | length > 0) %}MaxFileSec={{ max_file_sec | default('2weeks') }}{% else %}#MaxFileSec=1month{% endif %}
 
 # Maximum age of journal entries overall.
 # Defaults to 1month.
-MaxRetentionSec={{ max_retention_sec | default('1month') }}
+{% if max_retention_sec is defined and max_retention_sec is not none and (max_retention_sec is number or max_retention_sec is boolean or max_retention_sec | length > 0) %}MaxRetentionSec={{ max_retention_sec | default('1month') }}{% else %}#MaxRetentionSec=0{% endif %}
 
 # Whether to compress archived journal files.
 # Defaults to True.
-Compress={{ compress | default(True) | lower }}
+{% if compress is defined and compress is not none and (compress is number or compress is boolean or compress | length > 0) %}Compress={{ compress | default(True) | lower }}{% else %}#Compress=yes{% endif %}
 
 # How often to sync journal data to disk (in seconds).
 # 0 means default behavior.
 # Defaults to 0.
-SyncIntervalSec={{ sync_interval_sec | default(0) }}
+{% if sync_interval_sec is defined and sync_interval_sec is not none and (sync_interval_sec is number or sync_interval_sec is boolean or sync_interval_sec | length > 0) %}SyncIntervalSec={{ sync_interval_sec | default(0) }}{% else %}#SyncIntervalSec=5m{% endif %}
 
 # Time window for rate limiting (seconds).
 # Defaults to 30.
-RateLimitIntervalSec={{ rate_limit_interval_sec | default(30) }}
+{% if rate_limit_interval_sec is defined and rate_limit_interval_sec is not none and (rate_limit_interval_sec is number or rate_limit_interval_sec is boolean or rate_limit_interval_sec | length > 0) %}RateLimitIntervalSec={{ rate_limit_interval_sec | default(30) }}{% else %}#RateLimitIntervalSec=30s{% endif %}
 
 # Maximum messages allowed per rate limit interval.
 # Defaults to 10000.
-RateLimitBurst={{ rate_limit_burst | default(10000) }}
+{% if rate_limit_burst is defined and rate_limit_burst is not none and (rate_limit_burst is number or rate_limit_burst is boolean or rate_limit_burst | length > 0) %}RateLimitBurst={{ rate_limit_burst | default(10000) }}{% else %}#RateLimitBurst=10000{% endif %}
 
 # Forward journal entries to the system syslog daemon.
 # Defaults to False.
-ForwardToSyslog={{ forward_to_syslog | default(False) | lower }}
+{% if forward_to_syslog is defined and forward_to_syslog is not none and (forward_to_syslog is number or forward_to_syslog is boolean or forward_to_syslog | length > 0) %}ForwardToSyslog={{ forward_to_syslog | default(False) | lower }}{% else %}#ForwardToSyslog=no{% endif %}
 
 # Path to the syslog socket for forwarding.
 # Defaults to /run/systemd/journal/syslog.
@@ -75,11 +75,11 @@ SyslogSocket={{ syslog_socket | default('/run/systemd/journal/syslog') }}
 
 # Forward journal entries to kernel ring buffer.
 # Defaults to False.
-ForwardToKMsg={{ forward_to_kmsg | default(False) | lower }}
+{% if forward_to_kmsg is defined and forward_to_kmsg is not none and (forward_to_kmsg is number or forward_to_kmsg is boolean or forward_to_kmsg | length > 0) %}ForwardToKMsg={{ forward_to_kmsg | default(False) | lower }}{% else %}#ForwardToKMsg=no{% endif %}
 
 # Forward journal entries to console.
 # Defaults to False.
-ForwardToConsole={{ forward_to_console | default(False) | lower }}
+{% if forward_to_console is defined and forward_to_console is not none and (forward_to_console is number or forward_to_console is boolean or forward_to_console | length > 0) %}ForwardToConsole={{ forward_to_console | default(False) | lower }}{% else %}#ForwardToConsole=no{% endif %}
 
 # Format of console output: 'auto', 'verbose', 'short', etc.
 # Defaults to verbose.
@@ -95,11 +95,11 @@ ShowBootId={{ show_boot_id | default(True) | lower }}
 
 # Maximum log level to store (e.g., 'debug', 'info', 'warning').
 # Defaults to info.
-MaxLevelStore={{ max_level_store | default('info') }}
+{% if max_level_store is defined and max_level_store is not none and (max_level_store is number or max_level_store is boolean or max_level_store | length > 0) %}MaxLevelStore={{ max_level_store | default('info') }}{% else %}#MaxLevelStore=debug{% endif %}
 
 # Enable journal sealing (requires hardware security module).
 # Defaults to False.
-Seal={{ seal | default(False) | lower }}
+{% if seal is defined and seal is not none and (seal is number or seal is boolean or seal | length > 0) %}Seal={{ seal | default(False) | lower }}{% else %}#Seal=yes{% endif %}
 
 # Enable header checksums for integrity verification.
 # Defaults to False.
@@ -127,7 +127,7 @@ RemoteSyslogHost={{ server | lower }}
 
 # Enable audit logging to the journal.
 # Defaults to False.
-Audit={{ audit | default(False) | lower }}
+{% if audit is defined and audit is not none and (audit is number or audit is boolean or audit | length > 0) %}Audit={{ audit | default(False) | lower }}{% else %}#Audit=yes{% endif %}
 
 # Log kernel messages to the journal.
 # Defaults to True.

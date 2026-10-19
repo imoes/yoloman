@@ -1,0 +1,19 @@
+# Composer initialization script for C shell (csh/tcsh)
+#
+# This script modifies the PATH variable to include the directory where
+# Composer global packages install their binaries. This ensures that
+# globally installed tools (like phpunit, phpcs, etc.) are available
+# in the shell session without needing to specify the full path.
+
+# Add path to commands installed using "composer global require ..."
+# Logic: Only modify PATH if the current user has root privileges (euid > 0)
+#         AND the Composer bin directory is not already present in the PATH.
+# This prevents duplicate entries and unnecessary modifications for standard users.
+if ( ${euid} > 0 ) then
+  # Check if the Composer global bin directory is already in the PATH list
+  if ( "${path}" !~ *${HOME}/{{ composer_global_bin_dir | default('.composer/vendor/bin') }}* ) then
+    # Prepend the Composer global bin directory to the PATH
+    # Using shell variable expansion: $path is the current path list
+    set path = ( $path ${HOME}/{{ composer_global_bin_dir | default('.composer/vendor/bin') }} )
+  endif
+endif

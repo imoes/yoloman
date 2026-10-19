@@ -1,102 +1,66 @@
-#! /bin/sh
-#
-# boxbackup-server: LSB-compliant init script for the BoxBackup backup storage daemon.
-# This template is self-documenting; every variable usage is annotated with its schema
-# description and a safe default fallback.
-#
-### BEGIN INIT INFO
-# Provides: {{ init_provides | default('boxbackup-server') }}
-# Short-Description: {{ short_description | default('boxbackup server') }}
-# Description: {{ desc | default('boxbackup-server') }}
-# Required-Start:  $syslog $remote_fs $network
-# Required-Stop: $syslog $remote_fs $network
-# Default-Start: 2 3 4 5
-# Default-Stop: 0 1 6
-### END INIT INFO
+# BoxBackup Server (bbstored) Configuration Template
+# This template generates the configuration/log-format for the BoxBackup storage daemon.
+# It defines process IDs for various daemon components and network settings for incoming client connections.
 
-. /lib/lsb/init-functions
+# ==============================================================================
+# Housekeeping Process Configuration
+# ==============================================================================
 
-# Standard PATH for system daemons
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
+# Housekeeping: Starting message
+# Uses the housekeeping process ID to identify the specific daemon instance.
+bbstored/hk{{ hk_process_id | default('\\[.*\\]') }}: Starting housekeeping
 
-# DAEMON: Path to the bbstored executable
-DAEMON=/usr/sbin/{{ name | default('bbstored') }}
+# Housekeeping: Finished message
+# Uses the housekeeping process ID to identify the specific daemon instance.
+bbstored/hk{{ hk_process_id | default('\\[.*\\]') }}: Finished housekeeping
 
-# NAME: Base name used for PID files and identification
-NAME={{ name | default('bbstored') }}
+# Housekeeping: Started message
+# Uses the housekeeping process ID to identify the specific daemon instance.
+bbstored/hk{{ hk_process_id | default('\\[.*\\]') }}: Housekeeping process started
 
-# DESC: Human-readable long description for logging/status output
-DESC={{ desc | default('boxbackup-server') }}
+# ==============================================================================
+# Main Daemon Configuration
+# ==============================================================================
 
-# CONF: Path to the main bbstored configuration file
-CONF={{ conf_path | default('/etc/boxbackup/bbstored.conf') }}
+# Daemon: Starting message
+# Uses the main daemon process ID to identify the primary service instance.
+bbstored{{ daemon_process_id | default('\\[.*\\]') }}: Starting daemon
 
-# Check if the daemon binary exists; if not, exit gracefully
-test -f $DAEMON || exit 0
+# Daemon: Terminating message
+# Uses the main daemon process ID to identify the primary service instance.
+bbstored{{ daemon_process_id | default('\\[.*\\]') }}: Terminating daemon
 
-# Check if the configuration file exists; if not, exit gracefully
-test -f $CONF || exit 0
+# ==============================================================================
+# Connection and Network Configuration
+# ==============================================================================
 
-# Extract the PidFile path from the configuration file.
-# Uses grep/sed to parse 'PidFile = /path/to/file'.
-# If the variable is empty after extraction, it falls back to the configured default path.
-PIDFILE=`grep 'PidFile' $CONF | sed 's/[[:space:]]*PidFile[[:space:]]*=[[:space:]]*\(\/[A-Za-z0-9/]*/\)/\1/'`
-[ -z "$PIDFILE" ] && PIDFILE="{{ default_pidfile_path | default('/var/run/bbstored.pid') }}"
+# Connection: Incoming connection log
+# Logs the remote client address, port, and the child PID handling the connection.
+# remote_addr: The IP address of the connecting client.
+# remote_port: The source port of the connecting client.
+# child_pid: The ID of the child process created to handle this specific connection.
+bbstored{{ connection_process_id | default('9012') }}: Incoming connection from{{ remote_addr | default('192.168.1.100') }}:{{ remote_port | default('49152') }} (handling in child {{ child_pid | default('1111') }})
 
-# Extract the CertificateFile path from the configuration file.
-# The daemon requires a valid certificate to run.
-CERTFILE=`grep 'CertificateFile' $CONF | sed 's/[[:space:]]*CertificateFile[[:space:]]*=[[:space:]]*\(\/[A-Za-z0-9/]*/\)/\1/'`
+# ==============================================================================
+# SSL/TLS and Authentication Configuration
+# ==============================================================================
 
-# Don't start if certificate file is not present
-[ ! -e "$CERTFILE" ] && exit 0
+# Daemon: Certificate Common Name verification
+# Displays the Common Name (CN) from the SSL certificate presented during connection.
+# cert_cn: The CN field of the server's certificate.
+bbstored{{ daemon_process_id | default('\\[.*\\]') }}: Certificate CN: {{ cert_cn | default('bbstored.example.com') }}
 
-set -e
+# Authentication: Login event
+# Records the client ID associated with an authentication event.
+# auth_process_id: The process ID responsible for handling authentication logic.
+# client_id: The unique identifier of the client attempting to log in.
+bbstored{{ auth_process_id | default('3333') }}: Login: {{ client_id | default('client1') }}
 
-case "$1" in
-  start)
-	echo -n "Starting $DESC: "
-	start-stop-daemon --start --quiet --pidfile $PIDFILE \
-		--exec $DAEMON -- $CONF
-	echo "$NAME."
-	;;
-  stop)
-	echo -n "Stopping $DESC: "
-	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
-		--exec $DAEMON
-	echo "$NAME."
-	;;
-  #reload)
-	#
-	#	If the daemon can reload its config files on the fly
-	#	for example by sending it SIGHUP, do it here.
-	#
-	#	If the daemon responds to changes in its config file
-	#	directly anyway, make this a do-nothing entry.
-	#
-	# echo "Reloading $DESC configuration files."
-	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
-	# 	/var/run/$NAME.pid --exec $DAEMON
-  #;;
-  restart|force-reload)
-	#
-	#	If the "reload" option is implemented, move the "force-reload"
-	#	option to the "reload" entry above. If not, "force-reload" is
-	#	just the same as "restart".
-	#
-	echo -n "Restarting $DESC: "
-	start-stop-daemon --oknodo --stop --quiet --pidfile \
-	$PIDFILE --exec $DAEMON
-	sleep 1
-	start-stop-daemon --start --quiet --pidfile \
-	$PIDFILE --exec $DAEMON -- $CONF
-	echo "$NAME."
-	;;
-  *)
-	N=/etc/init.d/$NAME
-	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
-	exit 1
-	;;
-esac
+# ==============================================================================
+# Session Management
+# ==============================================================================
 
-exit 0
+# Session: Finished message
+# Logs the completion of a client session using the session-specific process ID.
+# session_process_id: The process ID handling session events.
+bbstored{{ session_process_id | default('\\[.*\\]') }}: Session finished

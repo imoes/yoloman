@@ -1,20 +1,18 @@
-# NTPSec ntpviz Web Interface Configuration
-# This template generates an Apache configuration snippet to serve the ntpviz
-# static web application, which visualizes NTP daemon logs.
+# Configuration for ntpsec-ntpviz Apache/Apache2 alias directives.
+# This template generates the necessary mod_alias and mod_dir configuration
+# to serve the ntpviz web interface.
 
-# The URL path under which ntpviz is served.
-# Default: 'ntpviz'
-Alias /{{ ntpviz_url_path | default('ntpviz') }} {{ ntpviz_document_root | default('/usr/share/ntpsec-ntpviz/ntpviz') }}
+{# ntpviz_url_path: default='ntpviz' desc='The URL path under which ntpviz is served.' #}
+# Alias directive maps a URL path to the filesystem document root.
+Alias {{ ntpviz_url_path | default('ntpviz') }} {{ ntpviz_document_root | default('/usr/share/ntpsec-ntpviz/ntpviz') }}
 
-# Directory options for the ntpviz application root.
-# Default: '/usr/share/ntpsec-ntpviz/ntpviz'
+{# ntpviz_document_root: default='/usr/share/ntpsec-ntpviz/ntpviz' desc='The filesystem path to the ntpviz web application files.' #}
+# Directory block configures access and options for the document root.
 <Directory {{ ntpviz_document_root | default('/usr/share/ntpsec-ntpviz/ntpviz') }}>
-    # Allow symbolic link following for the directory content.
+    # Enable symlink following for the directory.
     Options +FollowSymLinks
-
     # Prevent .htaccess files from overriding these settings.
     AllowOverride None
-
-    # Set the default index file to serve when a directory is requested.
+    # Specify the default index file to serve.
     DirectoryIndex index.html
 </Directory>

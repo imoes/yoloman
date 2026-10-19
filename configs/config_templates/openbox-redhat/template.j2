@@ -1,0 +1,21 @@
+#
+# These things are run when an Openbox X Session is started.
+# You may place a similar script in $HOME/.config/openbox/autostart
+# to run user-specific things.
+#
+
+# If you want to use GNOME config tools...
+#
+{% if gnome_settings_daemon_path is defined and gnome_settings_daemon_path is not none and (gnome_settings_daemon_path is number or gnome_settings_daemon_path is boolean or gnome_settings_daemon_path | length > 0) %}if {{ gnome_settings_daemon_path }}
+{% else %}#if test -x /usr/libexec/gnome-settings-daemon >/dev/null; then
+{% endif %}#  /usr/libexec/gnome-settings-daemon &
+{% if gnome_settings_daemon_name is defined and gnome_settings_daemon_name is not none and (gnome_settings_daemon_name is number or gnome_settings_daemon_name is boolean or gnome_settings_daemon_name | length > 0) %}elif {{ gnome_settings_daemon_name }}
+{% else %}#elif which gnome-settings-daemon >/dev/null; then
+{% endif %}#  gnome-settings-daemon &
+#fi
+
+# If you want to use XFCE config tools...
+#
+{% if xfce_mcs_manager is defined and xfce_mcs_manager is not none and (xfce_mcs_manager is number or xfce_mcs_manager is boolean or xfce_mcs_manager | length > 0) %}xfce-mcs-manager {{ xfce_mcs_manager }}
+{% else %}#xfce-mcs-manager &
+{% endif %}

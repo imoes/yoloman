@@ -1,0 +1,117 @@
+# === Foomatic/RedHat Configuration Template ===
+# This template configures the CUPS (Common UNIX Printing System) backend and related settings
+# for Red Hat Enterprise Linux (RHEL) or CentOS environments.
+#
+# This is a leaf configuration package. It does not provide a network service port
+# nor does it require external database/cache/message_queue connections.
+# It manages local print queues, drivers, and CUPS daemon settings.
+
+# -----------------------------------------------------------------------------
+# Section: CUPS Daemon Global Settings
+# File: /etc/cups/cupsd.conf
+# -----------------------------------------------------------------------------
+
+# Listen directive: Specifies the sockets that CUPS should listen on.
+# Default is to listen on localhost only for security.
+# Use `listen_addresses` or `listen_ports` variables to bind to specific interfaces.
+{% set listen_addresses = cups_listen_addresses | default(['localhost']) %}
+{% for addr in listen_addresses %}
+Listen {{ addr }}:{{ cups_port | default(631) }}
+{% endfor %}
+
+# Listen directive for system socket activation (optional, usually handled by systemd)
+{% if cups_systemd_socket | default(false) | bool %}
+Listen /run/cups/cups.sock
+{% endif %}
+
+# Default authentication and encryption settings
+# AuthType: Sets the default authentication method.
+# Allowed values: Basic, Default, Negotiate, None.
+# Recommendation: Use 'Default' or 'Basic' in production to prevent unauthorized access.
+AuthType {{ cups_auth_type | default('Default') }}
+
+# DefaultEncryption: Specifies if connections should be encrypted.
+# 'IfRequested' is a good balance between security and compatibility.
+# 'Never' is insecure and should be avoided.
+DefaultEncryption {{ cups_default_encryption | default('IfRequested') }}
+
+# -----------------------------------------------------------------------------
+# Section: Access Control & Security
+# -----------------------------------------------------------------------------
+
+# AdministratorGroup: Specifies the UNIX group allowed to perform administrative tasks
+# in the CUPS web interface.
+AdministratorGroup {{ cups_admin_group | default('wheel') }}
+
+# SystemLog: Path to the CUPS system log file.
+# Default: /var/log/cups/error_log
+SystemLog {{ cups_log_path | default('/var/log/cups/error_log') }}
+
+# -----------------------------------------------------------------------------
+# Section: Print Queue Management (foomatic)
+# -----------------------------------------------------------------------------
+# Foomatic is the printer driver database used by CUPS on Linux.
+# This section configures how CUPS interacts with Foomatic drivers.
+
+# Enable Foomatic/RDF driver support
+# If true, CUPS will look for Foomatic drivers in /usr/share/cups/model.
+# This is usually enabled by default in RHEL/CUPS.
+{% if foomatic_enable | default(true) | bool %}
+# Foomatic driver support is enabled.
+# Drivers are typically installed via the 'cups-filters-foomatic-ppd' package.
+{% else %}
+# Foomatic driver support is disabled.
+# Ensure appropriate PPD files are manually configured if needed.
+{% endif %}
+
+# Default PPD Search Path
+# Allows specifying additional directories for PPD files.
+{% if foomatic_ppd_path is defined and foomatic_ppd_path | length > 0 %}
+PPDPath {{ foomatic_ppd_path | join(':') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Local Queue Definitions
+# -----------------------------------------------------------------------------
+# Define local print queues using the 'queues' list from schema.
+# Each queue entry requires a 'name' and 'device_uri'.
+{% set queues = cups_queues | default([]) %}
+{% if queues | length > 0 %}
+# --- Defined Print Queues ---
+{% for queue in queues %}
+# Queue: {{ queue.name }}
+# Description: {{ queue.description | default('') }}
+# Device URI: {{ queue.device_uri }}
+# PPD File: {{ queue.ppd | default('auto') }}
+# Make and Model: {{ queue.make_model | default('Generic') }}
+
+# Note: Actual queue creation is often handled by the 'cups_queue' Ansible module
+# or the 'lpadmin' command. This template serves as documentation and
+# configuration reference for the cupsd.conf or local settings.
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Network Access
+# -----------------------------------------------------------------------------
+# Allow access from specific networks if required.
+# Be cautious when exposing CUPS to networks other than localhost.
+{% set allowed_networks = cups_allowed_networks | default([]) %}
+{% if allowed_networks | length > 0 %}
+# Allow access from configured networks
+{% for network in allowed_networks %}
+<Location />
+    Order allow,deny
+    Allow {{ network }}
+    Deny All
+</Location>
+
+<Location /admin>
+    Order allow,deny
+    Allow {{ network }}
+    Deny All
+</Location>
+{% endfor %}
+{% else %}
+# No external network access configured. CUPS is restricted to localhost/system socket.
+{% endif %}

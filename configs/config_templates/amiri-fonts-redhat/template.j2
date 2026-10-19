@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+    <!--
+      Font alias configuration for Amiri font integration.
+      This template defines how the system resolves generic font families
+      like 'serif' to the specific Amiri font family.
+    -->
+
+    <!--
+      Define the alias for the generic 'serif' font family.
+      When an application requests a 'serif' font, this block ensures
+      that {{ serif_prefer_family | default('Amiri') }} is the primary choice.
+    -->
+    <alias>
+        <family>serif</family>
+        <prefer>
+            <!--
+              The preferred font family name for the 'serif' alias.
+              Defaults to 'Amiri' if not specified in the role variables.
+            -->
+            <family>{{ serif_prefer_family | default('Amiri') }}</family>
+        </prefer>
+    </alias>
+
+    <!--
+      Define the fallback behavior for the Amiri font family itself.
+      This ensures that if the specific Amiri font is requested but missing,
+      it can fall back to the generic family specified below.
+    -->
+    <alias>
+        <family>{{ amiri_fallback_family | default('Amiri') }}</family>
+        <default>
+            <!--
+              The default generic font family to use when the Amiri alias
+              configuration is missing or invalid.
+              Defaults to 'serif' if not specified.
+            -->
+            <family>{{ amiri_fallback_default | default('serif') }}</family>
+        </default>
+    </alias>
+</fontconfig>

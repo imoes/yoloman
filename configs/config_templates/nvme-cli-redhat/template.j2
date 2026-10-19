@@ -1,0 +1,25 @@
+# NVMe CLI Discovery Parameters Template
+#
+# This template generates command-line arguments for nvme-cli discovery
+# based on the provided schema fields. If no fields are defined in the
+# schema, no output is produced (safe empty state).
+
+# Transport type (e.g., tcp, rdma, fc, loop)
+# Required for most discovery operations.
+{% if trtype is defined %}--transport={{ trtype }} {% endif %}
+
+# Transport address (IP address or hostname of the NVMe subsystem)
+# Used for TCP and RDMA transports.
+{% if traddr is defined %}--traddr={{ traddr }} {% endif %}
+
+# Transport service ID (port number for TCP, PSID for RDMA)
+# Often defaults to 4420 for TCP NVMe-oF.
+{% if trsvcid is defined %}--trsvcid={{ trsvcid }} {% endif %}
+
+# Host transport address (local IP address used for the connection)
+# Useful in multi-homed host scenarios.
+{% if host_traddr is defined %}--host-traddr={{ host_traddr }} {% endif %}
+
+# Host interface (network interface name to use for the connection)
+# Useful for selecting specific network paths.
+{% if host_iface is defined %}--host-iface={{ host_iface }} {% endif %}

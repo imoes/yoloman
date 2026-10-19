@@ -1,0 +1,53 @@
+# =============================================================================
+# Postgrey Whitelist Configuration Template
+# =============================================================================
+# This file configures the list of clients (senders) that are whitelisted
+# from greylisting by Postgrey. Entries can be hostnames, IP addresses,
+# CIDR networks, or regex patterns.
+#
+# Configuration Source: postgrey_whitelist_clients_entries
+# File Location:       postgrey_whitelist_clients_path (typically /etc/postfix/postgrey_whitelist_clients)
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Path Configuration Note
+# ------------------------------------------------------------------------------
+# The path where this whitelist file should reside is controlled by the variable:
+#   postgrey_whitelist_clients_path
+#
+# If this variable is not set, or is empty/null, the default expectation is:
+#   /etc/postfix
+#
+# Postgrey is invoked with the option: --whitelist-clients=<path>
+# Ensure the path below matches the actual file location on the target system.
+# ------------------------------------------------------------------------------
+
+{# Determine the effective path for the comment header #}
+{% set effective_path = postgrey_whitelist_clients_path | default('/etc/postfix') %}
+{# Ensure the path is a string for safe concatenation #}
+{% if effective_path is string %}
+{# Path is already a string #}
+{% else %}
+{% set effective_path = effective_path | string %}
+{% endif %}
+
+# This whitelist file is expected at: {{ effective_path }}/postgrey_whitelist_clients
+# Or specified explicitly via postgrey's --whitelist-clients argument.
+
+# ------------------------------------------------------------------------------
+# Whitelist Entries
+# ------------------------------------------------------------------------------
+# Each line below represents a client to be whitelisted.
+# Formats accepted by Postgrey:
+#   - Hostnames:   example.com, mail.server.net
+#   - IP Addresses: 192.168.1.1
+#   - CIDR Blocks:  10.0.0.0/8, 192.168.0.0/16
+#   - Regex Patterns: /^pattern$/
+#
+# Source List: postgrey_whitelist_clients_entries
+# Default Entries: Common MTAs, ISPs, and known senders to reduce false positives.
+# ------------------------------------------------------------------------------
+
+{% for entry in postgrey_whitelist_clients_entries | default(['southwest.com', 'isp.belgacom.be', 'ameritradeinfo.com', 'amazon.com', 'vger.kernel.org', 'karger.ch', 'server-x001.hostpoint.ch', 'gw.bas.roche.com', 'mail.hhlaw.com', 'prd051.appliedbiosystems.com', 'swissre.com', 'returns.dowjones.com', 'domin.switch.ch', 'accor-hotels.com', '/^ms-smtp.*\\.rr\\.com$/', '/^lake.*mta.*\\.cox\\.net$/', 'mot.com', 'nic.fr', '/^s[cv]\\d+pub\\.verizon\\.net$/', 'cs.columbia.edu', '66.216.126.174', '/^mail\\d+\\.telekom\\.de$/', '/^smtp\\d+\\.tiscali\\.dk$/', 'freshmeat.net', 'zd-swx.com', 'lockergnome.wc09.net', 'p01m168.mxlogic.net', 'p02m169.mxlogic.net', '/^fmr\\d+\\.intel\\.com$/', '/^fe\\d+\\.cox-internet\\.com$/', 'logismata.ch', 'brief.cw.reum.de', 'qmail.ingeno.ch', 'mail1.thurweb.ch', 'piggy.rz.tu-ilmenau.de', 'mail.polymed.ch', 'rz.hu-berlin.de', 'proxy.gmail.com', 'cacert.org', 'polytech.univ-mrs.fr', 'gnu.org', 'cs.ciphire.net', '/^gateway\\d+\\.np4\\.de$/', '/^mail-in-\\d+\\.arcor-online\\.net$/', 'netsolmail.com', '193.77.153.67', '195.235.39', 'tesla.vtszg.hr', '/^mailgw.*\\.iai\\.co\\.il$/', 'gw.stud-serv-mb.si', '216.238.112.99', '193.81.20.195', '193.77.126.208', '80.200.249.216', 'mail2.alliancefr.be', 'webserver.turboinstitut.si', '193.191.218.141', '193.191.218.142', '193.191.218.143', '194.7.234.141', '194.7.234.142', '194.7.234.143', '/^mail\\d+\\.usafisnews\\.org$/', '/^odk.fdv.uni-lj.si$/', 'rak-gentoo-1.nameserver.de', 'mx.dars.si', '213.143.66.210', '/^mta[12].siol.net$/', '/^pim-\\d+-\\d+\\.quickinspirationsmail\\.com$/', 'flymonarch.com', '/^p?smtp.*\\.wxs\\.nl$/', 'ibm.com', 'messagelabs.com', 'berlin.ptb.de', 'registrarmail.net', 'google.com', '/^smtp\\d+\\.orange\\.fr$/', '/^smtp\\d+.citigroup.com$/', 'mail.ccs-cruising.ch', 'diggstage01.digg.com', 'smtp.liberal.ca', '/^mail[12]\\.pi\\.ws$/', 'rambler.ru', '/^smtp[0-9]+-g[0-9]+\\.free\\.fr$/', '/^postfix[0-9]+-g[0-9]+\\.free\\.fr$/', '/^netmail\\d+\\.thehartford\\.com$/', '/^nse\\d+\\.abb\\.com$/', 'lists.sourceforge.net', 'polytec.de', '/^mail\\d+\\.msg\\.oleane\\.net$/', 'nrl.navy.mil', 'mail.aliplast.com', '/^mx\\d+\\..*\\.inode\\.at$/', '/^.*?.server.arvato-systems.de$/', '^(?:mail|fallback-mx)\\d+.atl.registeredsite.com$/', 'saturn.mahidol.ac.th', 'ebay.com', 'yahoo.com', '/^outmail\\d+\\.sctm\\.tfbnw\\.net$/', 'outmail.facebook.com', 'server14.cyon.ch', '/^m\\d+-\\d+\\.126\\.com$/', 'home.theory.tifr.res.in', 'ms4-1.1blu.de', '/^viefep\\d+-int\\.chello\\.at$/', 'mx.nic.nu', 'bigfish.com', 'frontbridge.com', 'microsoft.com', 'postini.com', '/^mx.*\\.evanzo-server\\.de$/', 'upcmail.net', '/^smtp\\d+\\.smtpout\\.orange\\.fr$/', 'mout-xforward.gmx.net', 'mout-xforward.web.de', 'mout-xforward.kundenserver.de', 'mout-xforward.perfora.net', '/^fallback\\d+\\.mail\\.ru$/', 'dgfip.finances.gouv.fr', '/^o\\d+\\.ntdc\\.magisto\\.com$/', 'outlook.com', 'mail.alibaba.com', 'mail.aliyun.com', 'smtp-out.amazonses.com', 'startcom.org', '23.103.132.0/22', '23.103.136.0/21', '23.103.144.0/20', '23.103.198.0/23', '23.103.200.0/21', '40.92.0.0/14', '40.107.0.0/16', '65.55.88.0/24', '65.55.169.0/24', '94.245.120.64/26', '104.47.0.0/17', '134.170.101.0/24', '134.170.140.0/24', '134.170.171.0/24', '157.55.133.0/25', '157.56.87.192/26', '157.56.110.0/23', '157.56.112.0/24', '157.56.116.0/25', '157.56.120.0/25', '207.46.51.64/26', '207.46.100.0/24', '207.46.108.0/25', '207.46.163.0/24', '213.199.154.0/24', '213.199.180.128/26', '216.32.180.0/23', '2a01:111:f400:7c00::/54', '2a01:111:f400:fc00::/54']) %}
+{{ entry }}
+{% endfor %}

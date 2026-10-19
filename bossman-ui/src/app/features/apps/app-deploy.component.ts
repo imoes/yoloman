@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AgentService, DockerContainer } from '../../core/services/agent.service';
 import { AppSummary } from '../../core/services/apps.service';
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /**
  * App-Store deploy panel — the unified App lifecycle made click-and-play (see
@@ -19,7 +20,7 @@ import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.
 @Component({
   selector: 'app-app-deploy',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent],
   template: `
     <div class="bm-dep">
       <div class="bm-dep-head">
@@ -59,8 +60,8 @@ import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.
           <div class="bm-dep-row bm-dep-top"><span class="bm-dep-lbl">Env</span>
             <textarea class="bm-dep-in" rows="3" [(ngModel)]="dEnv" placeholder="KEY=VALUE, one per line"></textarea></div>
           <div class="bm-dep-actions">
-            <button mat-stroked-button (click)="deployDocker(true)" [disabled]="!canDocker() || busy()">Preview command</button>
-            <button mat-raised-button color="primary" (click)="deployDocker(false)" [disabled]="!canDocker() || busy()">
+            <button mat-stroked-button (click)="deployDocker(true)" [disabled]="busy()" [bmBlocked]="!canDocker() ? 'Pick a host and enter a container name and an image' : ''" bmBlockedMode="tip">Preview command</button>
+            <button mat-raised-button color="primary" (click)="deployDocker(false)" [disabled]="busy()" [bmBlocked]="!canDocker() ? 'Pick a host and enter a container name and an image' : ''">
               <mat-icon>rocket_launch</mat-icon> Deploy
             </button>
           </div>
@@ -91,14 +92,14 @@ import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.
         @case ('k8s') {
           <p class="bm-dim">Kubernetes deploys use the chart + typed values form. Suggested chart:
             <code>{{ app().targets.k8s?.chart || '—' }}</code>.</p>
-          <button mat-raised-button color="primary" (click)="openK8s()" [disabled]="!agentId()">
+          <button mat-raised-button color="primary" (click)="openK8s()" [bmBlocked]="!agentId() ? 'Pick a target host first' : ''">
             <mat-icon>open_in_new</mat-icon> Open Kubernetes deploy
           </button>
         }
         @case ('native') {
           <p class="bm-dim">Native deploys apply this App's config template as a role on the host
             (values → template → state/apply, with generations &amp; rollback).</p>
-          <button mat-raised-button color="primary" (click)="openNative()" [disabled]="!agentId()">
+          <button mat-raised-button color="primary" (click)="openNative()" [bmBlocked]="!agentId() ? 'Pick a target host first' : ''">
             <mat-icon>open_in_new</mat-icon> Open host management
           </button>
         }

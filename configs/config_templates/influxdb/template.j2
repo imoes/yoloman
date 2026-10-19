@@ -211,8 +211,9 @@ reporting-enabled = {{ reporting_enabled | default(False) | lower }}
   # Schema field: shard_precreation_advance_period
   # Default: 1h
   # Description: How far ahead to precreate shards (must be ≥ shard-duration).
-  # advance-period = "{{ shard_precreation_advance_period | default('1h') }}"
-
+{% if shard_precreation_advance_period is defined and shard_precreation_advance_period is not none and (shard_precreation_advance_period is number or shard_precreation_advance_period is boolean or shard_precreation_advance_period | length > 0) %}  advance-period = "{{ shard_precreation_advance_period | default('1h') }}"
+{% else %}  # advance-period = "30m"
+{% endif %}
 ###
 ### Controls the system self-monitoring, statistics and diagnostics.
 ###
@@ -227,7 +228,7 @@ reporting-enabled = {{ reporting_enabled | default(False) | lower }}
   # Schema field: monitoring_enabled
   # Default: False
   # Description: Enable internal monitoring endpoint (deprecated in newer versions).
-  store-enabled = {{ monitoring_enabled | default(False) | lower }}
+{% if monitoring_enabled is defined and monitoring_enabled is not none and (monitoring_enabled is number or monitoring_enabled is boolean or monitoring_enabled | length > 0) %}  store-enabled = {{ monitoring_enabled | default(False) | lower }}{% else %}  # store-enabled = true{% endif %}
 
   # The destination database for recorded statistics
   # store-database = "_internal"
@@ -276,7 +277,7 @@ reporting-enabled = {{ reporting_enabled | default(False) | lower }}
   # Schema field: log_path
   # Default: ''
   # Description: Path to the access log file. If empty, logs go to stderr.
-  access-log-path = "{{ log_path | default('') }}"
+{% if log_path is defined and log_path is not none and (log_path is number or log_path is boolean or log_path | length > 0) %}  access-log-path = "{{ log_path | default('') }}"{% else %}  # access-log-path = ""{% endif %}
 
   # Determines whether detailed write logging is enabled.
   # write-tracing = false
@@ -293,19 +294,19 @@ reporting-enabled = {{ reporting_enabled | default(False) | lower }}
   # Schema field: https_enabled
   # Default: False
   # Description: Enable HTTPS for the HTTP API. Requires `https_cert_file` and `https_key_file`.
-  https-enabled = {{ https_enabled | default(False) | lower }}
+{% if https_enabled is defined and https_enabled is not none and (https_enabled is number or https_enabled is boolean or https_enabled | length > 0) %}  https-enabled = {{ https_enabled | default(False) | lower }}{% else %}  # https-enabled = false{% endif %}
 
   # The SSL certificate to use when HTTPS is enabled.
   # Schema field: https_cert_file
   # Default: ''
   # Description: Path to the certificate file for HTTPS (PEM format).
-  https-certificate = "{{ https_cert_file | default('') }}"
+{% if https_cert_file is defined and https_cert_file is not none and (https_cert_file is number or https_cert_file is boolean or https_cert_file | length > 0) %}  https-certificate = "{{ https_cert_file | default('') }}"{% else %}  # https-certificate = "/etc/ssl/influxdb.pem"{% endif %}
 
   # Use a separate private key location.
   # Schema field: https_key_file
   # Default: ''
   # Description: Path to the private key file for HTTPS (PEM format).
-  https-private-key = "{{ https_key_file | default('') }}"
+{% if https_key_file is defined and https_key_file is not none and (https_key_file is number or https_key_file is boolean or https_key_file | length > 0) %}  https-private-key = "{{ https_key_file | default('') }}"{% else %}  # https-private-key = ""{% endif %}
 
   # The JWT auth shared secret to validate requests using JSON web tokens.
   # shared-secret = ""
@@ -371,7 +372,7 @@ reporting-enabled = {{ reporting_enabled | default(False) | lower }}
   # Schema field: logging_format
   # Default: logfmt
   # Description: Log format: human-readable (logfmt) or machine-friendly (json).
-  format = "{{ logging_format | default('logfmt') }}"
+{% if logging_format is defined and logging_format is not none and (logging_format is number or logging_format is boolean or logging_format | length > 0) %}  format = "{{ logging_format | default('logfmt') }}"{% else %}  # format = "auto"{% endif %}
 
   # Determines which level of logs will be emitted. The available levels
   # are error, warn, info, and debug. Logs that are equal to or above the
@@ -379,7 +380,7 @@ reporting-enabled = {{ reporting_enabled | default(False) | lower }}
   # Schema field: logging_level
   # Default: info
   # Description: Minimum log level: debug, info, warn, or error.
-  level = "{{ logging_level | default('info') }}"
+{% if logging_level is defined and logging_level is not none and (logging_level is number or logging_level is boolean or logging_level | length > 0) %}  level = "{{ logging_level | default('info') }}"{% else %}  # level = "info"{% endif %}
 
   # Suppresses the logo output that is printed when the program is started.
   # The logo is always suppressed if STDOUT is not a TTY.

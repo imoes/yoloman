@@ -1,0 +1,22 @@
+# Override for your different local config if necessary
+# socket (default: '') - Path to the Unix socket file for spamass-milter communication.
+{% set socket_val = socket | default('') %}
+{% if socket_val != '' %}
+SOCKET={{ socket_val }}
+{% else %}
+#SOCKET=/run/spamass-milter/spamass-milter.sock
+{% endif %}
+
+# extra_flags (default: '') - Additional command-line flags passed to spamass-milter.
+#
+# Note that the -x option for expanding aliases and virtusertable entries
+# only works if spamass-milter is run as root; you will need to use
+# spamass-milter-root.service instead of spamass-milter.service if you
+# wish to do this but otherwise it's best to run as the unprivileged user
+# sa-milt by using the normal spamass-milter.service
+{% set extra_flags_val = extra_flags | default('') %}
+{% if extra_flags_val != '' %}
+EXTRA_FLAGS={{ extra_flags_val }}
+{% else %}
+#EXTRA_FLAGS="-m -r 15"
+{% endif %}

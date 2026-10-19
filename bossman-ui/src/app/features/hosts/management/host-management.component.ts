@@ -400,7 +400,8 @@ export class HostManagementComponent implements OnInit {
 
   refreshSelected(): void {
     const id = this.selected();
-    if (id === 'roles') { this.roles()?.reload(); return; }
+    // Refresh means "read the host again": the installed-package inventory is re-read live, not the 6-hour cache.
+    if (id === 'roles') { this.roles()?.reload(true); return; }
     this.loadFor(id);
   }
 

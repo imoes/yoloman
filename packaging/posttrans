@@ -1,0 +1,10 @@
+#!/bin/sh
+# agentic-mcp posttrans (rpm only): runs LAST in an rpm transaction — after the old package's %postun. An agent
+# package up to 0.57.92 stopped AND disabled the service in its %postun even on upgrade (see postrm), so an upgrade
+# from one of them ended with the agent down; this puts it back: enabled and running on the new version.
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl daemon-reload || true
+	systemctl enable yoloman-agent.service || true
+	systemctl restart yoloman-agent.service || true
+fi
+exit 0

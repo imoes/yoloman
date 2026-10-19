@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -9,13 +9,14 @@ import { SchedulerService, ScheduledJob, ScheduledJobInput } from '../../core/se
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OuService } from '../../core/services/ou.service';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /** Scheduler (gap #7): recurring runbook runs on a cron schedule, scoped to a
  * host / group / OU — patch nights, weekly hygiene, scheduled maintenance. */
 @Component({
   selector: 'app-scheduler',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule],
+  imports: [StatusPillComponent, DatePipe, FormsModule, MatButtonModule, MatIconModule],
   template: `
     <div class="bm-page">
       <div class="bm-head">
@@ -40,7 +41,7 @@ import { OuService } from '../../core/services/ou.service';
               </select>
             </label>
             <label>Scope
-              <select [(ngModel)]="draft.scope_type">
+              <select [(ngModel)]="draft.scope_type" (ngModelChange)="onScope()">
                 <option value="host">Host</option><option value="group">Host group</option><option value="ou">OU</option>
               </select>
             </label>
@@ -62,6 +63,7 @@ import { OuService } from '../../core/services/ou.service';
         </div>
       }
 
+      @if (runError()) { <p class="bm-err" role="alert">{{ runError() }}</p> }
       <div class="bm-card">
         <table class="bm-table">
           <thead><tr><th></th><th>Name</th><th>Cron</th><th>Runbook</th><th>Scope</th><th>Last run</th><th>Status</th><th></th></tr></thead>
@@ -74,11 +76,11 @@ import { OuService } from '../../core/services/ou.service';
                 <td class="bm-mono">{{ j.runbook_name }}</td>
                 <td>{{ j.scope_type }}: {{ scopeLabel(j) }}</td>
                 <td>{{ j.last_run_at ? (j.last_run_at | date: 'short') : '—' }}</td>
-                <td><span class="bm-status bm-status--{{ j.last_status || 'none' }}">{{ j.last_status || '—' }}</span>
+                <td><bm-status-pill [status]="j.last_status || 'never'" [label]="j.last_status || 'never run'" />
                   @if (j.last_detail) { <span class="bm-dim bm-detail">{{ j.last_detail }}</span> }
                 </td>
                 <td class="bm-act">
-                  <button mat-stroked-button (click)="runNow(j)" [disabled]="running() === j.id">{{ running() === j.id ? '…' : 'Run now' }}</button>
+                  <span class="bm-why" [attr.title]="running() === j.id ? 'Running… the result appears under Status' : null"><button mat-stroked-button (click)="runNow(j)" [disabled]="running() === j.id">{{ running() === j.id ? '…' : 'Run now' }}</button></span>
                   <button mat-button (click)="edit(j)">Edit</button>
                   <button mat-button (click)="remove(j)">Delete</button>
                 </td>
@@ -105,16 +107,12 @@ import { OuService } from '../../core/services/ou.service';
       background: var(--mat-sys-surface); color: inherit; font: inherit; font-size: 13px; }
     .bm-check { flex-direction: row !important; align-items: center; }
     .bm-actions { display: flex; justify-content: flex-end; gap: 8px; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th { text-align: left; font-size: 12px; opacity: 0.6; padding: 6px 10px; }
-    .bm-table td { padding: 8px 10px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th { text-align: left; font-size: 12px; opacity: 0.6; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-act { display: flex; gap: 4px; }
     .bm-err { color: var(--bm-red, #c62828); font-size: 13px; }
-    .bm-status { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
-    .bm-status--ok { background: color-mix(in srgb, var(--bm-green, #2e7d32) 22%, transparent); }
-    .bm-status--failed { background: color-mix(in srgb, var(--bm-red, #c62828) 22%, transparent); }
-    .bm-status--partial { background: color-mix(in srgb, var(--bm-gold, #e0a030) 22%, transparent); }
   `],
 })
 export class SchedulerComponent implements OnInit {
@@ -130,13 +128,20 @@ export class SchedulerComponent implements OnInit {
   groupList = signal<{ id: string; name: string }[]>([]);
   ouList = signal<{ id: string; name: string }[]>([]);
   editing = signal(false);
+  runError = signal('');
   running = signal<string | null>(null);
   formError = signal('');
 
   draft: ScheduledJobInput & { id?: string } = this.blank();
 
-  targets = computed(() => ({ host: this.hosts(), group: this.groupList(), ou: this.ouList() }[this.draft.scope_type] || []));
-  targetId = computed(() => this.draft.agent_id || this.draft.host_group_id || this.draft.ou_id || '');
+  // Methods, not computed(): `draft` is a plain ngModel object, and a computed() over it is evaluated once and
+  // cached — targetId() stayed '' forever, so Create always answered "a target is required" and no job could be
+  // created from this screen; targets() kept listing hosts after the scope was switched to group/OU.
+  targets(): { id: string; name: string }[] {
+    return ({ host: this.hosts(), group: this.groupList(), ou: this.ouList() }[this.draft.scope_type] || []);
+  }
+  targetId(): string { return this.draft.agent_id || this.draft.host_group_id || this.draft.ou_id || ''; }
+  onScope(): void { this.draft.agent_id = this.draft.host_group_id = this.draft.ou_id = null; }
 
   ngOnInit(): void {
     this.reload();
@@ -181,9 +186,9 @@ export class SchedulerComponent implements OnInit {
 
   save(): void {
     const d = this.draft;
-    if (!d.name.trim() || !d.runbook_name || !d.cron.trim() || !this.targetId()) {
-      this.formError.set('Name, cron, runbook and a target are required.'); return;
-    }
+    const missing = [!d.name.trim() && 'a name', !d.cron.trim() && 'a cron expression', !d.runbook_name && 'a runbook',
+      !this.targetId() && 'a target'].filter(Boolean);
+    if (missing.length) { this.formError.set(`Still needed: ${missing.join(', ')}.`); return; }
     const body: ScheduledJobInput = { ...d, enabled: d.enabled ?? true };
     const done = () => { this.editing.set(false); this.reload(); };
     const err = (e: { error?: { detail?: string } }) => this.formError.set(e?.error?.detail || 'save failed');
@@ -196,7 +201,12 @@ export class SchedulerComponent implements OnInit {
   }
   runNow(j: ScheduledJob): void {
     this.running.set(j.id);
-    this.svc.runNow(j.id).subscribe({ next: () => { this.running.set(null); this.reload(); }, error: () => this.running.set(null) });
+    this.runError.set('');
+    // A refused run is said, not swallowed: the row's status would otherwise just not change, with no reason.
+    this.svc.runNow(j.id).subscribe({
+      next: () => { this.running.set(null); this.reload(); },
+      error: (e: { error?: { detail?: string } }) => { this.running.set(null); this.runError.set(`${j.name}: ${e?.error?.detail || 'run failed'}`); },
+    });
   }
   remove(j: ScheduledJob): void { this.svc.remove(j.id).subscribe(() => this.reload()); }
 }

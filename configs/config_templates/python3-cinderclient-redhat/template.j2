@@ -1,0 +1,67 @@
+# ============================================================================
+# cinder client bash completion script
+# ============================================================================
+# This template generates the bash completion function for the `cinder` CLI
+# (OpenStack Block Storage service client). It handles argument completion,
+# flag detection, and caching of previously used arguments for speed.
+#
+# Managed by Ansible. Do not edit manually.
+# ============================================================================
+
+# Lazy initialization variables for cinder completion options and flags.
+# These are populated on first run to minimize overhead.
+_cinder_opts="" # lazy init
+_cinder_flags="" # lazy init
+_cinder_opts_exp="" # lazy init
+
+# ============================================================================
+# Bash completion function for `cinder`
+# ============================================================================
+_cinder()
+{
+    local cur prev cbc cflags
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # ========================================================================
+    # On first invocation, fetch available options and flags from cinder CLI.
+    # We parse the output of `cinder bash-completion` to separate options
+    # (values) from flags (boolean switches).
+    # ========================================================================
+    if [ "x$_cinder_opts" == "x" ] ; then
+        # Get raw completion data, cleaning up spacing around -h/-i if present
+        cbc="`cinder bash-completion 2>/dev/null | sed -e "s/  *-h  */ /" -e "s/  *-i  */ /"`"
+        
+        # Extract option values (strings/ids) by removing flag-style tokens
+        _cinder_opts="`echo "$cbc" | sed -e "s/--[a-z0-9_-]*//g" -e "s/  */ /g"`"
+        
+        # Extract flags (dashed tokens) by removing value-style tokens
+        _cinder_flags="`echo " $cbc" | sed -e "s/ [^-][^-][a-z0-9_-]*//g" -e "s/  */ /g"`"
+     fi
+
+     # ========================================================================
+     # Handle completion based on the previous word.
+     # If the user typed 'help', we only offer top-level subcommands.
+     # Otherwise, we combine flags, options, and cache for rich completion.
+     # ========================================================================
+     if [[ "$prev" != "help" ]] ; then
+        # Set the cache directory for storing previously used completions.
+        # Defaults to ~/.cache/cinderclient/*/*-cache if not specified.
+        COMPLETION_CACHE={{ (completion_cache_dir | default('~/.cache/cinderclient/*/*-cache')) }}
+        
+        # Combine static flags/options with history from the cache file.
+        # `cat` is safe here because if the file doesn't exist, the error is redirected.
+        cflags="$_cinder_flags $_cinder_opts "$(cat $COMPLETION_CACHE 2> /dev/null | tr '\n' ' ')
+        
+        # Generate completions for the current word
+        COMPREPLY=($(compgen -W "${cflags}" -- ${cur}))
+     else
+        # For 'help', only show the main options/commands
+        COMPREPLY=($(compgen -W "${_cinder_opts}" -- ${cur}))
+     fi
+     return 0
+}
+
+# Register the completion function for the `cinder` command
+complete -F _cinder cinder

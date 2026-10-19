@@ -210,6 +210,11 @@ async def execute_rollout(
         await asyncio.sleep(gate_wait)
         async with session_factory() as session:
             rollout = await session.get(Rollout, rollout_id)
+            # Aborted (or deleted) by an operator during the health-gate wait: stop here. Running the functional
+            # test and gating a wave nobody wants any more was the old behaviour — and a deleted rollout crashed
+            # the task (`None.progress`).
+            if rollout is None or rollout.status in ("aborted", "paused"):
+                return
             # Post-upgrade functional test (an Ansible-style playbook): the wave
             # only passes if EVERY host's test succeeds. This is where a broken
             # dist-upgrade is caught before it spreads (and where self-healing hooks in).

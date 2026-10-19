@@ -1,123 +1,111 @@
-# ============================================================================
-# lpr (Line Printer Remote / LPD) Daemon Configuration
-# ============================================================================
-# This template configures the LPD (Line Printer Daemon) service, which
-# implements the LPD/LPR protocol (RFC 1179) for networked printing.
-#
-# Variables used:
-#   lpd_enabled        - Enable/disable the service (bool, default: false)
-#   lpd_port           - Port for LPD service (int, default: 515)
-#   lpd_listen_address - Address to listen on (str, default: 0.0.0.0)
-#   lpd_log_dir        - Directory for LPD logs (str, default: /var/log)
-#   lpd_allow_hosts    - List of allowed client hosts/networks (list, default: [])
-#   lpd_deny_hosts     - List of denied client hosts/networks (list, default: [])
-#   lpd_max_jobs       - Max jobs per queue (int, default: 100)
-#   lpd_user           - OS user to run as (str, default: lp)
-#   lpd_group          - OS group to run as (str, default: lp)
-#   lpd_queue_dir      - Directory for spool files (str, default: /var/spool/lpd)
-# ============================================================================
+# ==============================================================================
+# /etc/lprng/lprng.conf
+# ==============================================================================
+# This template configures the LPRng print spooler.
+# Since the provided schema is empty, this template provides a standard,
+# well-documented configuration for LPRng with sensible defaults.
+# All directives are commented with their purpose to ensure self-documentation.
 
-{% set lpd_enabled = lpd_enabled | default(false) %}
-{% set lpd_port = lpd_port | default(515) %}
-{% set lpd_listen_address = lpd_listen_address | default('0.0.0.0') %}
-{% set lpd_log_dir = lpd_log_dir | default('/var/log') %}
-{% set lpd_allow_hosts = lpd_allow_hosts | default([]) %}
-{% set lpd_deny_hosts = lpd_deny_hosts | default([]) %}
-{% set lpd_max_jobs = lpd_max_jobs | default(100) %}
-{% set lpd_user = lpd_user | default('lp') %}
-{% set lpd_group = lpd_group | default('lp') %}
-{% set lpd_queue_dir = lpd_queue_dir | default('/var/spool/lpd') %}
+# -----------------------------------------------------------------------------
+# General Settings
+# -----------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Service Control
-# ---------------------------------------------------------------------------
-# If false, this template will not enable or start the daemon.
-# Other roles should check this before attempting to connect.
-{% if lpd_enabled %}
-# Service is enabled
-service_enabled = yes
-{% else %}
-# Service is disabled
-service_enabled = no
-{% endif %}
+# Specifies the name of the local printer or queue.
+# This is typically 'lp' for the default printer.
+# Default: lp
+# Default value is kept generic; ensure this matches your system's default printer queue name.
+LocalPrinter = lp
 
-# ---------------------------------------------------------------------------
-# Network Configuration
-# ---------------------------------------------------------------------------
-# The port number on which the LPD daemon listens.
-# Standard LPD port is 515.
-# Schema field: lpd_port
-daemon_port = {{ lpd_port }}
+# Specifies the spool directory for print jobs.
+# LPRng stores intermediate job files here.
+# Default: /var/spool/lpd
+SpoolDirectory = /var/spool/lpd
 
-# The IP address interface to bind to.
-# Use '0.0.0.0' to listen on all interfaces, or a specific IP for security.
-# Schema field: lpd_listen_address
-daemon_address = {{ lpd_listen_address }}
+# Specifies the directory where printer configuration files are stored.
+# Default: /etc/lprng
+PrinterConfigDirectory = /etc/lprng
 
-# ---------------------------------------------------------------------------
-# Access Control
-# ---------------------------------------------------------------------------
-# List of hostnames or IP addresses allowed to send print jobs.
-# Leave empty to allow all (not recommended for production).
-# Format: one entry per line or comma-separated depending on LPD impl.
-# Here we use a standard comment-based allow list often supported by
-# openbsd-lpd or xinetd wrappers.
-#
-# Schema field: lpd_allow_hosts
-{% if lpd_allow_hosts %}
-# allow_hosts = {{ lpd_allow_hosts | join(',') }}
-{% endif %}
+# Specifies the directory where the LPD daemon PID files are stored.
+# Default: /var/run
+PIDDirectory = /var/run
 
-# List of hostnames or IP addresses denied.
-# Schema field: lpd_deny_hosts
-{% if lpd_deny_hosts %}
-# deny_hosts = {{ lpd_deny_hosts | join(',') }}
-{% endif %}
+# -----------------------------------------------------------------------------
+# Logging Settings
+# -----------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Queue and Spool Configuration
-# ---------------------------------------------------------------------------
-# Directory where print job spool files are stored.
-# Schema field: lpd_queue_dir
-spool_directory = {{ lpd_queue_dir }}
+# Specifies the log file for LPRng activity.
+# This file records job submissions, prints, and errors.
+# Default: /var/log/lpd-requests
+# Note: Ensure the LPRng user has write permissions to this file or directory.
+RequestsLog = /var/log/lpd-requests
 
-# Maximum number of jobs allowed in the queue system-wide.
-# Schema field: lpd_max_jobs
-max_jobs = {{ lpd_max_jobs }}
+# Specifies the log file for daemon errors.
+# Default: /var/log/lpd-errors
+ErrorLog = /var/log/lpd-errors
 
-# ---------------------------------------------------------------------------
-# Logging Configuration
-# ---------------------------------------------------------------------------
-# Directory where log files are stored.
-# Schema field: lpd_log_dir
-log_directory = {{ lpd_log_dir }}
+# -----------------------------------------------------------------------------
+# Network and Access Settings
+# -----------------------------------------------------------------------------
 
-# Log file names (implementation specific, commonly lp-errs and lp-acct).
-# These are often handled by syslog, but some LPD daemons write directly here.
-# Schema field: lpd_log_dir
-error_log = {{ lpd_log_dir }}/lp-errs
-account_log = {{ lpd_log_dir }}/lp-acct
+# Specifies the TCP port on which the LPD daemon listens.
+# The standard port for LPR/LPD is 515.
+# Default: 515
+# This field is not in the provided schema but is a standard LPRng setting.
+Port = 515
 
-# ---------------------------------------------------------------------------
-# Privilege Separation
-# ---------------------------------------------------------------------------
-# The OS user under which the LPD daemon runs.
-# Typically 'lp' (lineprinter) for security isolation.
-# Schema field: lpd_user
-daemon_user = {{ lpd_user }}
+# Specifies the listen address for the LPD daemon.
+# '0.0.0.0' listens on all interfaces. '127.0.0.1' restricts to localhost.
+# Default: 0.0.0.0
+# Adjust this for security if the print service should only be local.
+ListenAddress = 0.0.0.0
 
-# The OS group under which the LPD daemon runs.
-# Schema field: lpd_group
-daemon_group = {{ lpd_group }}
+# -----------------------------------------------------------------------------
+# Security and Authentication
+# -----------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Init Script Compatibility Note
-# ---------------------------------------------------------------------------
-# The original template contained logic for restarting the service via
-# /etc/init.d/lpd and rotating logs via savelog. This is now typically
-# managed by systemd or a supervisor. If you are using systemd, ensure
-# the service unit file handles:
-#   - RestartPolicy=on-failure
-#   - StandardOutput=journal
-#   - StandardError=journal
-#   - Logs are rotated by logrotate(8) configured for {{ lpd_log_dir }}/lp-*.
+# Specifies the user account under which the LPD daemon runs.
+# Using a dedicated low-privilege user is recommended for security.
+# Default: lp
+# Note: Ensure this user exists on the system.
+RunAsUser = lp
+
+# Specifies whether to allow remote printing.
+# 'true' allows network clients; 'false' restricts printing to local console.
+# Default: true
+RemoteAccess = true
+
+# -----------------------------------------------------------------------------
+# Job Processing Settings
+# -----------------------------------------------------------------------------
+
+# Specifies the command used to process print jobs.
+# This is often a wrapper script or a direct call to a formatter.
+# Default: /usr/local/bin/lprun
+# This may need adjustment depending on local installation paths.
+ProcessFilter = /usr/local/bin/lprun
+
+# Specifies the maximum number of jobs allowed in the queue.
+# 0 means unlimited.
+# Default: 0
+MaxJobs = 0
+
+# Specifies the time-to-live for jobs in the spool directory in seconds.
+# Jobs older than this time are automatically removed.
+# Default: 86400 (24 hours)
+JobTTL = 86400
+
+# -----------------------------------------------------------------------------
+# Compatibility and Modes
+# -----------------------------------------------------------------------------
+
+# Enables compatibility mode for BSD-style LPR commands.
+# Default: true
+CompatibilityMode = true
+
+# Specifies the format for job accounting logs.
+# Default: /var/log/lpd-acct
+AccountingLog = /var/log/lpd-acct
+
+# ==============================================================================
+# End of LPRng Configuration
+# ==============================================================================

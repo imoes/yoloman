@@ -1,61 +1,37 @@
 #
-# BlueMon (Bluetooth Monitor) configuration file
-#
-# This file configures the Bluemon utility which monitors Bluetooth device
-# signal strength by hooking into the Bluetooth stack using a fake MAC address.
-# WARNING: Enabling bluemon can break other bluetooth applications (e.g. kbluetoothd)
-# as it intercepts the bluetooth stack.
+# BlueMon sample config file
 #
 
-# -------------------------------------------------------------------------
-# Enable or disable bluemon
-# -------------------------------------------------------------------------
-# Accepts 'yes' or 'no'. Default is 'no'.
-# Enabling this service requires careful consideration as it may interfere
-# with other Bluetooth managers running on the system.
-BLUEMON_ENABLE='{{ bluemon_enable | default("no") }}'
+# Disable bluemon by default, 
+# WARNING: Enabling bluemon can break other bluetooth applications
+# as it hooks on the bluetooth stack with a fake MAC address. 
+# kbluetoothd is confirmed to stop working if bluemon is enabled.
+# Taking this in consideration, you can change 'no' to 'yes' below 
+# to enable bluemon.
+BLUEMON_ENABLE={{ bluemon_enable | default('\'no\'') }}
 
-# -------------------------------------------------------------------------
-# Bluetooth device address(es) to monitor
-# -------------------------------------------------------------------------
-# The MAC address of the Bluetooth device to track signal strength.
-# Multiple devices may be specified, separated by spaces.
-# Format: XX:XX:XX:XX:XX:XX
-BLUETOOTHID='{{ bluetooth_id | default("aa:bb:cc:dd:ee:ff") }}'
+# Bluetooth ID of the device to monitor. 
+# Multiple devices may be separated by spaces.
+# EG: BLUETOOTHID='aa:bb:cc:dd:ee:ff 00:00:00:00:00:00:00'
+BLUETOOTHID={{ bluetooth_id | default('\'aa:bb:cc:dd:ee:ff\'') }}
 
-# -------------------------------------------------------------------------
-# Signal threshold
-# -------------------------------------------------------------------------
-# The signal strength threshold value (out of 255) used to determine
-# if the signal is considered "good" or "weak".
-THRESHOLD={{ threshold | default(200) }}
+# Signal threshold (out of 255)
+THRESHOLD={{ threshold | default('200') }}
 
-# -------------------------------------------------------------------------
-# Check interval
-# -------------------------------------------------------------------------
-# The interval in milliseconds between signal strength checks.
-INTERVAL={{ interval | default(100) }}
+# Interval in ms to check the signal
+INTERVAL={{ interval | default('100') }}
 
-# -------------------------------------------------------------------------
-# Optional flags
-# -------------------------------------------------------------------------
+# Uncomment to enable link-quality checking
+QUALITY={{ quality | default('-q') }}
 
-# Enable link-quality checking.
-# Uncomment the line below to activate this feature.
-# QUALITY=-q
-
-# Log to stdout instead of syslog.
-# Uncomment the line below to activate this feature.
+# Uncomment to log to stdout not to syslog
 # STDOUT=-s
 
-# Prevent running in daemon mode (run in foreground).
-# Uncomment the line below to activate this feature.
+# Uncomment to prevent running in daemon mode
 # NOFORK=-n
-
-# Enable verbose output for debugging.
-# Uncomment the line below to activate this feature.
+                     
+# Uncomment to enable verbose output
 # VERBOSE=-v
 
-# Enable anti-disconnect hack to handle spurious disconnects.
-# Uncomment the line below to activate this feature.
+# Uncomment to enable anti-disconnect hack
 # DISCONNECTHACK=-d

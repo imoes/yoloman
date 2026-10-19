@@ -1,0 +1,118 @@
+{#
+  Package: bash-completion-redhat
+  Description: Provides the bash `_filedir` function for filename completion.
+  This script is self-documenting. It provides the bash `_filedir` function
+  used for filename completion in bash scripts. It does not require external
+  services or configuration parameters.
+
+  References:
+  - https://bugzilla.redhat.com/677446
+  - http://forums.adobe.com/thread/745833
+  - https://lists.gnu.org/archive/html/bug-bash/2010-09/msg00036.html
+#}
+
+{# This template is a pure bash function definition. No dynamic variables
+   are required for the core functionality. However, to adhere to the
+   self-documenting and safe-reuse principles, we document the standard
+   environment variables this function relies on, defaulting them to
+   standard bash completion values if not explicitly set by the caller. #}
+
+{# Variable: cur - The current word being completed #}
+{# Variable: COMP_FILEDIR_FALLBACK - If set, enables fallback logic #}
+{# Variable: COMP_LINE - The current command line #}
+{# Variable: COMP_POINT - The current cursor position #}
+
+_filedir()
+{
+    {# Internal field separator for processing newline-separated results #}
+    local IFS=$'\n'
+
+    {# Resolve tildes in the current word #}
+    _tilde "${cur-}" || return
+
+    local -a toks
+    {# Reset flag for globbing state restoration #}
+    local reset
+    {# The current completion argument (defaults to empty if undefined) #}
+    local arg=${1-}
+
+    {# Check if the argument requests directory completion only #}
+    if [[ $arg == -d ]]; then
+        {# Save current noglob state to restore later #}
+        reset=$(shopt -po noglob)
+        {# Disable globbing to ensure literal matching during compgen #}
+        set -o noglob
+        {# Generate directory completions for the current word #}
+        toks=($(compgen -d -- "${cur-}"))
+        {# Restore IFS to space for command substitution #}
+        IFS=' '
+        {# Restore the previous noglob setting #}
+        $reset
+        {# Restore IFS to newline for internal processing #}
+        IFS=$'\n'
+    else
+        {# Variable to hold the quoted current word #}
+        local quoted
+        {# Quote the current word to handle special characters safely #}
+        _quote_readline_by_ref "${cur-}" quoted
+
+        {# Munge xspec to contain uppercase version of the argument for pattern matching #}
+        {# If arg is set, create a pattern allowing both the arg and its uppercase form. #}
+        {# If arg is unset/empty, the pattern becomes empty or invalid, effectively no filter. #}
+        local xspec=${arg+:"!*.@($arg|${arg^^})"}
+        local plusdirs=()
+
+        {# Use plusdirs to get dir completions if we have a xspec; if we don't, #}
+        {# there's no need, dirs come along with other completions. Don't use #}
+        {# plusdirs quite yet if fallback is in use though, in order to not ruin #}
+        {# the fallback condition with the "plus" dirs. #}
+        {# Start with file completion (-f) and exclusion pattern (-X) #}
+        local opts=(-f -X "$xspec")
+        {# If xspec is defined (non-empty), add plusdirs option #}
+        [[ $xspec ]] && plusdirs=(-o plusdirs)
+        {# If fallback is requested or no plusdirs, do NOT add plusdirs yet #}
+        [[ ${COMP_FILEDIR_FALLBACK-} || -z ${plusdirs-} ]] ||
+            opts+=("${plusdirs[@]}")
+
+        {# Save current noglob state #}
+        reset=$(shopt -po noglob)
+        {# Disable globbing #}
+        set -o noglob
+        {# Generate completions using the constructed options and quoted current word #}
+        toks+=($(compgen "${opts[@]}" -- $quoted))
+        {# Restore IFS to space #}
+        IFS=' '
+        {# Restore the previous noglob setting #}
+        $reset
+        {# Restore IFS to newline #}
+        IFS=$'\n'
+
+        {# Try without filter if it failed to produce anything and configured to #}
+        {# Note: ${#toks[@]} is a bash parameter expansion to get array length. #}
+        {# It must be preserved as literal bash code. #}
+        [[ -n ${COMP_FILEDIR_FALLBACK-} && -n $arg && ${#toks[@]} -lt 1 ]] && {
+            {# Save current noglob state #}
+            reset=$(shopt -po noglob)
+            {# Disable globbing #}
+            set -o noglob
+            {# Try file completion again without the filter (xspec) #}
+            {# plusdirs is passed if it was originally set #}
+            toks+=($(compgen -f ${plusdirs+"${plusdirs[@]}"} -- $quoted))
+            {# Restore IFS to space #}
+            IFS=' '
+            {# Restore the previous noglob setting #}
+            $reset
+            {# Restore IFS to newline #}
+            IFS=$'\n'
+        }
+    fi
+
+    {# If we have any completions, set the reply array #}
+    if ((${#toks[@]} != 0)); then
+        {# 2>/dev/null for direct invocation, e.g. in the _filedir unit test #}
+        {# Mark results as filenames so bash knows how to handle them #}
+        compopt -o filenames 2>/dev/null
+        {# Append the results to the global COMPREPLY array #}
+        COMPREPLY+=("${toks[@]}")
+    fi
+} # _filedir()

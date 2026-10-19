@@ -1,0 +1,172 @@
+#
+# ALSA (Advanced Linux Sound Architecture) library configuration.
+# This file configures the global behavior of the ALSA user-space library
+# (libasound) on Red Hat-based systems.
+#
+# It does NOT configure the kernel sound drivers or the ALSA utilities (alsamixer, amixer).
+# For service discovery or capability wiring, this package is a leaf library and provides
+# no network-facing services or requires external backends.
+#
+
+# -----------------------------------------------------------------------------
+# Default Device Configuration
+# -----------------------------------------------------------------------------
+
+# The default PCM device name.
+# If unset or null, defaults to 'default' which usually points to the hardware
+# device or a software mixer (dmix) if configured in pcm.dmix.
+pcm.!default {
+    # The type of the default PCM device (e.g., 'default', 'plug', 'dmix').
+    type {{ alsa_default_device | default('default') }}
+    # If using a custom type, additional parameters go here.
+    # For 'plug', 'dmix', or 'hw', specific sub-fields would be defined.
+}
+
+# -----------------------------------------------------------------------------
+# Capture Device Configuration
+# -----------------------------------------------------------------------------
+
+# The default Capture PCM device name (Control interface).
+ctl.!default {
+    type hw
+    # The hardware card identifier for the default control interface.
+    card {{ alsa_default_card | default('PCH') }}
+}
+
+# -----------------------------------------------------------------------------
+# Plugin Devices
+# -----------------------------------------------------------------------------
+
+# The 'plug' device automatically converts sample rates, formats, and channel
+# counts to match the hardware device. This is generally recommended for
+# compatibility with applications that don't handle format negotiation.
+pcm.plug {
+    type plug
+    # The slave device to plug to. Usually 'default' or 'hw'.
+    slave.pcm {{ alsa_slave_device | default('dmix') }}
+}
+
+# -----------------------------------------------------------------------------
+# Direct Mixing (dmix) Configuration
+# -----------------------------------------------------------------------------
+
+# The 'dmix' plugin allows multiple applications to play audio simultaneously
+# to the same hardware device by mixing streams in software.
+pcm.dmix {
+    type dmix
+    # The IPC key for shared memory segment (unique per application instance).
+    ipc_key {{ alsa_dmix_ipc_key | default(1000) }}
+    # The permissions for the shared memory segment (octal, e.g. 0666).
+    # Note: In ALSA config files, integer values like permissions are usually
+    # interpreted as octal if they start with 0, or decimal otherwise.
+    # However, to ensure '0666' is treated correctly as octal in many parsers,
+    # it is often safer to pass it as a string or rely on the parser's default.
+    # Here we default to integer 438 (which is 0666 octal) or string '0666'.
+    # Given the schema default was likely 0666 (integer), we render it.
+    # If the renderer expects a string for permissions, use:
+    # ipc_perm {{ '%o' | format(alsa_dmix_ipc_perm | default(438)) }}
+    # But standard alsa-lib config usually accepts the integer representation
+    # or the string "0666". Let's stick to the integer default 0666 (octal literal
+    # in Ansible/Jinja is just 438, but we want the config file to see 0666 or 438?).
+    # Actually, in `asound.conf`, `ipc_perm 0666` is standard.
+    # If we pass integer 438, it renders as "438".
+    # If we pass string "0666", it renders as "0666".
+    # Let's default to string '0666' to be safe and explicit.
+    ipc_perm {{ alsa_dmix_ipc_perm | default('0666') }}
+    # Slave settings for dmix.
+    slave {
+        # The hardware PCM device to mix into.
+        pcm {{ alsa_dmix_hw_device | default('hw:0,0') }}
+        # Rate to convert to (often 48000 or 44100).
+        rate {{ alsa_dmix_rate | default(48000) }}
+        # Buffer size in frames.
+        buffer_size {{ alsa_dmix_buffer_size | default(131072) }}
+        # Period size in frames.
+        period_size {{ alsa_dmix_period_size | default(32768) }}
+    }
+}
+
+# -----------------------------------------------------------------------------
+# Software Mixing (dsnoop) for Capture
+# -----------------------------------------------------------------------------
+
+# The 'dsnoop' plugin allows multiple applications to capture audio simultaneously.
+pcm.dsnoop {
+    type dsnoop
+    # The IPC key for shared memory segment.
+    ipc_key {{ alsa_dsnoop_ipc_key | default(2000) }}
+    # The permissions for the shared memory segment (octal, e.g. 0666).
+    ipc_perm {{ alsa_dsnoop_ipc_perm | default('0666') }}
+    slave {
+        # The hardware PCM device for capture.
+        pcm {{ alsa_dsnoop_hw_device | default('hw:0,0') }}
+        # Rate to capture at.
+        rate {{ alsa_dsnoop_rate | default(48000) }}
+        # Buffer size in frames.
+        buffer_size {{ alsa_dsnoop_buffer_size | default(131072) }}
+        # Period size in frames.
+        period_size {{ alsa_dsnoop_period_size | default(32768) }}
+    }
+}
+
+# -----------------------------------------------------------------------------
+# Soft Volume Control (softvol)
+# -----------------------------------------------------------------------------
+
+# The 'softvol' plugin provides software volume control.
+# This is useful if the hardware mixer is limited or non-existent.
+pcm.softvol {
+    type softvol
+    # The slave PCM device to apply volume changes to.
+    slave.pcm {{ alsa_softvol_slave | default('dmix') }}
+    # Control to use for volume (name of the ALSA control).
+    control.name {{ alsa_softvol_control | default('PCM') }}
+    # The card index where the control resides.
+    control.card {{ alsa_softvol_card | default(0) }}
+}
+
+# -----------------------------------------------------------------------------
+# Null Device (for discarding audio)
+# -----------------------------------------------------------------------------
+
+# The 'null' device discards all audio. Useful for testing or disabling sound.
+pcm.null {
+    type null
+}
+
+# -----------------------------------------------------------------------------
+# File Dumping (for debugging)
+# -----------------------------------------------------------------------------
+
+# The 'file' plugin dumps audio data to a file. Useful for debugging.
+pcm.file {
+    type file
+    # The slave PCM device to dump from.
+    slave.pcm {{ alsa_file_slave | default('null') }}
+    # The path to the output file.
+    file {{ alsa_file_path | default('/dev/null') }}
+}
+
+# -----------------------------------------------------------------------------
+# Logger Configuration
+# -----------------------------------------------------------------------------
+
+# ALSA logging configuration.
+# log {
+#     type {{ alsa_log_type | default('file') }}
+#     file {{ alsa_log_file | default('/var/log/alsa-lib.log') }}
+#     # Severity level: info, warning, error, fatal
+#     level {{ alsa_log_level | default('info') }}
+# }
+
+# -----------------------------------------------------------------------------
+# Hardware Card Identification
+# -----------------------------------------------------------------------------
+
+# Optional mapping of logical names to hardware cards.
+# This section helps in identifying specific audio interfaces.
+# cards.!PCH {
+#     type hw
+#     card {{ alsa_card_id | default(0) }}
+#     device {{ alsa_card_device | default(0) }}
+# }

@@ -18,8 +18,8 @@
 
  5. faskey: Matching $key as set in this script (see below this introduction).
 	This is a key phrase for NDS to encrypt the query string sent to FAS.
-	It can be any combination of A-Z, a-z and 0-9, up to 64 characters with no white space.
-	eg c77557b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646
+	It can be any combination of A-Z, a-z and 64 characters with no white space.
+	eg c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646
 
  6. fas_secure_enabled:  set to level 3
 	The NDS parameters: clientip, clientmac, gatewayname, client token, gatewayaddress, authdir and originurl
@@ -27,7 +27,7 @@
 
 	The query string will also contain a randomly generated initialization vector to be used by the FAS for decryption.
 
-	The "php-cli" package and the "php-openssl" module must both be installed for fas_secure level 2 and above.
+ The "php-cli" package and the "php-openssl" module must both be installed for fas_secure level 2 and above.
 
  openNDS does not have "php-cli" and "php-openssl" as dependencies, but will exit gracefully at runtime if this package and module
  are not installed when fas_secure_enabled is set to level 2 or 3.
@@ -51,14 +51,14 @@
  The returned values can be used to dynamically modify the login form presented to the client,
  depending on the interface the client is connected to.
  eg. The login form can be different for an ethernet connection, a private wifi, a public wifi or a remote mesh network zone.
-
 */
 
 // Set the pre-shared key. This **MUST** be the same as faskey in the openNDS config.
 //	For example, use the sha256 hash of a secret string, but note also that if not present in the openNDS config, one will be generated and added there.
 //	See: /etc/config/opennds on the router.
-
-// Pre-shared encryption key between openNDS and FAS script (must match openNDS faskey config).
+// Schema: fas_key
+// Default: 'c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646'
+// Desc: Pre-shared encryption key between openNDS and FAS script (must match openNDS faskey config).
 $key="{{ fas_key | default('c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646') }}";
 
 // Allow immediate flush to browser
@@ -108,19 +108,29 @@ if (file_exists("/etc/config/opennds")) {
 	A value of 0 means no limit
 */
 
-// Session length in minutes (0 = no limit).
+// Schema: fas_sessionlength
+// Default: 0
+// Desc: Session length in minutes (0 = no limit).
 $sessionlength={{ fas_sessionlength | default(0) }}; // minutes (1440 minutes = 24 hours)
 
-// Client upload rate limit in kbits/sec (0 = no limit).
+// Schema: fas_uploadrate
+// Default: 0
+// Desc: Client upload rate limit in kbits/sec (0 = no limit).
 $uploadrate={{ fas_uploadrate | default(0) }}; // kbits/sec (500 kilobits/sec = 0.5 Megabits/sec)
 
-// Client download rate limit in kbits/sec (0 = no limit).
+// Schema: fas_downloadrate
+// Default: 0
+// Desc: Client download rate limit in kbits/sec (0 = no limit).
 $downloadrate={{ fas_downloadrate | default(0) }}; // kbits/sec (1000 kilobits/sec = 1.0 Megabits/sec)
 
-// Client upload quota in kBytes (0 = no limit).
+// Schema: fas_uploadquota
+// Default: 0
+// Desc: Client upload quota in kBytes (0 = no limit).
 $uploadquota={{ fas_uploadquota | default(0) }}; // kBytes (500000 kiloBytes = 500 MegaBytes)
 
-// Client download quota in kBytes (0 = no limit).
+// Schema: fas_downloadquota
+// Default: 0
+// Desc: Client download quota in kBytes (0 = no limit).
 $downloadquota={{ fas_downloadquota | default(0) }}; // kBytes (1000000 kiloBytes = 1 GigaByte)
 
 
@@ -129,7 +139,9 @@ $downloadquota={{ fas_downloadquota | default(0) }}; // kBytes (1000000 kiloByte
 	$imagepath is used function footer()
 */
 
-// URL of the image to display on the splash page.
+// Schema: fas_imageurl
+// Default: 'https://avatars1.githubusercontent.com/u/62547912'
+// Desc: URL of the image to display on the splash page.
 $imageurl="{{ fas_imageurl | default('https://avatars1.githubusercontent.com/u/62547912') }}";
 $imagetype="png";
 $scriptname=basename($_SERVER['SCRIPT_NAME']);
@@ -565,7 +577,7 @@ function authenticate_page() {
 		sleep(1);
 		echo "<b style=\"color:red;\">*</b>";
 
-		if ($count == 10) {echo "<br>"; $count=0;}
+		if ($count == 10){echo "<br>"; $count=0;}
 
 		flush();
 
@@ -773,9 +785,9 @@ function landing_page() {
 			</italic-black>
 		</p>
 		<p>
-			(Your device originally requested $redir)
-			<hr>
-			Click or tap Continue to show the status of your account.
+		(Your device originally requested $redir)
+		<hr>
+		Click or tap Continue to show the status of your account.
 		</p>
 		<form>
 			<input type=\"button\" VALUE=\"Continue\" onClick=\"location.href='".$gatewayurl."'\" >

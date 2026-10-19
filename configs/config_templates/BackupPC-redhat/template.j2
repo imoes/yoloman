@@ -1,0 +1,83 @@
+# BackupPC RedHat Configuration Template
+# This template configures Apache directives for the BackupPC web interface.
+# It handles authentication, directory access controls for Apache 2.4 and 2.2,
+# and defines aliases for images and administration scripts.
+
+# -----------------------------------------------------------------------------
+# Directory Access Control
+# -----------------------------------------------------------------------------
+
+# <DirectoryMatch /usr/(share|libexec)/BackupPC/>
+#   Restricts access to the BackupPC web interface directories.
+#   This block ensures that only authenticated users can access the interface,
+#   while still allowing local access for troubleshooting or initial setup.
+<DirectoryMatch /usr/(share|libexec)/BackupPC/>
+    # ---------------------------------------------------------------------
+    # Authentication Configuration
+    # ---------------------------------------------------------------------
+
+    # htpasswd -c {{ htpasswd_file | default('/etc/BackupPC/apache.users') }} yourusername
+    #
+    # Instructions for creating the password file:
+    # Run the above command on the target host to create the htpasswd file
+    # containing BackupPC web interface users.
+    # See: {{ htpasswd_file | default('/etc/BackupPC/apache.users') }}
+
+    AuthType Basic
+    # Path to the htpasswd file containing BackupPC web interface users.
+    # Default: /etc/BackupPC/apache.users
+    AuthUserFile {{ htpasswd_file | default('/etc/BackupPC/apache.users') }}
+
+    AuthName "BackupPC"
+
+    # ---------------------------------------------------------------------
+    # Apache 2.4 Access Control (mod_authz_core)
+    # ---------------------------------------------------------------------
+    <IfModule mod_authz_core.c>
+      # Apache 2.4 uses Require directives.
+      <RequireAll>
+        # Only valid users from the AuthUserFile can access this directory.
+        Require valid-user
+        
+        # Allow local access (localhost) without strict validation if needed,
+        # though valid-user is generally preferred for security.
+        <RequireAny>
+          Require local
+        </RequireAny>
+      </RequireAll>
+    </IfModule>
+
+    # ---------------------------------------------------------------------
+    # Apache 2.2 Access Control (legacy)
+    # ---------------------------------------------------------------------
+    <IfModule !mod_authz_core.c>
+      # For older Apache versions (2.2), use order/allow/deny directives.
+      order deny,allow
+      deny from all
+      allow from 127.0.0.1
+      allow from ::1
+      require valid-user
+    </IfModule>
+
+</DirectoryMatch>
+
+# -----------------------------------------------------------------------------
+# Alias Definitions
+# -----------------------------------------------------------------------------
+
+# Alias /BackupPC/images {{ backuppc_images_path | default('/usr/share/BackupPC/html/') }}
+# Maps the URL path /BackupPC/images to the local filesystem directory
+# where BackupPC web images are stored.
+# Default: /usr/share/BackupPC/html/
+Alias /BackupPC/images {{ backuppc_images_path | default('/usr/share/BackupPC/html/') }}
+
+# ScriptAlias /BackupPC {{ backuppc_admin_script | default('/usr/libexec/BackupPC/BackupPC_Admin') }}
+# Maps the URL path /BackupPC to the CGI script for BackupPC administration.
+# Default: /usr/libexec/BackupPC/BackupPC_Admin
+ScriptAlias /BackupPC {{ backuppc_admin_script | default('/usr/libexec/BackupPC/BackupPC_Admin') }}
+
+# ScriptAlias /backuppc {{ backuppc_admin_script | default('/usr/libexec/BackupPC/BackupPC_Admin') }}
+# Maps the lowercase URL path /backuppc to the CGI script as well,
+# ensuring case-insensitive access consistency.
+# Default: /usr/libexec/BackupPC/BackupPC_Admin
+ScriptAlias /backuppc {{ backuppc_admin_script | default('/usr/libexec/BackupPC/BackupPC_Admin') }}

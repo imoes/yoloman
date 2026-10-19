@@ -19,6 +19,7 @@ import { HostFileEditComponent } from './host-file-edit.component';
 import { HostSettingDialogComponent } from './host-setting-dialog.component';
 import { HostTemplateEditComponent } from './host-template-edit.component';
 import { HostThresholdsComponent } from './host-thresholds.component';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** The Configuration tab's Settings editor: the host as one document, in a Miller view.
  *
@@ -49,7 +50,7 @@ import { HostThresholdsComponent } from './host-thresholds.component';
 @Component({
   selector: 'app-host-settings-editor',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     DatePipe, FormsModule, MatButtonModule, MatIconModule,
     ConfigAdvisoriesComponent, ResourceNodeComponent,
     HostConfigGenerationsComponent, HostDriftBannerComponent, HostFileEditComponent,
@@ -88,7 +89,7 @@ import { HostThresholdsComponent } from './host-thresholds.component';
     <datalist id="bm-catalog-files">
       @for (f of catalogAddOptions(); track f) { <option [value]="f"></option> }
     </datalist>
-    <button mat-stroked-button (click)="addCatalogFile(addFilePath())" [disabled]="!addFilePath().trim()">
+    <button mat-stroked-button (click)="addCatalogFile(addFilePath())" [bmBlocked]="!addFilePath().trim() ? 'Enter a file path' : ''">
       <mat-icon>add</mat-icon> Add file
     </button>
   </div>
@@ -208,7 +209,7 @@ import { HostThresholdsComponent } from './host-thresholds.component';
             <input class="bm-kvin" placeholder="Add a setting key…"
                    [ngModel]="newSettingKey()" (ngModelChange)="newSettingKey.set($event)"
                    (keydown.enter)="addSettingKey(r)" />
-            <button mat-stroked-button (click)="addSettingKey(r)" [disabled]="!newSettingKey().trim()">Add</button>
+            <button mat-stroked-button (click)="addSettingKey(r)" [bmBlocked]="!newSettingKey().trim() ? 'Enter a setting key' : ''" bmBlockedMode="tip">Add</button>
           </div>
           @if (settingRow(); as row) {
             <app-host-setting-dialog [agentId]="agentId()" [resource]="r" [row]="row"

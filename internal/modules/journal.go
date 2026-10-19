@@ -149,9 +149,22 @@ func parseJournalJSON(out []byte) []map[string]any {
 			"message":   journalMessage(raw["MESSAGE"]),
 			"pid":       journalString(raw["_PID"]),
 			"hostname":  journalString(raw["_HOSTNAME"]),
+			// Addressable entries (diagnosis evidence ids are journal:<cursor>) and the run they belong to.
+			"cursor":        journalString(raw["__CURSOR"]),
+			"invocation_id": journalInvocation(raw),
+			"message_id":    journalString(raw["MESSAGE_ID"]),
 		})
 	}
 	return entries
+}
+
+// journalInvocation is the systemd invocation an entry belongs to: the daemon's own lines carry
+// _SYSTEMD_INVOCATION_ID, systemd's messages about the unit carry INVOCATION_ID.
+func journalInvocation(raw map[string]any) string {
+	if s := journalString(raw["_SYSTEMD_INVOCATION_ID"]); s != "" {
+		return s
+	}
+	return journalString(raw["INVOCATION_ID"])
 }
 
 // journalTimestamp converts journald's __REALTIME_TIMESTAMP (microseconds

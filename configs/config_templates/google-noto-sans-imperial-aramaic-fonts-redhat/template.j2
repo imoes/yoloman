@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Font Configuration for Google Noto Sans Imperial Aramaic (RedHat variant)
+  This template generates a Fontconfig XML file that aliases the specific font
+  family as a fallback for generic sans-serif fonts and configures hinting.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Match rule: Intercept requests for the generic sans-serif family.
+    This ensures the Noto Sans Imperial Aramaic font is used when an application
+    asks for a generic sans-serif font but no other specific sans-serif font is
+    preferred.
+  -->
+  <match>
+    <!-- Test if the requested font family matches the configured generic family -->
+    <test name="family">
+      <!-- The generic family name to match against (e.g., 'sans-serif') -->
+      <string>{{ sans_serif_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the specific Noto Sans Imperial Aramaic family to the list of candidates -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name to prepend to sans-serif fallbacks -->
+      <string>{{ font_family_name | default('Noto Sans Imperial Aramaic') }}</string>
+    </edit>
+    <!-- Enable font hinting for this font configuration -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether font hinting is enabled (true/false) -->
+      <bool>{{ hint_enabled | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias rule: Explicitly alias the Noto Sans Imperial Aramaic family.
+    This ensures that if an application explicitly requests this specific font,
+    it falls back to the generic sans-serif family if the specific one is unavailable.
+  -->
+  <alias>
+    <!-- The specific font family name being aliased -->
+    <family>{{ font_family_name | default('Noto Sans Imperial Aramaic') }}</family>
+    <default>
+      <!-- The generic family to fallback to -->
+      <family>{{ sans_serif_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

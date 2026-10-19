@@ -97,8 +97,9 @@ submit-data={{ wifi_submit_data | default(False) | lower }}
 # URL to submit data to a WiFi geolocation service with an Ichnaea compatible API
 # (https://ichnaea.readthedocs.io/en/latest/api/geosubmit2.html).
 # Leave empty to disable submission URL.
-#submission-url={{ wifi_submit_data_url | default('') }}
-
+{% if wifi_submit_data_url is defined and wifi_submit_data_url is not none and (wifi_submit_data_url is number or wifi_submit_data_url is boolean or wifi_submit_data_url | length > 0) %}submission-url={{ wifi_submit_data_url | default('') }}
+{% else %}#submission-url=https://example.com/v2/geosubmit?key=YOUR_KEY
+{% endif %}
 # A nickname to submit network data with. If empty, omitted from the submission.
 # Otherwise, must be 2 to 32 characters long. Defaults to "geoclue".
 submission-nick={{ wifi_submission_nick | default('geoclue') }}

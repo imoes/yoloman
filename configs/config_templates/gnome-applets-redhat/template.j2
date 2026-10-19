@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE busconfig PUBLIC
+	  "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+	  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+
+<busconfig>
+
+  <!--
+    D-Bus Security Policy for GNOME CPU Frequency Selector Applet.
+    
+    This configuration restricts access to the D-Bus service, ensuring that only
+    the designated system user can own the service and send messages to it.
+  -->
+
+  <!-- 
+    The Unix user allowed to own the D-Bus service. 
+    Default: root
+  -->
+  <policy user="{{ dbus_policy_user | default('root') }}">
+    
+    <!-- 
+      Grant ownership of the service to the specified user. 
+      Service Name: {{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}
+    -->
+    <allow own="{{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}"/>
+    
+    <!-- 
+      Grant permission to send messages to the service interface.
+      Destination and Interface: {{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}"
+           send_interface="{{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}" />
+  </policy>
+
+  <!-- 
+    Default Policy for all other connections.
+    Allows sending messages to the service interface for general access,
+    while implicit deny applies to other interactions.
+  -->
+  <policy context="default">
+    <allow send_destination="{{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}"
+           send_interface="{{ dbus_service_name | default('org.gnome.CPUFreqSelector') }}" />
+  </policy>
+
+</busconfig>

@@ -80,6 +80,7 @@ import { OuService } from '../../core/services/ou.service';
         </div>
       }
 
+      @if (actionError()) { <p class="bm-err" role="alert">{{ actionError() }}</p> }
       @for (r of rollouts(); track r.id) {
         <div class="bm-card">
           <div class="bm-rollout-head">
@@ -158,6 +159,7 @@ export class RolloutsComponent implements OnInit, OnDestroy {
   ouList = signal<{ id: string; name: string }[]>([]);
   editing = signal(false);
   formError = signal('');
+  actionError = signal('');
   strategyText = '1, 25%, rest';
   maxFailPct = 0;
   draft: RolloutInput = this.blank();
@@ -211,7 +213,15 @@ export class RolloutsComponent implements OnInit, OnDestroy {
       error: (e: { error?: { detail?: string } }) => this.formError.set(e?.error?.detail || 'create failed'),
     });
   }
-  start(r: Rollout): void { this.svc.start(r.id).subscribe(() => this.reload()); }
-  abort(r: Rollout): void { this.svc.abort(r.id).subscribe(() => this.reload()); }
-  remove(r: Rollout): void { this.svc.remove(r.id).subscribe(() => this.reload()); }
+  // A refused start/abort/delete is said, not swallowed — the status badge alone would just not change.
+  private act(r: Rollout, verb: string, call: import('rxjs').Observable<unknown>): void {
+    this.actionError.set('');
+    call.subscribe({
+      next: () => this.reload(),
+      error: (e: { error?: { detail?: string } }) => { this.actionError.set(`${verb} “${r.name}” failed: ${e?.error?.detail || 'unknown error'}`); this.reload(); },
+    });
+  }
+  start(r: Rollout): void { this.act(r, 'Start', this.svc.start(r.id)); }
+  abort(r: Rollout): void { this.act(r, 'Abort', this.svc.abort(r.id)); }
+  remove(r: Rollout): void { this.act(r, 'Delete', this.svc.remove(r.id)); }
 }

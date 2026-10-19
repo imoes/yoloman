@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {#
+    Configuration file for fontconfig to control hinting behavior for the DejaVu Sans Mono font family.
+    This template is self-documenting: every variable reference uses the schema field name and includes
+    its default value to ensure safe rendering even if the variable is undefined in the Ansible play.
+  #}
+
+  {#
+    Disable hinting manually at smaller sizes (< 8ppem)
+    This is a copy of the Bitstream Vera fonts rule, as DejaVu is derived from Vera.
+
+    The Bitstream Vera fonts have GASP entries suggesting that hinting be
+    disabled below 8 ppem, but FreeType ignores those, preferring to use
+    the data found in the instructed hints. The initial Vera release
+    didn't include the right instructions in the 'prep' table.
+  #}
+  <match target="font">
+    {#
+      family: The font family name to match.
+      Matches fonts whose name corresponds to this string.
+    #}
+    <test name="family">
+      <string>{{ family | default('DejaVu Sans Mono') }}</string>
+    </test>
+
+    {#
+      threshold: The pixel size threshold below which hinting is disabled.
+      If the font's pixel size is less than this value, the hinting setting below applies.
+    #}
+    <test compare="less" name="pixelsize">
+      <double>{{ threshold | default('7.5') }}</double>
+    </test>
+
+    {#
+      enable_hinting: Whether to enable hinting for the matched font family.
+      If true, hinting is enabled when pixelsize >= threshold.
+      If false, hinting is disabled when pixelsize < threshold (as per the 'less' comparison above).
+      Note: In the context of this specific rule structure, 'edit' usually implies the final state
+      or the action to take. Given the comment "Disable hinting", this boolean likely controls
+      whether hinting is allowed/applied in that range. Setting to 'false' disables it.
+    #}
+    <edit name="hinting">
+      <bool>{{ enable_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+</fontconfig>

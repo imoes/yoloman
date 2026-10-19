@@ -11,6 +11,7 @@ import { MonitoringService } from '../../../core/services/monitoring.service';
 import { thresholdContext } from '../../../shared/format.util';
 import { availabilityColor } from '../../../shared/status.util';
 import { HostConfigScopeService } from '../host-config-scope.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** The Monitoring-thresholds pane, lifted out of host-detail.component.ts.
  *
@@ -36,7 +37,7 @@ import { HostConfigScopeService } from '../host-config-scope.service';
 @Component({
   selector: 'app-host-thresholds',
   standalone: true,
-  imports: [MatButtonModule, MatCardModule, MatIconModule],
+  imports: [BlockedReasonDirective, MatButtonModule, MatCardModule, MatIconModule],
   template: `
             <h3 class="bm-gpo-h">
               Monitoring thresholds
@@ -107,7 +108,7 @@ import { HostConfigScopeService } from '../host-config-scope.service';
                     }
                     <div class="bm-rollback-actions">
                       <button mat-button (click)="addThr.set(false)" [disabled]="thrBusy()">Cancel</button>
-                      <button mat-flat-button color="primary" (click)="createThr()" [disabled]="thrBusy() || !newMetric().trim()">Add</button>
+                      <button mat-flat-button color="primary" (click)="createThr()" [disabled]="thrBusy()" [bmBlocked]="!newMetric().trim() ? 'Enter a metric' : ''">Add</button>
                     </div>
                   </div>
                 </div>

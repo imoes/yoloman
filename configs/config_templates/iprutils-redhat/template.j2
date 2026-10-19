@@ -1,0 +1,57 @@
+# ==============================================================================
+# Package: iprutils-redhat
+# Description: Configuration for IBM IPR (Internal Parallel RAID) adapter utilities.
+# Note: iprutils provides the `iprconfig` and `iprinit` utilities for managing
+# IBM Power Systems RAID adapters. The main configuration is typically handled
+# by the kernel module (ipr) or the initramfs generator (dracut) which probes
+# adapters at boot. This template generates the bash completion script for the
+# `iprconfig` utility, which is included in the iprutils package.
+# ==============================================================================
+
+# ==============================================================================
+# Section: Bash Completion for iprconfig
+# Source: iprutils-redhat package provides completion definitions.
+# ==============================================================================
+
+# Function to provide dynamic completion for the `iprconfig` command.
+{% raw %}
+_comp_iprconfig () {
+{% endraw %}
+    # Variable to hold the command name for easier reference
+    iprconfig="${COMP_WORDS[0]}"
+
+    # Current word being completed
+    cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # Previous word (used to determine context, e.g., option flags)
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Determine completion options based on the previous argument
+    case "${prev}" in
+	# If the user typed -c, list available RAID configurations
+	"-c")
+	    # Get list of available ipr configurations from the utility itself
+	    opts=$(${iprconfig} -l 2>/dev/null)
+	    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+	    ;;
+	# If the user typed -k, offer directory names (for key/config paths)
+	"-k")
+	    COMPREPLY=( $(compgen -o dirnames -- ${cur}) )
+	    ;;
+	# Default case: offer disk devices (sd* or sg*) found in /dev
+	*)
+	    # Find block/sg devices, filter for sd* and sg* prefixes
+	    opts=$(find /dev -printf "%f\n" | grep -G "^\(sd\|sg\)")
+	    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+	    ;;
+    esac
+
+    return 0
+{% raw %}
+}
+{% endraw %}
+
+# Register the completion function for the `iprconfig` command
+{% raw %}
+complete -F _comp_iprconfig iprconfig
+{% endraw %}

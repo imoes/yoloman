@@ -1,121 +1,105 @@
 {
-  "user": {
+  "log_file": {
     "type": "string",
-    "default": "memcache",
-    "description": "User account under which the memcached process runs."
+    "default": "/var/log/memcached.log",
+    "description": "Log file for the daemon's output (the Debian wrapper's `logfile` directive)."
   },
-  "bind_address": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address for memcached to bind to. Use 0.0.0.0 for all interfaces (not recommended without firewall)."
-  },
-  "port": {
+  "verbosity": {
     "type": "number",
-    "default": 11211,
-    "description": "TCP port number to listen on."
+    "default": 0,
+    "enum": [
+      0,
+      1,
+      2
+    ],
+    "enum_labels": {
+      "0": "quiet",
+      "1": "errors and warnings (-v)",
+      "2": "also client commands (-vv)"
+    },
+    "description": "How much the daemon logs."
   },
   "max_memory_mb": {
     "type": "number",
     "default": 64,
-    "description": "Maximum memory (in megabytes) to allocate for item storage."
+    "description": "Memory for item storage, in megabytes (-m)."
   },
-  "max_item_size_mb": {
+  "port": {
     "type": "number",
-    "default": 1,
-    "description": "Maximum size of a single item in megabytes. Set to 0 for unlimited size (not recommended)."
+    "default": 11211,
+    "description": "TCP port to listen on (-p)."
   },
-  "verbose": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose logging for debugging."
+  "udp_port": {
+    "type": "number",
+    "default": 0,
+    "description": "UDP port to listen on; 0 disables UDP (-U)."
+  },
+  "user": {
+    "type": "string",
+    "default": "memcache",
+    "description": "User the daemon runs as (-u)."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Interface(s) to listen on, comma-separated (-l). 0.0.0.0 exposes the cache without authentication."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum simultaneous connections (-c)."
   },
   "num_threads": {
     "type": "number",
     "default": 4,
-    "description": "Number of worker threads. Set to 0 to disable threading (single-threaded mode)."
+    "description": "Worker threads (-t)."
   },
-  "max_open_files": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum number of open file descriptors. Ensure system limits support this value."
-  },
-  "foreground": {
-    "type": "bool",
-    "default": false,
-    "description": "Run in foreground instead of daemonizing. Useful for containerized deployments or debugging."
-  },
-  "log_file": {
+  "max_item_size": {
     "type": "string",
-    "default": "",
-    "description": "Path to a log file. If empty, logs go to stderr (or syslog depending on system)."
+    "default": "1m",
+    "description": "Largest storable item with a k/m suffix (-I), e.g. 1m."
   },
-  "udp_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable UDP support. Only enable if required (UDP is rarely used and has security implications)."
-  },
-  "udp_max_payload": {
+  "growth_factor": {
     "type": "number",
-    "default": 1024,
-    "description": "Maximum UDP payload size in bytes. Only applies if UDP is enabled."
+    "default": 1.25,
+    "description": "Slab chunk-size growth factor (-f); must be greater than 1."
   },
-  "disable_sasl": {
-    "type": "bool",
-    "default": true,
-    "description": "Disable SASL authentication (SASL must be compiled-in to have effect)."
-  },
-  "local_only": {
-    "type": "bool",
-    "default": true,
-    "description": "Restrict connections to localhost only (via Unix socket or 127.0.0.1)."
+  "min_chunk_size": {
+    "type": "number",
+    "default": 48,
+    "description": "Minimum bytes allocated for key+value+flags (-n)."
   },
   "pid_file": {
     "type": "string",
     "default": "/var/run/memcached/memcached.pid",
-    "description": "Path to the PID file. Must be writable by the memcached user."
+    "description": "PID file (-P)."
   },
-  "slab_page_size": {
-    "type": "number",
-    "default": 1048576,
-    "description": "Size of a slab page (in bytes). Must be a power of two. Default is 1 MB."
-  },
-  "slab_chunk_size": {
-    "type": "number",
-    "default": 48,
-    "description": "Minimum size of a chunk in a slab (in bytes). Default is 48 bytes."
-  },
-  "use_large_pages": {
+  "no_evictions": {
     "type": "bool",
     "default": false,
-    "description": "Enable use of large memory pages (requires root and system support)."
+    "description": "Return an error instead of evicting items when memory is full (-M)."
   },
-  "disable_mlock": {
-    "type": "bool",
-    "default": true,
-    "description": "Disable memory locking (mlockall). Set to false only if locking is desired (requires CAP_IPC_LOCK)."
-  },
-  "enable_all_evictions": {
+  "lock_memory": {
     "type": "bool",
     "default": false,
-    "description": "Allow evictions of all items, not just LRU. Use with caution."
+    "description": "Lock all paged memory (-k); needs a raised memlock ulimit."
   },
-  "idle_timeout": {
-    "type": "number",
-    "default": 0,
-    "description": "Idle timeout (seconds) before closing a client connection. 0 means no timeout."
-  },
-  "check_nulls": {
+  "disable_cas": {
     "type": "bool",
     "default": false,
-    "description": "Check for null bytes in stored data. Helps detect corruption but adds overhead."
+    "description": "Disable compare-and-swap support (-C)."
+  },
+  "enable_sasl": {
+    "type": "bool",
+    "default": false,
+    "description": "Require SASL authentication (-S); memcached must be built with SASL."
   },
   "extra_options": {
     "type": "list",
     "default": [],
-    "description": "Additional command-line options to pass to memcached (e.g., ['-b 2048'] for TCP backlog).",
     "items": {
-      "type": "string",
-      "description": "A single memcached command-line flag (e.g., '-b 2048' for max TCP backlog, '-c 1024' for max connections override)."
-    }
+      "type": "string"
+    },
+    "description": "Further memcached options, one per line (e.g. '-b 2048')."
   }
 }

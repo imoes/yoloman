@@ -1,0 +1,30 @@
+fqcn: yoloman.kernel_cmdline
+name: kernel_cmdline
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Add or remove kernel command-line parameters for the next boot (grubby, GRUB, extlinux)
+description: >-
+  Kernel-tuning tunable (docs/kernel-tuning.md). Changes the configured kernel command line, never the
+  running one: the result is "pending_reboot" until /proc/cmdline shows the change. The backend follows
+  the host: grubby where installed (RHEL, Rocky, Alma, Fedora — all kernels), otherwise the GRUB defaults
+  file that really defines GRUB_CMDLINE_LINUX (on Debian/Ubuntu the last /etc/default/grub.d/*.cfg that
+  sets it wins, as grub-mkconfig sources them after /etc/default/grub) followed by update-grub or
+  grub-mkconfig/grub2-mkconfig into the grub.cfg kernel_caps found, and on Alpine
+  /etc/update-extlinux.conf with update-extlinux. A value computed by the shell ($VAR, backquotes) is
+  refused rather than rewritten. systemd-boot and UKI hosts fail with "unsupported:" for now. Returns
+  configured before/after, the live command line, persistence and rollback parameters.
+options:
+  add:
+    type: list
+    elements: str
+    description: Parameters to set, "key" or "key=value". A parameter with the same key is replaced.
+  remove:
+    type: list
+    elements: str
+    description: Keys to remove (every token with that key, with or without a value).
+examples: |
+  - yoloman.kernel_cmdline:
+      add: ["mitigations=auto", "transparent_hugepage=madvise"]
+  - yoloman.kernel_cmdline:
+      remove: ["quiet"]

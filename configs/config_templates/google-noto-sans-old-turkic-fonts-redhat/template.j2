@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Noto Sans Old Turkic Font Configuration
+    ----------------------------------------
+    This block creates a font alias and substitution rule.
+    It ensures that requests for the generic `sans_serif_family`
+    are satisfied by `font_family_name` (Noto Sans Old Turkic).
+    It also controls whether font hash hints are enabled for this family.
+  -->
+
+  <!--
+    Substitution Match
+    ------------------
+    Matches any font request where the target generic family is `sans_serif_family`.
+    Prepends `font_family_name` to the list of available fonts for this family,
+    making Noto Sans Old Turkic the primary choice.
+  -->
+  <match>
+    <!-- Test if the requested font family is the target generic family -->
+    <test name="family">
+      <!-- The target generic font family name to match against (e.g., 'sans-serif') -->
+      <string>{{ sans_serif_family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Prepend the specific font family to the matching family list -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name to be added or aliased -->
+      <string>{{ font_family_name | default('Noto Sans Old Turkic') }}</string>
+    </edit>
+
+    <!-- Configure font hash hints for this family -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to disable font hash hints for this family (true/false) -->
+      <bool>{{ font_hash_hint | default(false) | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Font Alias Definition
+    ---------------------
+    Defines `font_family_name` as an alias for `sans_serif_family`.
+    Applications requesting the specific family will be redirected to the generic one,
+    or vice-versa depending on fontconfig resolution order, effectively linking them.
+  -->
+  <alias>
+    <!-- The font family name being defined as an alias -->
+    <family>{{ font_family_name | default('Noto Sans Old Turkic') }}</family>
+
+    <!-- The default family to use when the alias is resolved -->
+    <default>
+      <!-- The target generic font family name -->
+      <family>{{ sans_serif_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

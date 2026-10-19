@@ -135,7 +135,7 @@ import { TimePeriodsCardComponent } from './time-periods-card.component';
         text-align: left;
         font-size: 12px;
         opacity: 0.7;
-        padding: 6px 8px;
+        padding: var(--bm-cell-py) var(--bm-cell-px);
       }
       .bm-table td {
         padding: 8px;

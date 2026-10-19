@@ -1,44 +1,93 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Depthcharge Kernel Image Writer Hook
+#
+# This script is designed to be called as a hook in the Chrome OS update
+# process. It uses the `depthchargectl` utility to write kernel images
+# to the appropriate partitions based on the board configuration and
+# command-line arguments.
+#
+# Arguments:
+#   $1 - Kernel version string (kversion)
+#   $2 - Initial RAM disk path (initrd)
+#
+# Exit Codes:
+#   0 - Success or intentionally skipped
+#   1 - Error (only if booted with cros_secure)
 
-# depthcharge-tools depthchargectl-bless sysvinit service
-# Copyright (C) 2020-2021 Alper Nebi Yasak <{{ maintainer_email | default('alpernebiyasak@gmail.com') }}|e>
-# See COPYRIGHT and LICENSE files for full copyright information.
+set -e
 
-### BEGIN INIT INFO
-# Provides:          {{ service_name | default('depthcharge-tools') }}
-# Required-Start:    $remote_fs
-# Required-Stop:
-# Default-Start:     2 3 4 5
-# Default-Stop:
-# Short-Description: Mark the current depthcharge partition as successful
-### END INIT INFO
+# Full path or command name of the depthchargectl binary.
+binary_path="{{ binary_path | default('depthchargectl') }}"
 
-# Ensure the binary exists before proceeding.
-# Uses the configured binary path/name.
-{% set bp = binary_path | default('depthchargectl') %}
-if ! command -v {{ bp }} >/dev/null 2>/dev/null; then
+kversion="$1"
+initrd="$2"
+
+# Check if the depthchargectl binary is available on the system.
+# If it is not found, the script exits gracefully as this package
+# might not be installed.
+if ! command -v "{{ binary_path | default('depthchargectl') }}" >/dev/null 2>&1; then
+    echo "Not writing depthcharge image, {{ binary_path | default('depthchargectl') }} is missing." >&2
     exit 0
 fi
 
-# Check if the system booted via depthcharge (Chrome OS recovery/boot logic).
-# If "cros_secure" is not in the kernel command line, this script exits early.
-if ! grep "cros_secure" /proc/cmdline >/dev/null 2>/dev/null; then
-    # Not booted by depthcharge.
+# Helper function to handle potential errors from depthchargectl.
+# If the system is booted with 'cros_secure', errors are critical
+# and will cause the script to exit with code 1.
+# Otherwise, errors are ignored (likely running in a chroot or non-production env).
+maybe_error() {
+    if grep "cros_secure" /proc/cmdline >/dev/null 2>&1; then
+        echo "Failed to write depthcharge image, system may be unbootable." >&2
+        exit 1
+    else
+        echo "Not booted with depthcharge, so ignoring that." >&2
+        exit 0
+    fi
+}
+
+# Check if the depthcharge system hooks are enabled in the configuration.
+# The tool returns "True" or "False" (or similar) for the enable-system-hooks setting.
+# Default is False if the config value is missing or unset.
+enabled="$(
+    "{{ binary_path | default('depthchargectl') }}" config \
+        --section depthchargectl/write \
+        --default False \
+        enable-system-hooks
+)" || maybe_error
+
+# If hooks are disabled, exit gracefully.
+if [ "$enabled" != "True" ]; then
+    echo "Not writing depthcharge image, disabled by config." >&2
     exit 0
 fi
 
-# Source LSB init functions if available for standard logging/status commands.
-if [ -f /lib/lsb/init-functions ]; then
-    . /lib/lsb/init-functions
+# Retrieve the target board identifier from the configuration.
+# If no board is specified, the operation cannot proceed.
+board="$("{{ binary_path | default('depthchargectl') }}" config board)" || maybe_error
+
+if [ "$board" = "none" ]; then
+    echo "Cannot build depthcharge images when no board is specified." >&2
+    maybe_error
 fi
 
-case "$1" in
-    start|restart|reload|force-reload)
-        # Execute the bless command to mark the partition successful.
-        {{ bp }} bless
-        ;;
-    stop|status)
-        # This is not a daemon; stop/status are no-ops here.
-        ;;
-esac
+# Get the count of usable kernel images/partitions found by the tool.
+count="$("{{ binary_path | default('depthchargectl') }}" list -c)" || maybe_error
+
+# Logic to write the kernel image based on the number of found partitions.
+if [ "$count" -gt 1 ]; then
+    # Multiple partitions found: Write to the specific kernel version.
+    echo "Running {{ binary_path | default('depthchargectl') }} write '$kversion':" >&2
+    "{{ binary_path | default('depthchargectl') }}" write "$kversion" >/dev/null \
+        || maybe_error
+
+elif [ "$count" -eq 1 ]; then
+    # Single partition found: Write allowing override of current.
+    echo "Running {{ binary_path | default('depthchargectl') }} write --allow-current '$kversion':" >&2
+    "{{ binary_path | default('depthchargectl') }}" write --allow-current "$kversion" >/dev/null \
+        || maybe_error
+
+else
+    # No usable partitions found.
+    echo "No usable Chrome OS Kernel partition found." >&2
+    maybe_error
+fi

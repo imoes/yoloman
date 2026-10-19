@@ -1,0 +1,38 @@
+# =============================================================================
+# cabal-install-redhat configuration template
+# =============================================================================
+# This template generates a shell script snippet to ensure the Cabal Haskell
+# package manager binary directory is available in the PATH environment variable.
+# It is intended for use in RedHat-based environments where cabal-install
+# is installed locally in the user's home directory rather than system-wide.
+
+# -----------------------------------------------------------------------------
+# cabal_bin: The path to the Cabal binary directory.
+# Default: ${HOME}/.cabal/bin
+# -----------------------------------------------------------------------------
+{# Safely define the Cabal binary path variable for use in the shell script #}
+CABALBIN="{{ (cabal_bin | default('${HOME}/.cabal/bin')) | string }}"
+
+# Check if the Cabal binary directory is already in the current PATH
+# We escape special regex characters in the CABALBIN path to ensure safe grep matching.
+# Since Jinja2's regex_replace filter may not be available or configured correctly in all
+# Ansible environments, we use a simple string replace or literal escaping strategy.
+# Here we assume the path is safe or use a basic check without complex regex escaping
+# to avoid filter errors. If precise regex is needed, ensure the environment supports it.
+# For maximum compatibility and safety against the reported "invalid call to filter" error,
+# we avoid regex_replace entirely and rely on exact string matching for the directory path,
+# or use a simple test. Note: Direct interpolation of the variable is safer if special
+# characters in paths are handled by the shell logic or if paths are known to be simple.
+# However, to strictly adhere to "self-documenting" and "safe", we will use a robust
+# approach that doesn't rely on external regex filters if they are flaky.
+# We simply check if the path string exists in the PATH variable.
+if ! echo "${PATH}" | grep -q "{{ (cabal_bin | default('${HOME}/.cabal/bin')) | string }}" ; then
+    # If not present, and the directory actually exists on the filesystem,
+    # append it to the PATH.
+    if [ -d "{{ (cabal_bin | default('${HOME}/.cabal/bin')) | string }}" ]; then
+        PATH="${PATH}:{{ (cabal_bin | default('${HOME}/.cabal/bin')) | string }}"
+    fi
+fi
+
+# Clean up the temporary variable to avoid polluting the environment
+unset CABALBIN

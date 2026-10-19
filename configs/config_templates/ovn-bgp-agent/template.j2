@@ -1,0 +1,189 @@
+# ============================================================================
+# ovn-bgp-agent Configuration File
+# ============================================================================
+# This file configures the Open Virtual Networking (OVN) BGP Agent.
+# The agent connects to OVN databases (OVSDB) to read network state and
+# interacts with the FRR (Free Range Routing) suite to advertise routes
+# via BGP.
+#
+# Structure:
+#   [DEFAULT]   : General agent behavior, sync intervals, and tenant network
+#                 exposure strategies.
+#   [agent]     : Root privileges and namespace reading helpers.
+#   [local_ovn_cluster] : Connection to the local OVN Northbound DB and
+#                 specific node-level cluster settings.
+#   [ovn]       : Connection to OVN Southbound/Northbound DBs, including SSL
+#                 configuration.
+# ============================================================================
+
+[DEFAULT]
+
+# --- General Synchronization Settings ---
+
+# Time (seconds) between re-sync actions.
+# Controls how frequently the agent polls the database for changes.
+reconcile_interval = {{ reconcile_interval | default('') }}
+
+# Time (seconds) between re-sync actions to ensure FRR configuration is correct.
+# Ensures consistency between the agent's state and the FRR router daemon.
+frr_reconcile_interval = {{ frr_reconcile_interval | default('') }}
+
+# --- Tenant Network Exposure Settings ---
+
+# Expose VM IPs on tenant networks.
+# If enabled, VM IPs become reachable from outside the tenant network.
+# Takes precedence over expose_ipv6_gua_tenant_networks.
+expose_tenant_networks = {{ expose_tenant_networks | default('') }}
+
+# Advertisement method for tenant networks.
+# 'host': Advertise each VM IP individually (/32 or /128).
+# 'subnet': Advertise the entire tenant subnet prefix.
+advertisement_method_tenant_networks = {{ advertisement_method_tenant_networks | default('host') }}
+
+# Require SNAT disabled on router ports before exposing tenant networks.
+# If true, ensures that tenant VMs communicate via pure routing (no SNAT).
+require_snat_disabled_for_tenant_networks = {{ require_snat_disabled_for_tenant_networks | default('') }}
+
+# Expose only VM IPv6 IPs if they are Global Unicast Addresses (GUA).
+# Only applies if expose_tenant_networks is enabled.
+expose_ipv6_gua_tenant_networks = {{ expose_ipv6_gua_tenant_networks | default('') }}
+
+# --- Driver Configuration ---
+
+# Driver to be used by the agent.
+# Options: ovn_bgp_driver, ovn_evpn_driver, ovn_stretched_l2_bgp_driver, nb_ovn_bgp_driver.
+driver = {{ driver | default('ovn_bgp_driver') }}
+
+# --- OVSDB Backend Connection ---
+
+# The connection string for the native OVSDB backend.
+# Format: tcp:IP:PORT or unix:FILE.
+ovsdb_connection = {{ ovsdb_connection | default('') }}
+
+# Timeout in seconds for OVSDB connection transactions.
+ovsdb_connection_timeout = {{ ovsdb_connection_timeout | default('') }}
+
+# --- BGP Global Settings ---
+
+# AS number (Autonomous System) to be used by the Agent in BGP mode.
+bgp_AS = {{ bgp_AS | default('') }}
+
+# Router ID to be used by the Agent in BGP mode.
+bgp_router_id = {{ bgp_router_id | default('') }}
+
+# --- EVPN VXLAN Settings ---
+
+# IP address of the local EVPN VXLAN tunnel endpoint.
+# Overrides evpn_nic if both are specified.
+evpn_local_ip = {{ evpn_local_ip | default('') }}
+
+# NIC (Network Interface Card) to use for the local EVPN VXLAN endpoint IP.
+# Uses the IP from the loopback device if not specified.
+evpn_nic = {{ evpn_nic | default('') }}
+
+# UDP destination port for EVPN VXLAN communication.
+# Default is typically 4789.
+evpn_udp_dstport = {{ evpn_udp_dstport | default('') }}
+
+# --- VRF (Virtual Routing and Forwarding) Settings ---
+
+# Clear all routes from the VRF table at startup.
+clear_vrf_routes_on_startup = {{ clear_vrf_routes_on_startup | default('') }}
+
+# If enabled, the agent deletes the VRF configuration from the kernel and FRR
+# upon disconnection. If disabled, the VRF persists.
+delete_vrf_on_disconnect = {{ delete_vrf_on_disconnect | default('') }}
+
+# Name of the network interface used within the VRF to expose IPs/Networks.
+bgp_nic = {{ bgp_nic | default('') }}
+
+# Name of the VRF to be used for BGP route exposure.
+bgp_vrf = {{ bgp_vrf | default('') }}
+
+# Routing Table ID associated with the VRF.
+# If it doesn't exist, the agent may create it depending on permissions.
+bgp_vrf_table_id = {{ bgp_vrf_table_id | default('') }}
+
+# Filter announcements by address scope.
+# Only networks with matching address scopes on provider/internal interfaces are announced.
+address_scopes = {{ address_scopes | default('') }}
+
+# Exposing mechanism for networks.
+# 'underlay': Expose on default/plain network.
+# 'l2vni': Extend L2 over L3 infrastructure via VNI.
+# 'vrf': Expose routes in different VRFs.
+# 'dynamic': Mix of above based on port annotations.
+# 'ovn': Use dedicated OVN cluster for traffic redirection.
+exposing_method = {{ exposing_method | default('underlay') }}
+
+
+[agent]
+
+# --- Root Helper Configuration ---
+
+# Root helper application used to run commands with elevated privileges.
+# Example: 'sudo ovn-bgp-agent-rootwrap /etc/ovn-bgp-agent/rootwrap.conf'
+root_helper = {{ root_helper | default('') }}
+
+# Use root helper when listing network namespaces.
+# Set to false for performance improvement if security context allows.
+use_helper_for_ns_read = {{ use_helper_for_ns_read | default('') }}
+
+# Root helper daemon application for improved performance at scale.
+# Runs rootwrap in daemon mode.
+root_helper_daemon = {{ root_helper_daemon | default('') }}
+
+
+[local_ovn_cluster]
+
+# --- Local OVN Cluster Connection ---
+
+# Connection string for the OVN Northbound OVSDB (local_ovn_cluster section).
+# Format: tcp:IP:PORT or unix:FILE.
+# Default points to the standard local socket.
+ovn_nb_connection = {{ ovn_nb_connection | default('unix:/var/run/ovn/ovnnb_db.sock') }}
+
+# List of NICS that the local OVN cluster connects to for external connectivity.
+external_nics = {{ external_nics | default('') }}
+
+# List of peer IPs for redirecting outgoing traffic (ECMP support).
+peer_ips = {{ peer_ips | default('') }}
+
+# List of prefixes for provider networks.
+provider_networks_pool_prefixes = {{ provider_networks_pool_prefixes | default('') }}
+
+# Chassis ID used for the ovn-controller instance.
+# Used as a suffix for node-specific options in OVSDB.
+bgp_chassis_id = {{ bgp_chassis_id | default('') }}
+
+
+[ovn]
+
+# --- OVN Database SSL/Connection Configuration ---
+
+# PEM file containing the private key for SSL connection to OVN-SB-DB.
+ovn_sb_private_key = {{ ovn_sb_private_key | default('') }}
+
+# PEM file containing the certificate for the OVN-SB-DB private key.
+ovn_sb_certificate = {{ ovn_sb_certificate | default('') }}
+
+# PEM file containing the CA certificate to verify OVN-SB-DB peers.
+ovn_sb_ca_cert = {{ ovn_sb_ca_cert | default('') }}
+
+# Connection string for the OVN Southbound OVSDB.
+# Format: tcp:IP:PORT or unix:FILE.
+ovn_sb_connection = {{ ovn_sb_connection | default('') }}
+
+# PEM file containing the private key for SSL connection to OVN-NB-DB.
+ovn_nb_private_key = {{ ovn_nb_private_key | default('') }}
+
+# PEM file containing the certificate for the OVN-NB-DB private key.
+ovn_nb_certificate = {{ ovn_nb_certificate | default('') }}
+
+# PEM file containing the CA certificate to verify OVN-NB-DB peers.
+ovn_nb_ca_cert = {{ ovn_nb_ca_cert | default('') }}
+
+# Connection string for the OVN Northbound OVSDB (ovn section).
+# Format: tcp:IP:PORT or unix:FILE.
+# Default points to the standard local socket.
+ovn_nb_connection_ovn = {{ ovn_nb_connection_ovn | default('unix:/var/run/ovn/ovnnb_db.sock') }}

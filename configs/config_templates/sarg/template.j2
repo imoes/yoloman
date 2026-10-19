@@ -10,15 +10,18 @@ access_log {{ access_log }}
 #	Use graphics where is possible.
 #           graph_days_bytes_bar_color blue|green|yellow|orange|brown|red
 #
-#graphs {{ graphs | lower }}
-#graph_days_bytes_bar_color {{ graph_days_bytes_bar_color }}
-
+{% if graphs is defined and graphs is not none and (graphs is number or graphs is boolean or graphs | length > 0) %}graphs {{ graphs | lower }}
+{% else %}#graphs yes
+{% endif %}{% if graph_days_bytes_bar_color is defined and graph_days_bytes_bar_color is not none and (graph_days_bytes_bar_color is number or graph_days_bytes_bar_color is boolean or graph_days_bytes_bar_color | length > 0) %}graph_days_bytes_bar_color {{ graph_days_bytes_bar_color }}
+{% else %}#graph_days_bytes_bar_color orange
+{% endif %}
 # TAG:  graph_font
 #       The full path to the TTF font file to use to create the graphs. It is required
 #       if graphs is set to yes.
 #
-#graph_font {{ graph_font }}
-
+{% if graph_font is defined and graph_font is not none and (graph_font is number or graph_font is boolean or graph_font | length > 0) %}graph_font {{ graph_font }}
+{% else %}#graph_font /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+{% endif %}
 # TAG:	title
 # 	Especify the title for html page.
 #
@@ -47,13 +50,15 @@ font_size {{ font_size }}
 # TAG:	header_font_size
 # 	Especify the header font size
 #
-#header_font_size {{ header_font_size }}
-
+{% if header_font_size is defined and header_font_size is not none and (header_font_size is number or header_font_size is boolean or header_font_size | length > 0) %}header_font_size {{ header_font_size }}
+{% else %}#header_font_size 9px
+{% endif %}
 # TAG:	title_font_size
 # 	Especify the title font size
 #
-#title_font_size {{ title_font_size }}
-
+{% if title_font_size is defined and title_font_size is not none and (title_font_size is number or title_font_size is boolean or title_font_size | length > 0) %}title_font_size {{ title_font_size }}
+{% else %}#title_font_size 11px
+{% endif %}
 # TAG:	background_color
 # TAG:	background_color
 #	Html page background color
@@ -78,35 +83,41 @@ title_color {{ title_color }}
 # TAG:	logo_image
 #	Html page logo.
 #
-#logo_image {{ logo_image }}
-
+{% if logo_image is defined and logo_image is not none and (logo_image is number or logo_image is boolean or logo_image | length > 0) %}logo_image {{ logo_image }}
+{% else %}#logo_image none
+{% endif %}
 # TAG:	logo_text
 #	Html page logo text.
 #
-#logo_text "{{ logo_text }}"
-
+{% if logo_text is defined and logo_text is not none and (logo_text is number or logo_text is boolean or logo_text | length > 0) %}logo_text "{{ logo_text }}"
+{% else %}#logo_text ""
+{% endif %}
 # TAG:	logo_text_color
 #	Html page logo texti color.
 #
-#logo_text_color {{ logo_text_color }}
-
+{% if logo_text_color is defined and logo_text_color is not none and (logo_text_color is number or logo_text_color is boolean or logo_text_color | length > 0) %}logo_text_color {{ logo_text_color }}
+{% else %}#logo_text_color #000000
+{% endif %}
 # TAG:	logo_image_size
 #	Html page logo image size. 
 #       width height
 #
-#image_size {{ logo_image_size_width }} {{ logo_image_size_height }}
-
+{% if logo_image_size_width is defined and logo_image_size_width is not none and (logo_image_size_width is number or logo_image_size_width is boolean or logo_image_size_width | length > 0) %}image_size {{ logo_image_size_width }} {{ logo_image_size_height }}
+{% else %}#image_size 80 45
+{% endif %}
 # TAG:	background_image
 #	Html page background image
 #
-#background_image {{ background_image }}
-
+{% if background_image is defined and background_image is not none and (background_image is number or background_image is boolean or background_image | length > 0) %}background_image {{ background_image }}
+{% else %}#background_image none
+{% endif %}
 # TAG:  password
 #       User password file used by Squid authentication scheme
 #       If used, generate reports just for that users.
 #
-#password {{ password }}
-
+{% if password is defined and password is not none and (password is number or password is boolean or password | length > 0) %}password {{ password }}
+{% else %}#password none
+{% endif %}
 # TAG:  temporary_dir
 #       Temporary directory name for work files
 #       sarg -w dir
@@ -117,15 +128,17 @@ temporary_dir {{ temporary_dir }}
 #       The reports will be saved in that directory
 #       sarg -o dir
 #
-#output_dir {{ output_dir_default }}
-output_dir {{ output_dir }}
+{% if output_dir_default is defined and output_dir_default is not none and (output_dir_default is number or output_dir_default is boolean or output_dir_default | length > 0) %}output_dir {{ output_dir_default }}
+{% else %}#output_dir /var/www/html/squid-reports
+{% endif %}output_dir {{ output_dir }}
 
 # TAG:  output_email
 #       Email address to send the reports. If you use this tag, no html reports will be generated.
 #       sarg -e email
 #
-#output_email {{ output_email }}
-
+{% if output_email is defined and output_email is not none and (output_email is number or output_email is boolean or output_email | length > 0) %}output_email {{ output_email }}
+{% else %}#output_email none
+{% endif %}
 # TAG:  resolve_ip yes/no
 #       Convert ip address to dns name
 #       sarg -n
@@ -167,8 +180,9 @@ exclude_hosts {{ exclude_hosts }}
 # TAG:  useragent_log file
 #       useragent.log file patch to generate useragent report.
 #
-#useragent_log {{ useragent_log }}
-
+{% if useragent_log is defined and useragent_log is not none and (useragent_log is number or useragent_log is boolean or useragent_log | length > 0) %}useragent_log {{ useragent_log }}
+{% else %}#useragent_log none
+{% endif %}
 # TAG:  date_format
 #       Date format in reports: e (European=dd/mm/yy), u (American=mm/dd/yy), w (Weekly=yy.ww)
 #       
@@ -178,8 +192,9 @@ date_format {{ date_format }}
 #       Saves userid on file if download exceed n MB.
 #       This option allow you to disable user access if user exceed a download limit.
 #       
-#per_user_limit {{ per_user_limit }}
-
+{% if per_user_limit is defined and per_user_limit is not none and (per_user_limit is number or per_user_limit is boolean or per_user_limit | length > 0) %}per_user_limit {{ per_user_limit }}
+{% else %}#per_user_limit none
+{% endif %}
 # TAG: lastlog n
 #      How many reports files must be keept in reports directory.
 #      The oldest report file will be automatically removed.
@@ -257,8 +272,9 @@ exclude_codes {{ exclude_codes }}
 #      Replace "index.html" in the main index file with this string
 #      If null "index.html" is used 
 #
-#replace_index {{ replace_index }}
-
+{% if replace_index is defined and replace_index is not none and (replace_index is number or replace_index is boolean or replace_index | length > 0) %}replace_index {{ replace_index }}
+{% else %}#replace_index <?php echo str_replace(".", "_", $REMOTE_ADDR); echo ".html"; ?>
+{% endif %}
 # TAG: max_elapsed milliseconds
 #      If elapsed time is recorded in log is greater than max_elapsed use 0 for elapsed time.
 #      Use 0 for no checking 
@@ -280,8 +296,9 @@ max_elapsed {{ max_elapsed }}
 #
 #      Eg.: report_type topsites denied 
 #
-#report_type {{ report_type }}
-
+{% if report_type is defined and report_type is not none and (report_type is number or report_type is boolean or report_type | length > 0) %}report_type {{ report_type }}
+{% else %}#report_type topusers topsites sites_users users_sites date_time denied auth_failures site_user_time_date downloads
+{% endif %}
 # TAG: usertab filename
 #      You can change the "userid" or the "ip address" to be a real user name on the reports.
 #      If resolve_ip is active, the ip address is resolved before being looked up into this
@@ -307,32 +324,37 @@ usertab {{ usertab }}
 #	FQDN or IP address of host with LDAP service or AD DC
 #	default is '127.0.0.1'
 #
-#LDAPHost {{ LDAPHost }}
-
+{% if LDAPHost is defined and LDAPHost is not none and (LDAPHost is number or LDAPHost is boolean or LDAPHost | length > 0) %}LDAPHost {{ LDAPHost }}
+{% else %}#LDAPHost 127.0.0.1
+{% endif %}
 # TAG: LDAPPort port
 #       LDAP service port number
 #	default is '389'
 #
-#LDAPPort {{ LDAPPort }}
-
+{% if LDAPPort is defined and LDAPPort is not none and (LDAPPort is number or LDAPPort is boolean or LDAPPort | length > 0) %}LDAPPort {{ LDAPPort }}
+{% else %}#LDAPPort 389
+{% endif %}
 # TAG: LDAPBindDN CN=username,OU=group,DC=mydomain,DC=com
 #	DN of LDAP user, who is authorized to read user's names from LDAP base
 #	default is empty line
 #
-#LDAPBindDN {{ LDAPBindDN }}
-
+{% if LDAPBindDN is defined and LDAPBindDN is not none and (LDAPBindDN is number or LDAPBindDN is boolean or LDAPBindDN | length > 0) %}LDAPBindDN {{ LDAPBindDN }}
+{% else %}#LDAPBindDN cn=proxy,dc=mydomain,dc=local
+{% endif %}
 # TAG: LDAPBindPW secret
 #	Password of DN, who is authorized to read user's names from LDAP base
 #	default is empty line
 #
-#LDAPBindPW {{ LDAPBindPW }}
-
+{% if LDAPBindPW is defined and LDAPBindPW is not none and (LDAPBindPW is number or LDAPBindPW is boolean or LDAPBindPW | length > 0) %}LDAPBindPW {{ LDAPBindPW }}
+{% else %}#LDAPBindPW secret
+{% endif %}
 # TAG: LDAPBaseSearch OU=users,DC=mydomain,DC=com
 #	LDAP search base
 #	default is empty line
 #
-#LDAPBaseSearch {{ LDAPBaseSearch }}
-
+{% if LDAPBaseSearch is defined and LDAPBaseSearch is not none and (LDAPBaseSearch is number or LDAPBaseSearch is boolean or LDAPBaseSearch | length > 0) %}LDAPBaseSearch {{ LDAPBaseSearch }}
+{% else %}#LDAPBaseSearch ou=users,dc=mydomain,dc=local
+{% endif %}
 # TAG: LDAPFilterSearch uid=%s
 #	User search filter by user's logins in LDAP
 #	First founded record will be used
@@ -340,14 +362,16 @@ usertab {{ usertab }}
 #       filter string can have some tags '%s'
 #	default value is 'uid=%s'
 #
-#LDAPFilterSearch {{ LDAPFilterSearch }}
-
+{% if LDAPFilterSearch is defined and LDAPFilterSearch is not none and (LDAPFilterSearch is number or LDAPFilterSearch is boolean or LDAPFilterSearch | length > 0) %}LDAPFilterSearch {{ LDAPFilterSearch }}
+{% else %}#LDAPFilterSearch uid=%s
+{% endif %}
 # TAG: LDAPTargetAttr attributename
 #	Name of the attribute containing a name of the user
 #	default value is 'cn'
 #
-#LDAPTargetAttr {{ LDAPTargetAttr }}
-
+{% if LDAPTargetAttr is defined and LDAPTargetAttr is not none and (LDAPTargetAttr is number or LDAPTargetAttr is boolean or LDAPTargetAttr | length > 0) %}LDAPTargetAttr {{ LDAPTargetAttr }}
+{% else %}#LDAPTargetAttr cn
+{% endif %}
 # TAG: long_url yes|no
 #      If yes, the full url is showed in report.
 #      If no, only the site will be showed
@@ -385,8 +409,9 @@ charset {{ charset }}
 # TAG: user_invalid_char "&/"
 #      Records that contain invalid characters in userid will be ignored by Sarg.
 #
-#user_invalid_char {{ user_invalid_char }}
-
+{% if user_invalid_char is defined and user_invalid_char is not none and (user_invalid_char is number or user_invalid_char is boolean or user_invalid_char | length > 0) %}user_invalid_char {{ user_invalid_char }}
+{% else %}#user_invalid_char "&/"
+{% endif %}
 # TAG: privacy yes|no
 #      privacy_string "***.***.***.***"
 #      privacy_string_color blue
@@ -394,20 +419,25 @@ charset {{ charset }}
 #      Using privacy yes the visited url will be changes by privacy_string and the link
 #      will be removed from reports.
 #
-#privacy {{ privacy | lower }}
-#privacy_string "{{ privacy_string }}"
-#privacy_string_color {{ privacy_string_color }}
-
+{% if privacy is defined and privacy is not none and (privacy is number or privacy is boolean or privacy | length > 0) %}privacy {{ privacy | lower }}
+{% else %}#privacy no
+{% endif %}{% if privacy_string is defined and privacy_string is not none and (privacy_string is number or privacy_string is boolean or privacy_string | length > 0) %}privacy_string "{{ privacy_string }}"
+{% else %}#privacy_string "***.***.***.***"
+{% endif %}{% if privacy_string_color is defined and privacy_string_color is not none and (privacy_string_color is number or privacy_string_color is boolean or privacy_string_color | length > 0) %}privacy_string_color {{ privacy_string_color }}
+{% else %}#privacy_string_color blue
+{% endif %}
 # TAG: include_users "user1:user2:...:usern"
 #      Reports will be generated only for listed users.
 #
-#include_users {{ include_users }}
-
+{% if include_users is defined and include_users is not none and (include_users is number or include_users is boolean or include_users | length > 0) %}include_users {{ include_users }}
+{% else %}#include_users none
+{% endif %}
 # TAG: exclude_string "string1:string2:...:stringn"
 #      Records from access.log file that contain one of listed strings will be ignored.
 #
-#exclude_string {{ exclude_string }}
-
+{% if exclude_string is defined and exclude_string is not none and (exclude_string is number or exclude_string is boolean or exclude_string | length > 0) %}exclude_string {{ exclude_string }}
+{% else %}#exclude_string none
+{% endif %}
 # TAG: show_successful_message yes|no
 #      Shows "Successful report generated on dir" at end of process.
 #
@@ -431,8 +461,9 @@ user_report_fields {{ user_report_fields }}
 # TAG: bytes_in_sites_users_report yes|no
 #      Bytes field must be in Site & Users Report ?
 #
-#bytes_in_sites_users_report {{ bytes_in_sites_users_report | lower }}
-
+{% if bytes_in_sites_users_report is defined and bytes_in_sites_users_report is not none and (bytes_in_sites_users_report is number or bytes_in_sites_users_report is boolean or bytes_in_sites_users_report | length > 0) %}bytes_in_sites_users_report {{ bytes_in_sites_users_report | lower }}
+{% else %}#bytes_in_sites_users_report no
+{% endif %}
 # TAG: topuser_num n
 #      How many users in topsites report. 0 = no limit
 #
@@ -446,14 +477,16 @@ topuser_num {{ topuser_num }}
 # TAG: datafile_delimiter ";"
 #      ascii character to use as a field separator in datafile
 #
-#datafile_delimiter {{ datafile_delimiter }}
-
+{% if datafile_delimiter is defined and datafile_delimiter is not none and (datafile_delimiter is number or datafile_delimiter is boolean or datafile_delimiter | length > 0) %}datafile_delimiter {{ datafile_delimiter }}
+{% else %}#datafile_delimiter ";"
+{% endif %}
 # TAG: datafile_fields all
 #      Which data fields must be in datafile
 #      user;date;time;url;connect;bytes;in_cache;out_cache;elapsed
 #
-#datafile_fields {{ datafile_fields }}
-
+{% if datafile_fields is defined and datafile_fields is not none and (datafile_fields is number or datafile_fields is boolean or datafile_fields | length > 0) %}datafile_fields {{ datafile_fields }}
+{% else %}#datafile_fields user;date;time;url;connect;bytes;in_cache;out_cache;elapsed
+{% endif %}
 # TAG: datafile_url ip|name
 #      Saves the URL as ip or name in datafile
 #
@@ -479,16 +512,18 @@ topuser_num {{ topuser_num }}
 #      Use 'none' to disable it.
 #      dansguardian_conf /usr/dansguardian/dansguardian.conf
 #
-#dansguardian_conf {{ dansguardian_conf }}
-
+{% if dansguardian_conf is defined and dansguardian_conf is not none and (dansguardian_conf is number or dansguardian_conf is boolean or dansguardian_conf | length > 0) %}dansguardian_conf {{ dansguardian_conf }}
+{% else %}#dansguardian_conf none
+{% endif %}
 # TAG: dansguardian_filter_out_date on|off
 #      This option replaces dansguardian_ignore_date whose name was not appropriate with respect to its action.
 #      Note the change of parameter value compared with the old option.
 #      'off' use the record even if its date is outside of the range found in the input log file.
 #      'on'  use the record only if its date is in the range found in the input log file.
 #
-#dansguardian_filter_out_date {{ dansguardian_filter_out_date }}
-
+{% if dansguardian_filter_out_date is defined and dansguardian_filter_out_date is not none and (dansguardian_filter_out_date is number or dansguardian_filter_out_date is boolean or dansguardian_filter_out_date | length > 0) %}dansguardian_filter_out_date {{ dansguardian_filter_out_date }}
+{% else %}#dansguardian_filter_out_date on
+{% endif %}
 # TAG: squidguard_conf file
 #      path to squidGuard.conf file
 #      Generate reports from SquidGuard logs.
@@ -496,16 +531,18 @@ topuser_num {{ topuser_num }}
 #      You can use sarg -L filename to use an alternate squidGuard log.
 #      squidguard_conf /usr/local/squidGuard/squidGuard.conf
 #
-#squidguard_conf {{ squidguard_conf }}
-
+{% if squidguard_conf is defined and squidguard_conf is not none and (squidguard_conf is number or squidguard_conf is boolean or squidguard_conf | length > 0) %}squidguard_conf {{ squidguard_conf }}
+{% else %}#squidguard_conf none
+{% endif %}
 # TAG: redirector_log file
 #      the location of the web proxy redirector log such as one created by squidGuard or Rejik. The option
 #      may be repeated up to 64 times to read multiple files.
 #      If this option is specified, it takes precedence over squidguard_conf.
 #      The command line option -L override this option.
 #
-#redirector_log {{ redirector_log }}
-
+{% if redirector_log is defined and redirector_log is not none and (redirector_log is number or redirector_log is boolean or redirector_log | length > 0) %}redirector_log {{ redirector_log }}
+{% else %}#redirector_log /usr/local/squidGuard/var/logs/urls.log
+{% endif %}
 # TAG: redirector_filter_out_date on|off
 #      This option replaces squidguard_ignore_date and redirector_ignore_date whose names were not
 #      appropriate with respect to their action.
@@ -513,49 +550,56 @@ topuser_num {{ topuser_num }}
 #      'off' use the record even if its date is outside of the range found in the input log file.
 #      'on'  use the record only if its date is in the range found in the input log file.
 #
-#redirector_filter_out_date {{ redirector_filter_out_date }}
-
+{% if redirector_filter_out_date is defined and redirector_filter_out_date is not none and (redirector_filter_out_date is number or redirector_filter_out_date is boolean or redirector_filter_out_date | length > 0) %}redirector_filter_out_date {{ redirector_filter_out_date }}
+{% else %}#redirector_filter_out_date on
+{% endif %}
 # TAG: redirector_log_format
 #      Format string for web proxy redirector logs.
 #      This option was named squidguard_log_format before sarg 2.3.
 #      REJIK       #year#-#mon#-#day# #hour# #list#:#tmp# #ip# #user# #tmp#/#tmp#/#url#/#end#
 #      SQUIDGUARD  #year#-#mon#-#day# #hour# #tmp#/#list#/#tmp#/#tmp#/#url#/#tmp# #ip#/#tmp# #user# #end#
 #
-#redirector_log_format {{ redirector_log_format }}
-
+{% if redirector_log_format is defined and redirector_log_format is not none and (redirector_log_format is number or redirector_log_format is boolean or redirector_log_format | length > 0) %}redirector_log_format {{ redirector_log_format }}
+{% else %}#redirector_log_format #year#-#mon#-#day# #hour# #tmp#/#list#/#tmp#/#tmp#/#url#/#tmp# #ip#/#tmp# #user# #end#
+{% endif %}
 # TAG: show_sarg_info yes|no
 #      shows sarg information and site path on each report bottom
 #
-#show_sarg_info {{ show_sarg_info | lower }}
-
+{% if show_sarg_info is defined and show_sarg_info is not none and (show_sarg_info is number or show_sarg_info is boolean or show_sarg_info | length > 0) %}show_sarg_info {{ show_sarg_info | lower }}
+{% else %}#show_sarg_info yes
+{% endif %}
 # TAG: show_sarg_logo yes|no
 #      shows sarg logo
 #
-#show_sarg_logo {{ show_sarg_logo | lower }}
-
+{% if show_sarg_logo is defined and show_sarg_logo is not none and (show_sarg_logo is number or show_sarg_logo is boolean or show_sarg_logo | length > 0) %}show_sarg_logo {{ show_sarg_logo | lower }}
+{% else %}#show_sarg_logo yes
+{% endif %}
 # TAG: parsed_output_log directory
 #      Saves the processed log in a sarg format after parsing the squid log file.
 #      This is a way to dump all of the data structures out, after parsing from 
 #      the logs (presumably this data will be much smaller than the log files themselves),
 #      and pull them back in for later processing and merging with data from previous logs.
 #
-#parsed_output_log {{ parsed_output_log }}
-
+{% if parsed_output_log is defined and parsed_output_log is not none and (parsed_output_log is number or parsed_output_log is boolean or parsed_output_log | length > 0) %}parsed_output_log {{ parsed_output_log }}
+{% else %}#parsed_output_log none
+{% endif %}
 # TAG: parsed_output_log_compress /bin/gzip|/usr/bin/bzip2|nocompress
 #      Command to run to compress sarg parsed output log. It may contain
 #      options (such as -f to overwrite existing target file). The name of
 #      the file to compresse is provided at the end of this
 #      command line. Don't forget to quote things appropriately.
 #
-#parsed_output_log_compress {{ parsed_output_log_compress }}
-
+{% if parsed_output_log_compress is defined and parsed_output_log_compress is not none and (parsed_output_log_compress is number or parsed_output_log_compress is boolean or parsed_output_log_compress | length > 0) %}parsed_output_log_compress {{ parsed_output_log_compress }}
+{% else %}#parsed_output_log_compress /bin/gzip
+{% endif %}
 # TAG: displayed_values bytes|abbreviation
 #      how the values will be displayed in reports.
 #      eg. bytes   	-  209.526
 #          abbreviation -  210K
 #
-#displayed_values {{ displayed_values }}
-
+{% if displayed_values is defined and displayed_values is not none and (displayed_values is number or displayed_values is boolean or displayed_values | length > 0) %}displayed_values {{ displayed_values }}
+{% else %}#displayed_values bytes
+{% endif %}
 # Report limits
 # TAG: authfail_report_limit n
 # TAG: denied_report_limit n
@@ -567,12 +611,17 @@ topuser_num {{ topuser_num }}
 #      report limits (lines).
 #      '0' no limit
 #
-#authfail_report_limit {{ authfail_report_limit }}
-#denied_report_limit {{ denied_report_limit }}
-#siteusers_report_limit {{ siteusers_report_limit }}
-#squidguard_report_limit {{ squidguard_report_limit }}
-#dansguardian_report_limit {{ dansguardian_report_limit }}
-#user_report_limit {{ user_report_limit }}
+{% if authfail_report_limit is defined and authfail_report_limit is not none and (authfail_report_limit is number or authfail_report_limit is boolean or authfail_report_limit | length > 0) %}authfail_report_limit {{ authfail_report_limit }}
+{% else %}#authfail_report_limit 10
+{% endif %}{% if denied_report_limit is defined and denied_report_limit is not none and (denied_report_limit is number or denied_report_limit is boolean or denied_report_limit | length > 0) %}denied_report_limit {{ denied_report_limit }}
+{% else %}#denied_report_limit 10
+{% endif %}{% if siteusers_report_limit is defined and siteusers_report_limit is not none and (siteusers_report_limit is number or siteusers_report_limit is boolean or siteusers_report_limit | length > 0) %}siteusers_report_limit {{ siteusers_report_limit }}
+{% else %}#siteusers_report_limit 0
+{% endif %}{% if squidguard_report_limit is defined and squidguard_report_limit is not none and (squidguard_report_limit is number or squidguard_report_limit is boolean or squidguard_report_limit | length > 0) %}squidguard_report_limit {{ squidguard_report_limit }}
+{% else %}#squidguard_report_limit 10
+{% endif %}{% if dansguardian_report_limit is defined and dansguardian_report_limit is not none and (dansguardian_report_limit is number or dansguardian_report_limit is boolean or dansguardian_report_limit | length > 0) %}dansguardian_report_limit {{ dansguardian_report_limit }}
+{% else %}#dansguardian_report_limit 10
+{% endif %}#user_report_limit {{ user_report_limit }}
 #user_report_limit {{ user_report_limit_2 }}
 
 # TAG: www_document_root dir
@@ -580,8 +629,9 @@ topuser_num {{ topuser_num }}
 #     Sarg will create sarg-php directory with some PHP modules:
 #     - sarg-squidguard-block.php - add urls from user reports to squidGuard DB
 #
-#www_document_root {{ www_document_root }}
-
+{% if www_document_root is defined and www_document_root is not none and (www_document_root is number or www_document_root is boolean or www_document_root | length > 0) %}www_document_root {{ www_document_root }}
+{% else %}#www_document_root /var/www/html
+{% endif %}
 # TAG: block_it module_url
 #     This tag allow you to pass urls from user reports to a cgi or php module,
 #     to be blocked by some Squid acl
@@ -593,8 +643,9 @@ topuser_num {{ topuser_num }}
 #
 #     sarg will pass http://module_url?url=url
 #
-#block_it {{ block_it }}
-
+{% if block_it is defined and block_it is not none and (block_it is number or block_it is boolean or block_it | length > 0) %}block_it {{ block_it }}
+{% else %}#block_it none
+{% endif %}
 # TAG: external_css_file path
 #     Provide the path to an external css file to link into the HTML reports instead of
 #     the inline css written by sarg when this option is not set.
@@ -626,8 +677,9 @@ topuser_num {{ topuser_num }}
 #     You can redirect the output to a file of your choice and edit
 #     it to your liking.
 #
-#external_css_file {{ external_css_file }}
-
+{% if external_css_file is defined and external_css_file is not none and (external_css_file is number or external_css_file is boolean or external_css_file | length > 0) %}external_css_file {{ external_css_file }}
+{% else %}#external_css_file none
+{% endif %}
 # TAG: user_authentication yes|no
 #     Allow user authentication in User Reports using .htaccess
 #     Parameters:  
@@ -637,8 +689,9 @@ topuser_num {{ topuser_num }}
 #     template is relative to the directory containing sarg
 #     configuration file.
 #
-# user_authentication {{ user_authentication | lower }}
-# AuthUserTemplateFile {{ AuthUserTemplateFile }}
+{% if user_authentication is defined and user_authentication is not none and (user_authentication is number or user_authentication is boolean or user_authentication | length > 0) %}user_authentication {{ user_authentication | lower }}
+{% else %}# user_authentication no
+{% endif %}# AuthUserTemplateFile {{ AuthUserTemplateFile }}
 
 # TAG: download_suffix "suffix,suffix,...,suffix"
 #    file suffix to be considered as "download" in Download report.
@@ -651,29 +704,34 @@ download_suffix "{{ download_suffix }}"
 #    You need to run sarg as root to use ulimit tag.
 #    If you run sarg with a low privilege user, set to 'none' to disable ulimit
 #
-#ulimit {{ ulimit }}
-
+{% if ulimit is defined and ulimit is not none and (ulimit is number or ulimit is boolean or ulimit | length > 0) %}ulimit {{ ulimit }}
+{% else %}#ulimit 20000
+{% endif %}
 # TAG: ntlm_user_format username|domainname+username
 #      NTLM users format.
 #
-#ntlm_user_format {{ ntlm_user_format }}
-
+{% if ntlm_user_format is defined and ntlm_user_format is not none and (ntlm_user_format is number or ntlm_user_format is boolean or ntlm_user_format | length > 0) %}ntlm_user_format {{ ntlm_user_format }}
+{% else %}#ntlm_user_format domainname+username
+{% endif %}
 # TAG: realtime_refresh_time num sec
 #      How many time to auto refresh the realtime report
 #      0 = disable
 #
-# realtime_refresh_time {{ realtime_refresh_time }}
-
+{% if realtime_refresh_time is defined and realtime_refresh_time is not none and (realtime_refresh_time is number or realtime_refresh_time is boolean or realtime_refresh_time | length > 0) %}realtime_refresh_time {{ realtime_refresh_time }}
+{% else %}# realtime_refresh_time 3
+{% endif %}
 # TAG: realtime_access_log_lines num
 #      How many last lines to get from access.log file 
 #
-# realtime_access_log_lines {{ realtime_access_log_lines }}
-
+{% if realtime_access_log_lines is defined and realtime_access_log_lines is not none and (realtime_access_log_lines is number or realtime_access_log_lines is boolean or realtime_access_log_lines | length > 0) %}realtime_access_log_lines {{ realtime_access_log_lines }}
+{% else %}# realtime_access_log_lines 1000
+{% endif %}
 # TAG: realtime_types: GET,PUT,CONNECT,ICP_QUERY,POST
 #      Which records must be in realtime report.
 #
-# realtime_types {{ realtime_types }}  
-
+{% if realtime_types is defined and realtime_types is not none and (realtime_types is number or realtime_types is boolean or realtime_types | length > 0) %}realtime_types {{ realtime_types }}  
+{% else %}# realtime_types GET,PUT,CONNECT  
+{% endif %}
 # TAG: realtime_unauthenticated_records: ignore|show
 #      What to do with unauthenticated records in realtime report.
 #
@@ -686,9 +744,12 @@ download_suffix "{{ download_suffix }}"
 #           bytes with no cost = 100 Mb
 #      0 = disable
 #
-# byte_cost {{ byte_cost_value }} {{ byte_cost_no_cost_limit }}
-
+{% if byte_cost_value is defined and byte_cost_value is not none and (byte_cost_value is number or byte_cost_value is boolean or byte_cost_value | length > 0) %}byte_cost {{ byte_cost_value }} {{ byte_cost_no_cost_limit }}
+{% else %}# byte_cost 0.01 50000000
+{% endif %}
 # TAG: squid24 on|off
 #      Compatilibity with squid version <= 2.4 when using emulate_http_log on
 #
-# squid24 {{ squid24 }}
+{% if squid24 is defined and squid24 is not none and (squid24 is number or squid24 is boolean or squid24 | length > 0) %}squid24 {{ squid24 }}
+{% else %}# squid24 off
+{% endif %}

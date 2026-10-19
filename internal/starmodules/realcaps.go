@@ -20,6 +20,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mutkluge/agentic-mcp/internal/kernelcaps"
+	"github.com/mutkluge/agentic-mcp/internal/osfamily"
 	"github.com/mutkluge/agentic-mcp/internal/starmod"
 )
 
@@ -308,11 +310,13 @@ func (c *RealCaps) Facts() (map[string]any, error) {
 		}
 		facts["kernel"] = ""
 		facts["chroot"] = true
-		id, version, codename := parseOSRelease(filepath.Join(c.targetRoot, "etc/os-release"))
+		id, idLike, version, codename := parseOSRelease(filepath.Join(c.targetRoot, "etc/os-release"))
 		facts["distribution"] = id
 		facts["distribution_version"] = version
 		facts["distribution_codename"] = codename
-		facts["os_family"] = osFamily(id)
+		facts["os_family"] = osFamily(id, idLike)
+		// kernel_caps describes the RUNNING kernel, which here is the netboot helper's — omitted for
+		// the same reason `kernel` is empty above.
 		return facts, nil
 	}
 	if h, err := os.Hostname(); err == nil {
@@ -321,11 +325,14 @@ func (c *RealCaps) Facts() (map[string]any, error) {
 	if b, err := os.ReadFile(c.procRoot + "/sys/kernel/osrelease"); err == nil {
 		facts["kernel"] = strings.TrimSpace(string(b))
 	}
-	id, version, codename := parseOSRelease("/etc/os-release")
+	id, idLike, version, codename := parseOSRelease("/etc/os-release")
 	facts["distribution"] = id
 	facts["distribution_version"] = version
 	facts["distribution_codename"] = codename
-	facts["os_family"] = osFamily(id)
+	facts["os_family"] = osFamily(id, idLike)
+	// What the running kernel can be tuned with (BTF, sched_ext, CONFIG_*, boot loader, init system) —
+	// the same detector as the setup fact yoloman_kernel_caps, so a module and a runbook see one answer.
+	facts["kernel_caps"] = kernelcaps.Default().Detect().Map()
 	return facts, nil
 }
 
@@ -342,26 +349,23 @@ func mapArch(goarch string) string {
 	}
 }
 
-func osFamily(id string) string {
-	switch strings.ToLower(id) {
-	case "debian", "ubuntu", "linuxmint", "raspbian":
-		return "debian"
-	case "rhel", "centos", "rocky", "almalinux", "fedora", "ol", "oraclelinux":
-		return "redhat"
-	case "":
-		return ""
-	default:
-		return strings.ToLower(id)
+// osFamily maps os-release ID / ID_LIKE through the shared table
+// (internal/osfamily). An ID the table does not know is passed through
+// lowercased, as before, so a module can still branch on it.
+func osFamily(id, idLike string) string {
+	if f := osfamily.FromRelease(id, idLike); f != "" {
+		return f
 	}
+	return strings.ToLower(id)
 }
 
 // parseOSRelease reads ID, VERSION_ID and VERSION_CODENAME from an os-release
 // file (best-effort). The codename (e.g. "trixie", "jammy") is the Debian
 // Security Tracker / Ubuntu USN release key used for CVE correlation.
-func parseOSRelease(path string) (id, version, codename string) {
+func parseOSRelease(path string) (id, idLike, version, codename string) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", ""
+		return "", "", "", ""
 	}
 	for _, line := range strings.Split(string(b), "\n") {
 		key, val, ok := strings.Cut(strings.TrimSpace(line), "=")
@@ -372,13 +376,15 @@ func parseOSRelease(path string) (id, version, codename string) {
 		switch key {
 		case "ID":
 			id = val
+		case "ID_LIKE":
+			idLike = val
 		case "VERSION_ID":
 			version = val
 		case "VERSION_CODENAME":
 			codename = val
 		}
 	}
-	return id, version, codename
+	return id, idLike, version, codename
 }
 
 // asExitError is a tiny wrapper so the exec error assertion reads cleanly.

@@ -1,3 +1,11 @@
-# Additional options that are passed to the slurmctld daemon.
-# See slurmctld(8) man page for accepted options.
-SLURMCTLD_OPTIONS="{{ slurmctld_options | default('') }}"
+# Additional command-line options passed to the slurmctld daemon.
+# These options are appended to the command line arguments for the SLURM controller daemon.
+# If empty or not provided, the default behavior applies.
+{# The variable `slurmctld_options` is expected to be a string containing space-separated options. #}
+{# If undefined, empty, or not a string/list with content, we comment out the line with a default empty value. #}
+{% set opts = slurmctld_options | default('') | string | trim %}
+{% if opts | length > 0 %}
+SLURMCTLD_OPTIONS="{{ opts }}"
+{% else %}
+#SLURMCTLD_OPTIONS=""
+{% endif %}

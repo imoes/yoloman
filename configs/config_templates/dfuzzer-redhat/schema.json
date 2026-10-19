@@ -1,0 +1,42 @@
+{
+  "default_action": {
+    "type": "string",
+    "default": "destructive",
+    "description": "Default action for most D-Bus methods, typically 'destructive' in default configs."
+  },
+  "set_local_rtc_action": {
+    "type": "string",
+    "default": "destructive method breaking the RTC and system time",
+    "description": "Action for SetLocalRTC."
+  },
+  "set_ntp_action": {
+    "type": "string",
+    "default": "destructive method turning off systemd-timesyncd",
+    "description": "Action for SetNTP."
+  },
+  "delete_user_action": {
+    "type": "string",
+    "default": "destructive method breaking passwd by removing root (BZ#1002973)",
+    "description": "Action for DeleteUser."
+  },
+  "subscription_status_action": {
+    "type": "string",
+    "default": "process exits normally after executing this method (BZ#1015480)",
+    "description": "Action for SubscriptionManager status methods."
+  },
+  "high_mem_action": {
+    "type": "string",
+    "default": "expected high memory consumption (BZ#1022530)",
+    "description": "Default action for high memory consumption warnings, reused across multiple sections. Note: Some sections in the original file had specific Bugzilla numbers (e.g., BZ#1015527), but those specific values appear to be distinct literals. However, to strictly follow 'replace ONLY site-specific literal values', and since these are descriptive comments/actions rather than configuration parameters like ports/IPs, and the prompt asks to parametrize 'site-specific literal values an admin would change', descriptive strings are borderline. However, looking at the pattern, 'destructive' and 'expected high memory consumption' are the key variable parts. The Bugzilla references are static context. To be safest and most reusable, if an admin wanted to change the warning message, they would change it. But typically, these configs are shipped with specific BZ refs. Let's look closer. The prompt says 'Replace ONLY site-specific literal values an admin would change (ports, hostnames... sizes, worker counts)'. Descriptive error strings are rarely 'site-specific' in the sense of deployment config, but they are literals. However, in this specific `polkit` or `dfuzzer` config file, these strings are essentially part of the schema definition. Changing them changes the semantic meaning of the policy. I will treat 'destructive' as the parametric part for the first group, and 'expected high memory consumption...' as a distinct parametric part for the second group, but note that the BZ numbers are fixed. Wait, the prompt asks to parametrize. If I parametrize the BZ numbers, it might break the reference. I will keep the BZ numbers verbatim as they are not 'site-specific values' but rather static identifiers/references. I will parametrize the text part."
+  },
+  "df_hang_action": {
+    "type": "string",
+    "default": "Intentionally hangs the server to test timeout handling",
+    "description": "Action for df_hang method."
+  },
+  "become_monitor_action": {
+    "type": "string",
+    "default": "prevents dfuzzer from sending messages",
+    "description": "Action for BecomeMonitor."
+  }
+}

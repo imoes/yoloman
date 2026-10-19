@@ -1,0 +1,131 @@
+# ==============================================================================
+# nss-redhat: Name Service Switch configuration for Red Hat based systems
+# ==============================================================================
+# This file controls how the system resolves various types of names (hosts,
+# users, groups, etc.). It utilizes the NSS (Name Service Switch) mechanism.
+#
+# Format: <database>: <source list>
+# Databases: passwd, group, shadow, hosts, networks, protocols, services,
+#            ethers, rpc, netmasks, netgroup, publickey, bootparams,
+#            aliases, ethers, group, hosts, networks, protocols, rpc,
+#            services, shadow, subnet, netgroup, automount, aliases,
+#            mail, aliases, ethers, group, hosts, networks, protocols,
+#            rpc, services, shadow, subnet, netgroup
+#
+# Sources:
+#   files       - Look in local configuration files (/etc/passwd, /etc/hosts, etc.)
+#   dns         - Use DNS (hosts only)
+#   nis         - Use NIS (Yellow Pages)
+#   mdns4_minimal - Use mDNS (minimal)
+#   winbind     - Use Windows/Samba domain accounts
+#   sss         - Use System Security Services Daemon (SSSD)
+#   compat      - Legacy compatibility mode
+#   systemd     - Use systemd-resolved (hosts only)
+
+# --------------------------------------------------
+# passwd: User account information
+# Defines the order in which the system looks up user account details.
+# Default sources: local files, then optional network directories.
+# --------------------------------------------------
+passwd: files{{ ' sss' if nss_redhat_sssd_enabled | default(false) | bool }}{{ ' winbind' if nss_redhat_winbind_enabled | default(false) | bool }}
+
+# --------------------------------------------------
+# group: Group membership information
+# Defines the order in which the system looks up group definitions.
+# Default sources: local files, then optional network directories.
+# --------------------------------------------------
+group: files{{ ' sss' if nss_redhat_sssd_enabled | default(false) | bool }}{{ ' winbind' if nss_redhat_winbind_enabled | default(false) | bool }}
+
+# --------------------------------------------------
+# shadow: Password aging and shadow information
+# Defines the order in which the system looks up encrypted password data.
+# Default sources: local files only, unless SSSD is used.
+# --------------------------------------------------
+shadow: files{{ ' sss' if nss_redhat_sssd_enabled | default(false) | bool }}
+
+# --------------------------------------------------
+# hosts: Hostname to IP address resolution
+# Defines the order for resolving hostnames to IP addresses.
+# Common chain: local files, DNS, mDNS (optional).
+# --------------------------------------------------
+hosts: files dns{{ ' mdns4_minimal [NOTFOUND=return]' if nss_redhat_mdns_enabled | default(false) | bool }}{{ ' systemd' if nss_redhat_systemd_resolver | default(false) | bool }}
+
+# --------------------------------------------------
+# networks: Network name to address resolution
+# Defines the order for resolving network names to IP addresses.
+# Default sources: local files.
+# --------------------------------------------------
+networks: files
+
+# --------------------------------------------------
+# protocols: Protocol name to number mapping
+# Defines the order for resolving protocol names (tcp, udp, etc.).
+# Default sources: local files.
+# --------------------------------------------------
+protocols: files
+
+# --------------------------------------------------
+# services: Service name to port mapping
+# Defines the order for resolving service names (http, ssh, etc.) to ports.
+# Default sources: local files.
+# --------------------------------------------------
+services: files
+
+# --------------------------------------------------
+# ethers: Ethernet address to host name mapping
+# Defines the order for resolving Ethernet (MAC) addresses.
+# Default sources: local files.
+# --------------------------------------------------
+ethers: files
+
+# --------------------------------------------------
+# rpc: RPC program name to number mapping
+# Defines the order for resolving RPC program numbers (NFS, etc.).
+# Default sources: local files.
+# --------------------------------------------------
+rpc: files
+
+# --------------------------------------------------
+# netmasks: Network name to subnet mask mapping
+# Defines the order for resolving network subnet masks.
+# Default sources: local files.
+# --------------------------------------------------
+netmasks: files
+
+# --------------------------------------------------
+# netgroup: NIS netgroup membership
+# Defines the order for resolving netgroups (collections of hosts/users).
+# Default sources: local files (often empty), NIS if configured.
+# --------------------------------------------------
+netgroup: files{{ ' nis' if nss_redhat_nis_enabled | default(false) | bool }}
+
+# --------------------------------------------------
+# bootparams: NFS boot parameters
+# Defines the order for resolving boot parameters for diskless workstations.
+# Default sources: local files (deprecated, often empty).
+# --------------------------------------------------
+bootparams: files
+
+# --------------------------------------------------
+# automount: Automount map information
+# Defines the order for resolving automount maps (auto.master, etc.).
+# Default sources: local files, NIS if configured.
+# --------------------------------------------------
+automount: files{{ ' nis' if nss_redhat_nis_enabled | default(false) | bool }}
+
+# --------------------------------------------------
+# aliases: Mail alias information
+# Defines the order for resolving mail aliases (sendmail/postfix).
+# Default sources: local files.
+# --------------------------------------------------
+aliases: files
+
+# ==============================================================================
+# Optional: Additional NSS modules or customization
+# ==============================================================================
+# If you need to add custom sources, append them above.
+# Example for LDAP (if not using SSSD):
+# passwd: files ldap
+# group: files ldap
+#
+# Note: Ensure the corresponding libnss_*.so library is installed.

@@ -7,6 +7,7 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /**
  * Kubernetes "click-and-play" deploy (app-system increment 3 UI, plan blocks
@@ -22,7 +23,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 @Component({
   selector: 'app-kubernetes-deploy',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ChatPlanGraphComponent, ParamFormComponent, ResourceNodeComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatIconModule, MatButtonModule, ChatPlanGraphComponent, ParamFormComponent, ResourceNodeComponent],
   template: `
     <div class="bm-k8s">
       <!-- Deployed releases (helm list) — what's running on the cluster -->
@@ -82,7 +83,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
               <button mat-button [class.on]="mode() === 'form'" (click)="mode.set('form')">Form</button>
               <button mat-button [class.on]="mode() === 'yaml'" (click)="mode.set('yaml')">YAML</button>
             }
-            <button mat-button (click)="loadDefaults()" [disabled]="!chart() || busyVals()">
+            <button mat-button (click)="loadDefaults()" [disabled]="busyVals()" [bmBlocked]="!chart() ? 'Enter a chart first' : ''">
               <mat-icon>download</mat-icon> Load chart defaults
             </button>
           </div>
@@ -101,10 +102,10 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
         }
 
         <div class="bm-k8s-buttons">
-          <button mat-stroked-button (click)="preview()" [disabled]="!canDeploy() || busyRender()">
+          <button mat-stroked-button (click)="preview()" [disabled]="busyRender()" [bmBlocked]="!canDeploy() ? 'Enter a chart and a release name' : ''" bmBlockedMode="tip">
             <mat-icon>visibility</mat-icon> Preview
           </button>
-          <button mat-raised-button color="primary" (click)="deploy()" [disabled]="!canDeploy() || busyMut()">
+          <button mat-raised-button color="primary" (click)="deploy()" [disabled]="busyMut()" [bmBlocked]="!canDeploy() ? 'Enter a chart and a release name' : ''">
             <mat-icon>rocket_launch</mat-icon> Deploy
           </button>
         </div>
@@ -138,8 +139,8 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
     .bm-warn { color: var(--bm-gold, #b8860b); font-size: 13px; }
     .bm-err { color: var(--mat-sys-error, #c62828); }
     .bm-good { color: #1e9600; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th, .bm-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th, .bm-table td { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-actions { text-align: right; white-space: nowrap; }
     .bm-badge { padding: 2px 8px; border-radius: 10px; background: var(--mat-sys-surface-variant); font-size: 11px; }
     .bm-badge.ok { background: rgba(30,150,0,0.18); color: #1e9600; }

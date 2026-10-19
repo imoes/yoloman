@@ -1,10 +1,12 @@
 # example vpnc configuration file
 # see vpnc --long-help for details
 
-#Interface name {{ interface }}
-#IKE DH Group {{ ike_dh_group }}
-#Perfect Forward Secrecy {{ ipsec_pfs }}
-
+{% if interface is defined and interface is not none and (interface is number or interface is boolean or interface | length > 0) %}Interface name {{ interface }}
+{% else %}#Interface name tun0
+{% endif %}#IKE DH Group {{ ike_dh_group }}
+{% if ipsec_pfs is defined and ipsec_pfs is not none and (ipsec_pfs is number or ipsec_pfs is boolean or ipsec_pfs | length > 0) %}Perfect Forward Secrecy {{ ipsec_pfs }}
+{% else %}#Perfect Forward Secrecy nopfs
+{% endif %}
 # You may replace this script with something better
 #Script /etc/vpnc/vpnc-script
 # Enable this option for NAT traversal

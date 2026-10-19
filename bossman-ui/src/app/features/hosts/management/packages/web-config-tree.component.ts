@@ -10,6 +10,7 @@ import { ConfigResource } from '../../../../core/models/agent.model';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../../../shared/param-form/param-form.types';
 import { WebServerProfile } from './web-server-profiles';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 interface Site { name: string; file: string; enabled: boolean; }
 
@@ -31,7 +32,7 @@ interface Row { id: string; kind: NodeKind; label: string; icon: string; depth: 
 @Component({
   selector: 'app-web-config-tree',
   standalone: true,
-  imports: [NgTemplateOutlet, FormsModule, CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, ParamFormComponent],
+  imports: [BlockedReasonDirective, NgTemplateOutlet, FormsModule, CdkMenu, CdkMenuItem, CdkContextMenuTrigger, MatIconModule, MatButtonModule, ParamFormComponent],
   template: `
     <div class="wt">
       @if (loading()) { <p class="bm-dim">Loading {{ profile().label }} configuration…</p> }
@@ -161,7 +162,7 @@ interface Row { id: string; kind: NodeKind; label: string; icon: string; depth: 
           }
           <div class="wt-actions">
             <button mat-button (click)="adding.set(false)">Cancel</button>
-            <button mat-raised-button color="primary" (click)="createSite()" [disabled]="!newSite.name.trim()">Create</button>
+            <button mat-raised-button color="primary" (click)="createSite()" [bmBlocked]="!newSite.name.trim() ? 'Name the site first' : ''">Create</button>
           </div>
         </div>
       </div>
@@ -176,7 +177,7 @@ interface Row { id: string; kind: NodeKind; label: string; icon: string; depth: 
           <label class="wt-fld"><span>Certificate path</span><input class="bm-in" [(ngModel)]="newCertPath" placeholder="/etc/letsencrypt/live/example.com/fullchain.pem" /></label>
           <div class="wt-actions">
             <button mat-button (click)="addingCert.set(false)">Cancel</button>
-            <button mat-raised-button color="primary" (click)="addCert()" [disabled]="!newCertPath.trim()">Add</button>
+            <button mat-raised-button color="primary" (click)="addCert()" [bmBlocked]="!newCertPath.trim() ? 'Enter the certificate path' : ''">Add</button>
           </div>
         </div>
       </div>

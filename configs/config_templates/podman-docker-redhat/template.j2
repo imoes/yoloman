@@ -1,0 +1,29 @@
+# =============================================================================
+# Podman-Docker RedHat: Docker Host Configuration
+# =============================================================================
+# This template configures the DOCKER_HOST environment variable to point to the
+# Podman socket, allowing standard Docker CLI clients to communicate with Podman.
+# It is written in C shell (csh) syntax as indicated by the `setenv` commands.
+# =============================================================================
+
+# Check if DOCKER_HOST is already defined in the environment.
+# If it is, exit immediately to preserve existing configuration.
+if ($?DOCKER_HOST) exit
+
+# Determine the appropriate socket path based on user privileges.
+# For root users, Podman typically listens on a static path defined in the schema.
+# For non-root (rootless) users, it uses the dynamic XDG_RUNTIME_DIR path.
+
+if ($?euid == 0) then
+    # Root User Configuration
+    # The schema field 'docker_host_root' defines the base path for the root socket.
+    # Default is '/run/podman'.
+    setenv DOCKER_HOST unix://{{ docker_host_root | default('/run/podman') }}/podman.sock
+else
+    # Non-Root (Rootless) User Configuration
+    # If XDG_RUNTIME_DIR is set, use the standard rootless podman socket path.
+    # This path is usually $XDG_RUNTIME_DIR/podman/podman.sock.
+    if ($?XDG_RUNTIME_DIR) then
+        setenv DOCKER_HOST unix://$XDG_RUNTIME_DIR/podman/podman.sock
+    endif
+endif

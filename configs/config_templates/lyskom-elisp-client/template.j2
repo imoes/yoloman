@@ -1,13 +1,53 @@
-; LysKOM Elisp Client Configuration
-; This template configures the LysKOM Emacs client.
-; Since the schema provided is empty, no variables are available for injection.
-; The output is a static, self-documenting initialization snippet.
+;; LysKOM Elisp Client Configuration Template
+;;
+;; This template generates the initialization script for the LysKOM Elisp client.
+;; LysKOM is a multi-user conferencing system. This configuration connects to
+;; the LysKOM server via the LysKOM Protocol (LYKOP).
+;;
+;; Since this is a client-side Emacs Lisp configuration, it does not contain
+;; standard network service directives like ports or bind addresses in a
+;; server-context. Instead, it configures the client's connection parameters.
+;;
+;; Variables expected from Ansible inventory/group vars:
+;; - lyskom_host: The hostname or IP address of the LysKOM server.
+;; - lyskom_port: The TCP port of the LysKOM server (default 1970).
+;; - lyskom_username: The user ID to authenticate with.
+;; - lyskom_password: The password for authentication.
+;; - lyskom_session_name: The name of the initial conference or session (optional).
 
-(autoload 'lykom "lyskom-elisp-client" "Start a LysKOM session. Optional arguments: HOST, USERNAME and PASSWORD. See lyskom-mode for details." t)
+;;;###autoload
+(autoload 'lyskom "lyskom-elisp-client" "Start a LysKOM session.
+Optional arguments: HOST, USERNAME and PASSWORD.
 
+See lyskom-mode for details." t)
+
+;; Define the default LysKOM server connection parameters
+;; If these are not provided in the Ansible variables, fallbacks are used.
+(setq lyskom-server-host "{{ lyskom_host | default('localhost') }}"
+      lyskom-server-port {{ lyskom_port | default(1970) }}
+      lyskom-default-username "{{ lyskom_username | default('') }}"
+      lyskom-default-password "{{ lyskom_password | default('') }}")
+
+;; Initialize the client connection if variables are present
+(if (and lyskom-server-host lyskom-server-port)
+    (progn
+      ;; Connect to the server
+      ;; Note: lyskom-connect usually reads from the above variables
+      (lyskom-connect)
+      
+      (if lyskom-default-username
+          (lyskom-change-username lyskom-default-username)
+        (message "LysKOM: Username not set. Please run 'M-x lyskom-change-username'."))
+      
+      (if lyskom-default-password
+          (lyskom-password lyskom-default-password)
+        (message "LysKOM: Password not set. Prompting for password.")))
+  (message "LysKOM: No server host/port configured. Check lyskom-server-host and lyskom-server-port."))
+
+;; Menu integration for Emacs >= 20
 (if (and (not (string-match "XEmacs" emacs-version))
          (or (and (= emacs-major-version 19) (>= emacs-minor-version 30))
              (>= emacs-major-version 20)))
     (let ((tools-map (lookup-key global-map [menu-bar tools])))
-      (define-key-after tools-map [lykom] '("LysKOM" . lyskom)
+      (define-key-after tools-map [lyskom] '("LysKOM" . lyskom)
         (if (>= emacs-major-version 20) 'gnus 'rmail))))

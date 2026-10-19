@@ -1,21 +1,35 @@
-# Maliit Framework Input Method Environment Configuration
-#
-# This script sets the GTK_IM_MODULE and QT_IM_MODULE environment variables
-# to enable the Maliit virtual keyboard for supported desktop sessions
-# (Ubuntu Touch, Unity 8, Lomiri).
-#
-# The variables control which input method framework is used by GTK and Qt
-# applications respectively. Setting them to 'maliit' routes input through
-# the Maliit Input Method Server.
+# Maliit Framework Input Method Configuration
+# This template configures the system-wide environment variables to enable
+# the Maliit software keyboard/input method framework.
 
-case $XDG_SESSION_DESKTOP in
-  ubuntu-touch|unity8*|lomiri)
-    # GTK_IM_MODULE: Specifies the Input Method Module for GTK applications.
-    # Default: maliit
-    export GTK_IM_MODULE={{ gtk_im_module | default('maliit') }}
+# Enable XIM (X Input Method) protocol support.
+# Set to 'none' if relying solely on Qt/GTK native IM integration,
+# or 'maliit' if the Maliit server should act as an XIM input method.
+# Reference: System XIM configuration
+XIM=none
 
-    # QT_IM_MODULE: Specifies the Input Method Module for Qt applications.
-    # Default: maliit
-    export QT_IM_MODULE={{ qt_im_module | default('maliit') }}
-    ;;
-esac
+# The executable path for the XIM program.
+# This specifies the binary that handles XIM requests if XIM is enabled above.
+# Reference: XIM Program Path
+XIM_PROGRAM=/usr/bin/maliit-server
+
+# Arguments passed to the XIM program.
+# Reference: XIM Arguments
+XIM_ARGS=
+
+# Environment variable for GTK applications.
+# Tells GTK-based applications to use the specified input method module.
+# Default: 'maliit' ensures GTK apps route input to the Maliit framework.
+# Reference: GTK Input Method Module
+GTK_IM_MODULE={{ gtk_im_module | default('maliit') }}
+
+# Environment variable for Qt applications.
+# Tells Qt-based applications to use the specified input method module.
+# Default: 'maliit' ensures Qt apps route input to the Maliit framework.
+# Reference: Qt Input Method Module
+QT_IM_MODULE={{ qt_im_module | default('maliit') }}
+
+# Dependency declaration.
+# Indicates that the Maliit framework package is required for this configuration to function.
+# Reference: Package Dependencies
+DEPENDS="maliit-framework"

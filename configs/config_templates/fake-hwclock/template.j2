@@ -1,23 +1,11 @@
-#!/bin/sh
-#
-# Simple cron script - save the current clock periodically in case of
-# a power failure or other crash.
-#
-# This script is intended for use with cron or as a standalone utility on
-# systems that do not use systemd-timesyncd or systemd-timer based
-# clock preservation. It saves the current system time to a persistent
-# file so that upon reboot, the system can restore an approximate time.
-#
-# Note: Systems running systemd should prefer the 'fake-hwclock.timer'
-# unit instead of this cron-based approach.
+# fake-hwclock configuration
+# This file configures the fake-hwclock utility, which saves the system clock
+# to a file (/var/lib/fake-hwclock/data) on shutdown and restores it on boot.
+# This is useful for systems without a hardware clock (RTC) or persistent network time.
 
-# Check if the system is using systemd; if so, let systemd handle it
-# and exit early to avoid conflicts or redundant operations.
-[ -d /run/systemd/system ] && exit 0
-
-# Save the current clock time using the fake-hwclock binary.
-# The binary path is configured via the 'fake_hwc_loc' variable.
-# Defaults to 'fake-hwclock' assuming it is in the system PATH.
-if (command -v {{ fake_hwc_loc | default('fake-hwclock') }} >/dev/null 2>&1) ; then
-  {{ fake_hwc_loc | default('fake-hwclock') }} save
-fi
+# Force setting the clock even if the saved value is in the past.
+# Description: Set to 'true' to force setting the clock even if the saved value is in the past. Must be uncommented and set to a non-'false' value to take
+# Effectively, if this is not 'false', the clock will be set regardless of time drift checks.
+{% if (fake_hwc_force | default('') | lower) != 'false' %}FORCE={{ fake_hwc_force | default('') }}
+{% else %}#FORCE=false
+{% endif %}

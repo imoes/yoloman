@@ -1,147 +1,181 @@
-# ============================================================================
-# Firejail Security Profile for {{ package_name | default('0ad') }}
-# ============================================================================
-# This file is a Firejail sandbox configuration profile. It restricts the
-# application's access to system resources, filesystem, network, and capabilities
-# to minimize the attack surface in case of compromise.
-#
-# Source: Ansible Role Management
-# Package Identifier: {{ package_name | default('0ad') }}
-# Application Description: {{ description | default('Real-time strategy game of ancient warfare') }}
-#
-# NOTE: This file is auto-generated and overwritten by Ansible. Do not edit manually.
-#       Local customizations should be placed in {{ package_name | default('0ad') }}.local
-#       Global customizations should be placed in globals.local
-# ============================================================================
+{# ============================================================================= #}
+{# Firejail Profile Configuration Template                                        #}
+{# This template generates a Firejail sandbox profile for a specific application. #}
+{# It enforces strict security policies while allowing necessary file access.     #}
+{# ============================================================================= #}
 
-# --- Includes ---
-# Include persistent local customizations defined by the administrator
-include {{ package_name | default('0ad') }}.local
+{# Header Section #}
+{# Define the profile title using the package name. Falls back to a generic comment if package_name is missing or empty. #}
+{% if package_name is defined and package_name is not none and (package_name is number or package_name is boolean or package_name | length > 0) %}
+{% if package_name is defined and package_name is not none and (package_name is number or package_name is boolean or package_name | length > 0) %}Firejail profile for {{ package_name }}{% else %}# Firejail profile for 0ad{% endif %}
+{% else %}
+# Firejail profile for 0ad
+{% endif %}
 
-# Include persistent global definitions applicable to all profiles
+{# Description #}
+{# Human-readable description of the application being sandboxed. #}
+# Description: {{ description | default('Real-time strategy game of ancient warfare') }}
+
+# This file is overwritten after every install/update
+# Persistent local customizations
+{# Include user-defined local customizations if the package name is known to allow a specific .local file. #}
+{# If package_name is missing, this path will be invalid or generic; the schema implies it's tied to the package. #}
+include {{ package_name | default('unknown_package') }}.local
+
+# Persistent global definitions
 include globals.local
 
-# --- Cache & Configuration Access ---
-# Allow reading from the user's cache, configuration, and local share directories
-# for this specific application to ensure proper operation and persistence of settings.
+{# Cache Directory #}
+{# Allow read/write access to the application's cache directory within the user's home. #}
+# Prevents firejail from blacklisting the cache directory, ensuring the app can store temp files.
+noblacklist ${HOME}/.cache/{{ package_name | default('unknown_package') }}
 
-noblacklist ${HOME}/.cache/{{ package_name | default('0ad') }}
-noblacklist ${HOME}/.config/{{ package_name | default('0ad') }}
-noblacklist ${HOME}/.local/share/{{ package_name | default('0ad') }}
+{# Configuration Directory #}
+{# Allow read/write access to the application's configuration directory. #}
+noblacklist ${HOME}/.config/{{ package_name | default('unknown_package') }}
 
-# --- Interpreter Overrides ---
-# Firejail's default 'disable-interpreters.inc' blocks gjs (GNOME JavaScript).
-# This profile explicitly allows gjs if needed by the application runtime.
+{# Data Directory #}
+{# Allow read/write access to the application's local data directory. #}
+noblacklist ${HOME}/.local/share/{{ package_name | default('unknown_package') }}
+
+{# Interpreter Access #}
+{# Allow the use of GJS (GNOME JavaScript) runtime, which is otherwise blocked by disable-interpreters.inc. #}
+# This is often required for Gnome-shell extensions or specific GNOME-based apps.
+# Allow gjs (blacklisted by disable-interpreters.inc)
 include allow-gjs.inc
 
-# --- System Resource Restrictions ---
-# Block access to system exec directory to prevent executing arbitrary binaries there
+{# System Executables #}
+{# Blacklist /usr/libexec to prevent the sandbox from accessing potentially privileged system helpers. #}
 blacklist /usr/libexec
 
-# --- Security Baselines (Inc files) ---
-# Include standard security restriction modules provided by the Firejail distribution.
-# These enforce restrictions on common development tools, execution permissions,
-# interpreters, known programs, and XDG directory access.
+{# Security Baseline Includes #}
+{# Include standard security restriction modules. These provide a hardened default configuration. #}
 
+{# Disable common utilities that are rarely needed in a sandboxed context. #}
 include disable-common.inc
+
+{# Disable development tools (compilers, debuggers, etc.). #}
 include disable-devel.inc
+
+{# Disable execution of arbitrary binaries outside the whitelist. #}
 include disable-exec.inc
+
+{# Disable interpreters (bash, python, etc.) to prevent code injection. #}
 include disable-interpreters.inc
+
+{# Disable non-essential programs. #}
 include disable-programs.inc
+
+{# Disable XDG desktop integration features. #}
 include disable-xdg.inc
 
-# --- Filesystem Isolation (Whitelist/Mkdir) ---
-# Explicitly create necessary directories within the user's home if they do not exist,
-# then whitelist access to them. Also whitelist the application's share data and common
-# game data directories.
+{# Directory Setup #}
+{# Create the necessary directories inside the private home if they don't exist, then whitelist them. #}
 
-mkdir ${HOME}/.cache/{{ package_name | default('0ad') }}
-mkdir ${HOME}/.config/{{ package_name | default('0ad') }}
-mkdir ${HOME}/.local/share/{{ package_name | default('0ad') }}
+{# Create Cache Dir #}
+mkdir ${HOME}/.cache/{{ package_name | default('unknown_package') }}
 
-whitelist ${HOME}/.cache/{{ package_name | default('0ad') }}
-whitelist ${HOME}/.config/{{ package_name | default('0ad') }}
-whitelist ${HOME}/.local/share/{{ package_name | default('0ad') }}
+{# Create Config Dir #}
+mkdir ${HOME}/.config/{{ package_name | default('unknown_package') }}
 
-# Whitelist application data directories
-whitelist /usr/share/{{ package_name | default('0ad') }}
+{# Create Local Share Dir #}
+mkdir ${HOME}/.local/share/{{ package_name | default('unknown_package') }}
+
+{# Whitelist Cache Dir #}
+whitelist ${HOME}/.cache/{{ package_name | default('unknown_package') }}
+
+{# Whitelist Config Dir #}
+whitelist ${HOME}.config/{{ package_name | default('unknown_package') }}
+
+{# Whitelist Local Share Dir #}
+whitelist ${HOME}/.local/share/{{ package_name | default('unknown_package') }}
+
+{# Application Data #}
+{# Allow read access to the application's data in /usr/share and standard games directory. #}
+whitelist ${HOME}/.cache/{{ package_name | default('unknown_package') }}
+whitelist ${HOME}/.config/{{ package_name | default('unknown_package') }}
+whitelist ${HOME}/.local/share/{{ package_name | default('unknown_package') }}
+
+{# Specific package data #}
+whitelist /usr/share/{{ package_name | default('unknown_package') }}
+
+{# General games directory #}
 whitelist /usr/share/games
 
-# Include standard whitelists for common system directories and data
+{# Common Whitespace #}
+{# Include standard whitelisting rules for common system resources. #}
 include whitelist-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
-# --- Capabilities & Privileges ---
-# Drop ALL Linux capabilities to run with minimal privileges.
+{# Caps and Network #}
+{# Drop all Linux capabilities to minimize kernel privileges. #}
 caps.drop all
 
-# --- Network & Hardware Restrictions ---
-# Enable network filtering (netfilter) to restrict network traffic.
+{# Enable network filtering (iptables/nftables rules generated by Firejail). #}
 netfilter
 
-# Disable DVD access
+{# Disable DVD access. #}
 nodvd
 
-# Restrict group access
+{# Remove group memberships to limit access to group-restricted resources. #}
 nogroups
 
-# Disable input device access (keyboard/mouse) unless explicitly needed by GUI
-# Note: Some GUI apps may need this relaxed, but strict sandboxing prefers 'noinput'
+{# Disable keyboard and mouse input capture (useful for remote sessions). #}
 noinput
 
-# Do not set the NEW_PRIVS flag (prevents privilege escalation via setuid/setgid)
+{# Prevent gaining new privileges via setuid/setgid. #}
 nonewprivs
 
-# Do not run as root
+{# Prevent the process from becoming root. #}
 noroot
 
-# Disable TV access
+{# Disable TV output. #}
 notv
 
-# Disable U2F hardware token access
+{# Disable YubiKey/U2F support. #}
 nou2f
 
-# Disable video access (capture)
+{# Disable video capture devices. #}
 novideo
 
-# Restrict allowed network protocols
+{# Allow only Unix, IPv4, and IPv6 protocols. #}
 protocol unix,inet,inet6
 
-# Enable seccomp-bpf syscall filtering for additional kernel-level protection
+{# Enable Seccomp-BPF for syscall filtering. #}
 seccomp
 
-# Block secondary syscalls not explicitly allowed in the main seccomp filter
+{# Block secondary seccomp filters (keep it simple/safe). #}
 seccomp.block-secondary
 
-# Enable syscall tracing for debugging (optional, can be heavy)
+{# Enable tracing logs for debugging sandbox issues. #}
 tracelog
 
-# --- Mount Namespace Isolation ---
-# Disable mounting new filesystems inside the sandbox
+{# Mount Namespace #}
+{# Disable mount namespace changes to prevent hiding/remounting filesystem parts. #}
 disable-mnt
 
-# Restrict visible binaries to a whitelist.
-# Only the specified binaries (and their dependencies) are accessible.
-# This prevents the user from running other commands within the sandbox.
-private-bin 0ad,pyrogenesis,sh,which
+{# Private Binary Execution #}
+{# Isolate the binary search path to only allow specific binaries: the main app, pyrogenesis, and utils. #}
+private-bin {{ package_name | default('0ad') }},pyrogenesis,sh,which
 
-# Private cache directory (isolated from host cache)
+{# Private Cache #}
+{# Use a private cache directory for the sandbox. #}
 private-cache
 
-# Private /dev directory (isolated from host devices)
+{# Private Device Nodes #}
+{# Mount a private /dev namespace to restrict hardware access. #}
 private-dev
 
-# Private /tmp directory (isolated from host temp files)
+{# Private Temporary Directory #}
+{# Mount a private /tmp namespace to prevent leaking temp files between sessions. #}
 private-tmp
 
-# --- D-Bus Restrictions ---
-# Disable user-level and system-level D-Bus communication to prevent
-# interacting with other desktop services or system daemons.
+{# DBUS Restrictions #}
+{# Disable access to user and system DBUS sessions to prevent inter-process communication leaks. #}
 dbus-user none
 dbus-system none
 
-# --- Namespace Restrictions ---
-# Restrict the creation of new namespaces (user, mount, network, etc.)
-# to prevent the sandboxed process from escaping isolation.
+{# Namespace Restrictions #}
+{# Restrict the creation of new namespaces (PID, IPC, etc.) inside the sandbox. #}
 restrict-namespaces

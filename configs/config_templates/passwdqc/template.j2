@@ -7,6 +7,10 @@ random={{ min_random_length }}
 enforce={{ enforce_for }}
 retry={{ retry_limit }}
 # The below are just examples, by default none of these are used
-#wordlist={{ wordlist_path }}
-#denylist={{ denylist_path }}
-#filter={{ filter_path }}
+{% if wordlist_path is defined and wordlist_path is not none and (wordlist_path is number or wordlist_path is boolean or wordlist_path | length > 0) %}wordlist={{ wordlist_path }}
+{% else %}#wordlist=/usr/share/john/password.lst
+{% endif %}{% if denylist_path is defined and denylist_path is not none and (denylist_path is number or denylist_path is boolean or denylist_path | length > 0) %}denylist={{ denylist_path }}
+{% else %}#denylist=/etc/passwdqc.deny
+{% endif %}{% if filter_path is defined and filter_path is not none and (filter_path is number or filter_path is boolean or filter_path | length > 0) %}filter={{ filter_path }}
+{% else %}#filter=/opt/passwdqc/hibp.pwq
+{% endif %}

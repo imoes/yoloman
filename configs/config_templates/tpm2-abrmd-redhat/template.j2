@@ -1,0 +1,58 @@
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!--
+    TSS2 ABI Reference Daemon (TPM2-ABRMD) D-Bus Policy Configuration.
+    
+    This template generates the D-Bus policy file for the TPM2 Access Broker
+    and Resource Manager (tpm2-abrmd). It defines which system users are
+    permitted to own the TPM2 D-Bus service name and interact with it.
+    
+    The configuration is based on the principle of least privilege:
+    1. The dedicated TSS2 service user is granted ownership.
+    2. The root user is granted ownership for administrative access.
+    3. Default policy allows general communication (send/receive) to the service
+       but restricts ownership to the users defined above.
+  -->
+
+  <!-- 
+    Policy for the TSS2 Service User.
+    Schema field: tss_user
+    Description: The user account owning the TSS2 D-Bus service.
+    Default: 'tss'
+  -->
+  <policy user="{{ (tss_user | default('tss')) | string }}">
+    <!-- Allow the TSS2 user to own the TPM2 ABI D-Bus service name -->
+    <allow own="com.intel.tss2.Tabrmd"/>
+  </policy>
+
+  <!--
+    Policy for the Root User.
+    Schema field: root_user
+    Description: The root user account with access to the TSS2 D-Bus service.
+    Default: 'root'
+  -->
+  <policy user="{{ (root_user | default('root')) | string }}">
+    <!-- Allow the root user to own the TPM2 ABI D-Bus service name -->
+    <allow own="com.intel.tss2.Tabrmd"/>
+  </policy>
+
+  <!--
+    Default Policy.
+    
+    This block handles all other users not explicitly defined in the
+    'tss_user' or 'root_user' policies above.
+    
+    Note: The upstream system.conf typically denies everything by default.
+    This section punches holes to allow standard client-server communication
+    for applications that need to talk to the TPM2 daemon without owning the
+    service itself.
+  -->
+  <policy context="default">
+    <!-- Allow clients to send messages to the TPM2 service -->
+    <allow send_destination="com.intel.tss2.Tabrmd"/>
+    
+    <!-- Allow clients to receive signals/replies from the TPM2 service -->
+    <allow receive_sender="com.intel.tss2.Tabrmd"/>
+  </policy>
+</busconfig>

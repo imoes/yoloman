@@ -1,97 +1,53 @@
 {
-  "listeners": {
-    "type": "list",
-    "default": [],
-    "description": "List of listeners to expose (port, optional bind address, protocol). Each defines a listening endpoint."
-  },
-  "allow_zero_length_clientid": {
-    "type": "bool",
-    "default": false,
-    "description": "Allow clients to connect with an empty client ID (disables automatic client ID assignment)."
-  },
-  "allow_anonymous": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, permits connections without username/password authentication. Set to false to require auth."
-  },
-  "password_file": {
+  "pid_file": {
     "type": "string",
-    "default": "/etc/mosquitto/passwd",
-    "description": "Absolute path to the file containing usernames and hashed passwords (use mosquitto_passwd to create)."
-  },
-  "acl_file": {
-    "type": "string",
-    "default": "/etc/mosquitto/acl",
-    "description": "Absolute path to the file defining access control lists (permissions per user or pattern)."
+    "default": null,
+    "description": "PID file (unset keeps the shipped commented line; systemd tracks the process anyway)."
   },
   "persistence": {
     "type": "bool",
-    "default": false,
-    "description": "Enable disk persistence of subscriptions, retained messages, and in-flight messages."
+    "default": true,
+    "description": "Save in-memory messages and subscriptions to disk."
   },
   "persistence_location": {
     "type": "string",
-    "default": "/var/lib/mosquitto",
-    "description": "Directory where persistence files are stored (must exist and be writable by mosquitto user)."
+    "default": "/var/lib/mosquitto/",
+    "description": "Directory of the persistence database (trailing slash)."
   },
-  "max_inflight_messages": {
-    "type": "number",
-    "default": 20,
-    "description": "Maximum number of QoS 1/2 messages in-flight per client (not yet acknowledged)."
-  },
-  "max_packet_size": {
-    "type": "number",
-    "default": 268435456,
-    "description": "Maximum size (in bytes) of an incoming MQTT packet (set to 0 for no limit; recommended \u2264256MB)."
-  },
-  "connection_messages": {
-    "type": "bool",
-    "default": true,
-    "description": "Log client connect/disconnect messages to the log."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": -1,
-    "description": "Maximum number of simultaneous client connections (\u22121 = unlimited)."
-  },
-  "log_file": {
+  "log_dest": {
     "type": "string",
-    "default": "/var/log/mosquitto/mosquitto.log",
-    "description": "Absolute path to the log file (requires proper permissions and directory)."
+    "default": "file /var/log/mosquitto/mosquitto.log",
+    "description": "Where to log: `file <path>`, `syslog`, `stdout`, `stderr`, `topic` or `none` (mosquitto.conf(5))."
   },
-  "log_type": {
+  "listeners": {
     "type": "list",
-    "default": [
-      "error",
-      "warning",
-      "notice",
-      "information"
-    ],
-    "description": "List of log message types to record (options: none, error, warning, notice, information, subscribe, unsubscribe, websockets, audit, debug)."
+    "default": [],
+    "description": "Extra listeners: port and optional bind_address. Mosquitto 2 without one listens on localhost:1883 only.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "number"
+        },
+        "bind_address": {
+          "type": "string"
+        }
+      }
+    }
   },
-  "log_timestamp": {
+  "allow_anonymous": {
     "type": "bool",
-    "default": true,
-    "description": "Include ISO 8601 timestamps in log entries."
+    "default": null,
+    "description": "Allow clients without a username (mosquitto 2 default: false once a listener is defined)."
   },
-  "tls_certfile": {
+  "password_file": {
     "type": "string",
-    "default": "/etc/mosquitto/certs/server.crt",
-    "description": "Absolute path to the server\u2019s TLS certificate (PEM format)."
+    "default": null,
+    "description": "Password file created with mosquitto_passwd."
   },
-  "tls_keyfile": {
+  "acl_file": {
     "type": "string",
-    "default": "/etc/mosquitto/certs/server.key",
-    "description": "Absolute path to the server\u2019s TLS private key (PEM format)."
-  },
-  "tls_ca_file": {
-    "type": "string",
-    "default": "",
-    "description": "Absolute path to the CA certificate file (PEM format) for validating client certificates."
-  },
-  "tls_version": {
-    "type": "string",
-    "default": "tlsv1.2",
-    "description": "Minimum TLS version to support (e.g., 'tlsv1.2', 'tlsv1.1')."
+    "default": null,
+    "description": "Access control list file."
   }
 }

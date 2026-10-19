@@ -5,6 +5,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import * as monaco from 'monaco-editor';
 import { AgentService } from '../../../core/services/agent.service';
+import { APP_IS_DARK } from '../../../shared/bm-colors';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 // Monaco locally, no CDN — a no-op worker (we only read, no language services).
 (self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
@@ -22,7 +24,7 @@ interface LogFile { path: string; size: number; modified: number; }
 @Component({
   selector: 'app-host-logfiles',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-lf">
       <aside class="bm-lf-list">
@@ -59,8 +61,8 @@ interface LogFile { path: string; size: number; modified: number; }
             <option [ngValue]="200">200</option><option [ngValue]="500">500</option>
             <option [ngValue]="2000">2000</option><option [ngValue]="5000">5000</option>
           </select>
-          <button mat-icon-button (click)="refreshContent()" [disabled]="!selected() || contentBusy() || following()" title="Reload content"><mat-icon>refresh</mat-icon></button>
-          <button mat-icon-button [class.bm-follow-on]="following()" (click)="toggleFollow()" [disabled]="!selected()"
+          <button mat-icon-button (click)="refreshContent()" [disabled]="contentBusy()" [bmBlocked]="!selected() ? 'Pick a log file first' : following() ? 'Following already streams new lines' : ''" title="Reload content"><mat-icon>refresh</mat-icon></button>
+          <button mat-icon-button [class.bm-follow-on]="following()" (click)="toggleFollow()" [bmBlocked]="!selected() ? 'Pick a log file first' : ''"
                   [title]="following() ? 'Stop following' : 'Follow (tail -f)'"><mat-icon>{{ following() ? 'pause' : 'play_arrow' }}</mat-icon></button>
           @if (following()) { <span class="bm-live" title="Live tail — refreshes every 3 s">● live</span> }
           @if (truncated()) { <span class="bm-trunc" title="Only the tail is shown">tail</span> }
@@ -139,7 +141,7 @@ export class HostLogfilesComponent implements AfterViewInit, OnDestroy {
       // Wrap long log lines instead of truncating / horizontal-scrolling them.
       wordWrap: 'on',
       fontSize: 12,
-      theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs',
+      theme: APP_IS_DARK ? 'vs-dark' : 'vs',
     });
   }
 

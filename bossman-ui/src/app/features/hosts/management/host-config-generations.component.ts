@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { Agent, StateGeneration, StatePlan } from '../../../core/models/agent.model';
 import { AgentService } from '../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** Generation history + rollback for the host's desired state (Block F2).
  *
@@ -24,24 +25,34 @@ import { AgentService } from '../../../core/services/agent.service';
 @Component({
   selector: 'app-host-config-generations',
   standalone: true,
-  imports: [DatePipe, MatButtonModule, MatCardModule],
+  imports: [BlockedReasonDirective, DatePipe, MatButtonModule, MatCardModule],
   template: `
     @if (generations().length) {
       <h3 class="bm-cfg-gen-h">Generations</h3>
+      <!-- ONE MEANING: generation #N is the host's managed config as it stood right after apply #N. Rolling back
+           to #N restores every file a LATER generation changed to its content before that change. -->
+      <p class="bm-dim bm-gen-what">Each generation is the host's managed configuration after one apply. Rolling back to #N
+        restores every file changed after #N to its earlier content — across all files, not just one.</p>
       <table class="bm-cfg-gen">
-        <thead><tr><th>#</th><th>Applied</th><th>Hash</th><th>Resources</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Applied</th><th>Changed</th><th>Hash</th><th></th></tr></thead>
         <tbody>
           @for (g of generations(); track g.number) {
             <tr [class.bm-gen-current]="isCurrentGeneration(g.number)">
               <td>{{ g.number }}</td>
               <td>{{ g.applied_at | date: 'medium' }}</td>
+              <td>
+                @for (f of g.files ?? []; track f) { <code class="bm-gen-file">{{ f }}</code> }
+                @if (!(g.files ?? []).length) { <span class="bm-dim">{{ g.resources }} resource(s)</span> }
+                @if (g.note) { <span class="bm-dim"> · {{ g.note }}</span> }
+              </td>
               <td><code>{{ g.hash.slice(0, 12) }}…</code></td>
-              <td>{{ g.resources }}</td>
               <td>
                 @if (isCurrentGeneration(g.number)) {
                   <span class="bm-tag">current</span>
                 } @else {
-                  <button mat-button (click)="previewRollback(g.number)" [disabled]="rollbackBusy()">Roll back to #{{ g.number }}…</button>
+                  <span class="bm-why" [attr.title]="rollbackBusy() ? 'A rollback is being computed or applied' : null">
+                    <button mat-button (click)="previewRollback(g.number)" [disabled]="rollbackBusy()">Roll back to #{{ g.number }}…</button>
+                  </span>
                 }
               </td>
             </tr>
@@ -74,11 +85,14 @@ import { AgentService } from '../../../core/services/agent.service';
             }
           }
           <div class="bm-rollback-actions">
-            <button mat-button (click)="cancelRollback()" [disabled]="rollbackBusy()">Cancel</button>
-            <button mat-flat-button color="warn" (click)="applyRollback()"
-                    [disabled]="rollbackBusy() || !rollbackPlan() || !rollbackDiffRows().length">
-              Apply rollback
-            </button>
+            <span class="bm-why" [attr.title]="rollbackBusy() ? 'A rollback is being computed or applied' : null">
+              <button mat-button (click)="cancelRollback()" [disabled]="rollbackBusy()">Cancel</button>
+            </span>
+            <span class="bm-why">
+              <button mat-flat-button color="warn" (click)="applyRollback()" [bmBlocked]="applyRollbackBlocked()">
+                Apply rollback
+              </button>
+            </span>
           </div>
         </mat-card>
       }
@@ -86,6 +100,8 @@ import { AgentService } from '../../../core/services/agent.service';
   `,
   styles: [`
     .bm-cfg-gen-h { margin: 18px 0 6px; font-size: 14px; }
+    .bm-gen-what { margin: 0 0 8px; }
+    .bm-gen-file { display: inline-block; margin-right: 6px; font-size: 12px; }
     .bm-cfg-gen, .bm-diff { width: 100%; border-collapse: collapse; font-size: 13px; }
     .bm-cfg-gen th, .bm-diff th { text-align: left; font-size: 12px; opacity: 0.6; padding: 6px 10px; }
     .bm-cfg-gen td, .bm-diff td { padding: 7px 10px; border-top: 1px solid var(--mat-sys-outline-variant); }
@@ -201,6 +217,18 @@ export class HostConfigGenerationsComponent {
     });
   }
 
+  /** Why "Apply rollback" cannot be pressed right now — one reason, shown on the greyed-out button. */
+  applyRollbackBlocked(): string {
+    if (this.rollbackBusy()) return 'A rollback is being computed or applied';
+    if (this.rollbackError()) return 'The preview failed — see the message above';
+    const plan = this.rollbackPlan();
+    if (!plan) return 'No preview yet';
+    const refused = plan.changes.find((c) => c.error);
+    if (refused) return `Cannot roll back: ${refused.path} — ${refused.error}`;
+    if (!this.rollbackDiffRows().length) return `Nothing to apply: the host already matches generation #${this.rollbackTarget()}`;
+    return '';
+  }
+
   /** Flatten a plan's non-noop changes into readable "path: key before→after"
    * rows for the rollback preview. */
   rollbackDiffRows(): { path: string; action: string; detail: string }[] {
@@ -208,7 +236,7 @@ export class HostConfigGenerationsComponent {
     if (!plan) return [];
     const rows: { path: string; action: string; detail: string }[] = [];
     for (const c of plan.changes) {
-      if (c.action === 'noop') continue;
+      if (c.action === 'noop' && !c.error) continue;
       if (c.changed && Object.keys(c.changed).length) {
         for (const [k, [before, after]] of Object.entries(c.changed)) {
           rows.push({ path: c.path, action: c.action, detail: `${k}: ${JSON.stringify(before)} → ${JSON.stringify(after)}` });

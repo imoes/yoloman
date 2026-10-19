@@ -1,0 +1,30 @@
+# Nova Compute Privilege Separation Rootwrap Configuration
+#
+# This file configures the rootwrap daemon for nova-compute nodes.
+# It defines filters that allow privileged operations (via oslo.privsep)
+# to be executed by the nova user with escalated privileges safely.
+#
+# Ownership: root:root
+# Permissions: 0644 (readable by nova user/group, writable only by root)
+
+[Filters]
+
+# Filter for os_brick privileged operations.
+#
+# Schema Field: privsep_os_brick_sock_path
+# Default: '/tmp/os_brick.sock' (Typical path for os_brick privsep helper socket)
+# Description: Path to the socket for os_brick privsep helper.
+#
+# This filter allows the 'privsep-helper' command to run as root with the
+# os_brick.privileged.default context, connecting to the specified Unix socket.
+privsep-rootwrap-os_brick: RegExpFilter, privsep-helper, root, privsep-helper, --config-file, /etc/(?!\.\.).*, --privsep_context, os_brick.privileged.default, --privsep_sock_path, {{ privsep_os_brick_sock_path | default('/tmp/os_brick.sock') }}
+
+# Filter for Nova sys_admin privileged operations.
+#
+# Schema Field: privsep_sys_admin_sock_path
+# Default: '/tmp/nova_priv.sock' (Typical path for Nova sys_admin privsep helper socket)
+# Description: Path to the socket for nova sys_admin privsep helper.
+#
+# This filter allows the 'privsep-helper' command to run as root with the
+# nova.privsep.sys_admin context, connecting to the specified Unix socket.
+privsep-rootwrap-sys_admin: RegExpFilter, privsep-helper, root, privsep-helper, --config-file, /etc/(?!\.\.).*, --privsep_context, nova.privsep.sys_admin_pctxt, --privsep_sock_path, {{ privsep_sys_admin_sock_path | default('/tmp/nova_priv.sock') }}

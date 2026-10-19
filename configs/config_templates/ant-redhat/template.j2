@@ -1,0 +1,51 @@
+# ant.conf (Ant 1.8.x)
+# JPackage Project <http://www.jpackage.org/>
+
+# ---------------------------------------------------------------------------
+# Configuration: RPM Mode / Layout
+# ---------------------------------------------------------------------------
+# Description: Controls whether Ant uses the system RPM layout or a local
+#              custom layout. If `no_config` is explicitly set to true at
+#              invocation time, this setting is ignored. Otherwise, it
+#              defaults to false unless `no_config` is false.
+# Variable: rpm_mode_default
+# Default: false
+# ---------------------------------------------------------------------------
+if [ -z "$no_config" ] ; then
+  no_config=true
+fi
+
+# ---------------------------------------------------------------------------
+# Configuration: RPM Layout Activation
+# ---------------------------------------------------------------------------
+# Description: When `no_config` is false, enable RPM mode to use the
+#              standard system paths.
+# ---------------------------------------------------------------------------
+if $no_config ; then
+  # Disable RPM layout
+  rpm_mode={{ rpm_mode_default | default('false') }}
+else
+  # Use RPM layout
+  rpm_mode=true
+
+  # -----------------------------------------------------------------------
+  # Configuration: ANT Home Directory (RPM Layout)
+  # -----------------------------------------------------------------------
+  # Description: The directory path where ANT is installed when using the
+  #              RPM layout. This serves as the ANT_HOME environment variable
+  #              for the build process.
+  # Variable: ant_home_path
+  # Default: /usr/share/ant
+  # -----------------------------------------------------------------------
+  ANT_HOME={{ ant_home_path | default('/usr/share/ant') }}
+
+  # -----------------------------------------------------------------------
+  # Configuration: JAVA_HOME Fallback
+  # -----------------------------------------------------------------------
+  # Description: If JAVA_HOME is not already set in the environment, source
+  #              the system Java configuration file to derive it.
+  # -----------------------------------------------------------------------
+  if [ -z "$JAVA_HOME" ] ; then
+    . /etc/java/ant.conf
+  fi
+fi

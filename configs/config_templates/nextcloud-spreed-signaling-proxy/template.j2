@@ -1,94 +1,83 @@
-; nextcloud-spreed-signaling-proxy Configuration
-; Self-documented template for Nextcloud Spreed Signaling Proxy.
-; All variables use defaults derived from the schema to ensure safe rendering.
+# ==============================================================================
+# Nextcloud Spreed Signaling Proxy Configuration Template
+# ==============================================================================
+#
+# This template generates the configuration file for the Nextcloud Spreed
+# Signaling Proxy. It is fully self-documenting: every directive is preceded
+# by a comment explaining its purpose and default behavior.
+#
+# Variables are sourced from the Ansible playbook/role variables. All variables
+# use the `default()` filter to ensure safe rendering even if a variable is
+# undefined, using the schema-provided defaults.
+# ==============================================================================
 
 [http]
-; IP and port to listen on for HTTP requests.
-; Default: 127.0.0.1:9090
-listen = {{ http_listen | default('127.0.0.1:9090') }}
+# IP and port to listen on for HTTP requests.
+# Comment line to disable the listener.
+# Default: Empty (which usually implies a default listen address or disabled state depending on version).
+{% if http_listen | default('') %}listen = {{ http_listen | default('') }}{% else %}#listen = 127.0.0.1:9090{% endif %}
 
 [app]
-; Set to true to install pprof debug handlers.
-; See https://golang.org/pkg/net/http/pprof/ for further information.
-; Default: false
-debug = {{ app_debug | default(false) | ternary('true', 'false') }}
+# Set to "true" to install pprof debug handlers.
+# See "https://golang.org/pkg/net/http/pprof/" for further information.
+# Default: Empty (disabled).
+{% if app_debug | default('') %}debug = {{ app_debug | default('') }}{% else %}#debug = false{% endif %}
 
-; ISO 3166 country this proxy is located at. This will be used by the signaling
-; servers to determine the closest proxy for publishers.
-; Default: DE
-country = {{ app_country | default('DE') }}
+# ISO 3166 country this proxy is located at. This will be used by the signaling
+# servers to determine the closest proxy for publishers.
+# Default: Empty.
+{% if app_country | default('') %}country = {{ app_country | default('') }}{% else %}#country = DE{% endif %}
 
-; Type of token configuration for signaling servers allowed to connect, see
-; below for details. Defaults to "static".
-;
-; Possible values:
-; - static: A mapping of token id -> public key is configured below.
-; - etcd: Token information are retrieved from an etcd cluster (see below).
-; Default: static
+# Type of token configuration for signaling servers allowed to connect, see
+# below for details. Defaults to "static".
+#
+# Possible values:
+# - static: A mapping of token id -> public key is configured below.
+# - etcd: Token information are retrieved from an etcd cluster (see below).
 tokentype = {{ app_tokentype | default('static') }}
 
 [tokens]
-; Public key for the first signaling server token.
-; Default: pubkey1.pem
-server1 = {{ tokens_server1 | default('pubkey1.pem') }}
+# For token type "static": Mapping of <tokenid> = <publickey> of signaling
+# servers allowed to connect.
+{% if tokens_server1 | default('') %}server1 = {{ tokens_server1 | default('') }}{% else %}#server1 = pubkey1.pem{% endif %}
+{% if tokens_server2 | default('') %}server2 = {{ tokens_server2 | default('') }}{% else %}#server2 = pubkey2.pem{% endif %}
 
-; Public key for the second signaling server token.
-; Default: pubkey2.pem
-server2 = {{ tokens_server2 | default('pubkey2.pem') }}
-
-; For token type "etcd": Format of key name to retrieve the public key from,
-; "%s" will be replaced with the token id. Multiple possible formats can be
-; comma-separated.
-; Default: /signaling/proxy/tokens/%s/public-key
-keyformat = {{ etcd_keyformat | default('/signaling/proxy/tokens/%s/public-key') }}
+# For token type "etcd": Format of key name to retrieve the public key from,
+# "%s" will be replaced with the token id. Multiple possible formats can be
+# comma-separated.
+{% if etcd_keyformat | default('') %}keyformat = {{ etcd_keyformat | default('') }}{% else %}#keyformat = /signaling/proxy/tokens/%s/public-key{% endif %}
 
 [mcu]
-; The type of the MCU to use. Currently only "janus" is supported.
-; Default: janus
+# The type of the MCU to use. Currently only "janus" is supported.
 type = {{ mcu_type | default('janus') }}
 
-; The URL to the websocket endpoint of the MCU server.
-; Default: ws://localhost:8188/
+# The URL to the websocket endpoint of the MCU server.
 url = {{ mcu_url | default('ws://localhost:8188/') }}
 
-; The maximum bitrate per publishing stream (in bits per second).
-; Defaults to 1 mbit/sec.
-; Default: 1048576
-maxstreambitrate = {{ mcu_maxstreambitrate | default(1048576) }}
+# The maximum bitrate per publishing stream (in bits per second).
+# Defaults to 1 mbit/sec.
+{% if mcu_maxstreambitrate | default('') %}maxstreambitrate = {{ mcu_maxstreambitrate | default('') }}{% else %}#maxstreambitrate = 1048576{% endif %}
 
-; The maximum bitrate per screensharing stream (in bits per second).
-; Default is 2 mbit/sec.
-; Default: 2097152
-maxscreenbitrate = {{ mcu_maxscreenbitrate | default(2097152) }}
+# The maximum bitrate per screensharing stream (in bits per second).
+# Default is 2 mbit/sec.
+{% if mcu_maxscreenbitrate | default('') %}maxscreenbitrate = {{ mcu_maxscreenbitrate | default('') }}{% else %}#maxscreenbitrate = 2097152{% endif %}
 
 [stats]
-; Comma-separated list of IP addresses that are allowed to access the stats
-; endpoint. Leave empty (or commented) to only allow access from "127.0.0.1".
-; Default: ''
-allowed_ips = {{ stats_allowed_ips | default('') }}
+# Comma-separated list of IP addresses that are allowed to access the stats
+# endpoint. Leave empty (or commented) to only allow access from "127.0.0.1".
+{% if stats_allowed_ips | default('') %}allowed_ips = {{ stats_allowed_ips | default('') }}{% else %}#allowed_ips ={% endif %}
 
 [etcd]
-; Comma-separated list of static etcd endpoints to connect to.
-; Default: 127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379
-endpoints = {{ etcd_endpoints | default('127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379') }}
+# Comma-separated list of static etcd endpoints to connect to.
+{% if etcd_endpoints | default('') %}endpoints = {{ etcd_endpoints | default('') }}{% else %}#endpoints = 127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379{% endif %}
 
-; DNS SRV domain to perform endpoint discovery.
-; Only used if no endpoints are configured manually.
-; Default: example.com
-discoverysrv = {{ etcd_discoverysrv | default('example.com') }}
+# Options to perform endpoint discovery through DNS SRV.
+# Only used if no endpoints are configured manually.
+{% if etcd_discoverysrv | default('') %}discoverysrv = {{ etcd_discoverysrv | default('') }}{% else %}#discoverysrv = example.com{% endif %}
+{% if etcd_discoveryservice | default('') %}discoveryservice = {{ etcd_discoveryservice | default('') }}{% else %}#discoveryservice = foo{% endif %}
 
-; Service name for DNS SRV discovery.
-; Default: foo
-discoveryservice = {{ etcd_discoveryservice | default('foo') }}
-
-; Path to private key for TLS authentication with etcd.
-; Default: /path/to/etcd-client.key
-clientkey = {{ etcd_clientkey | default('/path/to/etcd-client.key') }}
-
-; Path to client certificate for TLS authentication with etcd.
-; Default: /path/to/etcd-client.crt
-clientcert = {{ etcd_clientcert | default('/path/to/etcd-client.crt') }}
-
-; Path to CA certificate for TLS authentication with etcd.
-; Default: /path/to/etcd-ca.crt
-cacert = {{ etcd_cacert | default('/path/to/etcd-ca.crt') }}
+# Path to private key, client certificate and CA certificate if TLS
+# authentication should be used.
+{% if etcd_clientkey | default('') %}clientkey = {{ etcd_clientkey | default('') }}{% else %}#clientkey = /path/to/etcd-client.key{% endif %}
+{% if etcd_clientcert | default('') %}clientcert = {{ etcd_clientcert | default('') }}{% else %}#clientcert = /path/to/etcd-client.crt{% endif %}
+{% if etcd_cacert | default('') %}cacert = {{ etcd_cacert | default('') }}{% else %}#cacert = /path/to/etcd-ca.crt{% endif %}

@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { OperationsService, OperationRecord, OperationOutcome } from '../../core/services/operations.service';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /**
  * THE RESULT LOG: what the fleet's hosts DID, and what came back.
@@ -20,7 +21,7 @@ import { OperationsService, OperationRecord, OperationOutcome } from '../../core
 @Component({
   selector: 'app-operations',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, MatButtonModule, MatIconModule, RouterLink],
+  imports: [StatusPillComponent, DatePipe, DecimalPipe, FormsModule, MatButtonModule, MatIconModule, RouterLink],
   template: `
     <div class="bm-page">
       <div class="bm-head">
@@ -47,13 +48,13 @@ import { OperationsService, OperationRecord, OperationOutcome } from '../../core
       </div>
 
       <div class="bm-filters">
-        <input placeholder="host" [(ngModel)]="fHost" (keyup.enter)="reload()" />
-        <input placeholder="module" [(ngModel)]="fModule" (keyup.enter)="reload()" class="bm-mono" />
-        <select [(ngModel)]="fOutcome" (ngModelChange)="reload()">
+        <input placeholder="host" aria-label="Host" [(ngModel)]="fHost" (keyup.enter)="reload()" />
+        <input placeholder="module" aria-label="Module" [(ngModel)]="fModule" (keyup.enter)="reload()" class="bm-mono" />
+        <select [(ngModel)]="fOutcome" (ngModelChange)="reload()" aria-label="Outcome">
           <option value="">any outcome</option>
           @for (o of outcomes(); track o) { <option [value]="o">{{ o }}</option> }
         </select>
-        <select [(ngModel)]="fSince" (ngModelChange)="reload()">
+        <select [(ngModel)]="fSince" (ngModelChange)="reload()" aria-label="Time range">
           <option value="0">any time</option>
           <option value="60">last hour</option>
           <option value="1440">last 24 h</option>
@@ -66,7 +67,7 @@ import { OperationsService, OperationRecord, OperationOutcome } from '../../core
         <button mat-stroked-button (click)="reload()"><mat-icon>search</mat-icon> Search</button>
       </div>
 
-      <div class="bm-table-wrap">
+      <div class="bm-table-wrap" tabindex="0" role="region" aria-label="Result log entries">
         <table class="bm-table">
           <thead>
             <tr>
@@ -80,7 +81,7 @@ import { OperationsService, OperationRecord, OperationOutcome } from '../../core
                 <td>{{ r.host || '—' }}</td>
                 <td class="bm-mono">{{ r.module }}</td>
                 <td>
-                  <span class="bm-out bm-out--{{ r.outcome }}" [title]="hint(r.outcome)">{{ r.outcome }}</span>
+                  <bm-status-pill [status]="r.outcome" [title]="hint(r.outcome)" />
                 </td>
                 <td class="bm-nowrap bm-dim">{{ r.duration_ms != null ? (r.duration_ms | number:'1.0-0') + ' ms' : '—' }}</td>
                 <td class="bm-dim bm-ident">{{ short(r.identity) }}</td>
@@ -133,10 +134,10 @@ import { OperationsService, OperationRecord, OperationOutcome } from '../../core
     .bm-check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
     .bm-mono, code, pre { font-family: ui-monospace, monospace; }
     .bm-table-wrap { overflow-x: auto; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant);
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant);
       font-size: 11px; text-transform: uppercase; opacity: 0.6; }
-    .bm-table td { padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
+    .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
     .bm-nowrap { white-space: nowrap; }
     .bm-ident { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bm-said { max-width: 520px; }

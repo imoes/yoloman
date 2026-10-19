@@ -1,0 +1,12 @@
+# Allowed IPs List for DNSCrypt-Proxy Whitelist
+# Description: List of allowed IP addresses or CIDR ranges for the DNS proxy whitelist.
+# Each entry is a string (e.g., '192.168.0.0/24', '81.169.145.105').
+# This directive is used to restrict which clients can query the DNS proxy.
+#
+# Note: In dnscrypt-proxy configuration, allow_from is the standard directive name
+# for defining allowed client IPs. We map the schema's `allowed_ips_list` to it.
+
+{% set ips = allowed_ips_list | default([]) %}
+{% if ips | length > 0 %}
+allow_from = {{ ips | join(', ') }}
+{% endif %}

@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { RouterLink } from '@angular/router';
 import { ParamFormComponent } from '../param-form/param-form.component';
 import { ParamSchema } from '../param-form/param-form.types';
 import { ApplyResult, ResourceGeneration, ResourceKind, ResourcePlan, ResourceRef, ResourceService } from '../../core/services/resource.service';
@@ -16,7 +17,7 @@ import { descriptorFor } from './resource-node-registry';
 @Component({
   selector: 'app-resource-node',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, ParamFormComponent],
+  imports: [MatIconModule, MatButtonModule, RouterLink, ParamFormComponent],
   template: `
     <div class="bm-rn">
       <div class="bm-rn-head">
@@ -27,8 +28,13 @@ import { descriptorFor } from './resource-node-registry';
           <span class="bm-rn-dot ok" title="present"></span>
           <span class="bm-dim">{{ summary() }}</span>
         } @else if (kind() === 'role' && roleLinks().length && !loading()) {
-          <span class="bm-rn-dot pending" title="pending approval"></span>
-          <span class="bm-dim">pending approval · {{ roleLinks()[0].status }}</span>
+          @if (roleLinks()[0].status === 'pending_approval') {
+            <span class="bm-rn-dot pending" title="pending approval"></span>
+            <span class="bm-dim">pending approval — decided under <a routerLink="/change-proposals">Change proposals</a></span>
+          } @else {
+            <span class="bm-rn-dot none" [title]="roleLinks()[0].status || 'not active'"></span>
+            <span class="bm-dim">binding {{ roleLinks()[0].status === 'rejected' ? 'rejected — it applies to nothing' : roleLinks()[0].status }}</span>
+          }
         } @else if (!loading()) {
           <span class="bm-rn-dot none" title="not present"></span>
           <span class="bm-dim">{{ absentText() }}</span>
@@ -45,14 +51,14 @@ import { descriptorFor } from './resource-node-registry';
           <p class="bm-dim">This role has no parameters — bind it as-is.</p>
         }
         <div class="bm-rn-actions">
-          <button mat-stroked-button (click)="doPlan()" [disabled]="busy()"><mat-icon>difference</mat-icon> Plan</button>
+          <span class="bm-why" [attr.title]="busy() ? 'Working…' : null"><button mat-stroked-button (click)="doPlan()" [disabled]="busy()"><mat-icon>difference</mat-icon> Plan</button></span>
           @if (kind() === 'role') {
-            <button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>link</mat-icon> Bind</button>
+            <span class="bm-why" [attr.title]="busy() ? 'Working…' : null"><button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>link</mat-icon> Bind</button></span>
             @if (present() || roleLinks().length) {
-              <button mat-stroked-button (click)="doUnbind()" [disabled]="busy()"><mat-icon>link_off</mat-icon> Unbind</button>
+              <span class="bm-why" [attr.title]="busy() ? 'Working…' : null"><button mat-stroked-button (click)="doUnbind()" [disabled]="busy()"><mat-icon>link_off</mat-icon> Unbind</button></span>
             }
           } @else {
-            <button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>check</mat-icon> Apply</button>
+            <span class="bm-why" [attr.title]="busy() ? 'Working…' : null"><button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>check</mat-icon> Apply</button></span>
           }
         </div>
       }
@@ -85,7 +91,7 @@ import { descriptorFor } from './resource-node-registry';
               <span>{{ specSummary(g.spec) }}</span>
               @if (g.note) { <span class="bm-dim">· {{ g.note }}</span> }
               <span class="bm-dim bm-rn-gt">{{ g.created_at }}</span>
-              <button mat-button (click)="doRollback(g.generation)" [disabled]="busy()">Rollback</button>
+              <span class="bm-why" [attr.title]="busy() ? 'Working…' : null"><button mat-button (click)="doRollback(g.generation)" [disabled]="busy()">Rollback</button></span>
             </div>
           }
         </div>
@@ -99,12 +105,12 @@ import { descriptorFor } from './resource-node-registry';
     .bm-rn-kind { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); font-family: ui-monospace, monospace; }
     .bm-rn-name { font-weight: 600; }
     .bm-rn-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-    .bm-rn-dot.ok { background: #1e9600; }
+    .bm-rn-dot.ok { background: var(--bm-green); }
     .bm-rn-dot.pending { background: var(--bm-gold, #b8860b); }
     .bm-rn-dot.none { background: var(--mat-sys-outline, #888); }
     .bm-dim { opacity: 0.6; font-size: 12.5px; }
     .bm-err { color: var(--mat-sys-error, #c62828); }
-    .bm-good { color: #1e9600; }
+    .bm-good { color: var(--bm-green); }
     .bm-rn-actions { display: flex; gap: 10px; margin: 10px 0; }
     .bm-rn-plan { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
     .bm-rn-plan.noop { opacity: 0.7; }
@@ -300,7 +306,7 @@ export class ResourceNodeComponent implements OnInit {
       if (this.kind() === 'role' && r.status) {
         m = r.status === 'active'
           ? `Bound (active) → generation ${r.generation}.`
-          : `Bound — pending approval (generation ${r.generation}). It won't converge until approved.`;
+          : `Bound — pending approval (generation ${r.generation}). It won't converge until another administrator approves it under Deploy → Change proposals.`;
       }
       this.setMsg(true, m); this.plan.set(null); this.reload();
     } else { this.setMsg(false, `Failed: ${r.error || 'unknown'}`); }

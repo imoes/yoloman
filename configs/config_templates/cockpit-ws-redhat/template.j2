@@ -1,0 +1,72 @@
+#%PAM-1.0
+# -----------------------------------------------------------------------------
+# PAM Configuration for Cockpit WebSocket Service
+#
+# This file configures the Pluggable Authentication Modules (PAM) stack
+# specifically for the Cockpit service on RHEL systems. It restricts
+# access based on a disallowed users list and standard authentication
+# stacks.
+# -----------------------------------------------------------------------------
+
+# --- Authentication Phase ---
+# Ensure users are authorized via the system's security policy (e.g., SELinux contexts).
+auth       required     pam_sepermit.so
+
+# Use the standard password authentication stack defined in system-auth.
+auth       substack     password-auth
+
+# Include the post-login authentication stack for additional checks.
+auth       include      postlogin
+
+# Optionally, add the user's SSH keys to the authorized_keys file upon successful SSH-based login via Cockpit.
+auth       optional     pam_ssh_add.so
+
+# -----------------------------------------------------------------------------
+# Access Control: Deny List
+# -----------------------------------------------------------------------------
+# The following rule uses pam_listfile.so to check the user against a
+# specific file of denied users. If the user is found in this file,
+# access is denied (sense=deny). If the file check fails (onerr=succeed),
+# authentication proceeds (or is allowed depending on exact PAM logic,
+# but typically onerr=succeed means treat error as success for the stack).
+#
+# denied_users_file_path: Specifies the path to the file containing
+# users denied access to Cockpit. Defaults to '/etc/cockpit/disallowed-users'.
+#
+# denied_users_file_description: Provides a comment describing the content
+# of the disallowed users file. Defaults to 'users to deny access to Cockpit, by default root is included.'.
+# -----------------------------------------------------------------------------
+account    required     pam_listfile.so item=user sense=deny file={{ denied_users_file_path | default('/etc/cockpit/disallowed-users') }} onerr=succeed
+
+# Deny access if the /etc/nologin file exists (e.g., during system shutdown or maintenance).
+account    required     pam_nologin.so
+
+# Use the standard account management stack.
+account    include      password-auth
+
+# --- Password Change Phase ---
+# Allow users to change their passwords using the standard stack.
+password   include      password-auth
+
+# --- Session Phase ---
+# Clean up SELinux contexts when the session closes.
+session    required     pam_selinux.so close
+
+# Reset the login UID to ensure proper session tracking.
+session    required     pam_loginuid.so
+
+# Open SELinux contexts for the user. This rule should only be followed by
+# other session modules that execute within the user's context.
+session    required     pam_selinux.so open env_params
+
+# Force the creation and revocation of a user session keyring for security isolation.
+session    optional     pam_keyinit.so force revoke
+
+# Optionally, add SSH keys for the user session if using SSH gateway mode.
+session    optional     pam_ssh_add.so
+
+# Use the standard session management stack.
+session    include      password-auth
+
+# Include the post-login session stack for additional session setup.
+session    include      postlogin

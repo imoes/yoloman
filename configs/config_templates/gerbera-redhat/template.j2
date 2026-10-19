@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Gerbera Configuration Template
+    ==============================
+    This file is the main configuration for Gerbera, an UPnP MediaServer.
+    It defines server identity, UI settings, storage, media import rules,
+    online content sources, and transcoding profiles.
+
+    All variables must be provided via Ansible inventory or group_vars.
+    Defaults are applied automatically if variables are undefined.
+-->
+<config version="2" xmlns="http://mediatomb.cc/config/2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://mediatomb.cc/config/2 http://mediatomb.cc/config/2.xsd">
+  <!--
+     See http://gerbera.io or read the docs for more
+     information on creating and using config.xml configration files.
+    -->
+  <server>
+    <!-- UI Settings: Controls whether the web interface is accessible -->
+    <ui enabled="{{ ui_enabled | default('yes') }}" show-tooltips="yes">
+      <!-- Account Settings: Controls user authentication for the UI -->
+      <accounts enabled="{{ accounts_enabled | default('no') }}" session-timeout="{{ accounts_session_timeout | default(30) }}">
+        <!-- Default admin account. Change password in production! -->
+        <account user="gerbera" password="gerbera"/>
+      </accounts>
+    </ui>
+
+    <!-- Server Identity -->
+    <!-- Server display name shown to clients (e.g., Smart TVs) -->
+    <name>{{ server_name | default('Gerbera') }}</name>
+    <!-- Unique Device Name (UDN) for UPnP identification -->
+    <udn>{{ server_udn | default('uuid:ac239fa6-6dfc-4e0e-965b-3af47ecfa263') }}</udn>
+    <!-- Home directory for Gerbera data and config -->
+    <home>{{ server_home | default('/etc/gerbera') }}</home>
+    <!-- Web root for the UI assets -->
+    <webroot>{{ server_webroot | default('/usr/share/gerbera/web') }}</webroot>
+
+    <!--
+        How frequently (in seconds) to send ssdp:alive advertisements.
+        Minimum alive value accepted is: 62
+
+        The advertisement will be sent every (A/2)-30 seconds,
+        and will have a cache-control max-age of A where A is
+        the value configured here. Ex: A value of 62 will result
+        in an SSDP advertisement being sent every second.
+    -->
+    <alive>{{ server_alive | default(1800) }}</alive>
+
+    <!-- Storage Configuration -->
+    <storage>
+      <!-- SQLite3 Backend Settings -->
+      <sqlite3 enabled="{{ storage_sqlite3_enabled | default('yes') }}">
+        <!-- Database file name (relative to server home) -->
+        <database-file>{{ storage_sqlite3_database_file | default('gerbera.db') }}</database-file>
+      </sqlite3>
+    </storage>
+
+    <protocolInfo extend="no"/><!-- For PS3 support change to "yes" -->
+    <!--
+       Uncomment the lines below to get rid of jerky avi playback on the
+       DSM320 or to enable subtitles support on the DSM units
+    -->
+    <!--
+    <custom-http-headers>
+      <add header="X-User-Agent: redsonic"/>
+    </custom-http-headers>
+
+    <manufacturerURL>redsonic.com</manufacturerURL>
+    <modelNumber>105</modelNumber>
+    -->
+    <!-- Uncomment the line below if you have a Telegent TG100 -->
+    <!--
+       <upnp-string-limit>101</upnp-string-limit>
+    -->
+
+    <!-- Extended Runtime Options -->
+    <extended-runtime-options>
+      <!-- Mark items as played in the database -->
+      <mark-played-items enabled="{{ extended_runtime_mark_played_items_enabled | default('no') }}" suppress-cds-updates="{{ extended_runtime_mark_played_items_suppress_cds_updates | default('yes') }}">
+        <!-- String mode for marking (prepend/append) -->
+        <string mode="prepend">{{ extended_runtime_mark_played_items_string_mode | default('*') }}</string>
+        <!-- Content type to apply marking to -->
+        <mark>
+          <content>{{ extended_runtime_mark_played_items_mark_content | default('video') }}</content>
+        </mark>
+      </mark-played-items>
+    </extended-runtime-options>
+  </server>
+
+  <!-- Import Settings: How media files are scanned and tagged -->
+  <import hidden-files="{{ import_hidden_files | default('no') }}">
+    <!-- Scripting Engine Configuration -->
+    <scripting script-charset="{{ import_scripting_script_charset | default('UTF-8') }}">
+      <!-- Path to the common JavaScript library -->
+      <common-script>{{ import_scripting_common_script | default('/usr/share/gerbera/js/common.js') }}</common-script>
+      <!-- Path to the playlist generation script -->
+      <playlist-script>{{ import_scripting_playlist_script | default('/usr/share/gerbera/js/playlists.js') }}</playlist-script>
+      <!-- Virtual layout configuration for import scripts -->
+      <virtual-layout type="builtin">
+        <!-- Path to the specific import logic script -->
+        <import-script>{{ import_scripting_virtual_layout_import_script | default('/usr/share/gerbera/js/import.js') }}</import-script>
+      </virtual-layout>
+    </scripting>
+
+    <!-- File Mappings -->
+    <mappings>
+      <!-- Map file extensions to MIME types -->
+      <extension-mimetype ignore-unknown="{{ import_mappings_extension_mimetype_ignore_unknown | default('no') }}">
+        <map from="mp3" to="audio/mpeg"/>
+        <map from="ogx" to="application/ogg"/>
+        <map from="ogv" to="video/ogg"/>
+        <map from="oga" to="audio/ogg"/>
+        <map from="ogg" to="audio/ogg"/>
+        <map from="ogm" to="video/ogg"/>
+        <map from="asf" to="video/x-ms-asf"/>
+        <map from="asx" to="video/x-ms-asf"/>
+        <map from="wma" to="audio/x-ms-wma"/>
+        <map from="wax" to="audio/x-ms-wax"/>
+        <map from="wmv" to="video/x-ms-wmv"/>
+        <map from="wvx" to="video/x-ms-wvx"/>
+        <map from="wm" to="video/x-ms-wm"/>
+        <map from="wmx" to="video/x-ms-wmx"/>
+        <map from="m3u" to="audio/x-mpegurl"/>
+        <map from="pls" to="audio/x-scpls"/>
+        <map from="flv" to="video/x-flv"/>
+        <map from="mkv" to="video/x-matroska"/>
+        <map from="mka" to="audio/x-matroska"/>
+        <!-- Uncomment the line below for PS3 divx support -->
+        <!-- <map from="avi" to="video/divx"/> -->
+        <!-- Uncomment the line below for D-Link DSM / ZyXEL DMA-1000 -->
+        <!-- <map from="avi" to="video/avi"/> -->
+      </extension-mimetype>
+
+      <!-- Map MIME types to UPnP Class IDs -->
+      <mimetype-upnpclass>
+        <map from="audio/*" to="object.item.audioItem.musicTrack"/>
+        <map from="video/*" to="object.item.videoItem"/>
+        <map from="image/*" to="object.item.imageItem"/>
+        <map from="application/ogg" to="object.item.audioItem.musicTrack"/>
+      </mimetype-upnpclass>
+
+      <!-- Map MIME types to Content Types for presentation -->
+      <mimetype-contenttype>
+        <treat mimetype="audio/mpeg" as="mp3"/>
+        <treat mimetype="application/ogg" as="ogg"/>
+        <treat mimetype="audio/ogg" as="ogg"/>
+        <treat mimetype="audio/x-flac" as="flac"/>
+        <treat mimetype="audio/x-ms-wma" as="wma"/>
+        <treat mimetype="audio/x-wavpack" as="wv"/>
+        <treat mimetype="image/jpeg" as="jpg"/>
+        <treat mimetype="audio/x-mpegurl" as="playlist"/>
+        <treat mimetype="audio/x-scpls" as="playlist"/>
+        <treat mimetype="audio/x-wav" as="pcm"/>
+        <treat mimetype="audio/L16" as="pcm"/>
+        <treat mimetype="video/x-msvideo" as="avi"/>
+        <treat mimetype="video/mp4" as="mp4"/>
+        <treat mimetype="audio/mp4" as="mp4"/>
+        <treat mimetype="video/x-matroska" as="mkv"/>
+        <treat mimetype="audio/x-matroska" as="mka"/>
+      </mimetype-contenttype>
+    </mappings>
+
+    <!-- Online Content Sources -->
+    <online-content>
+      <!-- AppleTrailers RSS Feed Configuration -->
+      <AppleTrailers enabled="{{ import_online_content_appletrailers_enabled | default('no') }}" refresh="{{ import_online_content_appletrailers_refresh | default(43200) }}" update-at-start="{{ import_online_content_appletrailers_update_at_start | default('no') }}" resolution="{{ import_online_content_appletrailers_resolution | default(640) }}"/>
+    </online-content>
+  </import>
+
+  <!-- Transcoding Configuration -->
+  <transcoding enabled="{{ transcoding_enabled | default('no') }}">
+    <!-- Map source MIME types to transcoding profiles -->
+    <mimetype-profile-mappings>
+      <transcode mimetype="video/x-flv" using="vlcmpeg"/>
+      <transcode mimetype="application/ogg" using="vlcmpeg"/>
+      <transcode mimetype="application/ogg" using="oggflac2raw"/>
+      <transcode mimetype="audio/x-flac" using="oggflac2raw"/>
+    </mimetype-profile-mappings>
+
+    <!-- Transcoding Profile Definitions -->
+    <profiles>
+      <!-- Profile: Convert OGG FLAC to RAW PCM -->
+      <profile name="oggflac2raw" enabled="{{ transcoding_profiles_oggflac2raw_enabled | default('no') }}" type="external">
+        <mimetype>{{ transcoding_profiles_oggflac2raw_mimetype | default('audio/L16') }}</mimetype>
+        <accept-url>{{ transcoding_profiles_oggflac2raw_accept_url | default('no') }}</accept-url>
+        <first-resource>{{ transcoding_profiles_oggflac2raw_first_resource | default('yes') }}</first-resource>
+        <accept-ogg-theora>{{ transcoding_profiles_oggflac2raw_accept_ogg_theora | default('no') }}</accept-ogg-theora>
+        <agent command="ogg123" arguments="-d raw -o byteorder:big -f %out %in"/>
+        <buffer size="{{ transcoding_profiles_oggflac2raw_buffer_size | default(1048576) }}" chunk-size="{{ transcoding_profiles_oggflac2raw_buffer_chunk_size | default(131072) }}" fill-size="{{ transcoding_profiles_oggflac2raw_buffer_fill_size | default(262144) }}"/>
+      </profile>
+
+      <!-- Profile: Convert via VLC to MPEG -->
+      <profile name="vlcmpeg" enabled="{{ transcoding_profiles_vlcmpeg_enabled | default('no') }}" type="external">
+        <mimetype>{{ transcoding_profiles_vlcmpeg_mimetype | default('video/mpeg') }}</mimetype>
+        <accept-url>{{ transcoding_profiles_vlcmpeg_accept_url | default('yes') }}</accept-url>
+        <first-resource>{{ transcoding_profiles_vlcmpeg_first_resource | default('yes') }}</first-resource>
+        <accept-ogg-theora>{{ transcoding_profiles_vlcmpeg_accept_ogg_theora | default('yes') }}</accept-ogg-theora>
+        <agent command="vlc" arguments="-I dummy %in --sout #transcode{venc=ffmpeg,vcodec=mp2v,vb=4096,fps=25,aenc=ffmpeg,acodec=mpga,ab=192,samplerate=44100,channels=2}:standard{access=file,mux=ps,dst=%out} vlc:quit"/>
+        <buffer size="{{ transcoding_profiles_vlcmpeg_buffer_size | default(14400000) }}" chunk-size="{{ transcoding_profiles_vlcmpeg_buffer_chunk_size | default(512000) }}" fill-size="{{ transcoding_profiles_vlcmpeg_buffer_fill_size | default(120000) }}"/>
+      </profile>
+    </profiles>
+  </transcoding>
+</config>

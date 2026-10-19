@@ -1,0 +1,66 @@
+# ==============================================================================
+# reniced configuration template
+# ==============================================================================
+# This file configures the `reniced` daemon (or script) to adjust process
+# scheduling priorities (nice values) for specific services and processes.
+#
+# Format for each line:
+#   <renice_value> <regex>
+#
+# - <renice_value>: An integer from -20 (highest priority) to 19 (lowest priority).
+#   Optionally suffixed with 'i' to indicate "incremental" change (add to current nice value).
+# - <regex>: A Perl-compatible regular expression (PCRE) matching the command name
+#   or process title. The renice operation applies to all matching processes.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# High priority network services
+# ------------------------------------------------------------------------------
+# desc='High priority network services to renice. Each line contains the renice value and a Perl regular expression matching the process name.'
+# These services are critical for network availability and responsiveness.
+# Default: ['0 ^apache', '0 ^nfsd', '0 ^ntpd', '0 ^openvpn', '0 ^portmap', '0 ^ppp', '0 ^rpc.', '0 ^sshd']
+{% for item in (reniced_high_prio_network_services | default(['0 ^apache', '0 ^nfsd', '0 ^ntpd', '0 ^openvpn', '0 ^portmap', '0 ^ppp', '0 ^rpc.', '0 ^sshd'])) %}
+{{ item }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Medium priority network services
+# ------------------------------------------------------------------------------
+# desc='Medium priority network services to renice. Each line contains the renice value and a Perl regular expression matching the process name.'
+# These services are important but can tolerate slightly higher latency or CPU contention.
+# Default: ['5 ^inn$', '5 ^mysqld']
+{% for item in (reniced_medium_prio_network_services | default(['5 ^inn$', '5 ^mysqld'])) %}
+{{ item }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Low priority network services
+# ------------------------------------------------------------------------------
+# desc='Low priority network services to renice. Each line contains the renice value and a Perl regular expression matching the process name.'
+# These are typically background daemons or batch processes that should yield CPU to interactive or critical tasks.
+# Default: ['15i ^amavisd-new', '15i ^clamd', '15 ^controlchan', '15 ^exim4', '15 ^freshclam', '15 ^innwatch', '12 ^mailman', '15 ^rc.news', '15i ^spamd']
+{% for item in (reniced_low_prio_network_services | default(['15i ^amavisd-new', '15i ^clamd', '15 ^controlchan', '15 ^exim4', '15 ^freshclam', '15 ^innwatch', '12 ^mailman', '15 ^rc.news', '15i ^spamd'])) %}
+{{ item }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Long running user processes (screen)
+# ------------------------------------------------------------------------------
+# desc='Long running user processes to renice. Each line contains the renice value and a Perl regular expression matching the process name.'
+# Long-running interactive or batch user sessions (e.g., inside `screen` or `tmux`)
+# are often down-prioritized to prevent them from starving system services.
+# Default: ['3 ^irssi']
+{% for item in (reniced_long_running_user_processes | default(['3 ^irssi'])) %}
+{{ item }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Test OOM settings
+# ------------------------------------------------------------------------------
+# desc='Test OOM (Out of Memory) settings to renice. Each line contains the renice value and a Perl regular expression matching the process name.'
+# These entries are used for testing or tuning OOM (Out-Of-Memory) killer behavior
+# or resource limits by adjusting priority for specific test processes.
+# Default: ['o1 bash']
+{% for item in (reniced_test_oom_settings | default(['o1 bash'])) %}
+{{ item }}
+{% endfor %}

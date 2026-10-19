@@ -1,29 +1,38 @@
-# Budgie Window Shuffler (DragSnap) Autostart Entry
-# This template generates a .desktop file for the Budgie Window Shuffler extension.
-# It configures the desktop entry to launch the dragsnap tiling helper with specific GSettings conditions.
+# Budgie Window Shuffler Desktop Entry Configuration
+# This template generates a .desktop file to autostart the Budgie Window Shuffler utility.
+# It configures the application name, execution path, and conditions under which it launches.
 
-# Type of the desktop entry; must be Application for autostart daemons.
+[Desktop Entry]
+# Entry type: must be Application for standalone programs
 Type=Application
 
-# Displayed name of the application in desktop environments.
+# The name of the process described in the Comment field
+# Defaults to 'dragsnap' which is the core component of Budgie Window Shuffler
 Name=DragSnap
 
-# Comment describing the application's purpose and the condition under which it runs.
-# comment: The name of the process described in the Comment field (default: 'dragsnap')
-# condition: The description text after 'to run' in the Comment field (default: 'half/cornertiling')
+# Comment field describing what the application does.
+# It dynamically inserts the process name and the condition for running.
+# Variables:
+#   comment: The name of the process (default: 'dragsnap')
+#   condition: The description text after 'to run' (default: 'half/cornertiling')
 Comment=Kick starts the {{ comment | default('dragsnap') }} process to run {{ condition | default('half/cornertiling') }}
 
-# Absolute path to the executable that will be launched.
-# exec_path: Absolute path to the executable (default: '/usr/lib/budgie-window-shuffler/dragsnap')
+# Absolute path to the executable
+# Defaults to the standard Budgie Window Shuffler binary location
 Exec={{ exec_path | default('/usr/lib/budgie-window-shuffler/dragsnap') }}
 
-# Prevent the application from appearing in application menus; it runs in the background.
+# Do not show the application in the main application menu
+# Typically true for utility/daemon-like desktop entries
 NoDisplay=true
 
-# AutostartCondition specifies the GSettings key to monitor for changes to trigger the application.
-# gsettings_key: GSettings key used for AutostartCondition (default: 'org.ubuntubudgie.windowshuffler dragsnaptiling')
+# Condition for autostarting based on GSettings.
+# Uses a GSettings key to check if a specific setting is enabled before launching.
+# Format: AutostartCondition=GSettings <key>
+# Variable:
+#   gsettings_key: GSettings key used for AutostartCondition (default: 'org.ubuntubudgie.windowshuffler dragsnaptiling')
 AutostartCondition=GSettings {{ gsettings_key | default('org.ubuntubudgie.windowshuffler dragsnaptiling') }}
 
-# Desktop environment compatibility flags for automatic restart.
+# Compatibility flags for GNOME/MATE desktop environments
+# Ensures the window shuffler respects restart policies from these environments
 X-MATE-AutoRestart=true
 X-GNOME-AutoRestart=true

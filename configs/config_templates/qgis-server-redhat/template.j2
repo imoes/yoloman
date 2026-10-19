@@ -1,0 +1,70 @@
+# QGIS Server Apache Configuration
+# This template configures Apache to serve QGIS Server via FastCGI.
+# It handles URL rewriting for QGIS project files (.qgs) and defines
+# the directory permissions for the FastCGI executable.
+
+# --- URL Rewriting ---
+
+# Enable the Apache rewrite engine to process rewrite rules.
+RewriteEngine on
+
+# Rewrite incoming WMS requests to the QGIS project file location.
+#
+# Schema Field: qgis_rewrite_qgs_path
+# Description: The base directory path where QGIS project files (.qgs) are stored for the WMS rewrite rule.
+#
+# Schema Field: qgis_rewrite_qgs_ext
+# Description: The file extension appended to the rewritten map filename.
+#
+# Note: The regex captures everything after '/wms/' and redirects it to the
+# configured path with the configured extension. [QSA] appends query strings,
+# [PT] passes the result to the next handler (FastCGI).
+RewriteRule ^/wms/(.+)$ {{ qgis_rewrite_qgs_path | default('/var/www/wms/') }}{{ qgis_rewrite_qgs_ext | default('.qgs') }} [QSA,PT]
+
+# --- FastCGI Alias ---
+
+# Map the /qgis/ URL prefix to the directory containing the QGIS Server CGI/FastCGI binary.
+#
+# Schema Field: qgis_fcgi_dir
+# Description: The directory path for the QGIS Server CGI/FastCGI execution files, used in ScriptAlias and Directory block.
+ScriptAlias /qgis/ "{{ qgis_fcgi_dir | default('/usr/libexec/qgis') }}/"
+
+# --- Directory Permissions & Access Control ---
+
+# Configure access controls and execution options for the QGIS FastCGI directory.
+#
+# Schema Field: qgis_fcgi_dir
+# Description: The directory path for the QGIS Server CGI/FastCGI execution files, used in ScriptAlias and Directory block.
+<Directory "{{ qgis_fcgi_dir | default('/usr/libexec/qgis') }}/">
+
+  # Enable CGI execution and allow symbolic links.
+  Options ExecCGI
+  Options FollowSymLinks
+  
+  # Access Control: Apache 2.4+ (mod_authz_core)
+  # By default, restrict access to local connections only for security.
+  <IfModule mod_authz_core.c>
+     Require local
+   </IfModule>
+   
+   # Access Control: Apache 2.2 (Legacy)
+   # Fallback for older Apache versions if mod_authz_core is not loaded.
+   <IfModule !mod_authz_core.c>
+     Order deny,allow
+     Deny from all
+     Allow from 127.0.0.1
+     Allow from ::1
+   </IfModule>
+
+</Directory>
+
+# --- Logging Configuration (Optional) ---
+
+# Uncomment the lines below to direct QGIS Server logs to the Apache error_log.
+# This is useful for debugging WMS/WFS requests.
+
+# Set the environment variable to log to STDERR (which Apache captures).
+# FcgidInitialEnv QGIS_SERVER_LOG_STDERR 1
+
+# Set log level (0=off, 1=error, 2=warning, 3=info, 4=debug).
+# FcgidInitialEnv QGIS_SERVER_LOG_LEVEL 0

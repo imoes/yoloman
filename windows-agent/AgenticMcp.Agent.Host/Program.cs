@@ -143,6 +143,20 @@ var app = builder.Build();
 var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("agent");
 var store = app.Services.GetRequiredService<MetricStore>();
 
+// The incident ring (docs/etw-ringbuffer-plan.md): a bounded log of recent PAST events (an abnormal process exit,
+// a crash, a managed exception) that the diagnosis looks back on so a transient failure stays explainable. On
+// Windows a persistent ETW session fills it; the diagnosis module reads the same instance (E3).
+#if WINDOWS
+var incidentRing = new AgenticMcp.Agent.Diagnosis.IncidentRing();
+// Persist the ring in the state dir (next to the TLS cert and the pin) so a reboot keeps the recent history (E2).
+var etwIncidents = new AgenticMcp.Agent.Windows.Diagnosis.EtwIncidentCollector(
+    incidentRing, log, System.IO.Path.Combine(stateDir, "incident-ring.json"));
+etwIncidents.Start();
+// Flush the ring on a clean service stop (UseWindowsService makes SERVICE_CONTROL_STOP a graceful shutdown), so an
+// agent update or reboot keeps the history; the 1-minute timer is the backstop for a hard kill.
+app.Lifetime.ApplicationStopping.Register(etwIncidents.Dispose);
+#endif
+
 // The module registry. Every Linux-only module is LISTED with the reason it cannot work here — see
 // UnsupportedModule for why an omission would be the wrong answer.
 var powershellModule = new AgenticMcp.Agent.Modules.PowerShellModule();
@@ -203,6 +217,14 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
+    // service_diagnose: why a service does not start — the explainable diagnosis (docs/diagnosis.md), read-only,
+    // the same contract as the Linux agent's module of the same name.
+    .Add(new AgenticMcp.Agent.Windows.Diagnosis.ServiceDiagnoseModule(incidentRing))
+    .Add(new AgenticMcp.Agent.Windows.WindowsUpdateFactsModule())
+    .Add(new AgenticMcp.Agent.Windows.WindowsUpdateModule())
+    // update_diagnose: why is the host behind / why did an update fail — the explainable diagnosis for the updates
+    // target (docs/update-diagnosis-plan.md), read-only, over the same windows_update_facts data.
+    .Add(new AgenticMcp.Agent.Windows.UpdateDiagnoseModule())
 #else
     // THE MIRROR IMAGE of apt/systemd below: on a non-Windows host these are listed with the reason they
     // cannot work, so the listing is the same shape whichever way round the platform is. An agent that
@@ -229,6 +251,13 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new UnsupportedModule("service",
         "this build has no service control manager; on Linux the Go agent's `service` module does this",
         instead: "powershell"))
+    .Add(new UnsupportedModule("service_diagnose",
+        "this build reads the service control manager and the event log; on Linux the Go agent's "
+        + "`service_diagnose` explains systemd units under the same contract"))
+    .Add(new UnsupportedModule("windows_update_facts",
+        "there is no Windows Update Agent on this platform; the package manager's facts are the counterpart"))
+    .Add(new UnsupportedModule("windows_update",
+        "there is no Windows Update Agent on this platform; apt/dnf install updates there", instead: "apt"))
 #endif
     .Add(new UnsupportedModule("apt", "Windows has no APT package database", instead: "winget"))
     .Add(new UnsupportedModule("yum", "Windows has no YUM/DNF package database", instead: "winget"))

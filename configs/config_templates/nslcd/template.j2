@@ -18,27 +18,27 @@
 # from being started, even if other Kerberos options are present.
 # Schema Description: Whether to start k5start. Set to 'yes' to force starting, any other value disables it.
 # Schema Default: yes
-K5START_START="{{ k5start_start | default('yes') }}"
+{% if k5start_start is defined and k5start_start is not none and (k5start_start is number or k5start_start is boolean or k5start_start | length > 0) %}K5START_START="{{ k5start_start | default('yes') }}"{% else %}#K5START_START="yes"{% endif %}
 
 # K5START_BIN: Path to the k5start executable binary.
 # Schema Description: Path to the k5start binary.
 # Schema Default: /usr/bin/k5start
-K5START_BIN={{ k5start_bin | default('/usr/bin/k5start') }}
+{% if k5start_bin is defined and k5start_bin is not none and (k5start_bin is number or k5start_bin is boolean or k5start_bin | length > 0) %}K5START_BIN={{ k5start_bin | default('/usr/bin/k5start') }}{% else %}#K5START_BIN=/usr/bin/k5start{% endif %}
 
 # K5START_KEYTAB: Path to the Kerberos keytab file used by k5start to authenticate.
 # This file must be readable by the user running nslcd/k5start.
 # Schema Description: Path to the Kerberos keytab file for k5start.
 # Schema Default: /etc/krb5.keytab
-K5START_KEYTAB={{ k5start_keytab | default('/etc/krb5.keytab') }}
+{% if k5start_keytab is defined and k5start_keytab is not none and (k5start_keytab is number or k5start_keytab is boolean or k5start_keytab | length > 0) %}K5START_KEYTAB={{ k5start_keytab | default('/etc/krb5.keytab') }}{% else %}#K5START_KEYTAB=/etc/krb5.keytab{% endif %}
 
 # K5START_CCREFRESH: Interval in seconds at which k5start attempts to refresh the
 # Kerberos ticket cache. This ensures the cache remains valid for long-running nslcd processes.
 # Schema Description: Interval in seconds for k5start to refresh the ticket cache.
 # Schema Default: 60
-K5START_CCREFRESH={{ k5start_ccrefresh | default(60) }}
+{% if k5start_ccrefresh is defined and k5start_ccrefresh is not none and (k5start_ccrefresh is number or k5start_ccrefresh is boolean or k5start_ccrefresh | length > 0) %}K5START_CCREFRESH={{ k5start_ccrefresh | default(60) }}{% else %}#K5START_CCREFRESH=60{% endif %}
 
 # K5START_PRINCIPAL: The Kerberos principal name that k5start will use for authentication.
 # Supports shell expansion variables such as $(hostname -f) to dynamically resolve the hostname.
 # Schema Description: Kerberos principal for k5start. Supports shell expansion like $(hostname -f).
 # Schema Default: host/$(hostname -f)
-K5START_PRINCIPAL="{{ k5start_principal | default('host/$(hostname -f)') }}"
+{% if k5start_principal is defined and k5start_principal is not none and (k5start_principal is number or k5start_principal is boolean or k5start_principal | length > 0) %}K5START_PRINCIPAL="{{ k5start_principal | default('host/$(hostname -f)') }}"{% else %}#K5START_PRINCIPAL="host/$(hostname -f)"{% endif %}

@@ -1,0 +1,102 @@
+# ==============================================================================
+# ipv6calc Apache Module Configuration
+# ==============================================================================
+# This file configures the mod_ipv6calc module for Apache HTTPD.
+# It handles the activation of the module, action flags (anonymization, ASN, etc.),
+# and the CGI interface for standalone testing.
+#
+# Variable Naming Convention:
+#   Variables map directly to schema fields (e.g., ipv6calc_default_active -> ipv6calcDefaultActive).
+#   All variables use .default() to ensure safe rendering even if not provided by Ansible.
+# ==============================================================================
+
+<IfModule mod_ipv6calc.c>
+    # ==========================================================================
+    # Module Activation & Global Defaults
+    # ==========================================================================
+
+    ## Activate ipv6calc module by default.
+    ## If 'on', the module processes logs automatically unless overridden by environment variables.
+    ## Can be controlled at runtime via 'ipv6calcActive' or 'ipv6calcPassive' SetEnv directives.
+    ipv6calcDefaultActive {{ ipv6calc_default_active | default('on') }}
+
+    # ==========================================================================
+    # Actions: Environment Variables Set by Module
+    # ==========================================================================
+
+    ## Set IPV6CALC_CLIENT_IP_ANON environment variable.
+    ## When 'on', the client's IP address is anonymized according to the preset method.
+    ipv6calcActionAnonymize {{ ipv6calc_action_anonymize | default('on') }}
+
+    ## Set IPV6CALC_CLIENT_COUNTRYCODE environment variable.
+    ## When 'on', the country code corresponding to the client IP is stored in the environment.
+    ipv6calcActionCountrycode {{ ipv6calc_action_countrycode | default('on') }}
+
+    ## Set IPV6CALC_CLIENT_ASN environment variable.
+    ## When 'on', the Autonomous System Number (ASN) of the client IP is stored.
+    ipv6calcActionAsn {{ ipv6calc_action_asn | default('on') }}
+
+    ## Set IPV6CALC_CLIENT_REGISTRY environment variable.
+    ## When 'on', the Regional Internet Registry (e.g., RIPE, ARIN) is stored.
+    ipv6calcActionRegistry {{ ipv6calc_action_registry | default('on') }}
+
+    ## Set IPV6CALC_CLIENT_GEONAMEID environment variable.
+    ## When 'on', the GeoName ID for the client's location is stored.
+    ipv6calcActionGeonameid {{ ipv6calc_action_geonameid | default('on') }}
+
+    # ==========================================================================
+    # Library Options & Anonymization Presets
+    # ==========================================================================
+
+    ## Anonymization preset method.
+    ## Determines how the IP address is anonymized when ipv6calcActionAnonymize is on.
+    ## Common values: 'keep-type-asn-cc', 'zeroize', 'anonymize'.
+    ## 'keep-type-asn-cc' retains IP type, ASN, and Country Code while masking the host part.
+    ipv6calcOption	anonymize-preset {{ ipv6calc_option_anonymize_preset | default('keep-type-asn-cc') }}
+
+    # ==========================================================================
+    # Logging Configuration
+    # ==========================================================================
+
+    ## Define a custom log format that includes anonymized data and metadata.
+    ## This format uses environment variables populated by the module actions above.
+    ## %{IPV6CALC_CLIENT_IP_ANON}e : Anonymized Client IP
+    ## %{IPV6CALC_CLIENT_COUNTRYCODE}e : Country Code
+    ## %{IPV6CALC_CLIENT_ASN}e : ASN
+    ## %{IPV6CALC_CLIENT_REGISTRY}e : Registry
+    ## %{IPV6CALC_ANON_METHOD}e : Method used for anonymization
+    ## %{IPV6CALC_CLIENT_GEONAMEID}e : GeoName ID
+    LogFormat "%{IPV6CALC_CLIENT_IP_ANON}e \"%{IPV6CALC_CLIENT_COUNTRYCODE}e/%{IPV6CALC_CLIENT_ASN}e/%{IPV6CALC_CLIENT_REGISTRY}e/%{IPV6CALC_ANON_METHOD}e/%{IPV6CALC_CLIENT_GEONAMEID}e\" %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined_anon
+
+</IfModule>
+
+# ==========================================================================
+# Test CGI Interface & Access Control
+# ==========================================================================
+
+## Map requests to the dedicated ipv6calc CGI script if rewrite_module is active.
+## This allows testing the module's output via a web browser or curl.
+<IfModule rewrite_module>
+    RewriteEngine On
+    RewriteRule ^/cgi-bin/ipv6calc\.cgi$ {{ ipv6calc_cgi_path | default('/var/www/ipv6calc/cgi-bin/ipv6calc.cgi') }}
+</IfModule>
+
+## Access control for the ipv6calc CGI directory.
+## Restricts access to localhost by default. Uncomment 'Allow from all' to expose publicly.
+<Directory {{ ipv6calc_cgi_dir | default('/var/www/ipv6calc/cgi-bin') }}>
+    Order Deny,Allow
+    Options +ExecCGI
+    AddHandler cgi-script .cgi
+
+    # Allow access from localhost (IPv4)
+    Allow from 127.0.0.1
+
+    # Allow access from localhost (IPv6)
+    Allow from ::1
+
+    # Allow access from all hosts (Enable with caution)
+    # Allow from all
+
+    # Deny all other access by default
+    Deny from all
+</Directory>

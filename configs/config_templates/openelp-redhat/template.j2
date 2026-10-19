@@ -1,0 +1,82 @@
+# OpenELP / EchoLink Proxy Configuration Template
+# This configuration file controls the behavior of the OpenELP EchoLink proxy service.
+# All variables are sourced from the Ansible inventory/role defaults and are safely defaulted.
+
+# ==============================================================================
+# REQUIRED SETTINGS
+# ==============================================================================
+
+# The password required to access the proxy. Must be changed from default for security.
+# Setting this to "PUBLIC" allows anyone to register as a public proxy.
+# {{ 'default: ' ~ 'notset' }}
+Password={{ password | default('notset') }}
+
+# ==============================================================================
+# NETWORK BINDING SETTINGS
+# ==============================================================================
+
+# The port number on which the proxy listens.
+# Note: Ports 1023 and below typically require root privileges on Linux.
+# {{ 'default: ' ~ '8100' }}
+Port={{ port | default('8100') }}
+
+# Local address to bind the proxy service to.
+# Use '0.0.0.0' to listen on all interfaces, or a specific IP to restrict access.
+# {{ 'default: ' ~ '0.0.0.0' }}
+BindAddress={{ bind_address | default('0.0.0.0') }}
+
+# External address used for Internet communication.
+# For multi-homed systems, this is the address seen by the EchoLink network.
+# BindAddress is used for client connections; ExternalBindAddress is for upstream internet traffic.
+# {{ 'default: ' ~ '0.0.0.0' }}
+ExternalBindAddress={{ external_bind_address | default('0.0.0.0') }}
+
+# Public IP address displayed on the Proxy Status Page.
+# If empty, the proxy may determine it automatically. Useful if the automatic detection is wrong.
+# {{ 'default: ' ~ '""' }}
+PublicAddress={{ public_address | default('') }}
+
+# Comma-separated list of additional addresses for external interfaces.
+# Allows binding to multiple specific external IPs on a multi-homed machine.
+# Cannot be '0.0.0.0' if ExternalBindAddress is also '0.0.0.0'.
+# {{ 'default: ' ~ '""' }}
+AdditionalExternalBindAddresses={{ additional_external_bind_addresses | default('') }}
+
+# ==============================================================================
+# CONNECTION & TIMEOUT SETTINGS
+# ==============================================================================
+
+# Connection timeout in minutes. 0 means no timeout.
+# If set, the proxy will disconnect clients that have been connected for longer than this duration,
+# regardless of whether an active EchoLink connection exists.
+# {{ 'default: ' ~ '0' }}
+ConnectionTimeout={{ connection_timeout | default('0') }}
+
+# ==============================================================================
+# REGISTRATION SETTINGS
+# ==============================================================================
+
+# Unique identifier (e.g., callsign) for registering with the EchoLink website.
+# If set, this proxy will register itself on the EchoLink web directory.
+# {{ 'default: ' ~ '""' }}
+RegistrationName={{ registration_name | default('') }}
+
+# Optional comment for the registration.
+# Appears in the proxy listing on the EchoLink website.
+# {{ 'default: ' ~ '""' }}
+RegistrationComment={{ registration_comment | default('') }}
+
+# ==============================================================================
+# ACCESS CONTROL (CALLSIGN FILTERS)
+# ==============================================================================
+
+# Regular expression pattern for callsigns to deny access.
+# Connections matching this pattern are rejected.
+# {{ 'default: ' ~ '""' }}
+CallsignsDenied={{ callsigns_denied | default('') }}
+
+# Regular expression pattern for callsigns to allow access.
+# If not empty, only callsigns matching this pattern are allowed.
+# Connections are denied if they do NOT match this pattern.
+# {{ 'default: ' ~ '""' }}
+CallsignsAllowed={{ callsigns_allowed | default('') }}

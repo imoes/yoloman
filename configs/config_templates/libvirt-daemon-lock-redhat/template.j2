@@ -1,0 +1,82 @@
+# Master virtlockd daemon configuration file
+#
+# This configuration file controls the behavior of the virtlockd service,
+# which manages distributed locks for libvirt-based virtualization environments.
+# The service handles concurrent connection limits and logging verbosity.
+
+#################################################################
+#
+# Logging Controls
+#
+# Logging configuration for virtlockd. Controls what gets recorded and where.
+
+# Global logging level.
+# Valid values:
+#   1 = DEBUG (extremely verbose, highly discouraged in production)
+#   2 = INFO
+#   3 = WARNING
+#   4 = ERROR (least verbose)
+#
+# Note: If journald is the active output backend, libvirt restricts
+# log_level to 3 or 4 due to journald's own rate-limiting mechanisms.
+# For fine-grained control, use `log_filters` instead of lowering this global level.
+#
+# Schema Default: '' (empty, falls back to commented-out default of 3)
+{% if log_level | default('') %}log_level = {{ log_level | default('') }}{% else %}#log_level = 3{% endif %}
+
+# Logging filters.
+# Overrides the global `log_level` for specific log categories.
+# Format: 'level:match'
+#   - 'level': Minimum log level for this filter (1-4, same as log_level).
+#   - 'match': A glob-style pattern matching the log category defined in
+#              source code (e.g., "remote", "qemu", "util.json").
+#              Matches are substring-based and case-sensitive.
+#
+# Multiple filters are space-separated. Libvirt applies the *first* matching
+# filter in the list. If no filter matches, the global `log_level` is used.
+#
+# Example: "#1:locking 4:object 4:json 4:event 1:util"
+#   - Logs locking code at DEBUG (1)
+#   - Silences object, json, and event logs (ERROR 4+)
+#   - Logs other util code at DEBUG (1)
+#
+# Schema Default: '' (empty, falls back to commented-out default)
+{% if log_filters | default('') %}log_filters = "{{ log_filters | default('') }}"{% else %}#log_filters = "1:locking 4:object 4:json 4:event 1:util"{% endif %}
+
+# Logging outputs.
+# Specifies where log messages are written.
+# Format: 'level:destination[:additional_info]'
+#
+# Supported destinations:
+#   - stderr:        Output to standard error stream.
+#   - syslog:name:   Output to syslog with the specified program ident (e.g., 'virtlockd').
+#   - file:path:     Output to a specific file path.
+#   - journald:      Output to the systemd journal.
+#
+# 'level' is the minimum priority for messages sent to this destination.
+# Multiple outputs are space-separated.
+#
+# Example: "3:syslog:virtlockd 4:file:/var/log/virtlockd-errors.log"
+#
+# Schema Default: '' (empty, falls back to commented-out default)
+{% if log_outputs | default('') %}log_outputs = "{{ log_outputs | default('') }}"{% else %}#log_outputs = "3:syslog:virtlockd"{% endif %}
+
+#################################################################
+#
+# Connection Limits
+#
+# Controls the maximum number of concurrent client connections
+# to the virtlockd daemon sockets.
+
+# Maximum number of concurrent client connections allowed on the primary socket.
+# Each active virtual machine typically requires one connection to virtlockd.
+# Setting this value too low may prevent VMs from starting if the limit is reached.
+#
+# Schema Default: '' (empty, falls back to commented-out default of 1024)
+{% if max_clients | default('') %}max_clients = {{ max_clients | default('') }}{% else %}#max_clients = 1024{% endif %}
+
+# Maximum number of concurrent client connections allowed on the administrative socket.
+# This socket is generally used for management tasks rather than VM operations.
+#
+# Schema Default: '' (empty, falls back to commented-out default of 5)
+{% if admin_max_clients | default('') %}admin_max_clients = {{ admin_max_clients | default('') }}{% else %}#admin_max_clients = 5{% endif %}

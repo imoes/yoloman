@@ -1,22 +1,36 @@
-# insserv configuration file
-# Controls service dependency ordering and default runlevel behavior
-# Format: key=value, one per line. Empty lines and lines starting with # are ignored.
+#
+# All local filesystems are mounted (done during boot phase)
+#
+$local_fs	+mountall +mountall-bootclean +mountoverflowtmp +umountfs
 
-# Default runlevel used when an init script doesn't specify LSB runlevel information.
-# Common values: 2 (multi-user), 3 (multi-user with network), 5 (graphical).
-default_runlevel={{ (default_runlevel | default('2')) | string }}
+#
+# Low level networking (ethernet card)
+#
+$network	+networking +ifupdown
 
-# Enable verbose logging during dependency resolution to help debug service ordering issues.
-verbose={{ (verbose | default(False)) | string | lower }}
+#
+# Named is operational
+#
+$named		+named +dnsmasq +lwresd +bind9 +unbound +pdns-recursor $network
 
-# When true, preserve existing symlinks during upgrades instead of regenerating them —
-# useful for avoiding disruption in production.
-force_symlinks={{ (force_symlinks | default(True)) | string | lower }}
+#
+# All remote filesystems are mounted (note in some cases /usr may
+# be remote. Most applications that care will probably require
+# both $local_fs and $remote_fs)
+#
+$remote_fs	$local_fs +mountnfs +mountnfs-bootclean +umountnfs +sendsigs
 
-# Space-separated list of service names to skip during dependency resolution
-# (e.g., services managed by systemd or containers).
-ignore_services={{ (ignore_services | default([]) | list) | join(' ') }}
+#
+# System logger is operational
+#
+$syslog		+rsyslog +sysklogd +syslog-ng +dsyslog +inetutils-syslogd
 
-# Maximum recursion depth during dependency resolution.
-# Prevents stack overflow or infinite loops in circular dependencies.
-max_depth={{ (max_depth | default(100)) | int }}
+#
+# The system time has been set correctly
+#
+$time		+hwclock
+
+#
+# Services which need to be interactive
+#
+<interactive>	glibc udev console-screen keymap keyboard-setup console-setup cryptdisks cryptdisks-early checkfs-loop

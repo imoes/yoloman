@@ -1,0 +1,66 @@
+# ==============================================================================
+# linuxptp-redhat: PTP (Precision Time Protocol) configuration for ptp4l
+# ==============================================================================
+#
+# This configuration file defines the behavior of the ptp4l daemon, which
+# implements the IEEE 1588-2008 Precision Time Protocol (PTP).
+# See ptp4l(8) man page for full details.
+#
+# The file is divided into two sections:
+# 1. [global] - Global daemon settings affecting all interfaces.
+# 2. [interface_name] - Per-interface settings (here configured for eth0).
+#
+# ==============================================================================
+
+[global]
+# PTP domain number. PTP domains allow multiple independent PTP networks to
+# coexist on the same physical link. Domain 0 is the most common default.
+# Schema field: domain_number
+domainNumber		{{ domain_number | default('0') }}
+
+# Force the clock to operate as a slave only. If set to 1, this instance will
+# only synchronize to a master and will not attempt to become a master itself.
+# Schema field: slave_only
+slaveOnly		{{ slave_only | default('1') }}
+
+# Timestamping mode. 'hardware' indicates the use of hardware timestamping
+# for improved precision. This is generally preferred over 'software' if
+# the network interface card supports it.
+time_stamping		hardware
+
+# Timeout for transmit timestamping in milliseconds. This value determines
+# how long the driver waits for a hardware timestamp to be generated.
+# Schema field: tx_timestamp_timeout
+tx_timestamp_timeout	{{ tx_timestamp_timeout | default('1') }}
+
+# Logging level (0-7).
+# 0=Emergency, 1=Alert, 2=Critical, 3=Error, 4=Warning, 5=Notice, 6=Info, 7=Debug.
+# A level of 6 (Info) provides a good balance between operational visibility
+# and log volume.
+# Schema field: logging_level
+logging_level		{{ logging_level | default('6') }}
+
+# Summary interval in seconds. When non-zero, ptp4l prints a summary of
+# clock status and PTP state statistics every N seconds. Setting to 0
+# disables periodic summaries.
+# Schema field: summary_interval
+summary_interval	{{ summary_interval | default('0') }}
+
+# ==============================================================================
+# Interface-Specific Configuration
+# ==============================================================================
+# The following settings apply specifically to the network interface 'eth0'.
+# Change the section name [eth0] if your primary interface differs.
+
+[eth0]
+# Network transport type for the interface.
+# Supported values include UDPv4, UDPv6, L2 (Layer 2), etc.
+# UDPv4 is the standard transport for most IP-based PTP deployments.
+# Schema field: network_transport
+network_transport	{{ network_transport | default('UDPv4') }}
+
+# Enable hybrid end-to-end path delay mechanism.
+# When enabled (1), this allows for improved path delay measurement accuracy
+# in certain network topologies by mixing end-to-end and peer-to-peer mechanisms.
+# Schema field: hybrid_e2e
+hybrid_e2e		{{ hybrid_e2e | default('0') }}

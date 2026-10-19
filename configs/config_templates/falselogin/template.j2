@@ -1,34 +1,46 @@
 # /etc/falselogin.conf
 # Configuration file for the falselogin service.
-# falselogin is a simple daemon that displays a custom welcome message
-# instead of starting an interactive shell. This prevents unauthorized
-# shell access while allowing users to see system information.
+# This package provides a cosmetic login message and does not expose
+# any network service or require external backend connections.
 
-# The hostname of the system displayed in the welcome banner.
-# Default: 'localhost'
-banner_host={{ host | default('localhost') }}
+# -----------------------------------------------------------------------------
+# Wait Time Configuration
+# -----------------------------------------------------------------------------
+# The default wait time in seconds, uncommented in config if used.
+# This variable controls the timeout before the login prompt disappears
+# or the message is displayed.
+#
+# To activate, uncomment the following line and set the desired value.
+# {{ default_wait | default(5) }}
 
-# The Debian version number included in the system identification string.
-# Default: '12'
-banner_debian_version={{ debian_version | default('12') }}
+# -----------------------------------------------------------------------------
+# System Identification Banner
+# -----------------------------------------------------------------------------
+# A welcome message displayed upon connection.
+#
+# Variables used:
+# - default_host: The hostname of the system.
+# - default_debian_version: The Debian version number (e.g., '12').
+# - default_sysname: The system name (e.g., 'Linux', 'GNU/Hurd').
+# - default_release: The Debian release codename (e.g., 'bullseye').
 
-# The system name (e.g., Linux, GNU/Hurd) included in the identification string.
-# Default: 'Linux'
-banner_sysname={{ sysname | default('Linux') }}
+Welcome to {{ default_host | default('localhost') }} (Debian {{ default_debian_version | default('12') }} {{ default_sysname | default('Linux') }} {{ default_release | default('bullseye') }})!
 
-# The Debian release codename (e.g., bullseye, bookworm) included in the identification string.
-# Default: 'bullseye'
-banner_release={{ release | default('bullseye') }}
+# -----------------------------------------------------------------------------
+# User Mailbox Notification
+# -----------------------------------------------------------------------------
+# Displays the number of mail messages in the user's mailbox.
+# Default placeholder is '%mail%'.
 
-# The wait time in seconds before the login process exits if the --wait option is not provided.
-# This allows users time to read the welcome message.
-# Default: 5
-wait={{ wait | default(5) }}
+You have {{ default_mail | default('%mail%') }} messages in your mailbox.
 
-# The number of mail messages in the user's mailbox, displayed in the welcome message.
-# Default: 0
-mail_count={{ mail | default(0) }}
+# -----------------------------------------------------------------------------
+# Shell Login Denial Message
+# -----------------------------------------------------------------------------
+# A polite refusal message for shell access attempts.
+#
+# Variables used:
+# - default_user: The username of the current user. Default placeholder is '%user%'.
 
-# The username of the current user, displayed in the custom denial message.
-# Default: 'user'
-current_user={{ user | default('user') }}
+Sorry {{ default_user | default('%user%') }} our server does not accept shell logins.
+So long and thanks for all the fish.

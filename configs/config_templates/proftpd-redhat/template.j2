@@ -74,29 +74,31 @@ Include /etc/proftpd/modules.conf
 
 # Trace logging, disabled by default for performance reasons
 # (http://www.proftpd.org/docs/howto/Tracing.html)
-#TraceLog			/var/log/proftpd/trace.log
-#Trace				DEFAULT:0
+{% if trace_log is defined and trace_log is not none and (trace_log is number or trace_log is boolean or trace_log | length > 0) %}TraceLog			{{ trace_log }}
+{% else %}#TraceLog			/var/log/proftpd/trace.log
+{% endif %}#Trace				DEFAULT:0
 
-ServerName			"{{ server_name }}"
-ServerIdent			on "FTP Server ready."
-ServerAdmin			{{ server_admin }}
-DefaultServer			on
+ServerName			{{ server_name | default('"ProFTPD server"') }}
+ServerIdent			{{ server_ident | default('on "FTP Server ready."') }}
+ServerAdmin			{{ server_admin | default('root@localhost') }}
+DefaultServer			{{ default_server | default('on') }}
 
 # Cause every FTP user except adm to be chrooted into their home directory
-DefaultRoot			~ !adm
+DefaultRoot			{{ default_root | default('~ !adm') }}
 
 # Use pam to authenticate (default) and be authoritative
-AuthPAMConfig			proftpd
-AuthOrder			mod_auth_pam.c* mod_auth_unix.c
+AuthPAMConfig			{{ auth_pam_config | default('proftpd') }}
+AuthOrder			{{ auth_order | default('mod_auth_pam.c* mod_auth_unix.c') }}
 # If you use NIS/YP/LDAP you may need to disable PersistentPasswd
-#PersistentPasswd		off
-
+{% if persistent_passwd is defined and persistent_passwd is not none and (persistent_passwd is number or persistent_passwd is boolean or persistent_passwd | length > 0) %}PersistentPasswd		{{ persistent_passwd }}
+{% else %}#PersistentPasswd		off
+{% endif %}
 # Don't do reverse DNS lookups (hangs on DNS problems)
-UseReverseDNS			off
+UseReverseDNS			{{ use_reverse_dns | default('off') }}
 
 # Set the user and group that the server runs as
-User				nobody
-Group				nobody
+User				{{ run_user | default('nobody') }}
+Group				{{ run_group | default('nobody') }}
 
 # To prevent DoS attacks, set the maximum number of child processes
 # to 20.  If you need to allow more than 20 concurrent connections
@@ -104,37 +106,37 @@ Group				nobody
 # in standalone mode; in inetd mode you should use an inetd server
 # that allows you to limit maximum number of processes per service
 # (such as xinetd)
-MaxInstances			{{ max_instances }}
+MaxInstances			{{ max_instances | default('20') }}
 
 # Disable sendfile by default since it breaks displaying the download speeds in
 # ftptop and ftpwho
-UseSendfile			off
+UseSendfile			{{ use_sendfile | default('off') }}
 
 # Define the log formats
 LogFormat			default	"%h %l %u %t \"%r\" %s %b"
 LogFormat			auth	"%v [%P] %h %t \"%r\" %s"
 
 # Don't log hostname or timestamps because systemd will do that for us
-LogOptions			-Timestamp -Hostname +RoleBasedProcessLabels
+LogOptions			{{ log_options | default('-Timestamp -Hostname +RoleBasedProcessLabels') }}
 
 # Enable basic controls via ftpdctl
 # (http://www.proftpd.org/docs/modules/mod_ctrls.html)
-ControlsEngine			on
-ControlsACLs			all allow user root
-ControlsSocketACL		allow user *
-ControlsLog			/var/log/proftpd/controls.log
+ControlsEngine			{{ controls_engine | default('on') }}
+ControlsACLs			{{ controls_acls | default('all allow user root') }}
+ControlsSocketACL		{{ controls_socket_acl | default('allow user *') }}
+ControlsLog			{{ controls_log | default('/var/log/proftpd/controls.log') }}
 
 # Enable admin controls via ftpdctl
 # (http://www.proftpd.org/docs/contrib/mod_ctrls_admin.html)
 <IfModule mod_ctrls_admin.c>
-  AdminControlsEngine		on
-  AdminControlsACLs		all allow user root
+  AdminControlsEngine		{{ admin_controls_engine | default('on') }}
+  AdminControlsACLs		{{ admin_controls_acls | default('all allow user root') }}
 </IfModule>
 
 # Enable mod_vroot by default for better compatibility with PAM
 # (http://bugzilla.redhat.com/506735)
 <IfModule mod_vroot.c>
-  VRootEngine			on
+  VRootEngine			{{ vroot_engine | default('on') }}
 </IfModule>
 
 # TLS (http://www.castaglia.org/proftpd/modules/mod_tls.html)
@@ -161,10 +163,10 @@ Include /etc/proftpd/mod_qos.conf
 
   # Umask 022 is a good standard umask to prevent new dirs and files
   # from being group and world writable
-  Umask				022
+  Umask				{{ umask | default('022') }}
 
   # Allow users to overwrite files and change permissions
-  AllowOverwrite		yes
+  AllowOverwrite		{{ allow_overwrite | default('yes') }}
   <Limit ALL SITE_CHMOD>
     AllowAll
   </Limit>
@@ -179,3 +181,4 @@ Include /etc/proftpd/anonftp.conf
 
 # Include other custom configuration files
 Include /etc/proftpd/conf.d/*.conf
+

@@ -5,11 +5,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { ProvisionWizardComponent } from './provision-wizard.component';
-import { DiskImage, ImageVolume, ImagesService, RestoreJob, Vm } from '../../core/services/images.service';
+import { DeployVmWizardComponent, DeployWizardData } from '../vm-deploy/deploy-vm-wizard.component';
+import { DiskImage, ImagesService, RestoreJob, Vm } from '../../core/services/images.service';
+import { GROWABLE_ROLES, GrowSizing, GrowSizingComponent } from '../../shared/grow-sizing/grow-sizing.component';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** Roles whose size a grow policy can adjust; the rest (esp/boot/swap/bios_boot) stay fixed. */
-const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 
 /**
  * Disk templates / bare-metal provisioning. Left: captured templates (mark one active). Middle: the
@@ -21,7 +22,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 @Component({
   selector: 'app-disk-templates',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, MatDialogModule, RouterLink, DecimalPipe, UpperCasePipe],
+  imports: [FormsModule, MatIconModule, MatButtonModule, MatDialogModule, RouterLink, DecimalPipe, UpperCasePipe, GrowSizingComponent, BlockedReasonDirective],
   template: `
     <div class="dt-wrap">
       <!-- ── Templates ────────────────────────────────────────────── -->
@@ -43,7 +44,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               </label>
               <label class="dt-fld"><span>Template name</span><input [(ngModel)]="imp.name" placeholder="e.g. debian13-base" /></label>
               <div class="dt-row">
-                <button mat-flat-button color="primary" [disabled]="!imp.source_file || !imp.name.trim() || importing()" (click)="doImport()">Import</button>
+<button mat-flat-button color="primary" [disabled]="importing()" [bmBlocked]="importing() ? '' : importBlocked()" (click)="doImport()">Import</button>
                 <button mat-button (click)="importOpen.set(false)">Cancel</button>
               </div>
               @if (sources().length === 0) { <p class="dt-muted">No images found in /srv/templates (.vmdk/.qcow2/.raw/.img).</p> }
@@ -73,9 +74,10 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               </div>
             }
             @if (img.status === 'failed' && img.error) { <div class="dt-err">{{ img.error }}</div> }
-            <button mat-button [disabled]="img.status !== 'ready'" (click)="toggleActive(img, $event)">
+            <span class="bm-why" [attr.title]="img.status === 'ready' ? null : 'The template is ' + img.status + ' — only a ready one can be activated'"><button
+                mat-button [bmBlocked]="img.status !== 'ready' ? 'Only a ready image can be the active template' : ''" bmBlockedMode="tip" (click)="toggleActive(img, $event)">
               {{ img.is_active ? 'Active' : 'Mark active' }}
-            </button>
+            </button></span>
           </div>
         }
       </section>
@@ -86,44 +88,11 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         @if (!selected()) { <p class="dt-muted">Select a template.</p> }
         @if (selected(); as img) {
           <p class="dt-muted">Layout comes from the image (partclone). Only the sizes of the growable volumes are editable.</p>
-          @if (growableRoles().length) {
-            <div class="dt-mode">
-              <button [class.on]="growMode() === 'percent'" (click)="setMode('percent')">Percent</button>
-              <button [class.on]="growMode() === 'absolute'" (click)="setMode('absolute')">GiB</button>
-            </div>
-          }
-          @for (v of img.volumes; track v.role + (v.lv || '')) {
-            <div class="dt-vol">
-              <span class="dt-vol-name">
-                <mat-icon>{{ v.vg ? 'view_stream' : 'storage' }}</mat-icon>
-                {{ v.mountpoint || v.role }}
-                @if (v.vg) { <span class="dt-lvm">LVM {{ v.vg }}/{{ v.lv }}</span> }
-                <span class="dt-fs">{{ v.fs_type }}</span>
-              </span>
-              @if (isGrowable(v)) {
-                <span class="dt-pct">
-                  @if (growMode() === 'percent') {
-                    <input type="number" min="0" max="100" [(ngModel)]="pct[v.role]" (ngModelChange)="onPct()" /> %
-                  } @else {
-                    <input type="number" min="0" [(ngModel)]="gib[v.role]" (ngModelChange)="onPct()" /> GiB
-                  }
-                </span>
-              } @else {
-                <span class="dt-fixed">fix · {{ (v.size_bytes / 1073741824) | number: '1.0-1' }} GiB</span>
-              }
-            </div>
-          }
-          @if (growableRoles().length) {
-            @if (growMode() === 'percent') {
-              <div class="dt-sum" [class.bad]="sum() !== 100">Sum: {{ sum() }} % @if (sum() !== 100) { — must be 100 }</div>
-            } @else {
-              <p class="dt-muted">Absolute sizes in GiB. Set one volume to <b>0</b> to let it fill the rest of the disk.</p>
-              @if (gibError()) { <div class="dt-sum bad">{{ gibError() }}</div> }
-            }
-            <button mat-button [disabled]="!canSaveGrow()" (click)="saveGrow()">Save grow policy</button>
+          <bm-grow-sizing [volumes]="img.volumes" [policy]="img.grow_policy" [mode]="img.grow_mode === 'absolute' ? 'absolute' : 'percent'"
+                          (changed)="grow.set($event)" />
+          @if (hasGrowable()) {
+            <button mat-button [bmBlocked]="growBlocked()" (click)="saveGrow()">Save grow policy</button>
             @if (err()) { <p class="dt-err">{{ err() }}</p> }
-          } @else {
-            <p class="dt-muted">No growable volumes (root/var/home) — the last volume fills the disk.</p>
           }
         }
       </section>
@@ -134,8 +103,9 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         <button mat-flat-button color="primary" class="dt-wizard-btn" (click)="openWizard()">
           <mat-icon>auto_awesome</mat-icon> New deployment (wizard)
         </button>
-        <p class="dt-muted">Guided in one flow: target, disk image, optional VM host, roles and config —
-          it creates the (planned) host and arms the install. Roles converge after the first boot.</p>
+        <p class="dt-muted">The one install wizard (also under Deploy ▸ Install hosts), opened on
+          {{ selected()?.name || 'the chosen image' }}: VM or bare metal, this deployment's own volume sizing, network,
+          roles and a playbook — every check runs before anything is created.</p>
 
         <h3>Restore jobs</h3>
         @for (j of jobs(); track j.id) {
@@ -158,23 +128,32 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     <section class="dt-lab">
       <h2>Lab (nested virt)</h2>
       <p class="dt-muted">Build a template from an ISO, or end-to-end test the active template via a diskless PXE target — QEMU runs in the pxe container, console over noVNC.</p>
+      @if (lab(); as l) {
+        @if (!l.available) {
+          <p class="dt-err">Lab unavailable — {{ l.reason }}
+            <button mat-button (click)="checkLab()">Check again</button></p>
+        }
+      } @else {
+        <p class="dt-muted">Checking whether the lab is available…</p>
+      }
       <div class="dt-lab-actions">
         <div class="dt-lab-form">
           <b>Install template from ISO</b>
-          <input [(ngModel)]="inst.name" placeholder="VM name (e.g. tmpl-deb12)" />
-          <input [(ngModel)]="inst.iso" placeholder="ISO file (in the ISO dir)" />
-          <input [(ngModel)]="inst.disk" placeholder="Disk file (e.g. tmpl-deb12.raw)" />
-          <button mat-flat-button color="primary" [disabled]="!inst.name || !inst.iso || !inst.disk" (click)="startInstall()">Install + console</button>
+          <input [(ngModel)]="inst.name" placeholder="VM name (e.g. tmpl-deb12)" aria-label="VM name" />
+          <input [(ngModel)]="inst.iso" placeholder="ISO file (in the ISO dir)" aria-label="ISO file" />
+          <input [(ngModel)]="inst.disk" placeholder="Disk file (e.g. tmpl-deb12.raw)" aria-label="Disk file" />
+          <button mat-flat-button color="primary" [bmBlocked]="installBlocked()" (click)="startInstall()">Install + console</button>
         </div>
         <div class="dt-lab-form">
           <b>PXE-test the active template</b>
           <p class="dt-muted">Creates a diskless VM on the ens19 segment that PXE-restores the active template.</p>
-          <button mat-flat-button [disabled]="!activeImage()" (click)="startPxeTest()">Start PXE test</button>
+          <button mat-flat-button [bmBlocked]="pxeTestBlocked()" (click)="startPxeTest()">Start PXE test</button>
         </div>
       </div>
       @if (labErr()) { <p class="dt-err">{{ labErr() }}</p> }
       <h3>Running VMs</h3>
-      @if (vms().length === 0) { <p class="dt-muted">No running lab VMs.</p> }
+      <!-- "No running VMs" is only a claim while the lab answers; an unavailable lab is said above, not as an empty list. -->
+      @if (lab()?.available && vms().length === 0) { <p class="dt-muted">No running lab VMs.</p> }
       @for (v of vms(); track v.name) {
         <div class="dt-job">
           <span class="dt-badge ready">{{ v.kind }}</span>
@@ -223,7 +202,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-import { margin-bottom: .6rem; }
     .dt-import-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #4a90d9; border-radius: 8px; padding: .7rem; }
     .dt-import-form select, .dt-import-form input { padding: .3rem; }
-    .dt-opt { color: #888; font-weight: 400; font-size: .8em; }
+    .dt-opt { color: var(--mat-sys-on-surface-variant); font-weight: 400; font-size: .8em; }
     .dt-prog { margin: .3rem 0; }
     .dt-prog-bar { height: 6px; background: #8883; border-radius: 3px; overflow: hidden; }
     .dt-prog-bar span { display: block; height: 100%; background: #4a90d9; transition: width .4s ease; }
@@ -232,16 +211,16 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-card { border: 1px solid #3334; border-radius: 8px; padding: .6rem; margin-bottom: .5rem; cursor: pointer; }
     .dt-sel { border-color: #4a90d9; }
     .dt-row { display: flex; align-items: center; gap: .4rem; }
-    .dt-sub { font-size: .8rem; color: #888; margin: .2rem 0; }
+    .dt-sub { font-size: .8rem; color: var(--mat-sys-on-surface-variant); margin: .2rem 0; }
     .dt-badge { font-size: .7rem; padding: .1rem .4rem; border-radius: 4px; background: #8883; }
     .dt-badge.ready { background: #2e7d3244; } .dt-badge.bad { background: #c6282844; }
     .dt-vol { display: flex; justify-content: space-between; align-items: center; padding: .3rem 0; border-bottom: 1px solid #3332; }
     .dt-vol-name { display: flex; align-items: center; gap: .35rem; }
-    .dt-lvm { font-size: .7rem; color: #4a90d9; } .dt-fs { font-size: .7rem; color: #888; }
+    .dt-lvm { font-size: .7rem; color: #4a90d9; } .dt-fs { font-size: .7rem; color: var(--mat-sys-on-surface-variant); }
     .dt-fw { font-size: .65rem; font-weight: 600; letter-spacing: .04em; padding: .05rem .3rem;
-      border-radius: 4px; margin-left: .4rem; background: #8883; }
+      border-radius: 4px; margin-left: .4rem; background: #8883; color: var(--mat-sys-on-surface); }
     .dt-fw.uefi { background: color-mix(in srgb, #4a90d9 28%, transparent); }
-    .dt-pct input { width: 3.5rem; } .dt-fixed { font-size: .8rem; color: #888; }
+    .dt-pct input { width: 3.5rem; } .dt-fixed { font-size: .8rem; color: var(--mat-sys-on-surface-variant); }
     .dt-sum { margin: .5rem 0; } .dt-sum.bad { color: #d9534f; }
     .dt-mode { display: inline-flex; border: 1px solid #3335; border-radius: 6px; overflow: hidden; margin-bottom: .5rem; }
     .dt-mode button { border: 0; background: transparent; color: inherit; padding: .25rem .7rem; cursor: pointer; font-size: .8rem; }
@@ -259,12 +238,14 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   images = signal<DiskImage[]>([]);
   jobs = signal<RestoreJob[]>([]);
   vms = signal<Vm[]>([]);
+  /** The lab's availability (null = not asked yet). Unavailable is a named state with its reason, never an empty list. */
+  lab = signal<{ available: boolean; reason: string | null } | null>(null);
   selected = signal<DiskImage | null>(null);
   err = signal('');
   labErr = signal('');
-  pct: Record<string, number> = {};
-  gib: Record<string, number> = {};       // absolute GiB per growable role (0 = fill the rest)
-  growMode = signal<'percent' | 'absolute'>('percent');
+  /** The sizing as the shared editor reports it (one value per volume, mode, and why it cannot be saved). */
+  grow = signal<GrowSizing | null>(null);
+  hasGrowable = computed(() => (this.selected()?.volumes ?? []).some((v) => GROWABLE_ROLES.has(v.role)));
 
   // Finished-deployments log box. Closable — but a dismiss only hides the deployments finished SO FAR; when
   // a new one finishes (the count grows past what was dismissed) the box comes back, because a permanent
@@ -286,13 +267,9 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   private timer?: ReturnType<typeof setInterval>;
 
-  growableRoles = computed(() =>
-    (this.selected()?.volumes ?? []).filter((v) => this.isGrowable(v)).map((v) => v.role));
-  sum = computed(() => this.growableRoles().reduce((a, r) => a + (Number(this.pct[r]) || 0), 0));
-
   ngOnInit(): void {
     this.reload();
-    this.pollVms();
+    this.checkLab();
     this.timer = setInterval(() => {
       this.svc.jobs().subscribe((j) => this.jobs.set(j));
       // Re-list images so an import's capturing → ready (or failed) shows up live.
@@ -326,21 +303,28 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
 
   openWizard(): void {
-    this.dialog.open(ProvisionWizardComponent, {
-      autoFocus: false,
-      panelClass: 'pw-dialog',
-      // Size the dialog to the wizard's own layout. MDC caps dialogs at 560px by default, which is narrower
-      // than the wizard (two-column: step list + panel), so without this the right edge — Next included —
-      // would be clipped. The panelClass also lifts the max-width cap and makes the surface flush.
-      width: 'min(980px, 95vw)',
-      maxWidth: '95vw',
-      height: 'min(760px, 92vh)',
-    }).afterClosed().subscribe((armed) => { if (armed) this.reload(); });
+    const data: DeployWizardData = { image: this.selected()?.name };
+    this.dialog.open(DeployVmWizardComponent, { data, width: '1040px', maxWidth: '96vw', disableClose: true, autoFocus: false })
+      .afterClosed().subscribe((deployed) => { if (deployed) this.reload(); });
+  }
+
+  /** Ask whether the lab can be used; only an available lab is polled for VMs. */
+  checkLab(): void {
+    this.lab.set(null);
+    this.svc.labStatus().subscribe({
+      next: (s) => { this.lab.set(s); if (s.available) this.pollVms(); },
+      error: (e) => this.lab.set({ available: false, reason: e?.error?.detail || 'the status endpoint did not answer' }),
+    });
   }
 
   private pollVms(): void {
-    // The lab is optional: a 503 (BOSSMAN_PXE_CONTAINER unset) just means no VMs to show.
-    this.svc.listVms().subscribe({ next: (v) => this.vms.set(v), error: () => this.vms.set([]) });
+    // The lab is optional and its container may stop at any time: polling only runs while it is available,
+    // and a failing poll turns into the named unavailable state (with the server's reason), not an empty list.
+    if (!this.lab()?.available) return;
+    this.svc.listVms().subscribe({
+      next: (v) => this.vms.set(v),
+      error: (e) => { this.vms.set([]); this.lab.set({ available: false, reason: e?.error?.detail || 'listing VMs failed' }); },
+    });
   }
 
   private slug(): string { return Math.random().toString(36).slice(2, 8); }
@@ -391,8 +375,6 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     this.svc.jobs().subscribe((j) => this.jobs.set(j));
   }
 
-  isGrowable(v: ImageVolume): boolean { return GROWABLE.has(v.role); }
-
   /** Percent parsed from the trailing "· NN%" of the progress string (0 if none), for the bar width. */
   progressPct(img: DiskImage): number {
     const m = (img.progress || '').match(/(\d+)\s*%\s*$/);
@@ -401,36 +383,30 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   select(img: DiskImage): void {
     this.selected.set(img);
-    const roles = img.volumes.filter((v) => this.isGrowable(v)).map((v) => v.role);
-    const stored = img.grow_policy || {};
-    this.growMode.set(img.grow_mode === 'absolute' ? 'absolute' : 'percent');
-    // Percent inputs: from the stored percent policy, else spread evenly.
-    const even = roles.length ? Math.floor(100 / roles.length) : 0;
-    this.pct = {};
-    this.gib = {};
-    roles.forEach((r, i) => {
-      this.pct[r] = (img.grow_mode !== 'absolute' && stored[r] != null)
-        ? stored[r] : (i === roles.length - 1 ? 100 - even * (roles.length - 1) : even);
-      // GiB inputs: from the stored absolute policy, else 0 (= this volume fills the rest).
-      this.gib[r] = (img.grow_mode === 'absolute' && stored[r] != null) ? stored[r] : 0;
-    });
+    this.grow.set(null);
   }
 
-  setMode(m: 'percent' | 'absolute'): void { this.growMode.set(m); }
+  canSaveGrow(): boolean { return !this.growBlocked(); }
 
-  onPct(): void { /* sum()/gibError() recompute from pct/gib via the template bindings */ }
-
-  /** In absolute mode: values ≥ 0 and at most one "rest" (0). Percent mode reuses sum()===100. */
-  gibError = computed(() => {
-    if (this.growMode() !== 'absolute') return '';
-    const vals = this.growableRoles().map((r) => Number(this.gib[r]) || 0);
-    if (vals.some((v) => v < 0)) return 'Sizes must be non-negative';
-    if (vals.filter((v) => v === 0).length > 1) return 'Only one volume can be 0 (fills the rest)';
-    return '';
-  });
-
-  canSaveGrow(): boolean {
-    return this.growMode() === 'percent' ? this.sum() === 100 : !this.gibError();
+  // Why each action is refused ('' = allowed) — the button's [disabled] and its tooltip read this one answer.
+  growBlocked(): string { return this.grow()?.error ?? ''; }
+  importBlocked(): string {
+    if (this.importing()) return 'Importing…';
+    if (!this.imp.source_file) return 'Select a source file';
+    return this.imp.name.trim() ? '' : 'Name the template';
+  }
+  private labBlocked(): string {
+    const l = this.lab();
+    if (!l) return 'Checking whether the lab is available…';
+    return l.available ? '' : `Lab unavailable — ${l.reason}`;
+  }
+  installBlocked(): string {
+    const missing = [['VM name', this.inst.name], ['ISO file', this.inst.iso], ['disk file', this.inst.disk]]
+      .filter(([, v]) => !v.trim()).map(([k]) => k);
+    return this.labBlocked() || (missing.length ? `Fill in ${missing.join(', ')} first` : '');
+  }
+  pxeTestBlocked(): string {
+    return this.labBlocked() || (this.activeImage() ? '' : 'Mark a ready template active first');
   }
 
   toggleActive(img: DiskImage, ev: Event): void {
@@ -443,15 +419,13 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   saveGrow(): void {
     const img = this.selected();
-    if (!img || !this.canSaveGrow()) return;
-    const mode = this.growMode();
-    const src = mode === 'percent' ? this.pct : this.gib;
-    const policy: Record<string, number> = {};
-    for (const r of this.growableRoles()) policy[r] = Number(src[r]) || 0;
-    this.svc.patch(img.id, { grow_policy: policy, grow_mode: mode }).subscribe({
+    const g = this.grow();
+    if (!img || !g || !this.canSaveGrow()) return;
+    this.svc.patch(img.id, { grow_policy: g.policy, grow_mode: g.mode }).subscribe({
       next: (updated) => { this.selected.set(updated); this.reload(); },
       error: (e) => this.err.set(e?.error?.detail || 'Save failed'),
     });
   }
+
 
 }

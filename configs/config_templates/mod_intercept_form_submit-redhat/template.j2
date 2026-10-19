@@ -1,0 +1,48 @@
+# =============================================================================
+# mod_intercept_form_submit Configuration
+# =============================================================================
+# This template configures the Apache module mod_intercept_form_submit.
+# It enables interception of HTTP POST requests to specific paths,
+# allowing PAM-based authentication for form submissions before they
+# reach the application backend.
+# =============================================================================
+
+{% if (login_enabled | default(False)) %}
+# -----------------------------------------------------------------------------
+# Directive: LoadModule / Configuration Block
+# Description: Load the module and define the location block for form interception.
+# Schema Field: login_enabled (default: False)
+# -----------------------------------------------------------------------------
+<LoadModule intercept_form_submit_module modules/mod_intercept_form_submit.so>
+
+<Location "{{ login_path | default('/login') }}">
+    # -----------------------------------------------------------------
+    # Directive: InterceptFormPAMService
+    # Description: The PAM service name to use for authentication.
+    # Schema Field: pam_service (default: http_application_sss)
+    # -----------------------------------------------------------------
+    InterceptFormPAMService {{ pam_service | default('http_application_sss') }}
+
+    # -----------------------------------------------------------------
+    # Directive: InterceptFormLogin
+    # Description: The HTML form field name for the username.
+    # Schema Field: login_field_name (default: user_login)
+    # -----------------------------------------------------------------
+    InterceptFormLogin {{ login_field_name | default('user_login') }}
+
+    # -----------------------------------------------------------------
+    # Directive: InterceptFormPassword
+    # Description: The HTML form field name for the password.
+    # Schema Field: password_field_name (default: user_password)
+    # -----------------------------------------------------------------
+    InterceptFormPassword {{ password_field_name | default('user_password') }}
+</Location>
+
+{% else %}
+# -----------------------------------------------------------------------------
+# Configuration Disabled
+# Description: The login_enabled flag is False. No interception block is generated.
+# Schema Field: login_enabled (default: False)
+# -----------------------------------------------------------------------------
+# mod_intercept_form_submit is not active.
+{% endif %}

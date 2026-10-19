@@ -21,13 +21,18 @@ _RANGES = {
 
 
 def _parse_field(field: str, lo: int, hi: int) -> set[int]:
+    """One cron field → its allowed values. A value outside lo..hi is an ERROR, not a value to skip: `61 25 * * *`
+    used to parse to two empty sets — a valid-looking job that could never fire, and nothing said so."""
     out: set[int] = set()
     for part in field.split(","):
-        part = part.strip()
+        raw = part.strip()
+        part = raw
         step = 1
         if "/" in part:
             part, _, s = part.partition("/")
             step = int(s)
+            if step < 1:
+                raise ValueError(f"step must be at least 1 in {raw!r}")
         if part in ("*", ""):
             start, end = lo, hi
         elif "-" in part:
@@ -35,9 +40,9 @@ def _parse_field(field: str, lo: int, hi: int) -> set[int]:
             start, end = int(a), int(b)
         else:
             start = end = int(part)
-        for v in range(start, end + 1, step):
-            if lo <= v <= hi:
-                out.add(v)
+        if not (lo <= start <= hi and lo <= end <= hi) or start > end:
+            raise ValueError(f"{raw!r} is outside {lo}-{hi}")
+        out.update(range(start, end + 1, step))
     return out
 
 
@@ -47,7 +52,23 @@ def parse_cron(expr: str) -> list[set[int]]:
     fields = expr.split()
     if len(fields) != 5:
         raise ValueError(f"cron must have 5 fields (got {len(fields)}): {expr!r}")
-    return [_parse_field(f, *_RANGES[i]) for i, f in enumerate(fields)]
+    names = ("minute", "hour", "day of month", "month", "day of week")
+    out = []
+    for i, f in enumerate(fields):
+        try:
+            out.append(_parse_field(f, *_RANGES[i]))
+        except ValueError as exc:
+            raise ValueError(f"{names[i]}: {exc}") from exc
+    return out
+
+
+def cron_error(expr: str) -> str | None:
+    """Why `expr` is not a valid cron expression, or None when it is — the reason a refusal names."""
+    try:
+        parse_cron(expr)
+        return None
+    except (ValueError, KeyError) as exc:
+        return str(exc)
 
 
 def cron_matches(expr: str, when: datetime) -> bool:

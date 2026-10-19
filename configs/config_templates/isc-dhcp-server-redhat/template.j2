@@ -1,0 +1,19 @@
+#
+# DHCP Server Configuration file.
+#   see /usr/share/doc/dhcp-server/dhcpd.conf.example
+#   see dhcpd.conf(5) man page
+#
+{% if domain_name is defined and domain_name is not none and (domain_name is number or domain_name is boolean or domain_name | length > 0) %}option domain-name "{{ domain_name }}";
+{% endif %}{% if domain_name_servers is defined and domain_name_servers is not none and (domain_name_servers is number or domain_name_servers is boolean or domain_name_servers | length > 0) %}option domain-name-servers {{ domain_name_servers }};
+{% endif %}{% if default_lease_time is defined and default_lease_time is not none and (default_lease_time is number or default_lease_time is boolean or default_lease_time | length > 0) %}default-lease-time {{ default_lease_time }};
+{% endif %}{% if max_lease_time is defined and max_lease_time is not none and (max_lease_time is number or max_lease_time is boolean or max_lease_time | length > 0) %}max-lease-time {{ max_lease_time }};
+{% endif %}{% if ddns_update_style is defined and ddns_update_style is not none and (ddns_update_style is number or ddns_update_style is boolean or ddns_update_style | length > 0) %}ddns-update-style {{ ddns_update_style }};
+{% endif %}{% if authoritative is defined and authoritative is not none and (authoritative is number or authoritative is boolean or authoritative | length > 0) and authoritative | bool %}authoritative;
+{% endif %}{% for s in subnets | default([]) %}
+# Subnet {{ s.network }}/{{ s.netmask }} — written by Bossman from the role's `subnets`.
+subnet {{ s.network }} netmask {{ s.netmask }} {
+{% if s.range_start is defined and s.range_start %}  range {{ s.range_start }} {{ s.range_end | default(s.range_start) }};
+{% endif %}{% if s.routers is defined and s.routers %}  option routers {{ s.routers }};
+{% endif %}{% if s.dns_servers is defined and s.dns_servers %}  option domain-name-servers {{ s.dns_servers }};
+{% endif %}}
+{% endfor %}

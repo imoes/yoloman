@@ -1,84 +1,63 @@
+! 
+! Osmocom gtphub configuration
 !
-! Osmocom GTP-Hub Configuration
-! This template generates the configuration file for the osmo-gtphub service.
-! The GTP-Hub acts as a GTPv2-C proxy for 4G/5G core networks (MME/HSS/SGSN/GGSN).
-!
+! This template configures the GTP-Hub service from the Osmocom project.
+! It handles logging verbosity/formatting and network binding for SGSN and GGSN
+! GTP (GPRS Tunnelling Protocol) interfaces.
 
-! --- Logging Configuration ---
-
-! Log to stderr by default (standard for foreground daemons)
+! Enable color output in logs (1 = enable, 0 = disable)
 log stderr
+ logging color {{ logging_color | default('1') }}
 
-! Enable color output in logs for human readability
-# Default: 1 (enabled)
-logging color {{ logging_color | default(1) }}
+! Print category as hex code (1 = enable, 0 = disable)
+ logging print category-hex {{ logging_print_category_hex | default('0') }}
 
-! Print category as hex code in logs
-# Default: 0 (disabled)
-logging print category-hex {{ logging_print_category_hex | default(0) }}
+! Print category name in logs (1 = enable, 0 = disable)
+ logging print category {{ logging_print_category | default('1') }}
 
-! Print category name in logs
-# Default: 1 (enabled)
-logging print category {{ logging_print_category | default(1) }}
+! Include timestamps in log messages (1 = enable, 0 = disable)
+ logging timestamp {{ logging_timestamp | default('0') }}
 
-! Include timestamps in log messages
-# Default: 0 (disabled)
-logging timestamp {{ logging_timestamp | default(0) }}
+! Print the log level in messages (1 = enable, 0 = disable)
+ logging print level {{ logging_print_level | default('1') }}
 
-! Print file basename in logs (last part of filename)
-! This is hardcoded in this template as per the original structure.
-logging print file basename last
+! Note: 'logging print file basename last' is hardcoded in the base template
+! and not exposed as a variable, as it was not present in the schema.
 
-! Print log level in messages
-# Default: 1 (enabled)
-logging print level {{ logging_print_level | default(1) }}
-
-! --- VTY (Console) Configuration ---
-
+! Configure VTY (Virtual Terminal) interface for management access
 line vty
-! Disable login check for VTY access (simplified local management)
-no login
+ ! Disable login prompt for VTY access (common in containerized/automated deployments)
+ no login
 
-! --- GTP-Hub Network Configuration ---
-
-! Global GTP-Hub configuration block
+! GTP-Hub main configuration block
 gtphub
-    !
-    ! Local address to bind to for SGSN traffic (GTPv2-C)
-    ! The GTP-Hub listens on this address for control plane messages from SGSNs.
-    ! Standard port is 2123. Setting this address is mandatory for operation.
-    ! Default: 127.0.0.10
-    !
-    bind-to-sgsns {{ bind_to_sgsns | default('127.0.0.10') }}
+ ! ---------------------------------------------------------------------------
+ ! Network Binding
+ ! ---------------------------------------------------------------------------
+ ! Bind the GTP-C/GTP-U socket for SGSN connections to this local address.
+ ! Local address to bind to for SGSN traffic
+ bind-to-sgsns {{ bind_to_sgsns | default('127.0.0.10') }}
 
-    ! Local address to bind to for GGSN traffic (GTPv2-C)
-    ! The GTP-Hub listens on this address for control plane messages from GGSNs.
-    ! Standard port is 2152. Setting this address is mandatory for operation.
-    ! Default: 127.0.0.20
-    !
-    bind-to-ggsns {{ bind_to_ggsns | default('127.0.0.20') }}
+ ! Bind the GTP-C/GTP-U socket for GGSN connections to this local address.
+ ! Local address to bind to for GGSN traffic
+ bind-to-ggsns {{ bind_to_ggsns | default('127.0.0.20') }}
 
-    !
-    ! --- Optional: Nonstandard Ports / Separate IPs ---
-    ! Uncomment and adjust to listen on different ports or IPs for specific user/ctrl planes.
-    ! Example:
-    ! bind-to-sgsns ctrl 127.0.0.1 2342 user 127.0.0.1 4223
-    !
+ ! ---------------------------------------------------------------------------
+ ! Proxy & DNS (Optional/Advanced)
+ ! ---------------------------------------------------------------------------
+ ! The following directives are commented out as they were not part of the
+ ! provided schema defaults. Uncomment and configure if specific proxy
+ ! or DNS resolution behavior is required.
 
-    ! --- Optional: Proxy Configuration ---
-    ! If enabled, unconditionally direct all traffic to a specific backend.
-    ! Example:
-    ! ggsn-proxy 127.0.0.3
-    ! sgsn-proxy 127.0.0.4
-    !
+ ! Local nonstandard ports or separate IPs:
+ !bind-to-sgsns ctrl 127.0.0.1 2342 user 127.0.0.1 4223
 
-    ! --- Optional: Proxy with Nonstandard Ports ---
-    ! Example:
-    ! ggsn-proxy ctrl 127.0.0.3 2123 user 127.0.0.5 2152
-    !
+ ! Proxy: unconditionally direct all traffic to...
+ !ggsn-proxy 127.0.0.3
+ !sgsn-proxy 127.0.0.4
 
-    ! --- Optional: DNS Configuration for GGSN Resolution ---
-    ! Add a name server for GGSN resolution if needed.
-    ! Example:
-    ! grx-dns-add 192.168.0.1
-    !
+ ! Proxy with nonstandard ports or separate IPs:
+ !ggsn-proxy ctrl 127.0.0.3 2123 user 127.0.0.5 2152
+
+ ! Add a name server for GGSN resolution
+ !grx-dns-add 192.168.0.1

@@ -1,8 +1,8 @@
 """C1/C2 through the DB and the API: a cluster is a host whose services are computed.
 
-The semantics were also proven live on the real Proxmox trio (vpp0221/22/23): with vpp0221
-CRIT and the other two OK, `best` reported OK pivoting on vpp0222 and `worst` reported CRIT
-pivoting on vpp0221 — same node states, opposite verdicts.
+The semantics were also proven live on the real Proxmox trio (pve1/22/23): with pve1
+CRIT and the other two OK, `best` reported OK pivoting on pve2 and `worst` reported CRIT
+pivoting on pve1 — same node states, opposite verdicts.
 """
 
 import uuid
@@ -168,7 +168,7 @@ async def test_a_cluster_with_no_nodes_produces_nothing(db_session):
 
 
 async def test_the_aggregate_recovers_with_its_nodes(db_session):
-    """Proven live too: deleting the rule that broke vpp0221 returned the cluster to OK."""
+    """Proven live too: deleting the rule that broke pve1 returned the cluster to OK."""
     a = await _node(db_session, "n-a", {"Memory": "CRIT"})
     cluster = await _cluster(db_session, [a], mode="worst")
     await aggregate_all_clusters(db_session)

@@ -1,279 +1,238 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          ironic-python-agent
-# Required-Start:    $network $local_fs $remote_fs $syslog
-# Required-Stop:     $remote_fs
-# Should-Start:    postgresql mysql keystone rabbitmq-server chrony
-# Should-Stop:       postgresql mysql keystone rabbitmq-server chrony
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Ironic Python Agent
-# Description:       Provides baremetal introspection
-### END INIT INFO
+[DEFAULT]
+# Global request ID header to provide to Ironic API. Can be supplied as "ipa-global-request-id" kernel parameter. The value must be in form "req-<UUID>".
+{% if global_request_id is defined and global_request_id is not none and global_request_id != '' %}global_request_id = {{ global_request_id }}{% else %}#global_request_id = <None>{% endif %}
 
-# Author: Thomas Goirand <zigo@debian.org>
-DESC="OpenStack Ironic Python Agent (ironic-python-agent)"
-PROJECT_NAME=ironic-python-agent
-NAME=${PROJECT_NAME}
+# URL(s) of the Ironic API. Can be supplied as "ipa-api-url" kernel parameter. The value(s) must start with either http:// or https://. A special value "mdns" can be specified to fetch the URL using multicast DNS service discovery.
+{% if api_url is defined and api_url is not none and api_url != '' %}api_url = {{ api_url }}{% else %}#api_url = <None>{% endif %}
 
-# The system user under which the ironic-python-agent daemon runs.
-SYSTEM_USER={{system_user | default('root')}}
+# The IP address to listen on. Can be supplied as "ipa-listen-host" kernel parameter.
+{% if listen_host is defined and listen_host is not none and (listen_host is number or listen_host is boolean or listen_host | length > 0) %}listen_host = {{ listen_host | default('::') }}{% else %}#listen_host = ::{% endif %}
 
-# The system group under which the ironic-python-agent daemon runs.
-SYSTEM_GROUP={{system_group | default('root')}}
+# The port to listen on. Can be supplied as "ipa-listen-port" kernel parameter.
+# Minimum value: 0
+# Maximum value: 65535
+{% if listen_port is defined and listen_port is not none and (listen_port is number or listen_port is boolean or listen_port | length > 0) %}listen_port = {{ listen_port | default(9999) }}{% else %}#listen_port = 9999{% endif %}
 
-# Needed for the config drive?
-modprobe vfat
-#!/bin/sh
-# The content after this line comes from openstack-pkg-tools
-# and has been automatically added to a .init.in script, which
-# contains only the descriptive part for the daemon. Everything
-# else is standardized as a single unique script.
+# When true, IPA will host API behind TLS. You will also need to configure [ssl] group options for cert_file, key_file, and, if desired, ca_file to validate client certificates.
+{% if listen_tls is defined and listen_tls is not none and (listen_tls is number or listen_tls is boolean or listen_tls | length > 0) %}listen_tls = {{ listen_tls | default(false) }}{% else %}#listen_tls = false{% endif %}
 
-# Author: Thomas Goirand <zigo@debian.org>
-# Author: Ondřej Nový <novy@ondrej.org>
+# Enables auto-generating TLS parameters when listen_tls is False and ironic API version indicates support for automatic agent TLS.
+{% if enable_auto_tls is defined and enable_auto_tls is not none and (enable_auto_tls is number or enable_auto_tls is boolean or enable_auto_tls | length > 0) %}enable_auto_tls = {{ enable_auto_tls | default(true) }}{% else %}#enable_auto_tls = true{% endif %}
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# Clock skew (in seconds) allowed in the generated TLS certificate.
+# Minimum value: 0
+{% if auto_tls_allowed_clock_skew is defined and auto_tls_allowed_clock_skew is not none and (auto_tls_allowed_clock_skew is number or auto_tls_allowed_clock_skew is boolean or auto_tls_allowed_clock_skew | length > 0) %}auto_tls_allowed_clock_skew = {{ auto_tls_allowed_clock_skew | default(3600) }}{% else %}#auto_tls_allowed_clock_skew = 3600{% endif %}
 
-if [ -n "${UWSGI_PORT}" ] && [ -n "${UWSGI_INI_PATH}" ] && [ -n "${UWSGI_INI_APP}" ] ; then
-	if ! [ -f "${UWSGI_INI_APP}" ] ; then
-		exit 0
-	fi
-	if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
-		KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
-	fi
+# The host to tell Ironic to reply and send commands to. Can be supplied as "ipa-advertise-host" kernel parameter.
+{% if advertise_host is defined and advertise_host is not none and (advertise_host is number or advertise_host is boolean or advertise_host | length > 0) %}advertise_host = {{ advertise_host | default('') }}{% else %}#advertise_host = <None>{% endif %}
 
-	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
-		# This is needed for puppet...
-		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
-	else
-		if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
-			CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
-		fi
-	fi
+# The port to tell Ironic to reply and send commands to. Can be supplied as "ipa-advertise-port" kernel parameter.
+# Minimum value: 0
+# Maximum value: 65535
+{% if advertise_port is defined and advertise_port is not none and (advertise_port is number or advertise_port is boolean or advertise_port | length > 0) %}advertise_port = {{ advertise_port | default(9999) }}{% else %}#advertise_port = 9999{% endif %}
 
-	# Sid doesn't have /usr/bin/uwsgi_python3, so we need
-	# to search for a more specific daemon name. For stretch
-	# /usr/bin/uwsgi_python3 is fine.
-	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
-		if [ -x /usr/bin/uwsgi_python${i} ] ; then
-			DAEMON=/usr/bin/uwsgi_python${i}
-		fi
-	done
+# Protocol to use for the callback URL. HTTP is used by default, set to "https" if you have HTTPS configured.
+# Possible values:
+# http - <No description provided>
+# https - <No description provided>
+{% if advertise_protocol is defined and advertise_protocol is not none and (advertise_protocol is number or advertise_protocol is boolean or advertise_protocol | length > 0) %}advertise_protocol = {{ advertise_protocol | default('http') }}{% else %}#advertise_protocol = http{% endif %}
 
-	if [ -n "${UWSGI_BIND_CONFIG_FILE}" ] && [ -r "${UWSGI_BIND_CONFIG_FILE}" ] && [ -n "${UWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${UWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
-		. /usr/share/openstack-pkg-tools/pkgos_func
-		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_IP_DIRECTIVE}
-	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-			UWSGI_BIND_IP=${RET}
-		fi
-		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}
-	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-			UWSGI_PORT=${RET}
-		fi
-		if [ -n "${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
-			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
-		        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-				UWSGI_PROCESSES=" --processes ${RET}"
-			else
-				# If we can't find the directive in the config file,
-				# we fallback to the number of thread / 2.
-				UWSGI_PROCESSES=" --processes "$(($(nproc) / 2))
-			fi
-		fi
-		if [ "${UWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
-			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} devices
-			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
-				DEVICES_PATH=${RET}
-				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
-				COUNT=0
-				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
-					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
-					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
-					COUNT=$(( ${COUNT} + 1 ))
-				done
-			fi
-		fi
-	else
-		UWSGI_BIND_IP=""
-	fi
+# The number of times to try and automatically determine the agent IPv4 address. Can be supplied as "ipa-ip-lookup-attempts" kernel parameter.
+# Minimum value: 1
+{% if ip_lookup_attempts is defined and ip_lookup_attempts is not none and (ip_lookup_attempts is number or ip_lookup_attempts is boolean or ip_lookup_attempts | length > 0) %}ip_lookup_attempts = {{ ip_lookup_attempts | default(6) }}{% else %}#ip_lookup_attempts = 6{% endif %}
 
-	if [ -n "${BIND_PARAMS}" ] ; then
-		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
-	else
-		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
-			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
-		else
-			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
-		fi
-	fi
+# The amount of time to sleep between attempts to determine IP address. Can be supplied as "ipa-ip-lookup-timeout" kernel parameter.
+# Minimum value: 0
+{% if ip_lookup_sleep is defined and ip_lookup_sleep is not none and (ip_lookup_sleep is number or ip_lookup_sleep is boolean or ip_lookup_sleep | length > 0) %}ip_lookup_sleep = {{ ip_lookup_sleep | default(10) }}{% else %}#ip_lookup_sleep = 10{% endif %}
 
-	DAEMON_ARGS="${DAEMON_ARGS} --ini ${UWSGI_INI_PATH}"
-	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
-	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
-fi
+# The interface to use when looking for an IP address. Can be supplied as "ipa-network-interface" kernel parameter.
+{% if network_interface is defined and network_interface is not none and (network_interface is number or network_interface is boolean or network_interface | length > 0) %}network_interface = {{ network_interface | default('') }}{% else %}#network_interface = <None>{% endif %}
 
-if [ -z "${DAEMON}" ] ; then
-	DAEMON=/usr/bin/${NAME}
-fi
-PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
-if [ -z "${SCRIPTNAME}" ] ; then
-	SCRIPTNAME=/etc/init.d/${NAME}
-fi
-# The system user under which the ironic-python-agent daemon runs.
-if [ -z "${SYSTEM_USER}" ] ; then
-	SYSTEM_USER={{system_user | default('root')}}
-fi
-# The system group under which the ironic-python-agent daemon runs.
-if [ -z "${SYSTEM_GROUP}" ] ; then
-	SYSTEM_GROUP={{system_group | default('root')}}
-fi
-if [ "${SYSTEM_USER}" != "root" ] ; then
-	STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
-fi
-if [ -z "${CONFIG_FILE}" ] ; then
-	CONFIG_FILE=/etc/${PROJECT_NAME}/ironic-python-agent.conf
-fi
-LOGFILE=/var/log/${PROJECT_NAME}/ironic-python-agent.log
-if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
-	DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
-fi
+# The amount of time to retry the initial lookup call to Ironic. After the timeout, the agent will exit with a non-zero exit code. Can be supplied as "ipa-lookup-timeout" kernel parameter.
+# Minimum value: 0
+{% if lookup_timeout is defined and lookup_timeout is not none and (lookup_timeout is number or lookup_timeout is boolean or lookup_timeout | length > 0) %}lookup_timeout = {{ lookup_timeout | default(600) }}{% else %}#lookup_timeout = 600{% endif %}
 
-# Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
+# The initial interval for retries on the initial lookup call to Ironic. The interval will be doubled after each failure until timeout is exceeded. Can be supplied as "ipa-lookup-interval" kernel parameter.
+# Minimum value: 0
+{% if lookup_interval is defined and lookup_interval is not none and (lookup_interval is number or lookup_interval is boolean or lookup_interval | length > 0) %}lookup_interval = {{ lookup_interval | default(1) }}{% else %}#lookup_interval = 1{% endif %}
 
-# If ran as root, create /var/lock/X, /var/run/X and /var/cache/X as needed
-if [ `whoami` = "root" ] ; then
-	for i in lock run cache ; do
-		mkdir -p /var/$i/${PROJECT_NAME}
-		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
-	done
-fi
+# The amount of seconds to wait for LLDP packets. Can be supplied as "ipa-lldp-timeout" kernel parameter.
+{% if lldp_timeout is defined and lldp_timeout is not none and (lldp_timeout is number or lldp_timeout is boolean or lldp_timeout | length > 0) %}lldp_timeout = {{ lldp_timeout | default(30.0) }}{% else %}#lldp_timeout = 30.0{% endif %}
 
-# This defines support functions which we use later on
-. /lib/lsb/init-functions
+# DEPRECATED: Whether IPA should attempt to receive LLDP packets for each network interface it discovers in the inventory. Can be supplied as "ipa-collect-lldp" kernel parameter.
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+# Reason: Use the lldp collector instead
+{% if collect_lldp is defined and collect_lldp is not none and (collect_lldp is number or collect_lldp is boolean or collect_lldp | length > 0) %}collect_lldp = {{ collect_lldp | default(false) }}{% else %}#collect_lldp = false{% endif %}
 
-RET=0
+# Endpoint(s) to send inspection data to. If set, hardware inventory will be collected and sent there on start up. A special value "mdns" can be specified to fetch the URL using multicast DNS service discovery. Can be supplied as "ipa-inspection-callback-url" kernel parameter.
+{% if inspection_callback_url is defined and inspection_callback_url is not none and (inspection_callback_url is number or inspection_callback_url is boolean or inspection_callback_url | length > 0) %}inspection_callback_url = {{ inspection_callback_url | default('') }}{% else %}#inspection_callback_url = <None>{% endif %}
 
-# Manage log options: logfile and/or syslog, depending on user's choosing
-[ -r /etc/default/openstack ] && . /etc/default/openstack
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
-if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
-	[ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
-fi
+# Comma-separated list of plugins providing additional hardware data for inspection. The default are default,logs. Can be supplied as "ipa-inspection-collectors" kernel parameter.
+{% if inspection_collectors is defined and inspection_collectors is not none and (inspection_collectors is number or inspection_collectors is boolean or inspection_collectors | length > 0) %}inspection_collectors = {{ inspection_collectors | default('') }}{% else %}#inspection_collectors = <None>{% endif %}
 
-do_start() {
-	start-stop-daemon \
-		--start \
-		--quiet \
-		--background ${STARTDAEMON_CHUID} \
-		--make-pidfile --pidfile ${PIDFILE} \
-		--chdir /var/lib/${PROJECT_NAME} \
-		--startas $DAEMON \
-		--test > /dev/null \
-		|| return 1
-	if [ -n "${PYARGV}" ] ; then
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background ${STARTDAEMON_CHUID} \
-			--make-pidfile --pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $DAEMON_ARGS --pyargv "${PYARGV}" \
-			|| return 2
-	else
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background ${STARTDAEMON_CHUID} \
-			--make-pidfile --pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $DAEMON_ARGS \
-			|| return 2
-	fi
-}
+# Maximum time (in seconds) to wait for the PXE NIC (or all NICs if inspection_dhcp_all_interfaces is True) to get its IP address via DHCP before inspection. Set to 0 to disable waiting completely. Can be supplied as "ipa-inspection-dhcp-wait-timeout" kernel parameter.
+# Minimum value: 0
+{% if inspection_dhcp_wait_timeout is defined and inspection_dhcp_wait_timeout is not none and (inspection_dhcp_wait_timeout is number or inspection_dhcp_wait_timeout is boolean or inspection_dhcp_wait_timeout | length > 0) %}inspection_dhcp_wait_timeout = {{ inspection_dhcp_wait_timeout | default(60) }}{% else %}#inspection_dhcp_wait_timeout = 60{% endif %}
 
-do_stop() {
-	start-stop-daemon \
-		--stop \
-		--quiet \
-		--retry=TERM/30/KILL/5 \
-		--pidfile $PIDFILE
-	RETVAL=$?
-	rm -f $PIDFILE
-	return "$RETVAL"
-}
+# Whether to wait for all interfaces to get their IP addresses before inspection. If set to false (the default), only waits for the PXE interface. Can be supplied as "ipa-inspection-dhcp-all-interfaces" kernel parameter.
+{% if inspection_dhcp_all_interfaces is defined and inspection_dhcp_all_interfaces is not none and (inspection_dhcp_all_interfaces is number or inspection_dhcp_all_interfaces is boolean or inspection_dhcp_all_interfaces | length > 0) %}inspection_dhcp_all_interfaces = {{ inspection_dhcp_all_interfaces | default(false) }}{% else %}#inspection_dhcp_all_interfaces = false{% endif %}
 
-do_systemd_start() {
-	# Set umask to ensure log files are created with 0644 mode bits
-	# Note we can't set 0026 to have files 0640, because that's going
-	# to be in use in for example neutron-dhcp-agent, which makes it
-	# so it wont't able to read /var/lib/neutron/external/pids/*.pid.haproxy
-	# and then fail hardly. However, 0022 is enough, since the log
-	# folders are owned by <project>:adm, so users don't have access
-	# to it unless they are on the adm group, which is what we want.
-	umask 0022
-	if [ -n "${PYARGV}" ] ; then
-		exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
-	else
-		exec $DAEMON $DAEMON_ARGS
-	fi
-}
+# How much time (in seconds) to wait for hardware to initialize before proceeding with any actions. Can be supplied as "ipa-hardware-initialization-delay" kernel parameter.
+# Minimum value: 0
+{% if hardware_initialization_delay is defined and hardware_initialization_delay is not none and (hardware_initialization_delay is number or hardware_initialization_delay is boolean or hardware_initialization_delay | length > 0) %}hardware_initialization_delay = {{ hardware_initialization_delay | default(0) }}{% else %}#hardware_initialization_delay = 0{% endif %}
 
-case "$1" in
-start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-status)
-	status_of_proc "$DAEMON" "$NAME"
-	RET=$?
-;;
-systemd-start)
-	do_systemd_start
-;;  
-show-args)
-	if [ -n "${PYARGV}" ] ; then
-		echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}\"
-	else
-		echo $DAEMON $DAEMON_ARGS
-	fi
-;;
-restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1)
-			do_start
-			case $? in
-				0) log_end_msg 0 ; RET=$? ;;
-				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
-				*) log_end_msg 1 ; RET=$? ;; # Failed to start
-			esac
-		;;
-		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
-	esac
-;;
-*)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
-	RET=3
-;;
-esac
+# The number of times to try and check to see if at least one suitable disk has appeared in inventory before proceeding with any actions. Can be supplied as "ipa-disk-wait-attempts" kernel parameter.
+# Minimum value: 0
+{% if disk_wait_attempts is defined and disk_wait_attempts is not none and (disk_wait_attempts is number or disk_wait_attempts is boolean or disk_wait_attempts | length > 0) %}disk_wait_attempts = {{ disk_wait_attempts | default(10) }}{% else %}#disk_wait_attempts = 10{% endif %}
 
-exit $RET
+# How much time (in seconds) to wait between attempts to check if at least one suitable disk has appeared in inventory. Set to zero to disable. Can be supplied as "ipa-disk-wait-delay" kernel parameter.
+# Minimum value: 0
+{% if disk_wait_delay is defined and disk_wait_delay is not none and (disk_wait_delay is number or disk_wait_delay is boolean or disk_wait_delay | length > 0) %}disk_wait_delay = {{ disk_wait_delay | default(3) }}{% else %}#disk_wait_delay = 3{% endif %}
+
+# Verify HTTPS connections. Can be supplied as "ipa-insecure" kernel parameter.
+{% if insecure is defined and insecure is not none and (insecure is number or insecure is boolean or insecure | length > 0) %}insecure = {{ insecure | default(false) }}{% else %}#insecure = false{% endif %}
+
+# Path to PEM encoded Certificate Authority file to use when verifying HTTPS connections. Default is to use available system-wide configured CAs.
+{% if cafile is defined and cafile is not none and (cafile is number or cafile is boolean or cafile | length > 0) %}cafile = {{ cafile | default('') }}{% else %}#cafile = <None>{% endif %}
+
+# Path to PEM encoded client certificate cert file. Must be provided together with "keyfile" option. Default is to not present any client certificates to the server.
+{% if certfile is defined and certfile is not none and (certfile is number or certfile is boolean or certfile | length > 0) %}certfile = {{ certfile | default('') }}{% else %}#certfile = <None>{% endif %}
+
+# Path to PEM encoded client certificate key file. Must be provided together with "certfile" option. Default is to not present any client certificates to the server.
+{% if keyfile is defined and keyfile is not none and (keyfile is number or keyfile is boolean or keyfile | length > 0) %}keyfile = {{ keyfile | default('') }}{% else %}#keyfile = <None>{% endif %}
+
+# When the ``ironic-collect-introspection-data`` command is executed, continue running as a background process and continue to post data to the bare metal inspection service.
+{% if introspection_daemon is defined and introspection_daemon is not none and (introspection_daemon is number or introspection_daemon is boolean or introspection_daemon | length > 0) %}introspection_daemon = {{ introspection_daemon | default(false) }}{% else %}#introspection_daemon = false{% endif %}
+
+# The interval in seconds by which to transmit data to the bare metal introspection service when the ``ironic-collect-introspection-data`` program is executing in daemon mode.
+{% if introspection_daemon_post_interval is defined and introspection_daemon_post_interval is not none and (introspection_daemon_post_interval is number or introspection_daemon_post_interval is boolean or introspection_daemon_post_interval | length > 0) %}introspection_daemon_post_interval = {{ introspection_daemon_post_interval | default(300) }}{% else %}#introspection_daemon_post_interval = 300{% endif %}
+
+# Address of a single NTP server against which the agent should sync the system software clock prior to rebooting to an instance.
+{% if ntp_server is defined and ntp_server is not none and (ntp_server is number or ntp_server is boolean or ntp_server | length > 0) %}ntp_server = {{ ntp_server | default('') }}{% else %}#ntp_server = <None>{% endif %}
+
+# If operations should fail if the clock time sync fails to complete successfully.
+{% if fail_if_clock_not_set is defined and fail_if_clock_not_set is not none and (fail_if_clock_not_set is number or fail_if_clock_not_set is boolean or fail_if_clock_not_set | length > 0) %}fail_if_clock_not_set = {{ fail_if_clock_not_set | default(false) }}{% else %}#fail_if_clock_not_set = false{% endif %}
+
+# Pre-shared token to use when working with the ironic API. This value is typically supplied by ironic automatically.
+{% if agent_token is defined and agent_token is not none and (agent_token is number or agent_token is boolean or agent_token | length > 0) %}agent_token = {{ agent_token | default('') }}{% else %}#agent_token = <None>{% endif %}
+
+# Pre-shared username used in Basic Auth process against the http(s) server that hosts the disk image. This variable can be also configured via image_info. Value coming from image_info takes precedence over value coming from command line or configuration file.
+{% if image_server_user is defined and image_server_user is not none and (image_server_user is number or image_server_user is boolean or image_server_user | length > 0) %}image_server_user = {{ image_server_user | default('') }}{% else %}#image_server_user = <None>{% endif %}
+
+# Pre-shared password used in Basic Auth process against the http(s) server that hosts the disk image. This variable can be also configured via image_info. Value coming from image_info takes precedence over value coming from command line or configuration file.
+{% if image_server_password is defined and image_server_password is not none and (image_server_password is number or image_server_password is boolean or image_server_password | length > 0) %}image_server_password = {{ image_server_password | default('') }}{% else %}#image_server_password = <None>{% endif %}
+
+# Option to select authentication strategy used during communication with the server that hosts the disk images and related checksums. This option also turns image_server_password and image_server_user into mandatory variables for those authentication strategies that require username + password credentials. This variable can be also configured via image_info. Value coming from image_info takes precedence over value coming from command line or configuration file.
+{% if image_server_auth_strategy is defined and image_server_auth_strategy is not none and (image_server_auth_strategy is number or image_server_auth_strategy is boolean or image_server_auth_strategy | length > 0) %}image_server_auth_strategy = {{ image_server_auth_strategy | default('noauth') }}{% else %}#image_server_auth_strategy = noauth{% endif %}
+
+# Control to enforce if API command requests should enforce token validation. The configuration provided by the conductor MAY override this and force this setting to be changed to True in memory.
+{% if agent_token_required is defined and agent_token_required is not none and (agent_token_required is number or agent_token_required is boolean or agent_token_required | length > 0) %}agent_token_required = {{ agent_token_required | default(false) }}{% else %}#agent_token_required = false{% endif %}
+
+# The connection timeout (in seconds) when downloading an image. Does not affect the whole download.
+# Minimum value: 1
+{% if image_download_connection_timeout is defined and image_download_connection_timeout is not none and (image_download_connection_timeout is number or image_download_connection_timeout is boolean or image_download_connection_timeout | length > 0) %}image_download_connection_timeout = {{ image_download_connection_timeout | default(60) }}{% else %}#image_download_connection_timeout = 60{% endif %}
+
+# How many times to retry the connection when downloading an image. Also retries on failure HTTP statuses.
+# Minimum value: 0
+{% if image_download_connection_retries is defined and image_download_connection_retries is not none and (image_download_connection_retries is number or image_download_connection_retries is boolean or image_download_connection_retries | length > 0) %}image_download_connection_retries = {{ image_download_connection_retries | default(9) }}{% else %}#image_download_connection_retries = 9{% endif %}
+
+# Interval (in seconds) between two attempts to establish connection when downloading an image.
+# Minimum value: 0
+{% if image_download_connection_retry_interval is defined and image_download_connection_retry_interval is not none and (image_download_connection_retry_interval is number or image_download_connection_retry_interval is boolean or image_download_connection_retry_interval | length > 0) %}image_download_connection_retry_interval = {{ image_download_connection_retry_interval | default(10) }}{% else %}#image_download_connection_retry_interval = 10{% endif %}
+
+# Ironic API version in format "x.x". If not set, the API version will be auto-detected. Defining an API version using this setting is not advisable nor recommended as it blocks auto-detection of the API version. This is an advanced override setting which may only be useful if the environment requires API version auto-detection to be disabled or blocked.
+{% if ironic_api_version is defined and ironic_api_version is not none and (ironic_api_version is number or ironic_api_version is boolean or ironic_api_version | length > 0) %}ironic_api_version = {{ ironic_api_version | default('') }}{% else %}#ironic_api_version = <None>{% endif %}
+
+# Comma-separated list of VLAN interfaces to enable, in the format "interface.vlan". If only an interface is provided, then IPA should attempt to bring up all VLANs on that interface detected via lldp. If "all" is set then IPA should attempt to bring up all VLANs from lldp on all interfaces. By default, no VLANs will be brought up.
+{% if enable_vlan_interfaces is defined and enable_vlan_interfaces is not none and (enable_vlan_interfaces is number or enable_vlan_interfaces is boolean or enable_vlan_interfaces | length > 0) %}enable_vlan_interfaces = {{ enable_vlan_interfaces | default('') }}{% else %}#enable_vlan_interfaces ={% endif %}
+
+# If the agent should ignore failures to install a bootloader configuration into UEFI NVRAM. This option should only be considered if the hardware is automatically searching and adding UEFI bootloaders from partitions.
+{% if ignore_bootloader_failure is defined and ignore_bootloader_failure is not none and (ignore_bootloader_failure is number or ignore_bootloader_failure is boolean or ignore_bootloader_failure | length > 0) %}ignore_bootloader_failure = {{ ignore_bootloader_failure | default('') }}{% else %}#ignore_bootloader_failure = <None>{% endif %}
+
+# Priority of the inject_files deploy step (disabled by default), an integer between 1 and .
+# Minimum value: 0
+# Maximum value: 99
+{% if inject_files_priority is defined and inject_files_priority is not none and (inject_files_priority is number or inject_files_priority is boolean or inject_files_priority | length > 0) %}inject_files_priority = {{ inject_files_priority | default(0) }}{% else %}#inject_files_priority = 0{% endif %}
+
+# Guard "special" shared device filesystems from cleaning by the stock hardware manager's cleaning methods. If one of these filesystems is detected during cleaning, the cleaning process will be aborted and infrastructure operator intervention may be required as this option is intended to prevent cleaning from inadvertently destroying a running cluster which may be visible over a storage fabric such as FibreChannel.
+{% if guard_special_filesystems is defined and guard_special_filesystems is not none and (guard_special_filesystems is number or guard_special_filesystems is boolean or guard_special_filesystems | length > 0) %}guard_special_filesystems = {{ guard_special_filesystems | default(true) }}{% else %}#guard_special_filesystems = true{% endif %}
+
+# If the MD5 algorithm is enabled for file checksums. Will be changed to False in the future.
+{% if md5_enabled is defined and md5_enabled is not none and (md5_enabled is number or md5_enabled is boolean or md5_enabled | length > 0) %}md5_enabled = {{ md5_enabled | default(true) }}{% else %}#md5_enabled = true{% endif %}
+
+# Time in seconds to wait for an HTTP request TCP socket used by an API request to a remote service to enter a state where a request can be transmitted.
+# Minimum value: 1
+{% if http_request_timeout is defined and http_request_timeout is not none and (http_request_timeout is number or http_request_timeout is boolean or http_request_timeout | length > 0) %}http_request_timeout = {{ http_request_timeout | default(30) }}{% else %}#http_request_timeout = 30{% endif %}
+
+# If the agent should rebuild the configuration drive using a local filesystem, instead of letting Ironic determine if this action is necessary.
+{% if config_drive_rebuild is defined and config_drive_rebuild is not none and (config_drive_rebuild is number or config_drive_rebuild is boolean or config_drive_rebuild | length > 0) %}config_drive_rebuild = {{ config_drive_rebuild | default(false) }}{% else %}#config_drive_rebuild = false{% endif %}
+
+# This disables the additional deep image inspection the agent does before converting and writing an image. Generally, this should remain enabled for maximum security, but this option allows disabling it if there is a compatibility concern.
+{% if disable_deep_image_inspection is defined and disable_deep_image_inspection is not none and (disable_deep_image_inspection is number or disable_deep_image_inspection is boolean or disable_deep_image_inspection | length > 0) %}disable_deep_image_inspection = {{ disable_deep_image_inspection | default(false) }}{% else %}#disable_deep_image_inspection = false{% endif %}
+
+# The supported list of image formats which are permitted for deployment with Ironic Python Agent. If an image format outside of this list is detected, the image validation logic will fail the deployment process. This check is skipped if deep image inspection is disabled.
+{% if permitted_image_formats is defined and permitted_image_formats is not none and (permitted_image_formats is number or permitted_image_formats is boolean or permitted_image_formats | length > 0) %}permitted_image_formats = {{ permitted_image_formats | default(['raw', 'gpt', 'qcow2']) | join(', ') }}{% else %}#permitted_image_formats = raw,gpt,qcow2{% endif %}
+
+# This disables bootc deployment methods in the ramdisk because the bootc command inside of the ramdisk comes from the supplied image to be deployed.
+{% if disable_bootc_deploy is defined and disable_bootc_deploy is not none and (disable_bootc_deploy is number or disable_bootc_deploy is boolean or disable_bootc_deploy | length > 0) %}disable_bootc_deploy = {{ disable_bootc_deploy | default(false) }}{% else %}#disable_bootc_deploy = false{% endif %}
+
+[disk_partitioner]
+
+# After Ironic has completed creating the partition table, it continues to check for activity on the attached iSCSI device status at this interval prior to copying the image to the node, in seconds
+{% if check_device_interval is defined and check_device_interval is not none and (check_device_interval is number or check_device_interval is boolean or check_device_interval | length > 0) %}check_device_interval = {{ check_device_interval | default(1) }}{% else %}#check_device_interval = 1{% endif %}
+
+# The maximum number of times to check that the device is not accessed by another process. If the device is still busy after that, the disk partitioning will be treated as having failed.
+{% if check_device_max_retries is defined and check_device_max_retries is not none and (check_device_max_retries is number or check_device_max_retries is boolean or check_device_max_retries | length > 0) %}check_device_max_retries = {{ check_device_max_retries | default(20) }}{% else %}#check_device_max_retries = 20{% endif %}
+
+[disk_utils]
+
+# Size of EFI system partition in MiB when configuring UEFI systems for local boot. A common minimum is ~200 megabytes, however OS driven firmware updates and unikernel usage generally requires more space on the efi partition.
+{% if efi_system_partition_size is defined and efi_system_partition_size is not none and (efi_system_partition_size is number or efi_system_partition_size is boolean or efi_system_partition_size | length > 0) %}efi_system_partition_size = {{ efi_system_partition_size | default(550) }}{% else %}#efi_system_partition_size = 550{% endif %}
+
+# Size of BIOS Boot partition in MiB when configuring GPT partitioned systems for local boot in BIOS.
+{% if bios_boot_partition_size is defined and bios_boot_partition_size is not none and (bios_boot_partition_size is number or bios_boot_partition_size is boolean or bios_boot_partition_size | length > 0) %}bios_boot_partition_size = {{ bios_boot_partition_size | default(1) }}{% else %}#bios_boot_partition_size = 1{% endif %}
+
+# Block size to use when writing to the nodes disk.
+{% if dd_block_size is defined and dd_block_size is not none and (dd_block_size is number or dd_block_size is boolean or dd_block_size | length > 0) %}dd_block_size = {{ dd_block_size | default('1M') }}{% else %}#dd_block_size = 1M{% endif %}
+
+# Maximum attempts to detect a newly created partition.
+# Minimum value: 1
+{% if partition_detection_attempts is defined and partition_detection_attempts is not none and (partition_detection_attempts is number or partition_detection_attempts is boolean or partition_detection_attempts | length > 0) %}partition_detection_attempts = {{ partition_detection_attempts | default(3) }}{% else %}#partition_detection_attempts = 3{% endif %}
+
+# Maximum number of attempts to try to read the partition.
+{% if partprobe_attempts is defined and partprobe_attempts is not none and (partprobe_attempts is number or partprobe_attempts is boolean or partprobe_attempts | length > 0) %}partprobe_attempts = {{ partprobe_attempts | default(10) }}{% else %}#partprobe_attempts = 10{% endif %}
+
+# Memory limit for "qemu-img convert" in MiB. Implemented via the address space resource limit.
+{% if image_convert_memory_limit is defined and image_convert_memory_limit is not none and (image_convert_memory_limit is number or image_convert_memory_limit is boolean or image_convert_memory_limit | length > 0) %}image_convert_memory_limit = {{ image_convert_memory_limit | default(2048) }}{% else %}#image_convert_memory_limit = 2048{% endif %}
+
+# Number of attempts to convert an image.
+{% if image_convert_attempts is defined and image_convert_attempts is not none and (image_convert_attempts is number or image_convert_attempts is boolean or image_convert_attempts | length > 0) %}image_convert_attempts = {{ image_convert_attempts | default(3) }}{% else %}#image_convert_attempts = 3{% endif %}
+
+[metrics]
+
+# Backend to use for the metrics system.
+# Possible values:
+# noop - Do nothing in relation to metrics.
+# statsd - Transmits metrics data to a statsd backend.
+# collector - Collects metrics data and saves it in memory for use by the running application.
+{% if metrics_backend is defined and metrics_backend is not none and (metrics_backend is number or metrics_backend is boolean or metrics_backend | length > 0) %}backend = {{ metrics_backend | default('noop') }}{% else %}#backend = noop{% endif %}
+
+# Prepend the hostname to all metric names. The format of metric names is [global_prefix.][host_name.]prefix.metric_name.
+{% if metrics_prepend_host is defined and metrics_prepend_host is not none and (metrics_prepend_host is number or metrics_prepend_host is boolean or metrics_prepend_host | length > 0) %}prepend_host = {{ metrics_prepend_host | default(false) }}{% else %}#prepend_host = false{% endif %}
+
+# Split the prepended host value by "." and reverse it (to better match the reverse hierarchical form of domain names).
+{% if metrics_prepend_host_reverse is defined and metrics_prepend_host_reverse is not none and (metrics_prepend_host_reverse is number or metrics_prepend_host_reverse is boolean or metrics_prepend_host_reverse | length > 0) %}prepend_host_reverse = {{ metrics_prepend_host_reverse | default(true) }}{% else %}#prepend_host_reverse = true{% endif %}
+
+# Prefix all metric names with this value. By default, there is no global prefix. The format of metric names is [global_prefix.][host_name.]prefix.metric_name.
+{% if metrics_global_prefix is defined and metrics_global_prefix is not none and (metrics_global_prefix is number or metrics_global_prefix is boolean or metrics_global_prefix | length > 0) %}global_prefix = {{ metrics_global_prefix | default('') }}{% else %}#global_prefix = <None>{% endif %}
+
+[metrics_statsd]
+
+# Host for use with the statsd backend.
+{% if metrics_statsd_host is defined and metrics_statsd_host is not none and (metrics_statsd_host is number or metrics_statsd_host is boolean or metrics_statsd_host | length > 0) %}statsd_host = {{ metrics_statsd_host | default('localhost') }}{% else %}#statsd_host = localhost{% endif %}
+
+# Port to use with the statsd backend.
+# Minimum value: 0
+# Maximum value: 65535
+{% if metrics_statsd_port is defined and metrics_statsd_port is not none and (metrics_statsd_port is number or metrics_statsd_port is boolean or metrics_statsd_port | length > 0) %}statsd_port = {{ metrics_statsd_port | default(8125) }}{% else %}#statsd_port = 8125{% endif %}

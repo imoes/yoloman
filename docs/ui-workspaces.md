@@ -9,9 +9,9 @@
 
 The nav is a flat list of ~33 entries (20 top-level + 13 under Setup) for 43 routes — one page per
 feature. Worse than the length: the things that **belong together are scattered**. Roles
-(`/plan-library`), the workflow designer (`/runbooks`), Blueprint (`/blueprint`), Deploy (`/deploy`) and
+(`/plan-library`), the workflow designer (`/runbooks`), Deploy (`/deploy`) and
 Provisioning (`/disk-templates`) are all facets of one question — *what do I want to run, and where* —
-but the UI presents them as five unrelated pages with no link between them. There is no object that
+but the UI presents them as unrelated pages with no link between them. There is no object that
 answers "where is this role deployed?" or "what is deployed on this host?".
 
 ## What the reference products do
@@ -50,9 +50,9 @@ route keeps working (this is regrouping, not rewriting).
 
 | Workspace | Nodes (existing routes) |
 |---|---|
-| **Monitor** — what is happening | Fleet Overview `/fleet`, NOC `/noc`, Problems `/problems`, Event Console `/events`, Business services, Capacity, Topology, Security, Compliance, Runs `/runs`, Audit log |
-| **Fleet** — the assets | Hosts `/hosts`, **Groups** (HostGroup exists in the DB, no UI yet), Systems `/systems`, Devices `/snmp-devices`, Host placement, OU / Policy `/ou` |
-| **Library** — what can be deployed | **Sequences** (new), Roles `/plan-library`, Blueprints `/blueprint`, App Store `/apps`, Modules `/modules`, Checks `/checks`, Config templates, Config codecs, Disk images `/disk-templates` |
+| **Monitor** — what is happening | Fleet Overview `/fleet`, AI dashboard `/ai-dashboard`, NOC `/noc`, Problems `/problems`, Event Console `/events`, Event Browser, Business services, Capacity, Topology, Security, Compliance, Runs `/runs`, Result log, Audit log |
+| **Fleet** — the assets | Hosts `/hosts`, **Groups** (HostGroup exists in the DB, no UI yet), Host clusters `/clusters`, **Kubernetes clusters `/kubernetes`** (registry → explorer → Application form, `docs/kubernetes-console.md`), Systems `/systems`, Devices `/snmp-devices`, Host placement, OU / Policy `/ou` |
+| **Library** — what can be deployed | **Sequences** (new), Roles `/plan-library` (`/plans` redirects here — it listed the same documents), Event handlers + Event rules (rules are applied, not observed), App Store `/apps`, Modules `/modules`, Checks `/checks`, Config templates, Config codecs, Disk images `/disk-templates` |
 | **Deploy** — content × assets | **Deployments** (new), Deploy wizard `/deploy`, Rollouts, Scheduler, Provisioning jobs, Config distribution |
 | **Admin** | Users & Access, Notifications, Settings |
 
@@ -239,3 +239,14 @@ sequence editor's "Deploy" button lands with it).
 
 Ribbon/toolbar redesign (we keep macOS-style contextual actions), theming (design-philosophy §"Rastafari"),
 and the agentic/planner layer (that is the Agentic-OS discussion, not the IA).
+
+## Measured, 2026-10-09 — the consistency crawler
+
+`bossman-ui/e2e/consistency.spec.ts` reads every route from `app.routes.ts` and holds each screen to the same
+rules: no console error, no 4xx/5xx API call, no critical/serious axe violation, no horizontal scroll at 1280 and
+390 px, every disabled control states its reason, no rendered `undefined`/`NaN`, and every route reachable in two
+clicks with the nav fitting a **720 px** viewport. First run: 1 of 58 screens clean; after the fixes: 57 passed, 0
+failed, 2 skipped by design (routes that need data a scenario creates). Moves that came out of it: `/ai-dashboard`
+was reachable by no click and is now in Monitor; Event rules moved to Library beside Event handlers so both
+14-item trees fit 720 px; `/plans` duplicated Roles and redirects to `/plan-library` (the `/plans/:name`
+read-before-run page stays, linked from Roles as "Run…").

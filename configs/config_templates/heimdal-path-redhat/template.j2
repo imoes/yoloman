@@ -1,0 +1,12 @@
+# Check if the current system PATH already contains the Heimdal binaries directory.
+# This prevents duplicate entries in the PATH environment variable.
+# Variable: heimdal_path_regex
+# Description: Regular expression pattern to detect if the current path already contains the Heimdal bin directory.
+# Default: */usr/lib/heimdal/bin*
+if ( "${path}" !~ {{ heimdal_path_regex | default('*/usr/lib/heimdal/bin*') }} ) then
+    # The Heimdal binary directory is not in PATH. Prepend it to the existing PATH.
+    # Variable: heimdal_bin_dir
+    # Description: The directory path where Heimdal binaries are located.
+    # Default: /usr/lib/heimdal/bin
+    set path = ( {{ heimdal_bin_dir | default('/usr/lib/heimdal/bin') }} $path )
+endif

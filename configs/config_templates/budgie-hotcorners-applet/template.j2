@@ -1,22 +1,26 @@
-# === Budgie Hotcorners Applet Autostart Configuration ===
-# This file is a desktop entry (.desktop) for the Budgie Hotcorners application.
-# It defines the executable to run, localization strings, and session-specific
-# autostart behaviors (MATE and GNOME).
+# ==============================================================================
+# Budgie Hotcorners Autostart Desktop Entry
+# ==============================================================================
+# This template generates a .desktop file to automatically launch the
+# budgie-hotcorners background process on Budgie desktop environments.
 #
-# Variables used from Ansible host_vars/group_vars:
-# - exec_path: Path to the budgie-hotcorners binary.
-# - gsettings_schema: GSettings schema identifier for checking if hotcorners are active.
-# - gsettings_key: The specific GSettings key indicating the active state.
-# - auto_restart_mate: Boolean; whether to auto-restart on MATE session recovery.
-# - auto_restart_gnome: Boolean; whether to auto-restart on GNOME session recovery.
+# Schema References:
+#   - exec_path: Path to the budgie-hotcorners executable
+#   - gsettings_schema: GSettings schema path for the autostart condition
+#   - gsettings_key: GSettings key name used in the autostart condition
+#   - auto_restart_mate: Enable auto-restart for MATE session
+#   - auto_restart_gnome: Enable auto-restart for GNOME session
+# ==============================================================================
 
 [Desktop Entry]
+
+# Type of desktop entry. Must be "Application".
 Type=Application
 
-# Application name in English
+# Display name of the application (English default).
 Name=Budgie Hotcorners
 
-# Localized names
+# Localized display names.
 Name[ca]=Cantons actius del Budgie
 Name[en_GB]=Budgie Hotcorners
 Name[fi]=Budgie Hotcorners
@@ -25,8 +29,10 @@ Name[pl]=Budgie Hotcorners
 Name[pt_BR]=Cantos ativos Budgie
 Name[pt_PT]=Cantos ativos Budgie
 
-# Short description of what this application does
+# Description of the application's function (English default).
 Comment=Kick starts the budgie-hotcorners process
+
+# Localized descriptions.
 Comment[ca]=Kick inicia el procés dels cantons actius del Budgie
 Comment[en_GB]=Kick starts the budgie-hotcorners process
 Comment[fi]=Potku käynnistää budgie-hotcorners-prosessi
@@ -34,23 +40,21 @@ Comment[it]=Avvia il processo budgie-hotcorners
 Comment[pt_BR]=Inicia o processo de cantos ativos Budgie
 Comment[pt_PT]=Inicia o processo de cantos ativos-budgie
 
-# Path to the executable. Defaults to the standard system path if not overridden.
+# Executable path. Uses the schema default '/usr/libexec/budgie-hotcorners/budgie-hotcorners'.
 Exec={{ exec_path | default('/usr/libexec/budgie-hotcorners/budgie-hotcorners') }}
 
-# Do not show in application menus (it's a background daemon/service)
+# Do not display in application menus.
 NoDisplay=true
 
-# Autostart Condition:
-# The application will only start if the GSettings key is true/active.
-# Uses the schema and key defined in variables.
+# Autostart Condition: The application starts only when the specified GSettings key is active.
+# Schema: {{ gsettings_schema | default('org.ubuntubudgie.budgie-extras.HotCorners') }}
+# Key: {{ gsettings_key | default('active') }}
 AutostartCondition=GSettings {{ gsettings_schema | default('org.ubuntubudgie.budgie-extras.HotCorners') }} {{ gsettings_key | default('active') }}
 
-# MATE Session:
-# Whether to automatically restart the application if the MATE session is restored.
-# Accepts boolean true/false. Defaults to True.
-X-MATE-AutoRestart={{ auto_restart_mate | default(True) | lower }}
+# MATE Session Auto-Restart Setting:
+# Enabled by default. If set to true, the MATE session manager will restart the process if it crashes.
+X-MATE-AutoRestart={{ auto_restart_mate | default(true) }}
 
-# GNOME Session:
-# Whether to automatically restart the application if the GNOME session is restored.
-# Accepts boolean true/false. Defaults to True.
-X-GNOME-AutoRestart={{ auto_restart_gnome | default(True) | lower }}
+# GNOME Session Auto-Restart Setting:
+# Enabled by default. If set to true, the GNOME session manager will restart the process if it crashes.
+X-GNOME-AutoRestart={{ auto_restart_gnome | default(true) }}

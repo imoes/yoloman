@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- -*- XML -*- -->
+
+<!-- D-Bus configuration for the blivet daemon service.
+     This file restricts access so that only the specified system user
+     can own the service name and send messages to it. -->
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!-- D-Bus policy: Allow the configured user to own the service name and send messages.
+       user: The system user allowed to own the D-Bus service and send messages to it.
+       service_name: The D-Bus service name that blivet-daemon registers. -->
+  <!-- The user attribute specifies which OS user is authorized to interact with this D-Bus service.
+       Default is 'root' as per schema. -->
+  <policy user="{{ (user | default('root')) }}">
+    <!-- Allow owning the service name so the daemon can claim it on the bus.
+         service_name: The unique D-Bus service identifier. Default is 'com.redhat.Blivet0'. -->
+    <!-- Note: D-Bus service names are strings; no function call needed to convert Jinja var to string. -->
+    <allow own="{{ (service_name | default('com.redhat.Blivet0')) }}"/>
+    <!-- Allow sending messages to the service name.
+         This grants the user permission to send method calls/Signals to the registered service. -->
+    <allow send_destination="{{ (service_name | default('com.redhat.Blivet0')) }}"/>
+  </policy>
+
+</busconfig>

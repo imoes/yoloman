@@ -19,7 +19,7 @@ options {
             {%- if not loop.last %} {% endif -%}
             {%- endfor %}
         {% else %}
-            any
+            any;
         {% endif %}
     };
 
@@ -33,7 +33,7 @@ options {
             {%- if not loop.last %} {% endif -%}
             {%- endfor %}
         {% else %}
-            none
+            none;
         {% endif %}
     };
 
@@ -47,7 +47,7 @@ options {
             {%- if not loop.last %} {% endif -%}
             {%- endfor %}
         {% else %}
-            any
+            any;
         {% endif %}
     };
 
@@ -61,7 +61,7 @@ options {
             {%- if not loop.last %} {% endif -%}
             {%- endfor %}
         {% else %}
-            localhost localnets
+            localhost; localnets;
         {% endif %}
     };
 
@@ -99,15 +99,4 @@ options {
     # Path to the statistics output file (used by 'rndc stats').
     statistics-file "{{ stats_file | default('/var/cache/bind/named.stats') }}";
 
-    # Configure DNS over HTTPS (DoH). Requires BIND 9.16+ and TLS certificates.
-    # If not configured, this block is omitted entirely.
-    {% if doh_endpoint is defined and doh_endpoint is not none %}
-    dns-over-https {
-        listen {{ doh_endpoint.listen | default('localhost') }};
-        max-connections {{ doh_endpoint.max_connections | default(100) }};
-        path "{{ doh_endpoint.path | default('/dns-query') }}";
-        certificate-file "{{ doh_endpoint.certificate_file | default('/etc/ssl/certs/named.pem') }}";
-        certificate-key-file "{{ doh_endpoint.certificate_key_file | default('/etc/ssl/private/named.key') }}";
-    };
-    {% endif %}
 };

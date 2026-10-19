@@ -1,0 +1,44 @@
+# ndppd.conf - Neighbor Discovery Proxy Daemon configuration
+# Self-documenting template for Ansible role.
+# Each directive is preceded by a comment explaining its purpose and default value.
+# All variables use schema-defined defaults to ensure safe rendering.
+
+# route-ttl <integer>
+# How often to reload the route file /proc/net/ipv6_route, in milliseconds.
+# If set to 0 or not specified, the file is reloaded only on startup.
+route-ttl {{ route_ttl | default(30000) }}
+
+# proxy <interface>
+# The network interface to listen on for Neighbor Solicitation messages.
+# You may define multiple proxy sections.
+proxy {{ proxy_interface | default('eth0') }} {
+
+   # router <yes|no>
+   # Whether to turn on the router flag for Neighbor Advertisement messages.
+   router {{ router_flag | default('yes') }}
+
+   # timeout <integer>
+   # How long to wait for a Neighbor Advertisement message before invalidating the entry, in milliseconds.
+   timeout {{ timeout_ms | default('500   ') }}
+
+   # ttl <integer>
+   # How long a valid or invalid entry remains in the cache, in milliseconds.
+   ttl {{ ttl_ms | default('30000') }}
+
+   # rule <ip>[/<mask>]
+   # The target IPv6 address to match against in the rule.
+   # If no netmask is provided, /128 is assumed.
+   rule {{ rule_address | default('1111::') }} {
+
+      # rule_method <static|auto|interface>
+      # The method used for handling the rule:
+      #   static : ndppd immediately answers Neighbor Solicitation Messages matching the IP rule.
+      #   auto   : ndppd forwards the Neighbor Solicitation Message and waits for a matching
+      #            Neighbor Advertisement from the route's next hop.
+      #   interface : ndppd forwards the Neighbor Solicitation Message through the specified
+      #               interface and only responds if a matching Neighbor Advertisement is received.
+      {{ rule_method | default('auto') }}
+
+   }
+
+}

@@ -1,0 +1,129 @@
+# =============================================================================
+# FRRouting (FRR) Daemon Configuration
+# =============================================================================
+# This file configures which FRR daemons are enabled and their startup options.
+#
+# IMPORTANT: When activating a daemon for the first time, an empty configuration
+# file must exist in /etc/frr/ (e.g., /etc/frr/bgpd.conf), owned by user/group
+# "frr" with permissions u=rw,g=r,o=. For vtysh usage, the file must be owned
+# by group "frrvty" with permissions ug=rw,o=.
+#
+# The watchfrr, zebra, and staticd daemons are always started regardless of
+# the settings in this file.
+
+# ------------------------------------------------------------------------------
+# Daemon Enablement Switches
+# ------------------------------------------------------------------------------
+# Each variable below controls whether the corresponding FRR daemon is started
+# by the init system. Set to "yes" to enable, "no" to disable.
+
+# Enable BGP daemon (Border Gateway Protocol)
+bgpd={{ bgpd_enabled | default('no') }}
+
+# Enable OSPFv2 daemon (Open Shortest Path First version 2)
+ospfd={{ ospfd_enabled | default('no') }}
+
+# Enable OSPFv3 daemon (Open Shortest Path First version 3 / IPv6)
+ospf6d={{ ospf6d_enabled | default('no') }}
+
+# Enable RIPv1 daemon (Routing Information Protocol version 1)
+ripd={{ ripd_enabled | default('no') }}
+
+# Enable RIPv2 daemon (Routing Information Protocol version 2 / IPv6)
+ripngd={{ ripngd_enabled | default('no') }}
+
+# Enable IS-IS daemon (Intermediate System to Intermediate System)
+isisd={{ isisd_enabled | default('no') }}
+
+# Enable PIM-SSM daemon (Protocol Independent Multicast - Source Specific Multicast)
+pimd={{ pimd_enabled | default('no') }}
+
+# Enable PIMv6 daemon (Protocol Independent Multicast for IPv6)
+pim6d={{ pim6d_enabled | default('no') }}
+
+# Enable NHRP daemon (Next Hop Resolution Protocol)
+nhrpd={{ nhrpd_enabled | default('no') }}
+
+# Enable EIGRP daemon (Enhanced Interior Gateway Routing Protocol)
+eigrpd={{ eigrpd_enabled | default('no') }}
+
+# Enable Sharp daemon (Testing/Debugging interface)
+sharpd={{ sharpd_enabled | default('no') }}
+
+# Enable Policy-Based Routing daemon
+pbrd={{ pbrd_enabled | default('no') }}
+
+# Enable BFD daemon (Bidirectional Forwarding Detection)
+bfdd={{ bfdd_enabled | default('no') }}
+
+# Enable Fabric Path daemon (Cisco Fabric Path)
+fabricd={{ fabricd_enabled | default('no') }}
+
+# Enable VRRP daemon (Virtual Router Redundancy Protocol)
+vrrpd={{ vrrpd_enabled | default('no') }}
+
+# Enable PathD daemon (Segment Routing Path Control)
+pathd={{ pathd_enabled | default('no') }}
+
+# ------------------------------------------------------------------------------
+# Vtysh and General Options
+# ------------------------------------------------------------------------------
+
+# If set to "yes", the init script automatically loads FRR configuration via
+# "vtysh -b" when servers are started. Check /etc/pam.d/frr if you intend to use vtysh.
+vtysh_enable={{ vtysh_enable | default('yes') }}
+
+# Options passed to the zebra daemon (FRR routing engine).
+# Default binds to localhost with a 900MB memory limit.
+zebra_options="{{ zebra_options | default('  -A 127.0.0.1 -s 90000000') }}"
+
+# Options passed to the bgpd daemon.
+bgpd_options="{{ bgpd_options | default('   -A 127.0.0.1') }}"
+
+# Options passed to the ospfd daemon.
+ospfd_options="{{ ospfd_options | default('  -A 127.0.0.1') }}"
+
+# Options passed to the ospf6d daemon.
+ospf6d_options="{{ ospf6d_options | default(' -A ::1') }}"
+
+# Options passed to the ripd daemon.
+ripd_options="{{ ripd_options | default('   -A 127.0.0.1') }}"
+
+# Options passed to the ripngd daemon.
+ripngd_options="{{ ripngd_options | default(' -A ::1') }}"
+
+# Options passed to the isisd daemon.
+isisd_options="{{ isisd_options | default('  -A 127.0.0.1') }}"
+
+# Options passed to the pimd daemon.
+pimd_options="{{ pimd_options | default('   -A 127.0.0.1') }}"
+
+# Options passed to the pim6d daemon.
+pim6d_options="{{ pim6d_options | default('  -A ::1') }}"
+
+# Options passed to the nhrpd daemon.
+nhrpd_options="{{ nhrpd_options | default('  -A 127.0.0.1') }}"
+
+# Options passed to the eigrpd daemon.
+eigrpd_options="{{ eigrpd_options | default(' -A 127.0.0.1') }}"
+
+# Options passed to the sharpd daemon.
+sharpd_options="{{ sharpd_options | default(' -A 127.0.0.1') }}"
+
+# Options passed to the pbrd daemon.
+pbrd_options="{{ pbrd_options | default('   -A 127.0.0.1') }}"
+
+# Options passed to the staticd daemon.
+staticd_options="{{ staticd_options | default('-A 127.0.0.1') }}"
+
+# Options passed to the bfdd daemon.
+bfdd_options="{{ bfdd_options | default('   -A 127.0.0.1') }}"
+
+# Options passed to the fabricd daemon.
+fabricd_options="{{ fabricd_options | default('-A 127.0.0.1') }}"
+
+# Options passed to the vrrpd daemon.
+vrrpd_options="{{ vrrpd_options | default('  -A 127.0.0.1') }}"
+
+# Options passed to the pathd daemon.
+pathd_options="{{ pathd_options | default('  -A 127.0.0.1') }}"

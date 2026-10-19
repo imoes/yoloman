@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Noto Sans Thai UI Font Substitution Configuration
+  
+  This file configures Fontconfig to prefer "Noto Sans Thai UI" for
+  Thai language text and as the primary font for generic sans-serif families.
+  It also optionally enables font hinting for better screen rendering.
+-->
+<fontconfig>
+  <!--
+    Match block: Intercepts font requests matching specific criteria
+    and modifies the font family list to inject the desired font.
+  -->
+  <match>
+    <!--
+      Test 1: Check if the requested font's language is Thai.
+      Schema field: lang
+      Default: th
+      Description: Language code to match for font substitution
+    -->
+    <test name="lang" compare="contains">
+      <string>{{ lang | default('th') }}</string>
+    </test>
+
+    <!--
+      Test 2: Check if the requested font family is a generic sans-serif.
+      Schema field: default_family
+      Default: sans-serif
+      Description: Generic font family to target for substitution
+    -->
+    <test name="family">
+      <string>{{ default_family | default('sans-serif') }}</string>
+    </test>
+
+    <!--
+      Edit 1: Prepend the specific Noto Sans Thai UI font to the list.
+      This ensures it is chosen before other available fonts.
+      Schema field: font_family
+      Default: Noto Sans Thai UI
+      Description: Specific font family name to inject
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Thai UI') }}</string>
+    </edit>
+
+    <!--
+      Edit 2: Append hinting settings if enabled.
+      Controls whether hinting directives are added to the font configuration.
+      Schema field: font_hinting
+      Default: false
+      Description: Whether to append hinting settings for the font
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hinting | default(false) }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias block: Defines the canonical alias for the font family.
+    This ensures that applications requesting "Noto Sans Thai UI"
+    get resolved correctly, with "sans-serif" as the fallback.
+  -->
+  <alias>
+    <!-- The primary family name -->
+    <family>{{ font_family | default('Noto Sans Thai UI') }}</family>
+    
+    <!-- The fallback default family -->
+    <default>
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

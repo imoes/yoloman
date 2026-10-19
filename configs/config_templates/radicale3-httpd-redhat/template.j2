@@ -1,0 +1,340 @@
+### Define how Apache should serve "radicale"
+## !!! Do not enable both at the same time !!!
+
+## Apache acting as reverse proxy and forward requests via ProxyPass to a running "radicale" server
+# SELinux WARNING: To use this correctly, you will need to set:
+#    setsebool -P httpd_can_network_connect=1
+# URI prefix: /radicale
+#Define RADICALE_SERVER_REVERSE_PROXY
+
+
+## Apache starting WSGI server running with "radicale" application
+# MAY CONFLICT with other WSG servers on same system -> use then inside a VirtualHost
+# SELinux WARNING: To use this correctly, you will need to set:
+#    setsebool -P httpd_can_read_write_radicale=1
+# URI prefix: /radicale
+#Define RADICALE_SERVER_WSGI
+
+
+### Extra options
+## Apache starting a dedicated VHOST with SSL without "/radicale" prefix in URI on port 8443
+#Define RADICALE_SERVER_VHOST_SSL
+
+
+### permit public access to "radicale"
+#Define RADICALE_PERMIT_PUBLIC_ACCESS
+
+
+### enforce SSL on default host
+#Define RADICALE_ENFORCE_SSL
+
+
+### enable authentication by web server (config: [auth] type = http_x_remote_user)
+#Define RADICALE_SERVER_USER_AUTHENTICATION
+
+
+### Particular configuration EXAMPLES, adjust/extend/override to your needs
+
+
+##########################
+### default host
+##########################
+<IfDefine !RADICALE_SERVER_VHOST_SSL>
+
+## RADICALE_SERVER_REVERSE_PROXY
+<IfDefine RADICALE_SERVER_REVERSE_PROXY>
+	RewriteEngine On
+
+	RewriteRule ^/radicale$ /radicale/ [R,L]
+
+	RewriteCond %{REQUEST_METHOD} GET
+	RewriteRule ^/radicale/$ /radicale/.web/ [R,L]
+
+	<LocationMatch "^/radicale/\.(web|token).*">
+		# Internal WebUI or Token does not need authentication at all
+		RequestHeader    set X-Script-Name /radicale
+
+		RequestHeader    set X-Forwarded-Port "%{SERVER_PORT}s"
+		RequestHeader    set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+
+		# Port on localhost where the Radicale daemon listens.
+		{% set backend_port = radicle_backend_port | default('5232') %}
+		ProxyPass        http://localhost:{{ backend_port }}/ retry=0
+		ProxyPassReverse http://localhost:{{ backend_port }}/
+		<IfVersion >= 2.4.40>
+		Proxy100Continue Off
+		</IfVersion>
+
+		Require local
+		<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+		Require all granted
+		</IfDefine>
+	</LocationMatch>
+
+	<LocationMatch "^/radicale(?!/\.(web|token))">
+		RequestHeader    set X-Script-Name /radicale
+
+		RequestHeader    set X-Forwarded-Port "%{SERVER_PORT}s"
+		RequestHeader    set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+
+		# Port on localhost where the Radicale daemon listens.
+		{% set backend_port = radicle_backend_port | default('5232') %}
+		ProxyPass        http://localhost:{{ backend_port }}/ retry=0
+		ProxyPassReverse http://localhost:{{ backend_port }}/
+		<IfVersion >= 2.4.40>
+		Proxy100Continue Off
+		</IfVersion>
+
+		<IfDefine !RADICALE_SERVER_USER_AUTHENTICATION>
+			## User authentication handled by "radicale"
+			Require local
+			<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+			Require all granted
+			</IfDefine>
+		</IfDefine>
+
+		<IfDefine RADICALE_SERVER_USER_AUTHENTICATION>
+			## You may want to use apache's authentication (config: [auth] type = http_x_remote_user)
+			##  e.g. create a new file with a testuser: htpasswd -c -B /etc/httpd/conf/htpasswd-radicale testuser
+			AuthBasicProvider file
+			AuthType Basic
+			AuthName "Enter your credentials"
+			AuthUserFile /etc/httpd/conf/htpasswd-radicale
+			AuthGroupFile /dev/null
+			Require valid-user
+			RequestHeader set X-Remote-User expr=%{REMOTE_USER}
+		</IfDefine>
+
+		<IfDefine RADICALE_ENFORCE_SSL>
+			<IfModule !ssl_module>
+				Error "RADICALE_ENFORCE_SSL selected but ssl module not loaded/enabled"
+			</IfModule>
+			SSLRequireSSL
+		</IfDefine>
+	</LocationMatch>
+</IfDefine>
+
+
+## RADICALE_SERVER_WSGI
+# For more information, visit:
+# http://radicale.org/user_documentation/#idapache-and-mod-wsgi
+<IfDefine RADICALE_SERVER_WSGI>
+<IfModule wsgi_module>
+
+	<Files /usr/share/radicale/radicale.wsgi>
+		SetHandler wsgi-script
+
+		Require local
+		<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+		Require all granted
+		</IfDefine>
+	</Files>
+
+	WSGIDaemonProcess radicale user=radicale group=radicale threads=1 umask=0027
+	WSGIProcessGroup radicale
+	WSGIApplicationGroup %{GLOBAL}
+	WSGIPassAuthorization On
+
+	WSGIScriptAlias /radicale /usr/share/radicale/radicale.wsgi
+
+	# Internal WebUI or Token does not need authentication at all
+	<LocationMatch "^/radicale/\.(web|token).*">
+		RequestHeader    set X-Script-Name /radicale
+
+		Require local
+		<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+		Require all granted
+		</IfDefine>
+	</LocationMatch>
+
+	<LocationMatch "^/radicale(?!/\.(web|token))">
+		RequestHeader    set X-Script-Name /radicale
+
+		<IfDefine !RADICALE_SERVER_USER_AUTHENTICATION>
+			## User authentication handled by "radicale"
+			Require local
+			<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+			Require all granted
+			</IfDefine>
+		</IfDefine>
+
+		<IfDefine RADICALE_SERVER_USER_AUTHENTICATION>
+			## You may want to use apache's authentication (config: [auth] type = http_x_remote_user)
+			##  e.g. create a new file with a testuser: htpasswd -c -B /etc/httpd/conf/htpasswd-radicale testuser
+			AuthBasicProvider file
+			AuthType Basic
+			AuthName "Enter your credentials"
+			AuthUserFile /etc/httpd/conf/htpasswd-radicale
+			AuthGroupFile /dev/null
+			Require valid-user
+			RequestHeader set X-Remote-User expr=%{REMOTE_USER}
+		</IfDefine>
+
+		<IfDefine RADICALE_ENFORCE_SSL>
+			<IfModule !ssl_module>
+				Error "RADICALE_ENFORCE_SSL selected but ssl module not loaded/enabled"
+			</IfModule>
+			SSLRequireSSL
+		</IfDefine>
+	</LocationMatch>
+</IfModule>
+<IfModule !wsgi_module>
+	Error "RADICALE_SERVER_WSGI selected but wsgi module not loaded/enabled"
+</IfModule>
+</IfDefine>
+
+</IfDefine>
+
+
+##########################
+### VHOST with SSL
+##########################
+<IfDefine RADICALE_SERVER_VHOST_SSL>
+
+<IfModule ssl_module>
+# Port for the dedicated SSL VirtualHost.
+{% set ssl_port = radicle_vhost_ssl_port | default('8443') %}
+Listen {{ ssl_port }} https
+
+<VirtualHost _default_:{{ ssl_port }}>
+## taken from ssl.conf
+
+#ServerName www.example.com:443
+ErrorLog logs/ssl_error_log
+TransferLog logs/ssl_access_log
+LogLevel warn
+SSLEngine on
+SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
+SSLProxyProtocol all -SSLv3 -TLSv1 -TLSv1.1
+SSLHonorCipherOrder on
+SSLCipherSuite PROFILE=SYSTEM
+SSLProxyCipherSuite PROFILE=SYSTEM
+SSLCertificateFile /etc/pki/tls/certs/localhost.crt
+SSLCertificateKeyFile /etc/pki/tls/private/localhost.key
+#SSLCertificateChainFile /etc/pki/tls/certs/server-chain.crt
+#SSLCACertificateFile /etc/pki/tls/certs/ca-bundle.crt
+#SSLVerifyClient require
+#SSLVerifyDepth  10
+#SSLOptions +FakeBasicAuth +ExportCertData +StrictRequire
+BrowserMatch "MSIE [2-5]" \ nokeepalive ssl-unclean-shutdown \ downgrade-1.0 force-response-1.0
+CustomLog logs/ssl_request_log "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
+
+
+## RADICALE_SERVER_REVERSE_PROXY
+<IfDefine RADICALE_SERVER_REVERSE_PROXY>
+	RewriteEngine On
+
+	RewriteCond %{REQUEST_METHOD} GET
+	RewriteRule ^/$ /.web/ [R,L]
+
+	<LocationMatch "^/\.(web|token).*">
+		RequestHeader    set X-Forwarded-Port "%{SERVER_PORT}s"
+		RequestHeader    set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+
+		# Port on localhost where the Radicale daemon listens.
+		{% set backend_port = radicle_backend_port | default('5232') %}
+		ProxyPass        http://localhost:{{ backend_port }}/ retry=0
+		ProxyPassReverse http://localhost:{{ backend_port }}/
+		<IfVersion >= 2.4.40>
+		Proxy100Continue Off
+		</IfVersion>
+
+		Require local
+		<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+		Require all granted
+		</IfDefine>
+	</LocationMatch>
+
+	<LocationMatch "^(?!/\.(web|token))">
+		RequestHeader    set X-Forwarded-Port "%{SERVER_PORT}s"
+		RequestHeader    set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+
+		# Port on localhost where the Radicale daemon listens.
+		{% set backend_port = radicle_backend_port | default('5232') %}
+		ProxyPass        http://localhost:{{ backend_port }}/ retry=0
+		ProxyPassReverse http://localhost:{{ backend_port }}/
+		<IfVersion >= 2.4.40>
+		Proxy100Continue Off
+		</IfVersion>
+
+		<IfDefine !RADICALE_SERVER_USER_AUTHENTICATION>
+			## User authentication handled by "radicale"
+			Require local
+			<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+			Require all granted
+			</IfDefine>
+		</IfDefine>
+
+		<IfDefine RADICALE_SERVER_USER_AUTHENTICATION>
+			## You may want to use apache's authentication (config: [auth] type = http_x_remote_user)
+			##  e.g. create a new file with a testuser: htpasswd -c -B /etc/httpd/conf/htpasswd-radicale testuser
+			AuthBasicProvider file
+			AuthType Basic
+			AuthName "Enter your credentials"
+			AuthUserFile /etc/httpd/conf/htpasswd-radicale
+			AuthGroupFile /dev/null
+			Require valid-user
+			RequestHeader set X-Remote-User expr=%{REMOTE_USER}
+		</IfDefine>
+	</LocationMatch>
+</IfDefine>
+
+
+## RADICALE_SERVER_WSGI
+# For more information, visit:
+# http://radicale.org/user_documentation/#idapache-and-mod-wsgi
+<IfDefine RADICALE_SERVER_WSGI>
+<IfModule wsgi_module>
+
+	<Files /usr/share/radicale/radicale.wsgi>
+		SetHandler wsgi-script
+
+		Require local
+		<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+		Require all granted
+		</IfDefine>
+	</Files>
+
+	WSGIDaemonProcess radicale user=radicale group=radicale threads=1 umask=0027
+	WSGIProcessGroup radicale
+	WSGIApplicationGroup %{GLOBAL}
+	WSGIPassAuthorization On
+
+	WSGIScriptAlias / /usr/share/radicale/radicale.wsgi
+
+	<LocationMatch "^/(?!/\.(web|token))">
+		<IfDefine !RADICALE_SERVER_USER_AUTHENTICATION>
+			## User authentication handled by "radicale"
+			Require local
+			<IfDefine RADICALE_PERMIT_PUBLIC_ACCESS>
+			Require all granted
+			</IfDefine>
+		</IfDefine>
+
+		<IfDefine RADICALE_SERVER_USER_AUTHENTICATION>
+			## You may want to use apache's authentication (config: [auth] type = http_x_remote_user)
+			##  e.g. create a new file with a testuser: htpasswd -c -B /etc/httpd/conf/htpasswd-radicale testuser
+			AuthBasicProvider file
+			AuthType Basic
+			AuthName "Enter your credentials"
+			AuthUserFile /etc/httpd/conf/htpasswd-radicale
+			AuthGroupFile /dev/null
+			Require valid-user
+			RequestHeader set X-Remote-User expr=%{REMOTE_USER}
+		</IfDefine>
+	</LocationMatch>
+</IfModule>
+<IfModule !wsgi_module>
+	Error "RADICALE_SERVER_WSGI selected but wsgi module not loaded/enabled"
+</IfModule>
+</IfDefine>
+
+
+</VirtualHost>
+</IfModule>
+
+<IfModule !ssl_module>
+	Error "RADICALE_SERVER_VHOST_SSL selected but ssl module not loaded/enabled"
+</IfModule>
+
+</IfDefine>

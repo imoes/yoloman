@@ -1,16 +1,38 @@
-[Desktop Entry]
-# Desktop Entry type; must always be Application for this kind of service.
+# Budgie Previews Desktop Entry
+# This template generates a .desktop file for the Budgie Previews Creator service.
+# It configures autostart behavior and execution path based on provided variables.
+#
+# Fields:
+# - exec_path: Path to the previews_creator executable
+# - gsettings_schema: GSettings schema path for autostart condition
+# - gsettings_key: GSettings key name for autostart condition
+# - mate_auto_restart: Whether MATE should auto-restart this application
+# - gnome_auto_restart: Whether GNOME should auto-restart this application
+
+# Specifies the type of this file; here it is an application entry.
 Type=Application
-# Human-readable name shown in session managers.
+
+# The display name for the application in desktop environments.
 Name=Preview Creator
-# Path to the previews_creator executable that generates thumbnail previews.
+
+# The command to execute. Uses the path to the previews_creator executable.
+# exec_path: Path to the previews_creator executable
 Exec={{ exec_path | default('/usr/lib/budgie-previews/previews_creator') }}
-# Hide this entry from standard application menus; it runs in the background.
+
+# Whether to hide this application from standard application menus.
+# Set to true to prevent it from cluttering the menu while keeping it running.
 NoDisplay=true
-# Autostart condition: only start when the GSettings key is enabled.
-# Format: AutostartCondition=GSettings <schema> <key>
+
+# Autostart condition based on GSettings.
+# Checks if the key 'enable-previews' in schema 'org.ubuntubudgie.budgie-wpreviews' is set.
+# gsettings_schema: GSettings schema path for autostart condition
+# gsettings_key: GSettings key name for autostart condition
 AutostartCondition=GSettings {{ gsettings_schema | default('org.ubuntubudgie.budgie-wpreviews') }} {{ gsettings_key | default('enable-previews') }}
-# Whether the MATE desktop environment should automatically restart this process if it crashes.
-X-MATE-AutoRestart={{ mate_auto_restart | default(true) | lower }}
-# Whether the GNOME desktop environment should automatically restart this process if it crashes.
-X-GNOME-AutoRestart={{ gnome_auto_restart | default(true) | lower }}
+
+# Hint for the MATE desktop environment to auto-restart the application if it crashes.
+# mate_auto_restart: Whether MATE should auto-restart this application
+X-MATE-AutoRestart={{ mate_auto_restart | default('true') }}
+
+# Hint for the GNOME desktop environment to auto-restart the application if it crashes.
+# gnome_auto_restart: Whether GNOME should auto-restart this application
+X-GNOME-AutoRestart={{ gnome_auto_restart | default('true') }}

@@ -1,0 +1,187 @@
+# ==============================================================================
+# cloud-init RedHat Configuration
+# ==============================================================================
+# This file configures the behavior of cloud-init on RedHat-based systems.
+# It controls user accounts, SSH settings, hostname management, and system paths.
+#
+# Variables used in this template are expected to be defined in the Ansible
+# inventory or group_vars. If a variable is undefined, the schema default
+# will be applied automatically via Jinja2 defaults filters.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Settings
+# --------------------------------------------------------------------------
+
+# A set of users which may be applied and/or used by various modules.
+# When a 'default' entry is found it will reference the 'default_user'
+# from the distro configuration specified below.
+users:
+  - default
+
+# --------------------------------------------------------------------------
+# Root and SSH Security Settings
+# --------------------------------------------------------------------------
+
+# If true, disables SSH login for the root user.
+# Root login will be blocked, and users will be prompted to login as the
+# default user instead.
+disable_root: {{ disable_root | default('true') }}
+
+# Mount default fields for auto-mounted devices.
+# Defaults to auto-mount with systemd ordering after cloud-init network.
+mount_default_fields: [~, ~, 'auto', 'defaults,nofail,x-systemd.after=cloud-init-network.service,_netdev', '0', '2']
+
+# If true, enables password authentication for SSH.
+# Recommended to keep false if using key-based authentication for security.
+ssh_pwauth: {{ ssh_pwauth | default('false') }}
+
+# --------------------------------------------------------------------------
+# Hostname Management
+# --------------------------------------------------------------------------
+
+# If true, prevents cloud-init from changing the hostname.
+# Useful if the hostname is managed by external tools (e.g., DHCP, Kubernetes).
+preserve_hostname: {{ preserve_hostname | default('false') }}
+
+# --------------------------------------------------------------------------
+# Datasource Configuration (Example Commented Out)
+# --------------------------------------------------------------------------
+# If you use datasource_list array, keep array items in a single line.
+# If you use multi line array, ds-identify script won't read array items.
+# Example datasource config:
+# datasource:
+#   Ec2:
+#     metadata_urls: [ 'blah.com' ]
+#     timeout: 5 # (defaults to 50 seconds)
+#     max_wait: 10 # (defaults to 120 seconds)
+
+# --------------------------------------------------------------------------
+# Default RedHat Specific Settings
+# --------------------------------------------------------------------------
+
+# If true, deletes SSH host keys on first boot.
+# Regenerates keys to ensure uniqueness per instance.
+ssh_deletekeys: {{ ssh_deletekeys | default('true') }}
+
+# List of SSH key types to generate on first boot.
+ssh_genkeytypes: {{ ssh_genkeytypes | default(["rsa", "ecdsa", "ed25519"]) }}
+
+# Syslog permission fix setting.
+# Controls the permissions on /var/log files relative to the rsyslog user.
+syslog_fix_perms: {{ syslog_fix_perms | default('~') }}
+
+# If true, disables VMware customization hooks.
+disable_vmware_customization: {{ disable_vmware_customization | default('false') }}
+
+# --------------------------------------------------------------------------
+# Cloud-Init Stages
+# --------------------------------------------------------------------------
+
+# The modules that run in the 'init' stage.
+# These run early in the boot process for seeding, boot commands, and initial
+# setup (users, SSH, hostname, etc.).
+cloud_init_modules:
+  - seed_random
+  - bootcmd
+  - write_files
+  - growpart
+  - resizefs
+  - disk_setup
+  - mounts
+  - set_hostname
+  - update_hostname
+  - update_etc_hosts
+  - ca_certs
+  - rsyslog
+  - users_groups
+  - ssh
+  - set_passwords
+
+# The modules that run in the 'config' stage.
+# These run after networking is up and are used for system configuration
+# (locale, subscription, NTP, timezone, etc.).
+cloud_config_modules:
+  - ssh_import_id
+  - locale
+  - rh_subscription
+  - spacewalk
+  - yum_add_repo
+  - ntp
+  - timezone
+  - disable_ec2_metadata
+  - runcmd
+
+# The modules that run in the 'final' stage.
+# These run at the end of the first boot for package installation, final
+# commands, and reporting.
+cloud_final_modules:
+  - package_update_upgrade_install
+  - write_files_deferred
+  - puppet
+  - chef
+  - ansible
+  - mcollective
+  - salt_minion
+  - reset_rmc
+  - scripts_vendor
+  - scripts_per_once
+  - scripts_per_boot
+  - scripts_per_instance
+  - scripts_user
+  - ssh_authkey_fingerprints
+  - keys_to_console
+  - install_hotplug
+  - phone_home
+  - final_message
+  - power_state_change
+
+# --------------------------------------------------------------------------
+# System and Distro Specific Settings
+# --------------------------------------------------------------------------
+
+# System and/or distro specific settings.
+# (not accessible to handlers/transforms)
+system_info:
+  # This will affect which distro class gets used by cloud-init.
+  distro: {{ distro | default('almalinux') }}
+
+  # Default user name + that default users groups (if added/used).
+  default_user:
+    # The default username.
+    name: {{ default_user_name | default('almalinux') }}
+
+    # If true, locks the password for the default user.
+    # Prevents login via password, enforcing key-based or sudo-only access.
+    lock_passwd: {{ default_user_lock_passwd | default('True') }}
+
+    # The GECOS field for the default user (usually includes comment/full name).
+    gecos: {{ default_user_gecos | default('almalinux Cloud User') }}
+
+    # List of groups the default user belongs to.
+    groups: {{ default_user_groups | default(['adm', 'systemd-journal']) }}
+
+    # Sudo configuration for the default user.
+    # Defines permissions for running commands as root.
+    sudo: {{ default_user_sudo | default(['ALL=(ALL) NOPASSWD:ALL']) }}
+
+    # The shell for the default user.
+    shell: {{ default_user_shell | default('/bin/bash') }}
+
+  # Network configuration settings.
+  network:
+    # List of network renderers to use.
+    # Cloud-init will attempt to use the first available renderer in this list.
+    renderers: {{ network_renderers | default(['sysconfig', 'eni', 'netplan', 'network-manager', 'networkd']) }}
+
+  # Other config here will be given to the distro class and/or path classes.
+  paths:
+    # The directory where cloud-init stores state (logs, scripts, etc.).
+    cloud_dir: {{ cloud_dir | default('/var/lib/cloud/') }}
+
+    # The directory for cloud-init templates (e.g., ssh host keys templates).
+    templates_dir: {{ templates_dir | default('/etc/cloud/templates/') }}
+
+  # The name of the SSH service on this system.
+  # Used to restart SSH after configuration changes.
+  ssh_svcname: {{ ssh_svcname | default('sshd') }}

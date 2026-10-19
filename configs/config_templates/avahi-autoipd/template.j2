@@ -1,43 +1,126 @@
 #!/bin/sh
 #
-# This file is part of avahi.
+# Avahi Auto-IPD Event Handler Script
+# ===================================
+# This script is invoked by avahi-daemon when link-local IP addresses are
+# assigned or released on network interfaces. It manages IP assignments
+# and default routes for the 169.254.0.0/16 (Link-Local) range.
 #
-# avahi-autoipd is a script used by DHCP client hooks to manage link-local
-# IP address assignment using the Avahi mDNS/DNS-SD stack. It ensures that
-# the avahi-autoipd daemon is running for the interface when a link-local
-# address is needed, and stopped when it is released or expired.
+# The script detects available network tools (`ip` from iproute2 or
+# legacy `ifconfig`) to configure the interface.
 #
-# This template is self-documenting: every variable reference is annotated
-# with its schema description and safe default.
-#
+# Arguments provided by avahi-autoipd:
+#   $1: Event type (BIND, CONFLICT, UNBIND, STOP)
+#   $2: Interface name (e.g., eth0, wlan0)
+#   $3: Assigned IP address (e.g., 169.254.x.x)
 
-case "$reason" in
-    MEDIUM|ARPCHECK|ARPSEND|NBI)
-        # No action required for these DHCP reason codes.
-        ;;
+set -e
 
-    PREINIT|BOUND|RENEW|REBIND|REBOOT|STOP|RELEASE)
-        #
-        # avahi_autoipd_binary_path: Absolute path to the avahi-autoipd binary executable
-        # Default: /usr/sbin/avahi-autoipd
-        #
-        # Check if the avahi-autoipd binary exists and is executable.
-        # If it supports configuration for the current interface ($interface),
-        # verify its status.
-        #
-        if [ -x {{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }} ] && {{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }} -c $interface; then
-            # Stop any existing avahi-autoipd instance for this interface to allow
-            # proper state management. Errors are suppressed as the process might
-            # already be stopped.
-            {{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }} -k $interface 2> /dev/null
-        fi
-        ;;
-    
-    EXPIRE|FAIL|TIMEOUT)
-        #
-        # When an address expires, fails, or times out, the actual starting
-        # of avahi-autoipd is handled by a separate exit hook mechanism,
-        # so no action is taken here.
-        #
-        ;;
-esac
+# Path configuration: ensure standard system binaries are found.
+# This is critical as avahi-daemon may run with a minimal PATH.
+PATH="$PATH:/usr/bin:/usr/sbin:/bin:/sbin"
+
+# Determine the binary path for avahi-autoipd itself.
+# Although this script is the event handler, this variable is kept
+# for consistency if the script needs to reference its own parent tool
+# or for debugging/logging purposes.
+# Default: /usr/sbin/avahi-autoipd
+AVAHIAUTOIPD_BINARY="{{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }}"
+
+# Calculate routing metric for the interface.
+# We assign a unique metric per interface to allow identical routes
+# on multiple interfaces without conflicts.
+# Base metric: 1000 + interface index (ifindex).
+# If /sys/class/net/$2/ifindex is missing (e.g., non-Linux or error), fall back to 0.
+METRIC=$((1000 + $(cat "/sys/class/net/${2}/ifindex" 2>/dev/null || echo 0)))
+
+# Attempt to determine which network management tool is available.
+# Preference is given to the modern `ip` command (iproute2).
+if [ -x /bin/ip -o -x /sbin/ip ] ; then
+
+    # ---------------------------------------------------------
+    # Method 1: Using `ip` command (iproute2 package)
+    # ---------------------------------------------------------
+
+    case "${1}" in
+
+        BIND)
+            # A new IP address has been successfully claimed.
+            # 1. Remove any existing auto-generated addresses on this interface
+            #    with the label "${2}:avahi" to ensure a clean state.
+            ip addr flush dev "${2}" label "${2}:avahi"
+
+            # 2. Assign the new IP address with Link-Local scope and broadcast.
+            #    - dev: Target interface
+            #    - label: Identifier to manage these addresses easily later
+            #    - scope link: Restricts to local link (169.254.0.0/16)
+            ip addr add "${3}"/16 brd 169.254.255.255 label "${2}:avahi" scope link dev "${2}"
+
+            # 3. Add a default route via this interface with the calculated metric.
+            #    The '|| :' prevents script exit on failure (e.g., route already exists).
+            ip route add default dev "${2}" metric "${METRIC}" scope link ||:
+            ;;
+
+        CONFLICT|UNBIND|STOP)
+            # An IP address is no longer needed or a conflict occurred.
+            # 1. Remove the default route added during BIND.
+            ip route del default dev "${2}" metric "${METRIC}" scope link ||:
+
+            # 2. Remove the IP address assigned to the interface.
+            ip addr del "${3}"/16 brd 169.254.255.255 label "${2}:avahi" scope link dev "${2}"
+            ;;
+
+        *)
+            # Unknown event type received from avahi-daemon.
+            echo "Unknown event ${1}" >&2
+            exit 1
+            ;;
+    esac
+
+elif [ -x /bin/ifconfig -o -x /sbin/ifconfig ] ; then
+
+    # ---------------------------------------------------------
+    # Method 2: Using legacy `ifconfig` command
+    # ---------------------------------------------------------
+    # Note: `ifconfig` is deprecated in modern Linux distributions.
+    # The `route` command is also legacy and may not be available on all systems.
+
+    case "${1}" in
+
+        BIND)
+            # 1. Configure the interface with the new IP, netmask, and broadcast.
+            #    - netmask 255.255.0.0 corresponds to /16
+            #    - up: Activates the interface
+            ifconfig "${2}:avahi" inet "${3}" netmask 255.255.0.0 broadcast 169.254.255.255 up
+
+            # 2. Add a default route.
+            #    The '|| :' prevents script exit on failure.
+            route add default dev "${2}:avahi" metric "${METRIC}" ||:
+            ;;
+
+        CONFLICT|STOP|UNBIND)
+            # 1. Remove the default route.
+            route del default dev "${2}:avahi" metric "${METRIC}" ||:
+
+            # 2. Bring the interface alias down.
+            ifconfig "${2}:avahi" down
+            ;;
+
+        *)
+            echo "Unknown event ${1}" >&2
+            exit 1
+            ;;
+    esac
+
+else
+
+    # ---------------------------------------------------------
+    # Error: No supported network configuration tool found
+    # ---------------------------------------------------------
+    echo "No network configuration tool found." >&2
+    echo "Please install iproute2 (ip command) or net-tools (ifconfig)." >&2
+    exit 1
+
+fi
+
+exit 0

@@ -1,0 +1,55 @@
+# ALSA Plugin Configuration: Speex Rate Converter
+# This template configures the `rate` plugin within ALSA to use the Speex resampler.
+# It allows overriding the slave PCM device, the sample rate, and the specific converter name.
+
+pcm.speexrate {
+	# Define arguments for the plugin. These allow users to override defaults at runtime or via config.
+	@args [ SLAVE RATE CONVERTER ]
+	
+	@args.SLAVE {
+		type string
+		# The slave PCM device name for the speex rate converter.
+		# Defaults to 'plug:hw' if not specified.
+		default "{{ slave | default('plug:hw') }}"
+	}
+	
+	@args.RATE {
+		type integer
+		# The default sample rate for the speex rate converter.
+		# Defaults to 48000 Hz if not specified.
+		default {{ rate | default(48000) }}
+	}
+	
+	@args.CONVERTER {
+		type string
+		# The converter type used by the rate plugin.
+		# Defaults to 'speexrate' if not specified.
+		default "{{ converter | default('speexrate') }}"
+	}
+	
+	# The plugin type is 'rate', enabling sample rate conversion.
+	type rate
+	
+	# Specify which converter implementation to use.
+	# Uses the value from the @args.CONVERTER definition.
+	converter $CONVERTER
+	
+	slave {
+		# The underlying PCM device to which audio is sent after conversion.
+		# Uses the value from the @args.SLAVE definition.
+		pcm $SLAVE
+		
+		# The sample rate to use for the slave PCM device.
+		# Uses the value from the @args.RATE definition.
+		rate $RATE
+	}
+	
+	hint {
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+		# Human-readable description of this plugin.
+		description "Rate Converter Plugin Using Speex Resampler"
+	}
+}

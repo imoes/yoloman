@@ -7,14 +7,15 @@
 #
 
 # Additional command-line options passed to the tntnet daemon.
-# Default: empty string
+# See tntnet(8) or the documentation for available options.
+# Example: '-p 8080'
 DAEMON_OPTS="{{ daemon_opts | default('') }}"
 
-# Set to true to disable checking port 80 availability on startup.
-# Default: false
-# When true, the startup script skips the test for port 80 being free.
+# Uncomment to disable checking port 80 availability on startup.
+# Set to 'true' to skip the check; leave commented to enforce the check.
+# {{ no_port_check | default(False) }}
 {% if no_port_check | default(False) | bool %}
-NO_PORT_CHECK="true"
+NO_PORT_CHECK="{{ no_port_check | default('true') }}"
 {% else %}
-# NO_PORT_CHECK="false"
+#NO_PORT_CHECK="true"
 {% endif %}

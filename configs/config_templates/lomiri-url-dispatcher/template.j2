@@ -1,39 +1,32 @@
 # vim:syntax=apparmor
 #include <tunables/global>
 
-# AppArmor profile for lomiri-url-dispatcher.
-# This profile controls the security context for the Lomiri URL dispatcher service,
-# allowing it to handle URL schemes and launch associated applications.
-# It is configured to be mostly unconfined while explicitly denying
-# capabilities and mount operations to minimize the attack surface.
-
-# Profile name: {{ profile_name | default('lomiri-url-dispatcher-bad-url-helper') }}
-# Description: The name of the AppArmor profile.
+# profile_name: The name of the AppArmor profile.
+# This profile is mostly unconfined but restricts capability usage and mount rules.
+# It ensures that execution permissions are inherited from this profile context.
 profile {{ profile_name | default('lomiri-url-dispatcher-bad-url-helper') }} (attach_disconnected) {
-
-  # Allow network access for the service.
+  # Allow access to any network protocol/interface.
   network,
 
-  # Allow read/write access to the root filesystem.
-  # Note: This is permissive; in a production setting, specific paths should be restricted.
+  # Allow read/write/knock (open for execute) access to root directory itself.
   / rwkl,
 
-  # Allow read/write access to all files and subdirectories.
-  # This is highly permissive; ensure this is intentional for this specific service.
+  # Allow read/write/lock/create/link/mmap access to all files recursively.
+  # The 'k' permission allows creating and linking files.
   /** rwlkm,
 
-  # Allow pix (profile execution, inherit, and execute) for all files.
+  # Allow pixel access (specifically for display/graphics operations).
   /** pix,
 
-  # Allow D-Bus communication.
+  # Allow unrestricted D-Bus messaging.
   dbus,
 
-  # Allow sending and receiving signals.
+  # Allow sending and receiving signals (inter-process communication).
   signal,
 
-  # Allow ptrace for debugging and monitoring.
+  # Allow ptrace operations (debugging/tracing other processes).
   ptrace,
 
-  # Allow Unix domain socket communication.
+  # Allow unrestricted Unix domain socket operations.
   unix,
 }

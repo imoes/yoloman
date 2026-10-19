@@ -1,0 +1,459 @@
+{#
+  ============================================================================
+  system-config-printer-libs-redhat: Preferred Drivers Configuration
+  ============================================================================
+  This file defines the default printer driver selection policy for CUPS.
+  It specifies which driver types (drivertypes) are available and how they
+  map to specific printer hardware via detection rules (Make/Model, DeviceID).
+
+  The configuration is split into two main sections:
+  1. <drivertypes>: Defines the available driver engines (e.g., generic, hpcups, foomatic).
+  2. <preferenceorder>: Defines rules for specific printers, assigning preferred drivers
+     and blacklisting/avoiding incompatible ones.
+
+  All variables here correspond to schema fields. Each variable uses | default(...)
+  to ensure the template renders safely even if a variable is undefined.
+  ============================================================================
+#}
+
+{# XML declaration: Standard version and encoding for the configuration file. #}
+<?xml version="{{ xml_version | default('1.0') }}" encoding="{{ xml_encoding | default('UTF-8') }}"?>
+
+{# Root element containing all driver definitions and preference rules. #}
+<preferreddrivers>
+
+  {# ------------------------------------------------------------------------
+     SECTION: DRIVER TYPES
+     Defines the "engines" or categories of drivers available to the system.
+     Each <drivertype> block tells the system how to identify printers that
+     should use this specific driver type.
+     ------------------------------------------------------------------------ #}
+  <drivertypes>
+
+    {# ------------------------------------------------------------------
+       GENERIC DRIVERS
+       These drivers provide basic fallback support for a wide range of devices.
+       ------------------------------------------------------------------ #}
+
+    {# Generic Foomatic Recommended Driver
+       Matches PPDs from foomatic-db-compressed-ppds or ijs-gutenprint.
+       Identifies devices via the 'DRV' field in device ID. #}
+    <drivertype name="{{ dt_generic_foomatic_recommended_name | default('generic-foomatic-recommended') }}">
+      <ppdname match="{{ dt_generic_foomatic_recommended_ppdname_match | default('(foomatic(-db-compressed-ppds)?|ijsgutenprint.*):') }}"/>
+      <deviceid>
+        <field name="{{ dt_generic_foomatic_recommended_deviceid_field_name | default('DRV') }}" match="{{ dt_generic_foomatic_recommended_deviceid_field_match | default('.*,?R1') }}"/>
+      </deviceid>
+      <fit>
+        {{ dt_generic_foomatic_recommended_fit_content | default('generic') }}
+      </fit>
+    </drivertype>
+
+    {# Generic ESCP Driver (1st variant)
+       Matches Generic-ESC_P PPDs. #}
+    <drivertype name="{{ dt_generic_escp_name | default('generic-escp') }}">
+      <ppdname match="{{ dt_generic_escp_ppdname_match | default('(foomatic(-db-compressed-ppds)?|ijsgutenprint.*):Generic-ESC_P') }}"/>
+      <fit>
+        {{ dt_generic_escp_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic ESCP Driver (2nd variant)
+       Matches Epson 9/24 sample PPDs. #}
+    <drivertype name="{{ dt_generic_escp_2_name | default('generic-escp') }}">
+      <ppdname match="{{ dt_generic_escp_2_ppdname_match | default('drv:///sample.drv/epson(9|24).ppd') }}"/>
+      <fit>
+        {{ dt_generic_escp_2_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic PostScript Driver
+       Identifies printers reporting "Generic PostScript Printer" in their PPD attributes. #}
+    <drivertype name="{{ dt_generic_postscript_name | default('generic-postscript') }}">
+      <attribute name="{{ dt_generic_postscript_attr_name | default('ppd-make-and-model') }}"
+                 match="{{ dt_generic_postscript_attr_match | default('Generic PostScript Printer') }}"/>
+      <fit>
+        {{ dt_generic_postscript_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic PCL 6 Driver
+       Identifies printers reporting "Generic PCL 6 Printer". #}
+    <drivertype name="{{ dt_generic_pcl6_name | default('generic-pcl6') }}">
+      <attribute name="{{ dt_generic_pcl6_attr_name | default('ppd-make-and-model') }}"
+                 match="{{ dt_generic_pcl6_attr_match | default('Generic PCL 6 Printer') }}"/>
+      <fit>
+        {{ dt_generic_pcl6_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic PCL 5e Driver
+       Identifies printers reporting "Generic PCL 5e Printer". #}
+    <drivertype name="{{ dt_generic_pcl5e_name | default('generic-pcl5e') }}">
+      <attribute name="{{ dt_generic_pcl5e_attr_name | default('ppd-make-and-model') }}"
+                 match="{{ dt_generic_pcl5e_attr_match | default('Generic PCL 5e Printer') }}"/>
+      <fit>
+        {{ dt_generic_pcl5e_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic PCL 5 Driver
+       Identifies printers reporting "Generic PCL 5 Printer". #}
+    <drivertype name="{{ dt_generic_pcl5_name | default('generic-pcl5') }}">
+      <attribute name="{{ dt_generic_pcl5_attr_name | default('ppd-make-and-model') }}"
+                 match="{{ dt_generic_pcl5_attr_match | default('Generic PCL 5 Printer') }}"/>
+      <fit>
+        {{ dt_generic_pcl5_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic PCL Driver (Baseline)
+       Identifies printers reporting "Generic PCL Laser Printer". #}
+    <drivertype name="{{ dt_generic_pcl_name | default('generic-pcl') }}">
+      <attribute name="{{ dt_generic_pcl_attr_name | default('ppd-make-and-model') }}"
+                 match="{{ dt_generic_pcl_attr_match | default('Generic PCL Laser Printer') }}"/>
+      <fit>
+        {{ dt_generic_pcl_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# Generic Driver (Fallback)
+       The broadest generic fallback for unclassified devices. #}
+    <drivertype name="{{ dt_generic_name | default('generic') }}">
+      <fit>
+        {{ dt_generic_fit_content | default('generic\n\tnone') }}
+      </fit>
+    </drivertype>
+
+    {# ------------------------------------------------------------------
+       SPECIFIC / ADVANCED DRIVERS
+       Drivers for specific technologies or vendor stacks.
+       ------------------------------------------------------------------ #}
+
+    {# Driverless (IPP-USB / AirPrint)
+       Matches driverless: PPDs. Highly recommended for modern network printers. #}
+    <drivertype name="{{ dt_driverless_name | default('driverless') }}">
+      <ppdname match="{{ dt_driverless_ppdname_match | default('driverless:') }}"/>
+    </drivertype>
+
+    {# CUPS Standard Drivers
+       Matches sample.drv PPDs provided with CUPS. #}
+    <drivertype name="{{ dt_cups_name | default('cups') }}">
+      <ppdname match="{{ dt_cups_ppdname_match | default('drv:///sample.drv') }}/"/>
+    </drivertype>
+
+    {# Ghostscript Driver
+       Matches PPDs containing "Ghostscript" in the product attribute. #}
+    <drivertype name="{{ dt_ghostscript_name | default('ghostscript') }}">
+      <attribute name="{{ dt_ghostscript_attr_name | default('ppd-product') }}" match="{{ dt_ghostscript_attr_match | default('.*Ghostscript') }}"/>
+    </drivertype>
+
+    {# Gutenprint Simplified
+       Matches simplified gutenprint PPDs. #}
+    <drivertype name="{{ dt_gutenprint_simplified_name | default('gutenprint-simplified') }}">
+      <ppdname match="{{ dt_gutenprint_simplified_ppdname_match | default('gutenprint.*:.*/simple|.*-gutenprint.*\\.sim') }}"/>
+    </drivertype>
+
+    {# Gutenprint Expert
+       Matches expert-level gutenprint PPDs. #}
+    <drivertype name="{{ dt_gutenprint_expert_name | default('gutenprint-expert') }}">
+      <ppdname match="{{ dt_gutenprint_expert_ppdname_match | default('gutenprint.*:|.*-gutenprint') }}"/>
+    </drivertype>
+
+    {# Foomatic Recommended hpijs
+       HP Inkjet driver via Foomatic. Uses DRV field for device ID. #}
+    <drivertype name="{{ dt_foomatic_recommended_hpijs_name | default('foomatic-recommended-hpijs') }}">
+      <attribute name="{{ dt_foomatic_recommended_hpijs_attr_name | default('ppd-make-and-model') }}" match="{{ dt_foomatic_recommended_hpijs_attr_match | default('.* Foomatic/hpijs') }}"/>
+      <deviceid>
+        <field name="{{ dt_foomatic_recommended_hpijs_deviceid_field_name | default('DRV') }}" match="{{ dt_foomatic_recommended_hpijs_deviceid_field_match | default('.*,?R1') }}"/>
+      </deviceid>
+    </drivertype>
+
+    {# Foomatic hpijs
+       Basic HP Inkjet driver via Foomatic. #}
+    <drivertype name="{{ dt_foomatic_hpijs_name | default('foomatic-hpijs') }}">
+      <attribute name="{{ dt_foomatic_hpijs_attr_name | default('ppd-make-and-model') }}" match="{{ dt_foomatic_hpijs_attr_match | default('.* Foomatic/hpijs') }}"/>
+    </drivertype>
+
+    {# Foomatic Recommended PostScript
+       PostScript drivers from Foomatic. Uses DRV field for device ID. #}
+    <drivertype name="{{ dt_foomatic_recommended_postscript_name | default('foomatic-recommended-postscript') }}">
+      <ppdname match="{{ dt_foomatic_recommended_postscript_ppdname_match | default('foomatic(-db-compressed-ppds)?:') }}"/>
+      <attribute name="{{ dt_foomatic_recommended_postscript_attr_name | default('ppd-make-and-model') }}" match="{{ dt_foomatic_recommended_postscript_attr_match | default('.*Postscript') }}"/>
+      <deviceid>
+        <field name="{{ dt_foomatic_recommended_postscript_deviceid_field_name | default('DRV') }}" match="{{ dt_foomatic_recommended_postscript_deviceid_field_match | default('.*,?R1') }}"/>
+      </deviceid>
+    </drivertype>
+
+    {# Foomatic PostScript
+       Standard PostScript drivers from Foomatic. #}
+    <drivertype name="{{ dt_foomatic_postscript_name | default('foomatic-postscript') }}">
+      <ppdname match="{{ dt_foomatic_postscript_ppdname_match | default('foomatic(-db-compressed-ppds)?:.*-Postscript') }}"/>
+    </drivertype>
+
+    {# Foomatic Recommended Non-PostScript
+       Non-PS drivers from Foomatic. Uses DRV field for device ID. #}
+    <drivertype name="{{ dt_foomatic_recommended_nonpostscript_name | default('foomatic-recommended-nonpostscript') }}">
+      <ppdname match="{{ dt_foomatic_recommended_nonpostscript_ppdname_match | default('(foomatic(-db-compressed-ppds)?|ijsgutenprint.*):') }}"/>
+      <deviceid>
+        <field name="{{ dt_foomatic_recommended_nonpostscript_deviceid_field_name | default('DRV') }}" match="{{ dt_foomatic_recommended_nonpostscript_deviceid_field_match | default('.*,?R1') }}"/>
+      </deviceid>
+    </drivertype>
+
+    {# Foomatic Gutenprint
+       Gutenprint drivers packaged via Foomatic. #}
+    <drivertype name="{{ dt_foomatic_gutenprint_name | default('foomatic-gutenprint') }}">
+      <ppdname match="{{ dt_foomatic_gutenprint_ppdname_match | default('(foomatic(-db-compressed-ppds)?|ijsgutenprint.*):.*-gutenprint') }}"/>
+    </drivertype>
+
+    {# Foomatic (General)
+       Base Foomatic driver category. #}
+    <drivertype name="{{ dt_foomatic_name | default('foomatic') }}">
+      <ppdname match="{{ dt_foomatic_ppdname_match | default('(foomatic(-db-compressed-ppds)?|ijsgutenprint.*):') }}"/>
+    </drivertype>
+
+    {# HP CUPS Plugin (hpcups-plugin)
+       Modern HP driver using the HPCUPS plugin architecture. #}
+    <drivertype name="{{ dt_hpcups_plugin_name | default('hpcups-plugin') }}">
+      <ppdname match="{{ dt_hpcups_plugin_ppdname_match | default('drv:///(hp/)?hpcups.drv/|.*-hpcups') }}"/>
+      <attribute name="{{ dt_hpcups_plugin_attr_name | default('ppd-make-and-model') }}" match="{{ dt_hpcups_plugin_attr_match | default('.* plugin') }}"/>
+    </drivertype>
+
+    {# HP CUPS (hpcups)
+       Standard HP CUPS driver. #}
+    <drivertype name="{{ dt_hpcups_name | default('hpcups') }}">
+      <ppdname match="{{ dt_hpcups_ppdname_match | default('drv:///(hp/)?hpcups.drv/|.*-hpcups') }}"/>
+    </drivertype>
+
+    {# HP IJS Plugin (hpijs-plugin)
+       Older HP driver using HPIJS plugin architecture. #}
+    <drivertype name="{{ dt_hpijs_plugin_name | default('hpijs-plugin') }}">
+      <ppdname match="{{ dt_hpijs_plugin_ppdname_match | default('drv:///(hp/)?hpijs.drv/|.*-hpijs') }}"/>
+      <attribute name="{{ dt_hpijs_plugin_attr_name | default('ppd-make-and-model') }}" match="{{ dt_hpijs_plugin_attr_match | default('.* plugin') }}"/>
+    </drivertype>
+
+    {# HP IJS (hpijs)
+       Standard HP IJS driver. #}
+    <drivertype name="{{ dt_hpijs_name | default('hpijs') }}">
+      <ppdname match="{{ dt_hpijs_ppdname_match | default('drv:///(hp/)?hpijs.drv/|.*-hpijs') }}"/>
+    </drivertype>
+
+    {# Splix Driver
+       Driver for Samsung/Brother laser printers using SPLIX. #}
+    <drivertype name="{{ dt_splix_name | default('splix') }}">
+      <ppdname match="{{ dt_splix_ppdname_match | default('.*splix') }}"/>
+    </drivertype>
+
+    {# DYMO LabelWriter Driver
+       Specific driver for DYMO label printers. #}
+    <drivertype name="{{ dt_dlw400_name | default('dlw400') }}">
+      <ppdname match="{{ dt_dlw400_ppdname_match | default('drv:///sample.drv/dymo.ppd') }}" />
+    </drivertype>
+
+    {# TurboPrint Driver
+       Third-party proprietary driver for various printers. #}
+    <drivertype name="{{ dt_turboprint_name | default('turboprint') }}">
+      <ppdname match="{{ dt_turboprint_ppdname_match | default('.*turboprint') }}"/>
+    </drivertype>
+
+    {# Ricoh PostScript Manufacturer Driver
+       Specific PostScript driver for Ricoh/Lanier/Gestetner/InfoPrint/Infotech/Savin/NRG. #}
+    <drivertype name="{{ dt_manufacturer_ricoh_ps_name | default('manufacturer-ricoh-ps') }}">
+      <ppdname match="{{ dt_manufacturer_ricoh_ps_ppdname_match | default('.*/(Ricoh|Lanier|Gestetner|InfoPrint|Infotech|Savin|NRG)/PS') }}/"/>
+    </drivertype>
+
+    {# Ricoh PXL Manufacturer Driver
+       Specific PXL driver for Ricoh/Lanier/Gestetner/InfoPrint/Infotech/Savin/NRG. #}
+    <drivertype name="{{ dt_manufacturer_ricoh_pxl_name | default('manufacturer-ricoh-pxl') }}">
+      <ppdname match="{{ dt_manufacturer_ricoh_pxl_ppdname_match | default('.*/(Ricoh|Lanier|Gestetner|InfoPrint|Infotech|Savin|NRG)/PXL') }}/"/>
+    </drivertype>
+
+    {# PDF Driver
+       Virtual driver for PDF output. Matches PPDs with "pdf" in the name. #}
+    <drivertype name="{{ dt_pdf_name | default('pdf') }}">
+      <attribute name="{{ dt_pdf_attr_name | default('ppd-make-and-model') }}"
+                 match="{{ dt_pdf_attr_match | default('.*\\bpdf\\b') }}"/>
+    </drivertype>
+
+    {# Manufacturer Command Driver
+       Driver for direct command-based printing (exact fit). #}
+    <drivertype name="{{ dt_manufacturer_cmd_name | default('manufacturer-cmd') }}">
+      <fit>
+        {{ dt_manufacturer_cmd_fit_content | default('exact-cmd') }}
+      </fit>
+    </drivertype>
+
+    {# Catch-all Manufacturer Driver
+       Generic manufacturer fallback. #}
+    <drivertype name="{{ dt_manufacturer_name | default('manufacturer') }}"/>
+
+  </drivertypes>
+
+  {# ------------------------------------------------------------------------
+     SECTION: PREFERENCE ORDER
+     Defines rules for specific printer models to select the best driver
+     and avoid bad ones. Rules are evaluated in order.
+     ------------------------------------------------------------------------ #}
+  <preferenceorder>
+
+    {# Rule: Brother HL-2030
+       Blacklists gutenprint drivers which have known bugs with this model. #}
+    <printer>
+      <make-and-model match="{{ pr_brother_hl2030_match | default('Brother HL-2030') }}"/>
+      <deviceid>
+        <field name="{{ pr_brother_hl2030_field_mfg_name | default('MFG') }}" match="{{ pr_brother_hl2030_field_mfg_match | default('Brother') }}"/>
+        <field name="{{ pr_brother_hl2030_field_mdl_name | default('MDL') }}" match="{{ pr_brother_hl2030_field_mdl_match | default('HL-2030') }}"/>
+      </deviceid>
+      <blacklist>
+        <drivertype>{{ pr_brother_hl2030_blacklist_content | default('gutenprint*') }}</drivertype>
+      </blacklist>
+    </printer>
+
+    {# Rule: Ricoh Family Printers
+       Prefers manufacturer-specific PostScript (PS) and PXL drivers.
+       Resolves bug #550315. #}
+    <printer>
+      <make-and-model match="{{ pr_ricoh_match | default('(Ricoh|Lanier|Gestetner|InfoPrint|Infotech|Savin|NRG) ') }}"/>
+      <deviceid>
+        <field name="{{ pr_ricoh_field_mfg_name | default('MFG') }}" match="{{ pr_ricoh_field_mfg_match | default('(Ricoh|Lanier|Gestetner|InfoPrint|Infotech|Savin|NRG)') }}"/>
+      </deviceid>
+      <drivers>
+        <drivertype>{{ pr_ricoh_drivers_drivertype_1 | default('manufacturer-ricoh-ps') }}</drivertype>
+        <drivertype>{{ pr_ricoh_drivers_drivertype_2 | default('manufacturer-ricoh-pxl') }}</drivertype>
+      </drivers>
+    </printer>
+
+    {# Rule: HP LaserJet 12xx/13xx
+       Forces hpcups driver.
+       Avoids PostScript and manufacturer drivers due to memory constraints (Ubuntu bug #872991). #}
+    <printer>
+      <make-and-model match="{{ pr_hp_lj12xx13xx_match | default('(Hewlett-Packard|HP) LaserJet 1[23]\\d\\d.*') }}"/>
+      <drivers>
+        <drivertype>{{ pr_hp_lj12xx13xx_drivers_drivertype_1 | default('hpcups') }}</drivertype>
+      </drivers>
+      <avoid>
+        <drivertype>{{ pr_hp_lj12xx13xx_avoid_drivertype_1 | default('*-postscript') }}</drivertype>
+        <drivertype>{{ pr_hp_lj12xx13xx_avoid_drivertype_2 | default('manufacturer*') }}</drivertype>
+      </avoid>
+    </printer>
+
+    {# Rule: HP LaserJet 2100 Series
+       Avoids PostScript drivers because these models only support PS Level 2.
+       Resolves bug #710231. #}
+    <printer>
+      <make-and-model match="{{ pr_hp_lj2100_match | default('(Hewlett-Packard|HP) LaserJet 2100 Series') }}"/>
+      <deviceid>
+        <field name="{{ pr_hp_lj2100_field_mfg_name | default('MFG') }}" match="{{ pr_hp_lj2100_field_mfg_match | default('(HP|Hewlett-Packard)') }}"/>
+        <field name="{{ pr_hp_lj2100_field_mdl_name | default('MDL') }}" match="{{ pr_hp_lj2100_field_mdl_match | default('HP LaserJet 2100 Series') }}"/>
+      </deviceid>
+      <avoid>
+        <drivertype>{{ pr_hp_lj2100_avoid_drivertype_1 | default('*-postscript') }}</drivertype>
+      </avoid>
+    </printer>
+
+    {# Rule: Xerox 6250DP
+       Avoids gutenprint drivers which produce black-and-white output for this device.
+       Resolves LP #669152. #}
+    <printer>
+      <make-and-model match="{{ pr_xerox_6250dp_match | default('Xerox 6250DP') }}"/>
+      <deviceid>
+        <field name="{{ pr_xerox_6250dp_field_mfg_name | default('MFG') }}" match="{{ pr_xerox_6250dp_field_mfg_match | default('Xerox') }}"/>
+        <field name="{{ pr_xerox_6250dp_field_mdl_name | default('MDL') }}" match="{{ pr_xerox_6250dp_field_mdl_match | default('6250DP') }}"/>
+      </deviceid>
+      <avoid>
+        <drivertype>{{ pr_xerox_6250dp_avoid_drivertype_1 | default('gutenprint*') }}</drivertype>
+      </avoid>
+    </printer>
+
+    {# Rule: Samsung CLP-310
+       Avoids a long list of drivers that are either incorrect or lower priority.
+       Ensures 'splix' or 'foomatic' drivers are selected correctly. #}
+    <printer>
+      <make-and-model match="{{ pr_samsung_clp310_match | default('Samsung CLP 310') }}" />
+      <deviceid>
+        <field name="{{ pr_samsung_clp310_field_mfg_name | default('MFG') }}" match="{{ pr_samsung_clp310_field_mfg_match | default('Samsung') }}" />
+        <field name="{{ pr_samsung_clp310_field_mdl_name | default('MDL') }}" match="{{ pr_samsung_clp310_field_mdl_match | default('CLP-310 Series') }}" />
+      </deviceid>
+      <avoid>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_1 | default('manufacturer-cmd') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_2 | default('foomatic-recommended-nonpostscript') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_3 | default('manufacturer*') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_4 | default('pdf') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_5 | default('foomatic-recommended-postscript') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_6 | default('hpcups') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_7 | default('foomatic-postscript') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_8 | default('gutenprint-simplified') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_9 | default('gutenprint-expert') }}</drivertype>
+        <drivertype>{{ pr_samsung_clp310_avoid_drivertype_10 | default('foomatic-gutenprint') }}</drivertype>
+      </avoid>
+    </printer>
+
+    {# Rule: DYMO LabelWriter 400
+       Explicitly prefers the dlw400 driver for this label printer. #}
+    <printer>
+      <make-and-model match="{{ pr_dymo_400_match | default('DYMO LabelWriter 400') }}" />
+      <deviceid>
+        <field name="{{ pr_dymo_400_field_mfg_name | default('MFG') }}" match="{{ pr_dymo_400_field_mfg_match | default('DYMO') }}" />
+        <field name="{{ pr_dymo_400_field_mdl_name | default('MDL') }}" match="{{ pr_dymo_400_field_mdl_match | default('LabelWriter 400') }}" />
+      </deviceid>
+      <drivers>
+        <drivertype>{{ pr_dymo_400_drivers_drivertype_1 | default('dlw400') }}</drivertype>
+      </drivers>
+    </printer>
+
+    {# Catch-all Rule: General Drivers for All Printers
+       Provides a broad set of drivers for any printer not matched by specific rules above.
+       Order matters: driverless -> manufacturer -> foomatic -> etc. #}
+    <printer>
+      <drivers>
+        <drivertype>{{ pr_all_drivers_drivertype_1 | default('driverless') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_2 | default('manufacturer-cmd') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_3 | default('foomatic-recommended-nonpostscript') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_4 | default('manufacturer*') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_5 | default('pdf') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_6 | default('foomatic-recommended-postscript') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_7 | default('hpcups') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_8 | default('splix') }}</drivertype>
+        <drivertype>{{ pr_all_drivers_drivertype_9 | default('foomatic-postscript') }}</drivertype>
+      </drivers>
+    </printer>
+
+    {# Catch-all Continued: Extended Drivers for All Printers
+       Adds secondary, generic, and third-party drivers to the list.
+       Note: hpijs is listed lower due to known landscape orientation bugs (freedesktop #44664).
+       Third-party non-free drivers are last. #}
+    <printer>
+      <drivers>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_1 | default('gutenprint-simplified') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_2 | default('gutenprint-expert') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_3 | default('foomatic-gutenprint') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_4 | default('foomatic') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_5 | default('cups') }}</drivertype>
+
+        <!-- Generic drivers listed last, in this order -->
+        <drivertype>{{ pr_all_cont_drivers_drivertype_6 | default('generic-postscript') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_7 | default('generic-foomatic-recommended') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_8 | default('generic-pcl6') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_9 | default('generic-pcl5c') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_10 | default('generic-pcl5e') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_11 | default('generic-pcl5') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_12 | default('generic-pcl') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_13 | default('generic-escp') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_14 | default('ghostscript') }}</drivertype>
+
+        <!-- HP's pre-hpcups driver, hpijs.  Low down the list as it
+             is known to handle landscape page orientations
+             incorrectly, e.g.
+             https://bugs.freedesktop.org/show_bug.cgi?id=44664 -->
+        <drivertype>{{ pr_all_cont_drivers_drivertype_15 | default('generic') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_16 | default('foomatic-recommended-hpijs') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_17 | default('hpijs') }}</drivertype>
+
+        <!-- Last of all, 3rd party non-free drivers -->
+        <drivertype>{{ pr_all_cont_drivers_drivertype_18 | default('foomatic-hpijs') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_19 | default('hpcups-plugin') }}</drivertype>
+        <drivertype>{{ pr_all_cont_drivers_drivertype_20 | default('hpijs-plugin') }}</drivertype>
+      </drivers>
+    </printer>
+
+  </preferenceorder>
+</preferreddrivers>

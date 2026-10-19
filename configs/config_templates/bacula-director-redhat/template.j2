@@ -1,0 +1,321 @@
+#
+# Bacula Director Configuration
+# This file configures the Bacula Director daemon (bacula-dir).
+# It defines how the director manages storage, clients, schedules, and messaging.
+#
+
+# ============================================================================
+# Director Resource: Identifies this daemon and sets its network port.
+# ============================================================================
+Director {
+  # The name of the Director instance. Must match the name in other resources.
+  Name = {{ director_name | default('bacula-dir') }}
+
+  # The port the Director listens on for User Agent (console) connections.
+  DIRport = {{ director_port | default('9101') }}
+
+  # Path to the SQL query file for the Director's SQL interface.
+  QueryFile = "{{ director_query_file | default('/etc/bacula/query.sql') }}"
+
+  # The working directory for Bacula Director (spool, bootstrap files, etc.).
+  WorkingDirectory = "{{ director_working_directory | default('/var/spool/bacula') }}"
+
+  # The directory where the PID file is stored.
+  PidDirectory = "{{ director_pid_directory | default('/var/run') }}"
+
+  # Maximum number of concurrent jobs the Director can run.
+  Maximum Concurrent Jobs = {{ director_max_concurrent_jobs | default(20) }}
+
+  # Password for the Director console.
+  Password = "{{ director_password | default('@@DIR_PASSWORD@@') }}"
+
+  # Use the "Daemon" message resource for daemon-specific logs.
+  Messages = Daemon
+}
+
+# ============================================================================
+# JobDefs Resource: Default settings for backup jobs.
+# ============================================================================
+JobDefs {
+  Name = "DefaultJob"
+  Type = Backup
+  Level = Incremental
+  # Name of the File Daemon client to backup.
+  Client = {{ client_fd_name | default('bacula-fd') }}
+  FileSet = "Full Set"
+  Schedule = "WeeklyCycle"
+  # Storage device to use.
+  Storage = File1
+  Messages = Standard
+  Pool = File
+  SpoolAttributes = yes
+  Priority = 10
+  # Bootstrap file location for this job.
+  Write Bootstrap = "{{ director_working_directory | default('/var/spool/bacula') }}/%c.bsr"
+}
+
+# ============================================================================
+# Job: BackupClient1
+# The main nightly save backup job.
+# ============================================================================
+Job {
+  Name = "BackupClient1"
+  JobDefs = "DefaultJob"
+}
+
+# ============================================================================
+# Job: BackupCatalog
+# Backs up the catalog database after the nightly save.
+# ============================================================================
+Job {
+  Name = "BackupCatalog"
+  JobDefs = "DefaultJob"
+  Level = Full
+  FileSet = "Catalog"
+  Schedule = "WeeklyCycleAfterBackup"
+  # Creates an ASCII copy of the catalog.
+  # Arguments to make_catalog_backup.pl are: <catalog-name>
+  RunBeforeJob = "/usr/libexec/bacula/make_catalog_backup.pl {{ catalog_name | default('MyCatalog') }}"
+  # Deletes the copy of the catalog.
+  RunAfterJob  = "/usr/libexec/bacula/delete_catalog_backup"
+  Write Bootstrap = "{{ director_working_directory | default('/var/spool/bacula') }}/%n.bsr"
+  Priority = 11                   # run after main backup
+}
+
+# ============================================================================
+# Job: RestoreFiles
+# Standard Restore template.
+# ============================================================================
+Job {
+  Name = "RestoreFiles"
+  Type = Restore
+  # Client to restore from.
+  Client = {{ client_fd_name | default('bacula-fd') }}
+  Storage = File1
+  # FileSet and Pool directives are not used by Restore Jobs but must not be removed.
+  FileSet = "Full Set"
+  Pool = File
+  Messages = Standard
+  # Path where files are restored for the RestoreFiles job.
+  Where = {{ restore_path | default('/tmp/bacula-restores') }}
+}
+
+# ============================================================================
+# FileSet: Full Set
+# List of files to be backed up by default.
+# ============================================================================
+FileSet {
+  Name = "Full Set"
+  Include {
+    Options {
+      signature = MD5
+    }
+    # Default directory included in the Full Set FileSet.
+    File = {{ default_fileset_include | default('/usr/sbin') }}
+  }
+
+  Exclude {
+    # Exclude the director working directory.
+    File = {{ director_working_directory | default('/var/spool/bacula') }}
+    File = /tmp
+    File = /proc
+    File = /tmp
+    File = /sys
+    File = /.journal
+    File = /.fsck
+  }
+}
+
+# ============================================================================
+# Schedule: WeeklyCycle
+# Defines the main backup schedule.
+# ============================================================================
+Schedule {
+  Name = "WeeklyCycle"
+  Run = Full 1st sun at 23:05
+  Run = Differential 2nd-5th sun at 23:05
+  Run = Incremental mon-sat at 23:05
+}
+
+# ============================================================================
+# Schedule: WeeklyCycleAfterBackup
+# Schedule for catalog backup.
+# ============================================================================
+Schedule {
+  Name = "WeeklyCycleAfterBackup"
+  Run = Full sun-sat at 23:10
+}
+
+# ============================================================================
+# FileSet: Catalog
+# FileSet for backing up the catalog database file.
+# ============================================================================
+FileSet {
+  Name = "Catalog"
+  Include {
+    Options {
+      signature = MD5
+    }
+    File = "{{ director_working_directory | default('/var/spool/bacula') }}/bacula.sql"
+  }
+}
+
+# ============================================================================
+# Client Resource: File Daemon (FD) definition.
+# ============================================================================
+Client {
+  # Name of the File Daemon client to backup.
+  Name = {{ client_fd_name | default('bacula-fd') }}
+  # Network address of the File Daemon client.
+  Address = {{ client_fd_address | default('localhost') }}
+  # Port the File Daemon listens on.
+  FDPort = {{ client_fd_port | default('9102') }}
+  # Name of the Bacula catalog database resource.
+  Catalog = {{ catalog_name | default('MyCatalog') }}
+  # Password for the File Daemon client.
+  Password = "{{ client_fd_password | default('@@FD_PASSWORD@@') }}"
+  # Number of days to retain file information.
+  File Retention = {{ client_fd_file_retention | default('60') }} days
+  # Number of months to retain job information.
+  Job Retention = {{ client_fd_job_retention | default('6') }} months
+  AutoPrune = yes                     # Prune expired Jobs/Files
+}
+
+# ============================================================================
+# Autochanger: File1
+# Definition of file Virtual Autochanger device.
+# ============================================================================
+Autochanger {
+  Name = File1
+  # Network address of the Storage Daemon.
+  Address = {{ storage_daemon_address | default('localhost') }}
+  # Port the Storage Daemon listens on.
+  SDPort = {{ storage_daemon_port | default('9103') }}
+  # Password for the Storage Daemon.
+  Password = "{{ storage_daemon_password | default('@@SD_PASSWORD@@') }}"
+  Device = FileChgr1
+  Media Type = File1
+  # Maximum concurrent jobs for the virtual autochanger device.
+  Maximum Concurrent Jobs = {{ autochanger_max_concurrent_jobs | default('10') }}
+  Autochanger = File1                 # point to ourself
+}
+
+# ============================================================================
+# Autochanger: File2
+# Definition of a second file Virtual Autochanger device.
+# ============================================================================
+Autochanger {
+  Name = File2
+  # Network address of the Storage Daemon.
+  Address = {{ storage_daemon_address | default('localhost') }}
+  # Port the Storage Daemon listens on.
+  SDPort = {{ storage_daemon_port | default('9103') }}
+  # Password for the Storage Daemon.
+  Password = "{{ storage_daemon_password | default('@@SD_PASSWORD@@') }}"
+  Device = FileChgr2
+  Media Type = File2
+  Autochanger = File2                 # point to ourself
+  # Maximum concurrent jobs for the virtual autochanger device.
+  Maximum Concurrent Jobs = {{ autochanger_max_concurrent_jobs | default('10') }}
+}
+
+# ============================================================================
+# Catalog Resource: Database connection details.
+# ============================================================================
+Catalog {
+  # Name of the Bacula catalog database resource.
+  Name = {{ catalog_name | default('MyCatalog') }}
+  # Name of the database used by the Catalog resource.
+  dbname = "bacula"
+  # Username for the Catalog database connection.
+  dbuser = "bacula"
+  # Password for the Bacula database user.
+  dbpassword = "{{ catalog_db_password | default('') }}"
+}
+
+# ============================================================================
+# Messages: Standard
+# Reasonable message delivery for jobs.
+# ============================================================================
+Messages {
+  Name = Standard
+  mailcommand = "/usr/sbin/bsmtp -h localhost -f \"\(Bacula\) \<%r\>\" -s \"Bacula: %t %e of %c %l\" %r"
+  operatorcommand = "/usr/sbin/bsmtp -h localhost -f \"\(Bacula\) \<%r\>\" -s \"Bacula: Intervention needed for %j\" %r"
+  # Email address for standard job messages.
+  mail = {{ mail_recipient | default('root@localhost') }} = all, !skipped
+  # Email address for operator mount messages.
+  operator = {{ operator_recipient | default('root@localhost') }} = mount
+  console = all, !skipped, !saved
+  # Path to the Bacula log file.
+  append = "{{ log_file | default('/var/log/bacula/bacula.log') }}" = all, !skipped
+  catalog = all
+}
+
+# ============================================================================
+# Messages: Daemon
+# Message delivery for daemon messages (no job).
+# ============================================================================
+Messages {
+  Name = Daemon
+  mailcommand = "/usr/sbin/bsmtp -h localhost -f \"\(Bacula\) \<%r\>\" -s \"Bacula daemon message\" %r"
+  # Email address for daemon messages.
+  mail = {{ daemon_mail_recipient | default('root@localhost') }} = all, !skipped
+  console = all, !skipped, !saved
+  # Path to the Bacula log file.
+  append = "{{ log_file | default('/var/log/bacula/bacula.log') }}" = all, !skipped
+}
+
+# ============================================================================
+# Pool: Default
+# Default pool definition.
+# ============================================================================
+Pool {
+  Name = Default
+  Pool Type = Backup
+  Recycle = yes                       # Bacula can automatically recycle Volumes
+  AutoPrune = yes                     # Prune expired volumes
+  # Number of days to retain volumes in the pool.
+  Volume Retention = {{ pool_volume_retention | default('365') }} days
+  # Maximum size of a volume in the pool.
+  Maximum Volume Bytes = {{ pool_max_volume_bytes | default('50G') }}
+  # Maximum number of volumes in the pool.
+  Maximum Volumes = {{ pool_max_volumes | default('100') }}
+}
+
+# ============================================================================
+# Pool: File
+# File Pool definition.
+# ============================================================================
+Pool {
+  Name = File
+  Pool Type = Backup
+  Recycle = yes                       # Bacula can automatically recycle Volumes
+  AutoPrune = yes                     # Prune expired volumes
+  # Number of days to retain volumes in the pool.
+  Volume Retention = {{ pool_volume_retention | default('365') }} days
+  # Maximum size of a volume in the pool.
+  Maximum Volume Bytes = {{ pool_max_volume_bytes | default('50G') }}
+  # Maximum number of volumes in the pool.
+  Maximum Volumes = {{ pool_max_volumes | default('100') }}
+  Label Format = "Vol-"               # Auto label
+}
+
+# ============================================================================
+# Pool: Scratch
+# Scratch pool definition.
+# ============================================================================
+Pool {
+  Name = Scratch
+  Pool Type = Backup
+}
+
+# ============================================================================
+# Console: bacula-mon
+# Restricted console for tray-monitor.
+# ============================================================================
+Console {
+  Name = bacula-mon
+  # Password for the bacula-mon console.
+  Password = "{{ console_password | default('@@MON_DIR_PASSWORD@@') }}"
+  CommandACL = status, .status
+}

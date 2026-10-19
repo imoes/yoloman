@@ -1,0 +1,47 @@
+# Mirmon HTTPD Configuration
+#
+# This template configures Apache (httpd) to serve the Mirmon application
+# from a specified document root, with access controls appropriate for
+# local administration or open access as needed.
+#
+# The `document_root` variable defines where the application files reside
+# on the filesystem.
+
+# DocumentRoot alias: Maps the /mirmon URL path to the filesystem directory.
+# See: document_root
+Alias /mirmon {{ (document_root | default('/usr/share/mirmon')) }}
+
+<Directory {{ (document_root | default('/usr/share/mirmon')) }}>
+    # Apache 2.4 and later uses the mod_authz_core module.
+    # If the module is present, we define access rules.
+    <IfModule mod_authz_core.c>
+        # Default policy: Only allow connections from the local machine (localhost).
+        # This is the secure default for administrative interfaces.
+        Require local
+
+        # Alternative policy: Uncomment the line below to allow access from any client.
+        # Use this only if the service is intended for public or wide-lan access
+        # and is protected by other means (e.g., network firewall, additional auth).
+        # Require all granted
+    </IfModule>
+
+    # Apache 2.2 and earlier (legacy) uses the mod_access module.
+    # If mod_authz_core is NOT present, fall back to legacy directives.
+    <IfModule !mod_authz_core.c>
+        # Legacy access control order: Deny rules are processed first, then Allow.
+        Order Deny,Allow
+
+        # Default: Deny all access by default.
+        Deny from All
+
+        # Explicitly allow localhost (IPv4).
+        Allow from 127.0.0.1
+
+        # Explicitly allow localhost (IPv6).
+        Allow from ::1
+
+        # Alternative policy: Uncomment the line below to allow access from any client.
+        # Use this only if the service is intended for public or wide-lan access.
+        # Allow from All
+    </IfModule>
+</Directory>

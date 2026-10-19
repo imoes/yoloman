@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+
+<!--
+  MATE Menu Configuration Template
+  ==================================
+  This template generates the main Applications menu configuration for the
+  MATE Desktop Environment, compliant with the freedesktop.org Menu Specification 1.0.
+  
+  It defines the structure of the main menu, legacy directory scans, and the
+  categorization of applications into sub-menus (Accessories, Development, Games, etc.).
+-->
+
+<Menu>
+
+  <!-- The Name of the top-level menu -->
+  <Name>Applications</Name>
+
+  <!-- Directory file for the main Applications menu.
+       Specifies the .directory file that defines the properties of the top-level menu. -->
+  <Directory>{{ mate_menu_applications_dir | default('mate-menu-applications.directory') }}</Directory>
+
+  <!-- 
+    Legacy Directory Scanning
+    -------------------------
+    Scans legacy directories for desktop files. Items found here may be overridden
+    by later definitions.
+  -->
+  
+  <!-- Flag to scan KDE legacy directories (usually empty in MATE context but kept for spec compliance) -->
+  <KDELegacyDirs/>
+
+  <!-- Legacy directory for old X11 application links -->
+  <LegacyDir>/etc/X11/applnk</LegacyDir>
+
+  <!-- Legacy directory for MATE application desktop files.
+       Pointing to the system-wide legacy applications directory. -->
+  <LegacyDir>{{ mate_legacy_dir_apps | default('/usr/share/mate/apps') }}</LegacyDir>
+
+  <!-- 
+    Standard Directory Scanning
+    ---------------------------
+    Scans the standard freedesktop.org locations for .directory and .desktop files.
+  -->
+  
+  <!-- Scan standard application directories (e.g., /usr/share/applications) -->
+  <DefaultAppDirs/>
+
+  <!-- Scan standard directory definition files (e.g., /usr/share/desktop-directories) -->
+  <DefaultDirectoryDirs/>
+
+  <!-- 
+    Merging Configuration
+    ---------------------
+    Reads in overrides and child menus from merged directories to allow package-specific
+    menu additions without modifying the base config.
+  -->
+  
+  <!-- Scan standard merge directories -->
+  <DefaultMergeDirs/>
+
+  <!-- Specific merge directory relative to the base path -->
+  <MergeDir>applications-merged</MergeDir>
+
+  <!-- 
+    Sub-Menus
+    ---------
+    Each <Menu> block defines a submenu, its name, its associated .directory file,
+    and the inclusion criteria (categories) for desktop files to appear in it.
+  -->
+
+  <!-- Accessories submenu -->
+  <Menu>
+    <!-- Display name for the Accessories submenu -->
+    <Name>Accessories</Name>
+    
+    <!-- Directory file for Accessories/Utility applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_utility_dir | default('mate-utility.directory') }}</Directory>
+    
+    <!-- Include rules: Show apps that match these criteria -->
+    <Include>
+      <And>
+        <!-- Category: Utility -->
+        <Category>Utility</Category>
+        
+        <!-- Exclude Accessibility apps from here if they don't have 'Settings' category,
+             as they are shown in the dedicated Universal Access submenu. -->
+        <Not><Category>Accessibility</Category></Not>
+        
+        <!-- Exclude System tools from Accessories -->
+        <Not><Category>System</Category></Not>
+      </And>
+    </Include>
+  </Menu> <!-- End Accessories -->
+
+  <!-- Accessibility submenu -->
+  <Menu>
+    <!-- Display name for the Universal Access submenu -->
+    <Name>Universal Access</Name>
+    
+    <!-- Directory file for Universal Access/Accessibility applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_utility_accessibility_dir | default('mate-utility-accessibility.directory') }}</Directory>
+    
+    <!-- Include rules: Show Accessibility apps that are not primarily Settings -->
+    <Include>
+      <And>
+        <!-- Category: Accessibility -->
+        <Category>Accessibility</Category>
+        <!-- Exclude those categorized primarily as Settings -->
+        <Not><Category>Settings</Category></Not>
+      </And>
+    </Include>
+  </Menu> <!-- End Accessibility -->
+
+  <!-- Development Tools -->
+  <Menu>
+    <!-- Display name for the Development submenu -->
+    <Name>Development</Name>
+    
+    <!-- Directory file for Development tools.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_development_dir | default('mate-development.directory') }}</Directory>
+    
+    <!-- Include rules: Show Development apps and Emacs -->
+    <Include>
+      <And>
+        <!-- Category: Development -->
+        <Category>Development</Category>
+      </And>
+      <!-- Hardcoded inclusion for Emacs for historical compatibility -->
+      <Filename>emacs.desktop</Filename>
+    </Include>
+  </Menu> <!-- End Development Tools -->
+
+  <!-- Education -->
+  <Menu>
+    <!-- Display name for the Education submenu -->
+    <Name>Education</Name>
+    
+    <!-- Directory file for Education applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_education_dir | default('mate-education.directory') }}</Directory>
+    
+    <!-- Include rules: Show Education apps -->
+    <Include>
+      <And>
+        <!-- Category: Education -->
+        <Category>Education</Category>
+      </And>
+    </Include>
+  </Menu> <!-- End Education -->
+
+  <!-- Games -->
+  <Menu>
+    <!-- Display name for the Games submenu -->
+    <Name>Games</Name>
+    
+    <!-- Directory file for Games.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_game_dir | default('mate-game.directory') }}</Directory>
+    
+    <!-- Include rules: Show Game apps -->
+    <Include>
+      <And>
+        <!-- Category: Game -->
+        <Category>Game</Category>
+      </And>
+    </Include>
+  </Menu> <!-- End Games -->
+
+  <!-- Graphics -->
+  <Menu>
+    <!-- Display name for the Graphics submenu -->
+    <Name>Graphics</Name>
+    
+    <!-- Directory file for Graphics applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_graphics_dir | default('mate-graphics.directory') }}</Directory>
+    
+    <!-- Include rules: Show Graphics apps -->
+    <Include>
+      <And>
+        <!-- Category: Graphics -->
+        <Category>Graphics</Category>
+      </And>
+    </Include>
+  </Menu> <!-- End Graphics -->
+
+  <!-- Internet -->
+  <Menu>
+    <!-- Display name for the Internet submenu -->
+    <Name>Internet</Name>
+    
+    <!-- Directory file for Internet/Network applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_network_dir | default('mate-network.directory') }}</Directory>
+    
+    <!-- Include rules: Show Network apps -->
+    <Include>
+      <And>
+        <!-- Category: Network -->
+        <Category>Network</Category>
+      </And>
+    </Include>
+  </Menu>   <!-- End Internet -->
+
+  <!-- Multimedia -->
+  <Menu>
+    <!-- Display name for the Multimedia submenu -->
+    <Name>Multimedia</Name>
+    
+    <!-- Directory file for Multimedia/AudioVideo applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_audio_video_dir | default('mate-audio-video.directory') }}</Directory>
+    
+    <!-- Include rules: Show AudioVideo apps -->
+    <Include>
+      <And>
+        <!-- Category: AudioVideo -->
+        <Category>AudioVideo</Category>
+      </And>
+    </Include>
+  </Menu>   <!-- End Multimedia -->
+
+  <!-- Office -->
+  <Menu>
+    <!-- Display name for the Office submenu -->
+    <Name>Office</Name>
+    
+    <!-- Directory file for Office applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_office_dir | default('mate-office.directory') }}</Directory>
+    
+    <!-- Include rules: Show Office apps -->
+    <Include>
+      <And>
+        <!-- Category: Office -->
+        <Category>Office</Category>
+      </And>
+    </Include>
+  </Menu> <!-- End Office -->
+
+  <!-- System Tools -->
+  <Menu>
+    <!-- Display name for the System Tools submenu -->
+    <Name>System</Name>
+    
+    <!-- Directory file for System tools.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_system_tools_dir | default('mate-system-tools.directory') }}</Directory>
+    
+    <!-- Include rules: Show System apps, excluding Settings -->
+    <Include>
+      <And>
+        <!-- Category: System -->
+        <Category>System</Category>
+        <!-- Exclude Settings to avoid duplication in Preferences -->
+        <Not><Category>Settings</Category></Not>
+      </And>
+    </Include>
+  </Menu>   <!-- End System Tools -->
+
+  <!-- Collection -->
+  <Menu>
+    <!-- Display name for the Collection submenu -->
+    <Name>Collection</Name>
+    
+    <!-- Directory file for Collection menu.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_collection_dir | default('mate-collection.directory') }}</Directory>
+    
+    <!-- Include rules: Show Collection apps, excluding Settings -->
+    <Include>
+      <And>
+        <!-- Category: Collection -->
+        <Category>Collection</Category>
+        <!-- Exclude Settings -->
+        <Not><Category>Settings</Category></Not>
+      </And>
+    </Include>
+  </Menu>   <!-- End Collection Tools -->
+
+  <!-- Other -->
+  <Menu>
+    <!-- Display name for the Other submenu -->
+    <Name>Other</Name>
+    
+    <!-- Directory file for Other applications.
+         Defines the metadata for this specific submenu. -->
+    <Directory>{{ mate_other_dir | default('mate-other.directory') }}</Directory>
+    
+    <!-- Only include applications that are not allocated to other menus -->
+    <OnlyUnallocated/>
+    
+    <!-- Include rules: Show remaining apps, excluding Core, Settings, and Screensaver -->
+    <Include>
+      <And>
+        <Not><Category>Core</Category></Not>
+        <Not><Category>Settings</Category></Not>
+        <Not><Category>Screensaver</Category></Not>
+      </And>
+    </Include>
+  </Menu> <!-- End Other -->
+
+  <!-- 
+    Merged Configuration Files
+    --------------------------
+    Additional menu fragments merged at the end of the configuration.
+    These allow packages to contribute specific categories or groups without
+    modifying the main menu structure.
+  -->
+  <MergeFile>applications-merged/multimedia-categories.menu</MergeFile>
+  <MergeFile>applications-merged/games-categories.menu</MergeFile>
+  <MergeFile>applications-merged/wine.menu</MergeFile>
+
+</Menu> <!-- End Applications -->

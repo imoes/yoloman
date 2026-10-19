@@ -1,21 +1,44 @@
+# ISC DHCP Client Debugging Script Configuration
+# This template generates the debug hook script for dhclient-script.
+# It is used to dump DHCP environment variables for troubleshooting network setup issues.
 #
+# Variables controlled by schema:
+# - debug_enabled: Set to 'yes' to enable debugging output for dhclient-script.
+# - debug_log_path: Path to the log file for debug output.
+
 # The purpose of this script is just to show the variables that are
 # available to all the scripts in this directory. All these scripts are
 # called from dhclient-script, which exports all the variables shown
-# before. If you want to debug a problem with your DHCP setup you can
-# enable this script and take a look at {{ debug_log_path | default('/tmp/dhclient-script.debug') }}.
+# before.
+#
+# If debugging is enabled, the script will write to the log path.
+# Otherwise, it suggests checking the default debug location.
 
-# Set to 'yes' to enable debugging output for dhclient-script.
+# Enable/Disable logic:
+# If debug_enabled is 'yes' and a debug_log_path is provided, the script is active.
+# Otherwise, it defaults to a temporary location or remains disabled.
+{% if (debug_enabled | default('no')) == 'yes' %}
+enable this script and take a look at {{ debug_log_path | default('/tmp/dhclient-script.debug') }}.
+{% else %}
+# enable this script and take a look at /tmp/dhclient-script.debug.
+{% endif %}
+
+# To enable this script set the following variable to "yes"
+# Default is 'no' if not specified in schema.
 RUN={{ debug_enabled | default('no') }}
 
-{% if debug_enabled | default('no') == 'yes' %}
 if [ "$RUN" = "yes" ]; then
+	# Log entry point with date and script argument context.
+	# Writes to the configured debug log path.
+	# Default log path is /tmp/dhclient-script.debug if debug_log_path is not set.
 	echo "$(date): entering ${1%/*}, dumping variables." \
 		>> {{ debug_log_path | default('/tmp/dhclient-script.debug') }}
 
-	# loop over the 4 possible prefixes: (empty), cur_, new_, old_
+	# Loop over the 4 possible prefixes: (empty), cur_, new_, old_
+	# These prefixes distinguish between current, new, and old DHCP state.
 	for prefix in '' 'cur_' 'new_' 'old_'; do
-		# loop over the DHCP variables passed to dhclient-script
+		# Loop over the standard DHCP variables passed to dhclient-script.
+		# This captures network configuration details like IP, subnet, routers, DNS, etc.
 		for basevar in reason interface medium alias_ip_address \
 			       ip_address host_name network_number subnet_mask \
 			       broadcast_address routers static_routes \
@@ -28,13 +51,15 @@ if [ "$RUN" = "yes" ]; then
 			var="${prefix}${basevar}"
 			eval "content=\$$var"
 
-			# show only variables with values set
+			# Show only variables that have a non-empty value.
 			if [ -n "${content}" ]; then
+				# Default log path is /tmp/dhclient-script.debug if debug_log_path is not set.
 				echo "$var='${content}'" >> {{ debug_log_path | default('/tmp/dhclient-script.debug') }}
 			fi
 		done
 	done
 
+	# End of debug dump marker.
+	# Default log path is /tmp/dhclient-script.debug if debug_log_path is not set.
 	echo '--------------------------' >> {{ debug_log_path | default('/tmp/dhclient-script.debug') }}
 fi
-{% endif %}

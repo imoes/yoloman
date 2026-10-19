@@ -1,0 +1,11 @@
+# Lmod configuration for Red Hat based systems.
+# This template configures the MODULEPATH environment variable for the shell environment.
+
+# Conditional block: Sets MODULEPATH only if it is not already defined AND
+# either the system uses the standard Lmod alternatives link or a specific profile
+# script exists. This prevents overwriting user-customized MODULEPATHs in some contexts.
+if (! $?MODULEPATH && ( `readlink /etc/alternatives/modules.csh` == /usr/share/lmod/lmod/init/cshrc || -f /etc/profile.d/z00_lmod.csh ) ) then
+  # MODULEPATH: Colon-separated list of paths to search for module files.
+  # Defaults to '/etc/modulefiles:/usr/share/modulefiles'.
+  setenv MODULEPATH {{ modulepath | default('/etc/modulefiles:/usr/share/modulefiles') }}
+endif

@@ -1,91 +1,162 @@
-# goiardi - configuration file for the Goiardi Chef server implementation
-# Listen address and port for the web server
-bind: {{ bind_address }}
-port: {{ web_port }}
+# ==============================================================================
+# GoIardi Configuration Template
+# ==============================================================================
+# This file configures GoIardi, a Chef Server implementation written in Go.
+# It handles node management, cookbook storage, and kitchen operations.
+# ==============================================================================
 
-# Optional: Listen on a Unix socket instead of TCP
-# unix_socket: /run/goiardi/goiardi.sock
-{% if use_unix_socket %}
-unix_socket: {{ unix_socket_path }}
-{% endif %}
+# ------------------------------------------------------------------------------
+# Network Configuration
+# ------------------------------------------------------------------------------
 
-# Path to the PostgreSQL database
-# database: goiardi
-{% if db_host %}
-# Database host
-{% if not db_socket %}
-db_host: {{ db_host }}
-{% endif %}
-{% endif %}
-{% if db_port %}
-db_port: {{ db_port }}
-{% endif %}
-{% if db_socket %}
-db_socket: {{ db_socket }}
-{% endif %}
-db_name: {{ db_name }}
-db_user: {{ db_user }}
-{% if db_password %}
-db_password: {{ db_password }}
-{% endif %}
+# IP address to bind the web server to. Use "0.0.0.0" to listen on all interfaces.
+# Default: 127.0.0.1
+# bind_address: IP address to bind the web server to.
+ipaddress = "{{ bind_address | default('127.0.0.1') }}"
 
-# TLS/SSL configuration
-{% if use_ssl %}
-ssl_cert: {{ ssl_cert_path }}
-ssl_key: {{ ssl_key_path }}
-{% if ssl_ca_cert %}
-ssl_ca_cert: {{ ssl_ca_cert }}
-{% endif %}
-{% endif %}
+# TCP port for the main web API and UI.
+# Default: 4545
+# web_port: TCP port for the main web API and UI.
+port = {{ web_port | default('4545') }}
 
-# Authentication
-{% if enable_opaques_auth %}
-# Use internal (opaq) auth instead of LDAP
-auth_backend: opaq
-{% else %}
-# LDAP authentication settings
-auth_backend: ldap
-ldap_url: {{ ldap_url }}
-ldap_binddn: {{ ldap_binddn }}
-{% if ldap_bindpw %}
-ldap_bindpw: {{ ldap_bindpw }}
-{% endif %}
-ldap_user_filter: {{ ldap_user_filter }}
-{% if ldap_group_base %}
-ldap_group_base: {{ ldap_group_base }}
-{% endif %}
-ldap_group_filter: {{ ldap_group_filter }}
-{% endif %}
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
 
-# File storage backend (filesystem or s3)
-file_backend: {{ file_backend }}
-{% if file_backend == 'filesystem' %}
-file_root: {{ file_root_path }}
-{% elif file_backend == 's3' %}
-s3_bucket: {{ s3_bucket }}
-s3_region: {{ s3_region }}
-{% if s3_access_key %}
-s3_access_key: {{ s3_access_key }}
-{% endif %}
-{% if s3_secret_key %}
-s3_secret_key: {{ s3_secret_key }}
-{% endif %}
-{% endif %}
+# Where to send log data instead of stdout.
+log-file = "/var/log/goiardi/goiardi.log"
 
-# Logging
-log_level: {{ log_level }}
-log_file: {{ log_file_path }}
+# Enable logging to syslog. log-file, syslog, or neither can be used, but not both.
+syslog = false
 
-# Worker tuning
-max_concurrent_uploads: {{ max_concurrent_uploads }}
-max_nodes: {{ max_nodes }}
-max_search_results: {{ max_search_results }}
+# Log level. Options are "debug", "info", "warning", "error", and "critical".
+# May be specified on the command line with one or more -V flags.
+# Default: warning
+# log_level: Log level (debug, info, warning, error, critical).
+log-level = "{{ log_level | default('warning') }}"
 
-# Optional: Enable metrics endpoint
-{% if enable_metrics %}
-metrics_port: {{ metrics_port }}
-{% endif %}
+# ------------------------------------------------------------------------------
+# Data Persistence (In-Memory / File Backed)
+# ------------------------------------------------------------------------------
 
-# Optional: Enable search index (if using internal Solr or external)
-# search_backend: solr
-text_search: {{ text_search_enabled | lower }}
+# If these two options are both set, goiardi will save the data store and index
+# data to disk. It will cause an error to only set one of the options.
+index-file = "/var/lib/goiardi/goiardi-index.bin"
+data-file = "/var/lib/goiardi/goiardi-data.bin"
+
+# How often to save the index and data files from the background. Not
+# particularly useful without setting index-file and data-file.
+freeze-interval = 120
+
+# Use the faster, but less safe, old method of storing data in the in-memory data
+# store with pointers, rather than encoding the data with gob and giving a new
+# copy of the object to each requestor. If this is enabled goiardi will run
+# faster in in-memory mode, but one goroutine could change an object while it's
+# being used by another. Has no effect when using an SQL backend.
+# use-unsafe-mem-store = false
+
+# ------------------------------------------------------------------------------
+# Time and Configuration Roots
+# ------------------------------------------------------------------------------
+
+# Time slew: the time difference allowed between the server's clock and the time
+# in the X-Ops-Timestamp header. Formatted like 5m, 150s, etc. Defaults to 15m.
+time-slew = "15m"
+
+# Conf root: root directory for configs and certificates. Default: the directory
+# the config file is in, or the current directory if no config file is set.
+conf-root = "/etc/goiardi"
+
+# ------------------------------------------------------------------------------
+# Authentication and Security
+# ------------------------------------------------------------------------------
+
+# Use auth: Use authentication? If this is set to true, clients will have to
+# be created on the server and have proper keys (which is the normal chef-server
+# behavior). If it is not set, no authentication checks are performed. This is
+# how chef-zero behaves, and goiardi's only mode previously. Defaults to false.
+use-auth = true
+
+# Use SSL: Use SSL for connections to the server. Defaults to false. If set to
+# true, ssl-cert and ssl-key must be set. If the port is set to 80, this will
+# be forced to false. If port is set to 443, it will be forced to true.
+# use_ssl: Enable TLS/SSL encryption for the web interface.
+use-ssl = {{ use_ssl | default('false') | lower }}
+
+# SSL certificate file. If a relative path, it will be set relative to
+# conf-root.
+# ssl_cert_path: Path to the SSL certificate file.
+{% if ssl_cert_path is defined and ssl_cert_path is not none and (ssl_cert_path is number or ssl_cert_path is boolean or ssl_cert_path | length > 0) %}ssl-cert = "{{ ssl_cert_path | default('/etc/goiardi/ssl/server.crt') }}"{% else %}# ssl-cert="/path/to/goiardi/conf/cert.pem"{% endif %}
+
+# SSL key file. If a relative path, it will be set relative to
+# conf-root.
+# ssl_key_path: Path to the SSL private key file.
+{% if ssl_key_path is defined and ssl_key_path is not none and (ssl_key_path is number or ssl_key_path is boolean or ssl_key_path | length > 0) %}ssl-key = "{{ ssl_key_path | default('/etc/goiardi/ssl/server.key') }}"{% else %}# ssl-key="/path/to/goiardi/conf/key.pem"{% endif %}
+
+# HTTPS urls: If true, URLs generated by the server will use 'https://'. Useful
+# when goiardi is sitting behind a reverse proxy that uses SSL, but is
+# communicating with the proxy over HTTP.
+https-urls = false
+
+# Disable webui: If true, connections and logins from the webui interface will
+# not be allowed.
+disable-webui = false
+
+# Log events. Keep track of changes to chef objects by logging events that
+# change them. They are accessible through the /events endpoint.
+log-events = true
+
+# How many log events to keep. If set, will periodically purge logged events to
+# keep the number of events stored to this number.
+log-event-keep = 1000
+
+# Maximum object size in bytes for the file store. Default 10485760 bytes (10MB).
+#obj-max-size = 10485760
+
+# Maximum size for a JSON request from the client. Default is 1000000.
+#json-req-max-size = 1000000
+
+# ------------------------------------------------------------------------------
+# Database Configuration: PostgreSQL
+# ------------------------------------------------------------------------------
+
+# PostgreSQL options. If "use-postgres" is set to true on the command line or in
+# the configuration file, connect to postgres with the options in [postgres].
+# These options are all strings.
+# See http://godoc.org/github.com/lib/pq#hdr-Connection_String_Parameters for details
+# on the connection parameters. All of these parameters are technically optional,
+# although chances are pretty good that you'd want to set at least some of them.
+# Note: GoIardi uses the [postgresql] section for PostgreSQL connections.
+
+[postgresql]
+	# PostgreSQL username.
+	# Default: foo
+	# db_user: PostgreSQL username.
+	username = "{{ db_user | default('foo') }}"
+
+	# Password for PostgreSQL user.
+	# Default: s3kr1t
+	# db_password: Password for PostgreSQL user.
+	password = "{{ db_password | default('s3kr1t') }}"
+
+	# Hostname or IP address of PostgreSQL server.
+	# Default: localhost
+	# db_host: Hostname or IP address of PostgreSQL server.
+	host = "{{ db_host | default('localhost') }}"
+
+	# PostgreSQL port.
+	# Default: 5432
+	# db_port: PostgreSQL port.
+	port = "{{ db_port | default('5432') }}"
+
+	# Name of the PostgreSQL database.
+	# Default: goiardi
+	# db_name: Name of the PostgreSQL database.
+	dbname = "{{ db_name | default('goiardi') }}"
+
+	# SSL mode for PostgreSQL connection. "disable", "allow", "prefer", "verify-ca", "verify-full".
+	sslmode = "disable"
+
+# ==============================================================================
+# End of GoIardi Configuration
+# ==============================================================================

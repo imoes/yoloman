@@ -1,0 +1,204 @@
+#-------------------------------------------------------------------------------
+# XRootD client configuration file
+#
+# This file configures the behavior of XRootD client libraries (xrdcp, xrootd
+# client API, etc.). It is typically located at /etc/xrootd/client.conf.
+# Settings here override defaults but can be overridden by user-specific configs
+# in ~/.xrootd/client.conf or environment variables.
+#
+# All timeout values are in seconds unless otherwise noted.
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+# A time window for the connection establishment.
+# A connection failure is declared if the connection is not established within
+# this time window. If a connection failure happens earlier, another attempt
+# is only made at the beginning of the next window.
+# Default: 120 seconds
+#-------------------------------------------------------------------------------
+{% if connection_window is defined and connection_window is not none and (connection_window is number or connection_window is boolean or connection_window | length > 0) %}ConnectionWindow = {{ connection_window | default(120) }}{% else %}# ConnectionWindow = 120{% endif %}
+
+#-------------------------------------------------------------------------------
+# Number of connection attempts before declaring a permanent failure.
+# Represents the number of available connection windows to try.
+# Default: 5 attempts
+#-------------------------------------------------------------------------------
+{% if connection_retry is defined and connection_retry is not none and (connection_retry is number or connection_retry is boolean or connection_retry | length > 0) %}ConnectionRetry = {{ connection_retry | default(5) }}{% else %}# ConnectionRetry = 5{% endif %}
+
+#-------------------------------------------------------------------------------
+# Default timeout in seconds for a request response.
+# If the server does not respond within this time, an error is declared.
+# Default: 1800 seconds (30 minutes)
+#-------------------------------------------------------------------------------
+{% if request_timeout is defined and request_timeout is not none and (request_timeout is number or request_timeout is boolean or request_timeout | length > 0) %}RequestTimeout = {{ request_timeout | default(1800) }}{% else %}# RequestTimeout = 1800{% endif %}
+
+#-------------------------------------------------------------------------------
+# Timeout in seconds for connection errors with unfulfilled requests.
+# Used when there is no socket activity or a registered wait timeout with
+# pending requests.
+# Default: 60 seconds
+#-------------------------------------------------------------------------------
+{% if stream_timeout is defined and stream_timeout is not none and (stream_timeout is number or stream_timeout is boolean or stream_timeout | length > 0) %}StreamTimeout = {{ stream_timeout | default(60) }}{% else %}# StreamTimeout = 60{% endif %}
+
+#-------------------------------------------------------------------------------
+# Number of streams per session (channel).
+# Defines how many parallel streams are allowed within a single XRootD session.
+# Default: 1 stream
+#-------------------------------------------------------------------------------
+{% if sub_streams_per_channel is defined and sub_streams_per_channel is not none and (sub_streams_per_channel is number or sub_streams_per_channel is boolean or sub_streams_per_channel | length > 0) %}SubStreamsPerChannel = {{ sub_streams_per_channel | default(1) }}{% else %}# SubStreamsPerChannel = 1{% endif %}
+
+#-------------------------------------------------------------------------------
+# Resolution for timeout events in seconds.
+# Timeout events are processed only every `TimeoutResolution` seconds to
+# reduce CPU overhead.
+# Default: 15 seconds
+#-------------------------------------------------------------------------------
+{% if timeout_resolution is defined and timeout_resolution is not none and (timeout_resolution is number or timeout_resolution is boolean or timeout_resolution | length > 0) %}TimeoutResolution = {{ timeout_resolution | default(15) }}{% else %}# TimeoutResolution = 15{% endif %}
+
+#-------------------------------------------------------------------------------
+# Time in seconds after which permanent failure flags are cleared.
+# Allows the client to retry connections to a failed server after this
+# cooldown period expires.
+# Default: 1800 seconds (30 minutes)
+#-------------------------------------------------------------------------------
+{% if stream_error_window is defined and stream_error_window is not none and (stream_error_window is number or stream_error_window is boolean or stream_error_window | length > 0) %}StreamErrorWindow = {{ stream_error_window | default(1800) }}{% else %}# StreamErrorWindow = 1800{% endif %}
+
+#-------------------------------------------------------------------------------
+# Enable/Disable fork handlers (0 or 1).
+# When enabled, makes the XRootD API fork-safe. This has performance
+# implications and may be better controlled per-process via environment.
+# Default: 0 (disabled)
+#-------------------------------------------------------------------------------
+{% if run_fork_handler is defined and run_fork_handler is not none and (run_fork_handler is number or run_fork_handler is boolean or run_fork_handler | length > 0) %}RunForkHandler = {{ run_fork_handler | default(0) }}{% else %}# RunForkHandler = 0{% endif %}
+
+#-------------------------------------------------------------------------------
+# Maximum number of allowed redirections.
+# Limits how many times the client follows a redirect from the server.
+# Default: 16
+#-------------------------------------------------------------------------------
+{% if redirect_limit is defined and redirect_limit is not none and (redirect_limit is number or redirect_limit is boolean or redirect_limit | length > 0) %}RedirectLimit = {{ redirect_limit | default(16) }}{% else %}# RedirectLimit = 16{% endif %}
+
+#-------------------------------------------------------------------------------
+# Number of threads processing user callbacks.
+# Controls the concurrency of callback execution in the client thread pool.
+# Default: 3 threads
+#-------------------------------------------------------------------------------
+{% if worker_threads is defined and worker_threads is not none and (worker_threads is number or worker_threads is boolean or worker_threads | length > 0) %}WorkerThreads = {{ worker_threads | default(3) }}{% else %}# WorkerThreads = 3{% endif %}
+
+#-------------------------------------------------------------------------------
+# Size of a single data chunk handled by xrdcopy in bytes.
+# Controls the block size for data transfer during copy operations.
+# Default: 16777216 bytes (16 MB)
+#-------------------------------------------------------------------------------
+{% if cp_chunk_size is defined and cp_chunk_size is not none and (cp_chunk_size is number or cp_chunk_size is boolean or cp_chunk_size | length > 0) %}CPChunkSize = {{ cp_chunk_size | default(16777216) }}{% else %}# CPChunkSize = 16777216{% endif %}
+
+#-------------------------------------------------------------------------------
+# Maximum number of asynchronous requests processed by xrdcopy at any time.
+# Controls parallelism during copy operations.
+# Default: 4 chunks
+#-------------------------------------------------------------------------------
+{% if cp_parallel_chunks is defined and cp_parallel_chunks is not none and (cp_parallel_chunks is number or cp_parallel_chunks is boolean or cp_parallel_chunks | length > 0) %}CPParallelChunks = {{ cp_parallel_chunks | default(4) }}{% else %}# CPParallelChunks = 4{% endif %}
+
+#-------------------------------------------------------------------------------
+# Time period in seconds after which an idle connection to a data server is closed.
+# Helps manage resource usage by closing stale connections to data endpoints.
+# Default: 300 seconds (5 minutes)
+#-------------------------------------------------------------------------------
+{% if data_server_ttl is defined and data_server_ttl is not none and (data_server_ttl is number or data_server_ttl is boolean or data_server_ttl | length > 0) %}DataServerTTL = {{ data_server_ttl | default(300) }}{% else %}# DataServerTTL = 300{% endif %}
+
+#-------------------------------------------------------------------------------
+# Time period in seconds after which an idle connection to a manager or load
+# balancer is closed.
+# Helps manage resource usage by closing stale connections to control endpoints.
+# Default: 1200 seconds (20 minutes)
+#-------------------------------------------------------------------------------
+{% if load_balancer_ttl is defined and load_balancer_ttl is not none and (load_balancer_ttl is number or load_balancer_ttl is boolean or load_balancer_ttl | length > 0) %}LoadBalancerTTL = {{ load_balancer_ttl | default(1200) }}{% else %}# LoadBalancerTTL = 1200{% endif %}
+
+#-------------------------------------------------------------------------------
+# Maximum time in seconds allowed for the copy process to initialize.
+# Applies to opening source and destination files before data transfer starts.
+# Default: 600 seconds (10 minutes)
+#-------------------------------------------------------------------------------
+{% if cp_init_timeout is defined and cp_init_timeout is not none and (cp_init_timeout is number or cp_init_timeout is boolean or cp_init_timeout | length > 0) %}CPInitTimeout = {{ cp_init_timeout | default(600) }}{% else %}# CPInitTimeout = 600{% endif %}
+
+#-------------------------------------------------------------------------------
+# Maximum time in seconds allowed for a third-party copy operation to finish.
+# Third-party copy involves data moving between two servers via the client.
+# Default: 1800 seconds (30 minutes)
+#-------------------------------------------------------------------------------
+{% if cptpc_timeout is defined and cptpc_timeout is not none and (cptpc_timeout is number or cptpc_timeout is boolean or cptpc_timeout | length > 0) %}CPTPCTimeout = {{ cptpc_timeout | default(1800) }}{% else %}# CPTPCTimeout = 1800{% endif %}
+
+#-------------------------------------------------------------------------------
+# Enable/Disable TCP keep alive functionality (0 or 1).
+# If enabled, the OS TCP stack will send keepalive probes to detect dead
+# connections.
+# Default: 0 (disabled)
+#-------------------------------------------------------------------------------
+{% if tcp_keep_alive is defined and tcp_keep_alive is not none and (tcp_keep_alive is number or tcp_keep_alive is boolean or tcp_keep_alive | length > 0) %}TCPKeepAlive = {{ tcp_keep_alive | default(0) }}{% else %}# TCPKeepAlive = 0{% endif %}
+
+#-------------------------------------------------------------------------------
+# Time in seconds between last data packet sent and the first keepalive probe.
+# Linux only. Applies if TCPKeepAlive is enabled.
+# Default: 7200 seconds (2 hours)
+#-------------------------------------------------------------------------------
+{% if tcp_keep_alive_time is defined and tcp_keep_alive_time is not none and (tcp_keep_alive_time is number or tcp_keep_alive_time is boolean or tcp_keep_alive_time | length > 0) %}TCPKeepAliveTime = {{ tcp_keep_alive_time | default(7200) }}{% else %}# TCPKeepAliveTime = 7200{% endif %}
+
+#-------------------------------------------------------------------------------
+# Interval in seconds between subsequent keepalive probes.
+# Linux only. Applies if TCPKeepAlive is enabled.
+# Default: 75 seconds
+#-------------------------------------------------------------------------------
+{% if tcp_keep_alive_interval is defined and tcp_keep_alive_interval is not none and (tcp_keep_alive_interval is number or tcp_keep_alive_interval is boolean or tcp_keep_alive_interval | length > 0) %}TCPKeepAliveInterval = {{ tcp_keep_alive_interval | default(75) }}{% else %}# TCPKeepAliveInterval = 75{% endif %}
+
+#-------------------------------------------------------------------------------
+# Number of unacknowledged probes before considering the connection dead.
+# Linux only. Applies if TCPKeepAlive is enabled.
+# Default: 9 probes
+#-------------------------------------------------------------------------------
+{% if tcp_keep_probes is defined and tcp_keep_probes is not none and (tcp_keep_probes is number or tcp_keep_probes is boolean or tcp_keep_probes | length > 0) %}TCPKeepProbes = {{ tcp_keep_probes | default(9) }}{% else %}# TCPKeepProbes  = 9{% endif %}
+
+#-------------------------------------------------------------------------------
+# A comma separated list of poller implementations in order of preference.
+# Allows tuning I/O multiplexing mechanisms (e.g., epoll, poll, select).
+# Default: built-in
+#-------------------------------------------------------------------------------
+{% if poller_preference is defined and poller_preference is not none and (poller_preference is number or poller_preference is boolean or poller_preference | length > 0) %}PollerPreference = {{ poller_preference | default('built-in') }}{% else %}# PollerPreference = built-in{% endif %}
+
+#-------------------------------------------------------------------------------
+# The network stack to use: IPAuto, IPAll, IPv6, IPv4, IPv4Mapped6.
+# IPAuto: Automatically detect which IP stack to use.
+# IPAll: Use IPv6 stack (AF_INET6) and both IPv6 and IPv4 (mapped) addresses.
+# IPv6: Use only IPv6 stack and addresses.
+# IPv4: Use only IPv4 stack (AF_INET) and addresses.
+# IPv4Mapped6: Use IPv6 stack and mapped IPv4 addresses.
+# Default: IPAuto
+#-------------------------------------------------------------------------------
+{% if network_stack is defined and network_stack is not none and (network_stack is number or network_stack is boolean or network_stack | length > 0) %}NetworkStack = {{ network_stack | default('IPAuto') }}{% else %}# NetworkStack = IPAuto{% endif %}
+
+#-------------------------------------------------------------------------------
+# Path to the client monitor library.
+# Specifies a shared library (.so) for monitoring/debugging client activity.
+# Leave empty to disable external monitoring libraries.
+#-------------------------------------------------------------------------------
+{% if client_monitor is defined and client_monitor is not none and (client_monitor is number or client_monitor is boolean or client_monitor | length > 0) %}ClientMonitor = {{ client_monitor | default('') }}{% else %}# ClientMonitor ={% endif %}
+
+#-------------------------------------------------------------------------------
+# Additional optional parameters for the monitoring object.
+# Passed to the client monitor library specified in ClientMonitor.
+# Leave empty if no monitor library is specified.
+#-------------------------------------------------------------------------------
+{% if client_monitor_param is defined and client_monitor_param is not none and (client_monitor_param is number or client_monitor_param is boolean or client_monitor_param | length > 0) %}ClientMonitorParam = {{ client_monitor_param | default('') }}{% else %}# ClientMonitorParam ={% endif %}
+
+#-------------------------------------------------------------------------------
+# A custom location containing client plug-in config files.
+# Directory path where XRootD client plugins look for their configuration.
+# Leave empty to use the default plugin configuration paths.
+#-------------------------------------------------------------------------------
+{% if plug_in_conf_dir is defined and plug_in_conf_dir is not none and (plug_in_conf_dir is number or plug_in_conf_dir is boolean or plug_in_conf_dir | length > 0) %}PlugInConfDir = {{ plug_in_conf_dir | default('') }}{% else %}# PlugInConfDir ={% endif %}
+
+#-------------------------------------------------------------------------------
+# A default client plug-in to be used.
+# Specifies the name of the plugin to load by default.
+# Leave empty to use the default plugin or no plugin.
+#-------------------------------------------------------------------------------
+{% if plug_in is defined and plug_in is not none and (plug_in is number or plug_in is boolean or plug_in | length > 0) %}PlugIn = {{ plug_in | default('') }}{% else %}# PlugIn ={% endif %}

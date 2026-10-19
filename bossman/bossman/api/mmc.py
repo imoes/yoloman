@@ -82,12 +82,24 @@ async def _agent(session: AsyncSession, agent_id: UUID) -> Agent:
 
 
 def _requirement_verdict(requirement: dict[str, Any], facts: dict[str, Any],
-                         tools: set[str] | None) -> tuple[str, str]:
+                         tools: set[str] | None, withheld: dict[str, str] | None = None) -> tuple[str, str]:
     """One requirement → (state, reason). state is available | unavailable | unknown.
 
     `unknown` exists for exactly one case and it matters: a module requirement cannot be judged when the host
     could not be asked for its tool list. Treating that as "unavailable" would tell an operator the host cannot
     do something, when the truth is that we do not know."""
+    if "any_of" in requirement:
+        # ONE snap-in, two platforms' modules ("Software updates": the package manager on Linux, the Windows
+        # Update Agent on Windows). Available when one alternative holds; unknown before unavailable; and when
+        # none holds, every alternative's reason — not just the first.
+        verdicts = [_requirement_verdict(r, facts, tools, withheld) for r in requirement["any_of"] or []]
+        if any(v == "available" for v, _ in verdicts):
+            return "available", ""
+        unknown = [why for v, why in verdicts if v == "unknown"]
+        if unknown:
+            return "unknown", unknown[0]
+        return "unavailable", "none of the alternatives holds: " + "; ".join(why for _, why in verdicts)
+
     if "os_family" in requirement:
         wanted = str(requirement["os_family"]).lower()
         actual = str(facts.get("os_family") or "").lower()
@@ -100,6 +112,9 @@ def _requirement_verdict(requirement: dict[str, Any], facts: dict[str, Any],
         name = str(requirement["module"])
         if tools is None:
             return "unknown", "the host could not be asked which modules it has"
+        if name not in tools and name in (withheld or {}):
+            # THE MODULE IS THERE AND SWITCHED OFF — saying "no such module" would name the opposite reason.
+            return "unavailable", (withheld or {})[name]
         return ("available", "") if name in tools else (
             "unavailable",
             f"the agent on this host has no `{name}` module — it is either an older agent or a platform where "
@@ -143,11 +158,12 @@ def _titled(entry: dict[str, Any], family: str) -> str:
     return entry.get("title") or ""
 
 
-def _resolve(entry: dict[str, Any], facts: dict[str, Any], tools: set[str] | None) -> tuple[str, str]:
+def _resolve(entry: dict[str, Any], facts: dict[str, Any], tools: set[str] | None,
+             withheld: dict[str, str] | None = None) -> tuple[str, str]:
     """The weakest verdict over all requirements wins, and its reason travels with it."""
     state, reason = "available", ""
     for requirement in entry.get("requires") or []:
-        verdict, why = _requirement_verdict(requirement, facts, tools)
+        verdict, why = _requirement_verdict(requirement, facts, tools, withheld)
         if verdict == "unavailable":
             return verdict, why
         if verdict == "unknown" and state == "available":
@@ -174,12 +190,20 @@ async def get_console_tree(
 
     tools: set[str] | None = None
     listing: list[dict[str, Any]] = []
+    # THE WRITE GATE, READ RATHER THAN INFERRED. The agent lists the write tools a closed gate withholds, each
+    # with its reason; without this a withheld module was indistinguishable from a missing one, and the console
+    # told a read-only host's operator the module was "missing or older than this console".
+    withheld_tools: list[dict[str, Any]] = []
+    write_gate: bool | None = None
     tools_error = None
     if agent.address:
         client = client_factory(agent, settings)
         try:
-            listed = await client.list_tools()
+            whole = await client.tool_listing()
+            listed = whole.get("tools") or []
             listing = [t for t in listed if isinstance(t, dict)]
+            withheld_tools = [t for t in (whole.get("withheld") or []) if isinstance(t, dict) and t.get("name")]
+            write_gate = whole.get("write") if isinstance(whole.get("write"), bool) else None
             # A module that IS listed but reports supported:false (a closed write gate, a Linux-only module on
             # Windows) is not usable, so it does not count as present — otherwise the console would offer an
             # action the host refuses, which is the failure mode `hide_when` exists to avoid.
@@ -190,13 +214,14 @@ async def get_console_tree(
     else:
         tools_error = "this agent has no reachable address"
 
+    withheld = {t["name"]: str(t.get("reason") or "disabled on this host (write=false)") for t in withheld_tools}
     catalog = _catalog()
     snapins = []
     for entry in catalog.get("snapins") or []:
-        state, reason = _resolve(entry, facts, tools)
+        state, reason = _resolve(entry, facts, tools, withheld)
         nodes = []
         for node in entry.get("nodes") or []:
-            node_state, node_reason = _resolve(node, facts, tools)
+            node_state, node_reason = _resolve(node, facts, tools, withheld)
             # A node cannot be more available than its snap-in — the snap-in's verdict is the floor.
             if state != "available" and node_state == "available":
                 node_state, node_reason = state, reason
@@ -245,6 +270,16 @@ async def get_console_tree(
         for t in listing
         if t.get("name") in wanted_tools
     }
+    # A withheld tool keeps its schema AND says why it cannot be used, so the console greys the action out
+    # with that reason up front instead of offering it and relaying the 403 afterwards.
+    for t in withheld_tools:
+        if t["name"] in wanted_tools and t["name"] not in schemas:
+            schemas[t["name"]] = {
+                "description": t.get("description"),
+                "input_schema": t.get("input_schema") or {},
+                "writes": True,
+                "refused": withheld[t["name"]],
+            }
 
     return {
         "agent_id": str(agent.id),
@@ -254,6 +289,8 @@ async def get_console_tree(
         "schemas": schemas,
         # WHY A VERDICT IS "unknown", said once at the top instead of repeated per snap-in.
         "tools_error": tools_error,
+        # The host's write gate: true / false, or null when it could not be read (an older agent, or no answer).
+        "write": write_gate,
         "snapins": snapins,
     }
 

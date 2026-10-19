@@ -1,0 +1,22 @@
+# PAM configuration file for keycat-based authentication (Red Hat / CentOS)
+#
+# This configuration enables PAM modules that support keycat (SSH key delegation)
+# specifically for OpenSSH on Red Hat-based distributions.
+# It ensures that session management for SELinux and login UID is preserved
+# while allowing key-based authentication flows.
+
+# pam_selinux.so close should be the first session rule
+# Closes the SELinux context for the current session.
+session    required     pam_selinux.so close
+
+# Sets the login UID for the user session.
+# Required for proper auditing and session tracking.
+session    required     pam_loginuid.so
+
+# pam_selinux.so open should only be followed by sessions to be executed in the user context
+# Opens the SELinux context for the user, applying the appropriate security policy.
+session    required     pam_selinux.so open env_params
+
+# Initializes the user's namespace for the session.
+# Handles user-specific resource limits and environment isolation.
+session    required     pam_namespace.so

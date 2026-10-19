@@ -1,36 +1,33 @@
-# ==============================================================================
-# QuickChar Autostart Configuration
-# ==============================================================================
-# This file configures the QuickChar desktop entry for automatic startup.
-# It instructs the desktop environment (MATE/GNOME) to launch the QuickChar
-# helper process, which assists in displaying matching typed characters
-# (useful for coding or precise text entry).
-# ==============================================================================
+# Budgie QuickChar Autostart Configuration Template
+# This template generates a Desktop Entry (.desktop) file for the QuickChar helper.
+# It configures the autostart behavior using GSettings to check if the feature is enabled.
 
 [Desktop Entry]
-# Type of entry: Application indicates a standalone executable.
+# Type of entry; must be Application for desktop autostart
 Type=Application
 
-# Display name of the application as shown in menus or startup lists.
+# Display name of the application
 Name=QuickChar
 
-# Brief description of what this application does, used in tooltips/search.
+# Description displayed by desktop environments
 Comment=Helper process to manage displaying matching typed characters
 
-# The command to execute to start the QuickChar helper process.
-# Defaults to 'quickchar' if not explicitly overridden in the role variables.
+# Command to execute the QuickChar helper process
+# Default: quickchar
 Exec={{ quickchar_exec | default('quickchar') }}
 
-# Hide this entry from the application menu; it is a background helper.
+# Hide from application menus; show only in autostart
 NoDisplay=true
 
-# AutostartCondition specifies the dependency for launching this app.
-# The application will only start if the specified GSettings key is enabled.
-# Schema and key are configured below.
+# Autostart condition: Checks GSettings key before launching
+# Format: AutostartCondition=GSettings <schema> <key>
+# If the key evaluates to true, the application starts.
+# Default Schema: org.ubuntubudgie.quickchar
+# Default Key: enable-quickchar
 AutostartCondition=GSettings {{ gsettings_schema | default('org.ubuntubudgie.quickchar') }} {{ gsettings_key | default('enable-quickchar') }}
 
-# Enable auto-restart mechanisms for MATE desktop environment.
+# MATE desktop environment restart hint
 X-MATE-AutoRestart=true
 
-# Enable auto-restart mechanisms for GNOME desktop environment.
+# GNOME desktop environment restart hint
 X-GNOME-AutoRestart=true

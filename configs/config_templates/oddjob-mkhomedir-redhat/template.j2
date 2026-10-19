@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+
+<busconfig>
+
+  {# ------------------------------------------------------------------ #}
+  {# Self-Documenting Comment:                                      #}
+  {# This configuration file specifies the required security policies #}
+  {# for the oddjob-mkhomedir service. It controls which requests     #}
+  {# users will be allowed to issue to oddjobd over the D-Bus system  #}
+  {# bus.                                                             #}
+  {#                                                                  #}
+  {# Variables:                                                       #}
+  {#   service_name (string): Human-readable name of the service.     #}
+  {#                         Default: 'oddjob_mkhomedir'              #}
+  {#   dbus_service_name (string): The D-Bus service name/ownable     #}
+  {#                          identity used in the security policy.    #}
+  {#                          Default: 'com.redhat.oddjob_mkhomedir'  #}
+  {# ------------------------------------------------------------------ #}
+
+  <!-- Only root can own (provide) the {{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }} service
+       on the system bus. -->
+  <policy user="root">
+    <allow own="{{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }}"/>
+  </policy>
+
+  <!-- Allow anyone to call the introspection methods of any object
+       provided by the {{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }} service. -->
+  <policy context="default">
+    <allow send_destination="{{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+  </policy>
+
+  <!-- Allow anyone to try to call the mkhomedirfor method, which is part of
+       the "mkhomedir" interface implemented by the "/" object provided
+       by the {{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }} service. -->
+  <policy context="default">
+    <allow send_destination="{{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }}"
+           send_path="/"
+           send_interface="{{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }}"
+           send_member="mkhomedirfor"/>
+  </policy>
+
+  <!-- Allow anyone to try to call the mkmyhomedir method, which is part of
+       the "mkhomedir" interface implemented by the "/" object provided
+       by the {{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }} service. -->
+  <policy context="default">
+    <allow send_destination="{{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }}"
+           send_path="/"
+           send_interface="{{ (dbus_service_name | default('com.redhat.oddjob_mkhomedir')) }}"
+           send_member="mkmyhomedir"/>
+  </policy>
+
+</busconfig>

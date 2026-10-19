@@ -1,0 +1,61 @@
+# ==============================================================================
+# NTP Configuration (ntpsec)
+# This template generates /etc/ntpsec/ntp.conf for the ntpsec package.
+# It is self-documenting: every directive is preceded by its schema description.
+# ==============================================================================
+
+# driftfile: Path to the file storing the oscillator drift rate.
+driftfile {{ driftfile | default('/var/lib/ntpsec/ntp.drift') }}
+
+# Leap seconds file (standard system path, not configurable via schema but required for NTS/leap handling)
+leapfile /usr/share/zoneinfo/leap-seconds.list
+
+# To enable Network Time Security support as a server, obtain a certificate
+# (e.g., with Let's Encrypt), place the cert and key in the paths below, and
+# uncomment:
+# nts cert /etc/ntpsec/cert-chain.pem
+# nts key /etc/ntpsec/key.pem
+# nts enable
+
+# You must create /var/log/ntpsec (owned by ntpsec:ntpsec) to enable logging.
+#statsdir /var/log/ntpsec/
+#statistics loopstats peerstats clockstats
+#filegen loopstats file loopstats type day enable
+#filegen peerstats file peerstats type day enable
+#filegen clockstats file clockstats type day enable
+
+# maxclock: Maximum number of sources the server considers for time keeping.
+tos maxclock {{ maxclock | default('11') }}
+
+# minclock: Minimum number of sources that must be available to consider the clock disciplined.
+# minsane: Minimum sane number of sources; the server will not discipline the clock if fewer than this many sources are available.
+# Note: These are combined into a single 'tos' directive in ntp.conf.
+tos minclock {{ minclock | default(4) }} minsane {{ minsane | default(3) }}
+
+# Specify one or more NTP servers.
+
+# Public NTP servers supporting Network Time Security:
+# server time.cloudflare.com nts
+
+# pool.ntp.org maps to about 1000 low-stratum NTP servers.  Your server will
+# pick a different set every time it starts up.  Please consider joining the
+# pool: <https://www.pool.ntp.org/join.html>
+# Defaulting to Debian/Ubuntu pool servers. Override variables `ntp_servers` or similar if needed.
+pool 0.debian.pool.ntp.org iburst
+pool 1.debian.pool.ntp.org iburst
+pool 2.debian.pool.ntp.org iburst
+pool 3.debian.pool.ntp.org iburst
+
+# Access control configuration; see /usr/share/doc/ntpsec-doc/html/accopt.html
+# for details.
+#
+# Note that "restrict" applies to both servers and clients, so a configuration
+# that might be intended to block requests from certain clients could also end
+# up blocking replies from your own upstream servers.
+
+# By default, exchange time with everybody, but don't allow configuration.
+restrict default kod nomodify noquery limited
+
+# Local users may interrogate the ntp server more closely.
+restrict 127.0.0.1
+restrict ::1

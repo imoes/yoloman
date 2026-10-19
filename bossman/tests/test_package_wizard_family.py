@@ -169,3 +169,15 @@ def test_no_role_offers_configure_with_a_template_that_configures_something_else
         "roles offering Configure with a template that configures a different file — "
         "run scripts/curate_catalog.py:\n  " + "\n  ".join(sorted(offenders))
     )
+
+
+def test_a_windows_only_entry_on_linux_says_windows_only():
+    """IIS on a Debian host: the catalog names it exactly — for Windows. That is a positive fact (unavailable,
+    with the reason), not the gap "no package names in any family"."""
+    fams = {"windows": {"features": ["Web-Server"], "feature_type": "role"}}
+    branch, meta = _resolve_family(fams, "debian")
+    assert branch == {} and meta["family_match"] == "unavailable" and not meta["installable"]
+    assert meta["reason"].startswith("Windows-only")
+    # …and the mirror image: a Linux-only entry on Windows.
+    _branch, meta = _resolve_family({"debian": {"packages": ["nginx"]}}, "windows")
+    assert meta["family_match"] == "unavailable" and "Debian" in meta["reason"]

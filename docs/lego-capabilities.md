@@ -52,7 +52,12 @@ chrony-Hosts → 4 `provide ntp:chrony`.
 (`api/capabilities.py`: /agents/{id}/capabilities, /capabilities/providers, /capabilities/match, live
 getestet), **MCP-Tool** + **Chat-Tool** (`capability_match`).
 
-## Phase 6 — Blueprint-Editor auf Rollen-Ebene — UMGESETZT
+## Phase 6 — Blueprint-Editor auf Rollen-Ebene — UMGESETZT, später entfernt (2026-10-18)
+> Der Blueprint-Designer (Compose-Canvas + `compose-*.ts` + `capabilities.service.ts` + die `blueprints`-API/-Tabelle)
+> wurde auf Wunsch wieder entfernt. Der deterministische Lego-Matcher selbst bleibt (`services/capabilities.py`,
+> REST `/capabilities/match`, MCP `capability_match`); nur die UI/Blueprint-Schicht darüber ist weg. Der folgende
+> Abschnitt beschreibt den Stand, als der Editor noch existierte.
+
 `compose-model.ts`/`compose-wiring.ts` backend-bewusst (Postgres wird für einen mysql/mariadb-Consumer
 abgelehnt, MariaDB per Alias akzeptiert; Fallback auf Archetyp-Tokens); `config-templates`-Endpunkt liefert
 `capabilities.json`; `core/services/capabilities.service.ts`; „offene Anforderungen" listet Inventar-Anbieter

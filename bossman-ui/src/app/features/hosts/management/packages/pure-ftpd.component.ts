@@ -3,6 +3,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../../core/services/agent.service';
 import { DirPickerComponent } from '../../../../shared/components/dir-picker/dir-picker.component';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 interface VUser { name: string; home: string; }
 
@@ -18,7 +19,7 @@ const PASSWD = '/etc/pure-ftpd/pureftpd.passwd';
 @Component({
   selector: 'app-pure-ftpd',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, DirPickerComponent],
+  imports: [BlockedReasonDirective, MatIconModule, MatButtonModule, DirPickerComponent],
   template: `
     <div class="bm-ftp">
       @if (loading()) { <p class="bm-dim">Loading virtual users…</p> }
@@ -53,7 +54,7 @@ const PASSWD = '/etc/pure-ftpd/pureftpd.passwd';
               <app-dir-picker [agentId]="agentId()" [value]="nHome()" (valueChange)="nHome.set($event)" placeholder="/srv/ftp/alice" />
             </label>
             <label class="bm-fld">Password<input type="password" [value]="nPass()" (input)="nPass.set($any($event.target).value)" placeholder="••••••" /></label>
-            <button mat-raised-button color="primary" (click)="add()" [disabled]="busy() || !nName().trim() || !nHome().trim() || !nPass()">Create user</button>
+            <button mat-raised-button color="primary" (click)="add()" [disabled]="busy()" [bmBlocked]="!nName().trim() || !nHome().trim() || !nPass() ? 'Enter user name, home and password' : ''">Create user</button>
           </div>
         </section>
       }
@@ -68,8 +69,8 @@ const PASSWD = '/etc/pure-ftpd/pureftpd.passwd';
     .bm-card > header { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }
-    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: 5px 8px; }
-    .bm-t td { padding: 5px 8px; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; }
+    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-form { padding: 12px 14px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .bm-fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }

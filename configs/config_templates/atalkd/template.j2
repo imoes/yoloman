@@ -1,91 +1,131 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          atalkd
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start and stop atalkd daemon
-# Description:       Enables the AppleTalk network manager daemon.
-### END INIT INFO
+# =============================================================================
+# atalkd Configuration Template
+# =============================================================================
+# This template generates the configuration file for the AppleTalk daemon
+# (atalkd), part of the netatalk suite.
 #
-# netatalk      Netatalk 4.2.3 initscript
+# Variables are sourced from the role's variables file. Each variable includes
+# a default value to ensure safe rendering if undefined.
+# =============================================================================
 
-set -e
-
-. /lib/lsb/init-functions
-
-ATALK_NAME=`/bin/hostname --short`
-PATH=/usr/local/sbin:/usr/local/bin:/sbin/ bin:/usr/sbin:/usr/bin
-DESC="AppleTalk network manager"
-NAME=atalkd
-SCRIPTNAME=/etc/init.d/$NAME
-DAEMON=/usr/sbin/$NAME
-PIDFILE=/var/lock/$NAME
-
-{# atalk_enabled: default=False desc='Enable atalkd (script exits early if not enabled).' #}
+# -----------------------------------------------------------------------------
+# Enable atalkd (script exits early if not enabled).
+# -----------------------------------------------------------------------------
+# atalk_enabled is used by the managing script to decide whether to start
+# the daemon. It is not a directive in atalkd.conf itself, but we document
+# it here for clarity.
 {% if atalk_enabled | default(False) | bool %}
-# Guard to prevent execution if netatalk was removed.
-test -x $DAEMON || exit 0
-
-status(){
-    set +e
-    EXIT_CODE=`start-stop-daemon --status --exec $DAEMON; echo $?`
-    set +e
-    echo $EXIT_CODE
-    set -e
-}
-
-case "$1" in
-    start)
-        EXIT_CODE=`status`
-        if [ $EXIT_CODE -ne 0 ]; then
-            echo -n "Starting $NAME"
-            start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
-            echo "."
-            /usr/bin/nbprgstr -p 4 "$ATALK_NAME:Workstation"
-            /usr/bin/nbprgstr -p 4 "$ATALK_NAME:netatalk"
-        else
-            echo "$NAME is already running."
-        fi
-        ;;
-
-    stop)
-        echo -n "Stopping $NAME"
-        start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
-        echo "."
-        ;;
-
-    restart)
-        $0 force-reload
-        ;;
-
-    force-reload)
-        echo -n "Restarting $NAME"
-        start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
-        echo -n "."
-        start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
-        echo -n "."
-        echo " Done."
-        ;;
-
-    status)
-        EXIT_CODE=`status`
-        if [ $EXIT_CODE -eq 0 ]; then
-            echo "$NAME is running."
-        elif [ $EXIT_CODE -eq 4 ]; then
-            echo "Could not access PID file for $NAME."
-        else
-            echo "$NAME is not running."
-        fi
-        exit $EXIT_CODE
-        ;;
-    *)
-        echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
-        exit 1
-        ;;
-esac
+# atalkd is ENABLED.
 {% else %}
-# atalk_enabled is False; script exits early as configured.
-exit 0
+# atalkd is DISABLED. No configuration will take effect.
 {% endif %}
+
+# -----------------------------------------------------------------------------
+# Network interface to use for AppleTalk.
+# -----------------------------------------------------------------------------
+# Specifies the network interface (e.g., eth0) on which atalkd should listen
+# and send AppleTalk traffic.
+# Default: eth0
+# Format: <interface_name>
+interface {{ atalk_device | default('eth0') }}
+
+# -----------------------------------------------------------------------------
+# Starting AppleTalk network number (format: A.B).
+# -----------------------------------------------------------------------------
+# The first network number in the range assigned to this interface.
+# Default: 6.254
+# Format: <network_number>
+network {{ atalk_addr_start | default('6.254') }}-{{ atalk_addr_end | default('6.254') }}
+
+# -----------------------------------------------------------------------------
+# Default AppleTalk zone name.
+# -----------------------------------------------------------------------------
+# The zone name that devices on this segment will use as their default
+# if they do not have a specific zone configured.
+# Default: MainZone
+# Format: <zone_name>
+default zone {{ default_zone | default('MainZone') }}
+
+# -----------------------------------------------------------------------------
+# Enable Name Binding Protocol (NBP).
+# -----------------------------------------------------------------------------
+# When enabled (true), atalkd processes NBP requests, allowing services
+# to be advertised and discovered.
+# Default: True
+# Format: enable-nbp / disable-nbp
+{% if nbp_enabled | default(True) | bool %}
+enable-nbp
+{% else %}
+disable-nbp
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Enable RTMP routing.
+# -----------------------------------------------------------------------------
+# Routing Information Protocol (RTMP) is used for dynamic route discovery.
+# Typically disabled for single-segment setups to reduce overhead.
+# Default: False
+# Format: rtmp / no-rtmp
+{% if rtmp_enabled | default(False) | bool %}
+rtmp
+{% else %}
+no-rtmp
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Maximum number of connections.
+# -----------------------------------------------------------------------------
+# Limits the number of concurrent AppleTalk connections handled by the
+# system.
+# Default: 100
+# Note: This parameter may be handled by the system or netatalk's atalkd
+# depending on the specific version and implementation. If atalkd.conf
+# does not support this directive directly, it might be ignored or require
+# a different configuration file (e.g., afp.conf). However, based on the
+# schema, we include it here.
+# Format: max-connections <number>
+max-connections {{ max_connections | default(100) }}
+
+# -----------------------------------------------------------------------------
+# Enable strict DDP checksum validation.
+# -----------------------------------------------------------------------------
+# Data Datagram Protocol (DDP) checksums ensure data integrity. Enabling
+# strict validation may drop packets with bad checksums, improving
+# reliability but potentially causing issues with non-compliant devices.
+# Default: False
+# Format: strict-ddp / no-strict-ddp
+{% if ddp_checksum | default(False) | bool %}
+strict-ddp
+{% else %}
+no-strict-ddp
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Logging verbosity level.
+# -----------------------------------------------------------------------------
+# Controls the amount of logging output from atalkd.
+# 0 = errors only
+# 1 = warnings and errors (default)
+# 2+ = detailed debugging
+# Default: 1
+# Note: Some versions of atalkd may not support this directive in the
+# config file, relying on system logging levels instead.
+log-level {{ log_level | default(1) }}
+
+# -----------------------------------------------------------------------------
+# AppleTalk Zones (Dynamic Configuration)
+# -----------------------------------------------------------------------------
+# Zones defined in the 'zones' list are added as additional zone definitions.
+# Default: [] (Empty)
+{% for zone_name in zones | default([]) %}
+zone {{ zone_name }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Router Interfaces (Dynamic Configuration)
+# -----------------------------------------------------------------------------
+# Interfaces explicitly specified for routing purposes.
+# Default: [] (Empty)
+{% for iface in router_interfaces | default([]) %}
+route interface {{ iface }}
+{% endfor %}

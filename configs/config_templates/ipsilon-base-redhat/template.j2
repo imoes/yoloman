@@ -1,0 +1,68 @@
+# Ansible-generated PAM configuration for Ipsilon authentication stack.
+# This template configures the Pluggable Authentication Modules (PAM)
+# used by the ipsilon-base-redhat package. It defines authentication,
+# account management, password update, and session handling rules.
+
+# =============================================================================
+# AUTHENTICATION SECTION
+# =============================================================================
+
+# The PAM substack module to use for authentication.
+# Controls which common auth stack (e.g., password-auth, system-auth) is invoked.
+auth       substack     {{ substack_module | default('password-auth') }}
+
+# The PAM configuration file to include for additional authentication steps.
+# Allows integration of supplementary authentication mechanisms.
+auth       include      {{ auth_include | default('postlogin') }}
+
+# =============================================================================
+# ACCOUNT MANAGEMENT SECTION
+# =============================================================================
+
+# The PAM module required for account validation.
+# Typically handles checks like account expiry, login restrictions, etc.
+account    required     {{ account_required | default('pam_nologin.so') }}
+
+# The PAM configuration file to include for account validation.
+# Defines additional account-related checks (e.g., access control).
+account    include      {{ account_include | default('password-auth') }}
+
+# =============================================================================
+# PASSWORD UPDATE SECTION
+# =============================================================================
+
+# The PAM configuration file to include for password updates.
+# Specifies the stack used when changing user passwords.
+password   include      {{ password_include | default('password-auth') }}
+
+# =============================================================================
+# SESSION MANAGEMENT SECTION
+# =============================================================================
+
+# pam_selinux.so close should be the first session rule.
+# Ensures SELinux context is properly closed/restored at session start.
+session    required     {{ session_pam_selinux_close | default('pam_selinux.so close') }}
+
+# The PAM module for setting the login UID.
+# Identifies the login process UID for audit trails and session tracking.
+session    required     {{ session_pam_loginuid | default('pam_loginuid.so') }}
+
+# pam_selinux.so open should only be followed by sessions to be executed in the user context.
+# Opens the appropriate SELinux security context for the user session.
+session    required     {{ session_pam_selinux_open | default('pam_selinux.so open') }}
+
+# The PAM module for namespace handling.
+# Manages user namespaces if enabled (e.g., for containers or isolated environments).
+session    required     {{ session_pam_namespace | default('pam_namespace.so') }}
+
+# The PAM command for key initialization and revocation.
+# Clears keyrings upon login to ensure a clean cryptographic state.
+session    optional     {{ session_optional_keyinit | default('pam_keyinit.so force revoke') }}
+
+# The PAM configuration file to include for session setup.
+# Defines session-specific modules (e.g., limits, quotas).
+session    include      {{ session_include_password | default('password-auth') }}
+
+# The PAM configuration file to include for post-login session steps.
+# Handles cleanup or finalization tasks after the user is logged in.
+session    include      {{ session_include_postlogin | default('postlogin') }}

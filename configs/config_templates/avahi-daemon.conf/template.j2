@@ -46,7 +46,7 @@ publish-txt={{ publish_txt | default(True) | ternary('yes', 'no') }}
 
 # Enable or disable publishing local domain name
 # Publishes the local domain (e.g., 'local') via DNS-SD.
-publish-domain={{ publish_domain | default(True) | ternary('yes', 'no') }}
+{% if publish_domain is defined and publish_domain is not none and (publish_domain is number or publish_domain is boolean or publish_domain | length > 0) %}publish-domain={{ publish_domain | default(True) | ternary('yes', 'no') }}{% else %}#publish-domain=yes{% endif %}
 
 # Enable or disable publishing workstation (network browsing) service record
 # Allows the host to appear in network browsing lists (like Windows Network Neighborhood).
@@ -98,7 +98,7 @@ ratelimit-interval-usec={{ rate_limit_interval_usec | default(1000000) }}
 
 # Maximum packets allowed per rate-limit interval
 # If this limit is reached, subsequent packets are dropped until the next interval.
-ratelimit-burst={{ rate_limit_burst | default(50) }}
+ratelimit-burst={{ rate_limit_burst | default(1000) }}
 
 [wide-area]
 # ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ enable-wide-area={{ enable_wide_area | default(False) | ternary('yes', 'no') }}
 
 # Publish local domain name (e.g., 'local')
 # Controls whether the local domain name is published via DNS-SD.
-publish-domain={{ publish_local_domain | default(True) | ternary('yes', 'no') }}
+{% if publish_local_domain is defined and publish_local_domain is not none and (publish_local_domain is number or publish_local_domain is boolean or publish_local_domain | length > 0) %}publish-domain={{ publish_local_domain | default(True) | ternary('yes', 'no') }}{% else %}#publish-domain=yes{% endif %}
 
 # Publish locally configured services (e.g., from /etc/avahi/services)
 # Controls whether static service definitions in /etc/avahi/services are advertised.
@@ -129,7 +129,7 @@ publish-services={{ publish_local_services | default(True) | ternary('yes', 'no'
 
 # Enable reflector mode: forward mDNS packets across subnets (for multi-subnet networks)
 # When enabled, Avahi forwards mDNS packets between interfaces, acting as a bridge.
-enable-reflector={{ enable_reflector | default(False) | ternary('yes', 'no') }}
+{% if enable_reflector is defined and enable_reflector is not none and (enable_reflector is number or enable_reflector is boolean or enable_reflector | length > 0) %}enable-reflector={{ enable_reflector | default(False) | ternary('yes', 'no') }}{% else %}#enable-reflector=no{% endif %}
 
 # Reflect IPv4 mDNS packets across subnets when reflector is enabled
 reflect-ipv4={{ reflect_ipv4 | default(True) | ternary('yes', 'no') }}
@@ -154,8 +154,8 @@ min-ttl={{ min_ttl | default(120) }}
 
 # Maximum number of open file descriptors for the avahi-daemon process
 # Limits the number of files/sockets the daemon can have open simultaneously.
-rlimit-nofile={{ rlimit_nofile | default(512) }}
+{% if rlimit_nofile is defined and rlimit_nofile is not none and (rlimit_nofile is number or rlimit_nofile is boolean or rlimit_nofile | length > 0) %}rlimit-nofile={{ rlimit_nofile | default(512) }}{% else %}#rlimit-nofile=768{% endif %}
 
 # Maximum size of core dumps (0 = use system default)
 # 0 disables core dump generation; otherwise specifies the max size in bytes.
-rlimit-core={{ rlimit_core | default(0) }}
+{% if rlimit_core is defined and rlimit_core is not none and (rlimit_core is number or rlimit_core is boolean or rlimit_core | length > 0) %}rlimit-core={{ rlimit_core | default(0) }}{% else %}#rlimit-core=0{% endif %}

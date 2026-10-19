@@ -21,9 +21,9 @@
 |---|---|
 | **[The presentation](https://imoes.github.io/yoloman/)** | What yoloman and Bossman are, in one page, with screenshots — live at `imoes.github.io/yoloman`. |
 | **[CHANGELOG.md](CHANGELOG.md)** | What is new, what changed, what was fixed — and, in its own section, **what is still missing**. |
-| **[Every screen](https://imoes.github.io/yoloman/frontend-presentation.html)** | All 54 screens, grouped as the product groups them, each described by its own source. |
+| **[Every screen](https://imoes.github.io/yoloman/frontend-presentation.html)** | All 56 screens, grouped as the product groups them, each described by its own source. |
 | **[Developer guide](docs/developing.md)** | What the system is, where truth lives, the contracts that must not be broken, how to add a module / check / endpoint / snap-in — and a closing section addressed to a language model working in this repository. |
-| **[HTTP API, endpoint by endpoint](docs/api-reference.md)** | All 481 operations in 68 groups, in prose, generated from a *running* server's OpenAPI document. |
+| **[HTTP API, endpoint by endpoint](docs/api-reference.md)** | All 510 operations in 72 groups, in prose, generated from a *running* server's OpenAPI document. |
 | **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform — every module an agent exposes right now, with the parameters the module itself declares. Generated from the agents' own tool listing. |
 | **[Writing a check](docs/checks-authoring.md)** | A worked example from empty file to a service state on a host. |
 
@@ -59,10 +59,13 @@ written until the staged changes are applied together.*
 | | |
 |---|---|
 | **Monitoring that says why** | Checks run on the host and become services with state, value and a sentence. 1432 checks available, most translated from Checkmk; writing your own is two files and one validation command. |
+| **A diagnosis that proves why a service won't start** | Each finding cites a measurement and a certainty — **Proven / Likely / Unknown**, never inflated; the fix is a real change (Ansible / DSC / PowerShell) with a rollback, and an AI may only *explain*, every sentence checked against the evidence it cites. Windows and Linux, one contract. It names deadlocks (wait chains), crash locations (public symbols, no memory dump) and hangs (thread wait states), and can ship the whole diagnosis to Graylog over GELF. |
 | **Configuration as values, not text** | Config files are parsed by a codec into values, merged per key with the winning scope recorded, and written back — with generations and rollback. 2484 file grammars, 3272 described fields. |
 | **Windows managed as Windows** | Roles and features, scheduled tasks, shares, firewall rules, IIS, DNS, DHCP, the event log, Group Policy — 34 modules, each idempotent and previewable. Windows' own words pass through: install state has seven values, a restart is *yes/no/maybe*. |
 | **A console you already know** | MMC's snap-in tree: 19 snap-ins over any managed host, Linux included, declared as JSON. Create dialogs are generated from each module's own schema, so a form cannot offer a parameter the module would refuse. |
 | **A record of what was done** | Every module call leaves an operation record: parameters, verdict, evidence, who asked. Eight outcomes that are never collapsed — a dry run is not a no-op, a refusal is not a crash, and *timed-out* may have completed. |
+| **Kernel tuning the model chooses, never writes** | The agent states what its kernel can be tuned with (BTF, sched_ext, the relevant `CONFIG_*` flags, boot loader, init system), and five tunables (a sched_ext BPF scheduler, cgroup limits of a unit, block-device readahead and I/O scheduler, the CPU governor, kernel boot parameters) are desired state with generations and a one-call rollback. Fixed benchmark profiles measure the effect. |
+| **A VM from nothing, any common distribution** | One call (`deploy_vm`) or one wizard creates a VM and installs Fedora, AlmaLinux, Debian or Ubuntu with the distribution's own installer at its newest release, checks address, packages and memory before anything exists, answers DHCP only for that VM's MAC, and can finish with a playbook. |
 | **Bare metal to running host** | PXE-boot a machine, image it, write its identity and network in, and let it come up already enrolled — with roles as desired state rather than a one-time script. |
 
 A self-contained Linux fleet-management stack that hands your servers' **monitoring**,
@@ -469,9 +472,27 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   value stands). Managed files are **auto-enforced every poll**: an out-of-band change is overwritten
   back to desired and recorded as a roll-backable generation. Config **templates** (apache2 vhost,
   chrony, …) are also usable from a runbook via a `config_template` step.
+- **Explainable diagnosis — why a service does not start** — ask it of any host (MMC action "Why is it
+  not running?", REST, MCP `diagnose_service`) and you get a structured document, not a guess. Every
+  **finding** carries a **certainty** — `Proven` only from a direct measurement (a Win32 exit code, systemd
+  203/EXEC), `Likely` for a correlation, `Unknown` with a **named gap** — and cites the **evidence** it rests
+  on; the certainty is never raised, and an **AI may only explain**, each of its sentences checked against the
+  evidence (an invented service name, exit code, time or account is flagged *not backed*). The **remedy** is
+  data, not a script: it exports as **Ansible** (FQCN), **DSC v3** or **PowerShell** with a **rollback** and a
+  verify, and lands as a four-eyes **proposal** that is never auto-run. Windows and Linux share **one
+  contract**: SCM config/events, logon rights, image signatures, and policy blocks (AppLocker / Code
+  Integrity) on Windows; `systemctl show`, the dependency chain and the journal on Linux. It also explains
+  **hangs and crashes without a memory dump** — a **deadlock** from the Windows wait chain (a proven cycle),
+  a **crash location** resolved to a function from public symbols (Microsoft's symbol server; on Linux the
+  kernel fault line + ELF/debuginfod), and a **hang** from each thread's wait state. A finished diagnosis
+  can be sent to **Graylog over GELF** (one correlated message per finding and evidence) or emitted as a
+  Checkmk line.
 - **Security** — the fleet's pending package updates organised by **package → the CVEs it closes**,
   each with severity, a plain-language description (Debian tracker) and a link, plus bulk security
-  updates across the affected hosts.
+  updates across the affected hosts. **Windows is a first-class citizen**: the agent reads and installs
+  updates through the Windows Update Agent (`windows_update`), CVEs come from the MSRC data (KB → CVE), and
+  **patch rings** roll a KB out in ordered waves (canary → ring → ring) with a health gate between them —
+  an ordinary staged rollout whose action is the update, so a KB never lands on the whole fleet at once.
 - **Checks subsystem** (see below) — a flat `checks.d` library of monitoring checks, assignable to
   host/group/OU with per-scope thresholds, with auto-discovery and credential provisioning. State
   checks (a service is running or not) drop the meaningless comparison/warn-crit inputs.
@@ -489,7 +510,7 @@ Bossman aggregates the fleet and gives an AI (and you) one place to run it. What
   `search_help`, host/fleet inspection, problems, runbooks and the check catalog, so even a small
   model can inspect and plan; mutations stay on the audited MCP/REST paths.
 - **The translator** — pulls Ansible collections and Checkmk checks through an LLM
-  (`llamacpp03/qwen79b`) into the agent's Starlark runtime, validated by the same `starlark-check`
+  (`llm/qwen79b`) into the agent's Starlark runtime, validated by the same `starlark-check`
   gate the agent uses.
 - **A lifecycle-complete MCP surface, described as a DevOps skill** — the whole of Bossman is
   driveable over MCP, and it's **self-teaching** so even a small model can run it: the MCP server's
@@ -641,6 +662,22 @@ image it, enrol the agent, push the offline-chosen roles. A target can be imaged
 **bootstrap VLAN** and moved to a **production VLAN** at handoff (hypervisor NIC
 retag) — set both in the provision wizard's Virtualization step.
 
+### Install a host — VM or bare metal (deploy_vm, Deploy → Install hosts)
+`vm_hosts()` lists hypervisors with their nodes, storages and bridges. `suggest_free_ips(prefix)` and
+`check_ip(addresses)` find an address that Bossman, NetBox and a live ping/ARP all agree is free.
+`deploy_vm(..., install="fedora"|"alma"|"debian"|"ubuntu", dry_run=True)` lists every pre-flight check; with
+`dry_run=False` it creates the VM and arms the install, refused while any check fails. Optional
+`finalize_runbook` runs a stored playbook once the host first reports. Follow it with
+`deployment_status(hostname)`; `vm_status`, `vm_power` and `vm_delete` handle a stuck VM. In the UI:
+**Deploy ▸ Install hosts ▸ Install a host** (Disk images ▸ *New deployment* opens the same wizard on its image). `target="bare_metal"` + `mac` installs an existing machine; `roles` are bound as desired state; `grow_policy` sizes an image's volumes for this deployment only. Details: [`docs/kernel-tuning.md`](docs/kernel-tuning.md).
+
+### Tune the kernel of a host (tunable resources, yoloman.benchmark)
+Read what the kernel supports first: `call_agent_tool(host, "setup")` → `yoloman_kernel_caps`. Then
+`resource_plan` / `resource_apply` / `resource_rollback` with kind `tunable` and a name such as `sched_ext`,
+`systemd_resource:<unit>`, `blockdev_tuning:<device>`, `cpu_governor` or `kernel_cmdline`; desired is
+`{"params": {...}}`. A refusal starts with `unsupported:`, `tool_unavailable:` or `conflict:` and says why.
+Measure with `call_agent_tool(host, "yoloman.benchmark", {"profile": ...})`, once before and once after.
+
 ### Driving Bossman with an AI (MCP)
 Every capability above is an MCP tool; the server's `instructions` (and the
 `bossman_guide` tool) teach a model which tool to use for which task, so even a small
@@ -776,8 +813,12 @@ A few behaviours are worth calling out — each is load-bearing:
   on the restored system.) Note: changing a *running* Proxmox VM's boot order needs a full **stop + start**
   to take effect, not a reset.
 
-- **DHCP/PXE is job-gated.** The PXE/DHCP server only serves while a provisioning job is pending — there
-  is no manual on/off switch. The Settings pane just manages the shared netboot secret.
+- **DHCP/PXE is job-gated and per MAC.** While netboot is on, the PXE container's DHCP follows the active jobs:
+  `restricted` answers only the MACs of active jobs (the hypervisor hands out the MAC, so `deploy_vm` always
+  restricts) and, for a network install, binds each MAC to the address its deployment was checked for; `open`
+  answers everyone, but only for 15 minutes, while a restore job is armed without a MAC; `off` otherwise.
+  `GET /api/v1/netboot/config` and the container log name the state and the reason. Netboot itself is
+  switched in Settings or with the MCP tool `set_netboot`.
 
 - **Proxy is baked into the target.** When `target_http_proxy` (+ optional `target_https_proxy`,
   `target_no_proxy`) is set, the restore's target phase writes the proxy into the restored root so the host
@@ -813,6 +854,55 @@ A few behaviours are worth calling out — each is load-bearing:
   consumer serves the fresh package on the next request, no image rebuild.
 
 ---
+
+## Kernel tuning and network installs
+
+A language model never runs inside the kernel. yoloman keeps the model in user space as the control plane; the
+kernel only gets values and programs that were checked: sysctl and cgroup values, boot parameters, and BPF
+schedulers from the scx project, which the kernel's own verifier checks. The model does not write scheduler code.
+It chooses and parameterises from a catalogue, because measured work (SchedCP, 2025) found that writing a
+scheduler from scratch was slow, expensive and often worse, while choosing was up to 13 times cheaper. Everything
+below works through Bossman's MCP server, so a model can do it end to end.
+
+- **What a kernel can be tuned with** is a fact, `yoloman_kernel_caps` (setup module) and `kernel_caps` (inventory):
+  BTF, seven `CONFIG_*` flags with the file that proved them, sched_ext state and attached scheduler, boot loader,
+  init system and whether the eBPF collector loaded. Each value is a named state; `unknown` names what it could not
+  read.
+- **Comparable observation:** run-queue latency, OOM kills and signals are stored per interval
+  (`runq_latency_us_bucket`, `oom_kill_total`, `signal_total`), so the window before a change can be compared with
+  the window after it.
+- **Five tunables** (`yoloman.sched_ext`, `systemd_resource`, `blockdev_tuning`, `cpu_governor`, `kernel_cmdline`)
+  report before and after, whether the value is `live`, `persistent` or `pending_reboot`, and one call that undoes
+  them, persistence included. As the resource kind `tunable` they get plan, apply, 30 generations and
+  `rollback(0)` = "before yoloman managed it". Persistence is dispatched per OS family, boot loader and init
+  system (Debian/Ubuntu, Fedora/RHEL/Alma, SUSE, Arch, Alpine); an unsupported combination is refused with its
+  reason.
+- **Experiments and rehearsals:** `experiment_start(host, tunable, params, profile, runs, snapshot)` alternates A/B,
+  undoes every B, ends at A and gives a verdict with every number it rests on; `snapshot=true` rehearses on a
+  Proxmox VM and rolls it back.
+- **Benchmarks:** `yoloman.benchmark` runs one fixed profile per call (`sched_latency` cyclictest, `sched_throughput`
+  hackbench, `cpu` stress-ng, `memory` sysbench, `io_randread` fio) as its own transient systemd unit, and returns
+  metric, unit, direction, tool version and command.
+- **Test hosts on demand:** `deploy_vm` installs Fedora, AlmaLinux, Debian or Ubuntu through the distribution's own
+  installer at its newest release (kickstart, preseed, autoinstall), mirrors the installer locally, starts the VM
+  only once its boot entry exists, and can finalize with a stored playbook. The wizard **Deploy ▸ Virtual
+  machines** is the same code.
+- **A model drives it:** `python -m bossman.tools.mcp_agent --goal … --tools …` lets any OpenAI-compatible model
+  work through the MCP server with a real API token, so the ACL, dry runs and refusals apply; every step is logged
+  as JSONL. The configured console model is `qwen3.8-27b` on `llm.example.internal/qwen27b`.
+
+Measured on real hosts: on a Debian 13 VM, readahead, cgroup limits and a kernel boot parameter were each applied
+and then restored exactly by their reported rollback, the boot parameter across two reboots. A Fedora 44 network
+install took about seven minutes from `deploy_vm` to the agent's first report. Benchmarks on Debian 13 and Fedora
+44: hackbench 4.5 s / 5.9 s, cyclictest p99 75 µs / 78 µs, fio 21976 / 21197 IOPS. A real BPF scheduler runs: no
+distribution ships scx that loads into its kernel, so `yoloman.scx_install` builds a pinned upstream release (4 min
+on 2 vCPU), and `scx_bpfland` then attached to Ubuntu 26.04's kernel 7.0 through the tunable resource and was rolled
+back. Experiments
+decide by measurement: alternating A/B runs, an exact rank test and a 2 % minimum effect. scx_bpfland shortens
+hackbench by 6.6 % on a 2-vCPU Ubuntu 26.04 VM (p = 0.0015, 10+10 runs). A rehearsal snapshots a Proxmox VM first
+and rolls it back. scx is baked into the agent package and attached on Fedora 44 and AlmaLinux 10.2 too.
+**Still missing:** the tuning loop (proposal → rehearsal → guarded apply → regression watch). Design, every measurement and every bug
+found on the way: [`docs/kernel-tuning.md`](docs/kernel-tuning.md).
 
 ## Build, run, test
 

@@ -15,10 +15,10 @@ version: "{{ compose_version | default('3.8') }}"
 {% if services | default(None) is mapping and services | default({}) %}
 services:
   {# Iterate over each service definition in the services mapping. #}
-  {% for service_name, service_config in services | default({}) | dict2items %}
+  {% for service_name, service_config in services | default({}) | dictsort %}
   {{ service_name.value }}:
     {# Iterate over configuration keys for the current service. #}
-    {% for key, value in service_config.value | default({}) | dict2items %}
+    {% for key, value in service_config.value | default({}) | dictsort %}
     {# build: Specifies the build configuration for the service. #}
     {% if key.key == "build" %}
       {% if value.value is string %}
@@ -26,7 +26,7 @@ services:
       {% else %}
     build:
         {# Iterate over build options (e.g., context, dockerfile, args). #}
-        {% for bk, bv in value.value | default({}) | dict2items %}
+        {% for bk, bv in value.value | default({}) | dictsort %}
         {{ bk.key }}: {{ bv.value }}
         {% endfor %}
       {% endif %}
@@ -56,7 +56,7 @@ services:
     environment:
         {# Iterate over environment variables. Can be a list of strings "KEY=VAL" or a mapping. #}
         {% if value.value is mapping %}
-            {% for env_key, env_val in value.value | default({}) | dict2items %}
+            {% for env_key, env_val in value.value | default({}) | dictsort %}
         {{ env_key.key }}: {{ env_val.value }}
             {% endfor %}
         {% else %}
@@ -113,10 +113,10 @@ services:
 {% if networks | default(None) is mapping and networks | default({}) %}
 networks:
   {# Iterate over each network definition. #}
-  {% for net_name, net_config in networks | default({}) | dict2items %}
+  {% for net_name, net_config in networks | default({}) | dictsort %}
   {{ net_name.key }}:
     {# Iterate over network configuration options (e.g., driver, external). #}
-    {% for nk, nv in net_config.value | default({}) | dict2items %}
+    {% for nk, nv in net_config.value | default({}) | dictsort %}
       {{ nk.key }}: {{ nv.value }}
     {% endfor %}
   {% endfor %}
@@ -126,10 +126,10 @@ networks:
 {% if volumes | default(None) is mapping and volumes | default({}) %}
 volumes:
   {# Iterate over each volume definition. #}
-  {% for vol_name, vol_config in volumes | default({}) | dict2items %}
+  {% for vol_name, vol_config in volumes | default({}) | dictsort %}
   {{ vol_name.key }}:
     {# Iterate over volume configuration options (e.g., driver, external). #}
-    {% for vk, vv in vol_config.value | default({}) | dict2items %}
+    {% for vk, vv in vol_config.value | default({}) | dictsort %}
       {{ vk.key }}: {{ vv.value }}
     {% endfor %}
   {% endfor %}

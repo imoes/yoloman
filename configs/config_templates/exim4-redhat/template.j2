@@ -67,9 +67,9 @@
 # +local_domains, +relay_to_domains, and +relay_from_hosts, respectively. They
 # are all colon-separated lists:
 
-domainlist local_domains = @ : {{ local_domains }}
-domainlist relay_to_domains = {{ relay_to_domains }}
-hostlist   relay_from_hosts = {{ relay_from_hosts }}
+domainlist local_domains = @ : localhost : localhost.localdomain
+domainlist relay_to_domains =
+hostlist   {{ hostlist | default('relay_from_hosts = localhost') }}
 # (We rely upon hostname resolution working for localhost, because the default
 # uncommented configuration needs to work in IPv4-only environments.)
 
@@ -119,13 +119,13 @@ hostlist   relay_from_hosts = {{ relay_from_hosts }}
 # manual for details. The lists above are used in the access control lists for
 # checking incoming messages. The names of these ACLs are defined here:
 
-acl_smtp_mail =         acl_check_mail
-acl_smtp_rcpt =         acl_check_rcpt
+acl_smtp_mail =         {{ acl_smtp_mail | default('acl_check_mail') }}
+acl_smtp_rcpt =         {{ acl_smtp_rcpt | default('acl_check_rcpt') }}
 .ifdef _HAVE_PRDR
-acl_smtp_data_prdr =    acl_check_prdr
+acl_smtp_data_prdr =    {{ acl_smtp_data_prdr | default('acl_check_prdr') }}
 .endif
-acl_smtp_data =         acl_check_data
-acl_smtp_mime =         acl_check_mime
+acl_smtp_data =         {{ acl_smtp_data | default('acl_check_data') }}
+acl_smtp_mime =         {{ acl_smtp_mime | default('acl_check_mime') }}
 
 # You should not change those settings until you understand how ACLs work.
 
@@ -138,7 +138,7 @@ acl_smtp_mime =         acl_check_mime
 # of what to set for other virus scanners. The second modification is in the
 # acl_check_data access control list (see below).
 
-av_scanner = {{ av_scanner }}
+av_scanner = {{ av_scanner | default('clamd:/var/run/clamd.exim/clamd.sock') }}
 
 
 # For spam scanning, there is a similar option that defines the interface to
@@ -165,7 +165,7 @@ av_scanner = {{ av_scanner }}
 
 # This is equivalent to the default.
 
-tls_advertise_hosts = {{ tls_advertise_hosts }}
+tls_advertise_hosts = {{ tls_advertise_hosts | default('*') }}
 
 # Specify the location of the Exim server's TLS certificate and private key.
 # The private key must not be encrypted (password protected). You can put
@@ -173,8 +173,8 @@ tls_advertise_hosts = {{ tls_advertise_hosts }}
 # need the first setting, or in separate files, in which case you need both
 # options.
 
-tls_certificate = {{ tls_certificate }}
-tls_privatekey = {{ tls_privatekey }}
+tls_certificate = {{ tls_certificate | default('/etc/pki/tls/certs/exim.pem') }}
+tls_privatekey = {{ tls_privatekey | default('/etc/pki/tls/private/exim.pem') }}
 
 # For OpenSSL, prefer EC- over RSA-authenticated ciphers
 .ifdef _HAVE_OPENSSL
@@ -185,7 +185,7 @@ tls_require_ciphers = ECDSA:RSA:!COMPLEMENTOFDEFAULT
 # tickets.  Once the TLS extension for vended ticket numbers comes
 # though, re-examine since resumption on a single-use ticket is still a benefit.
 .ifdef _HAVE_TLS_RESUME
-tls_resumption_hosts = ${if inlist {$received_port}{587:465} {:}{*{{ '}}' }}
+tls_resumption_hosts = ${if inlist {$received_port}{587:465} {:}{*}}
 .endif
 
 # In order to support roaming users who wish to send email from anywhere,
@@ -201,8 +201,8 @@ tls_resumption_hosts = ${if inlist {$received_port}{587:465} {:}{*{{ '}}' }}
 # them you should also allow TLS-on-connect on the traditional (and now
 # standard) port 465.
 
-daemon_smtp_ports = {{ daemon_smtp_ports }}
-tls_on_connect_ports = {{ tls_on_connect_ports }}
+daemon_smtp_ports = {{ daemon_smtp_ports | default('25 : 465 : 587') }}
+tls_on_connect_ports = {{ tls_on_connect_ports | default('465') }}
 
 
 # Specify the domain you want to be added to all unqualified addresses
@@ -250,7 +250,7 @@ tls_on_connect_ports = {{ tls_on_connect_ports }}
 # as if it were a normal user. This isn't usually a problem, as most sites have
 # an alias for root that redirects such mail to a human administrator.
 
-never_users = {{ never_users }}
+never_users = {{ never_users | default('root') }}
 
 
 # The setting below causes Exim to do a reverse DNS lookup on all incoming
@@ -258,7 +258,7 @@ never_users = {{ never_users }}
 # expensive, you can specify the networks for which a lookup is done, or
 # remove the setting entirely.
 
-host_lookup = {{ host_lookup }}
+host_lookup = {{ host_lookup | default('*') }}
 
 # This setting, if uncommented, allows users to authenticate using
 # their system passwords against saslauthd if they connect over a
@@ -268,7 +268,7 @@ host_lookup = {{ host_lookup }}
 # too. Once a user is authenticated, the acl_check_rcpt ACL then
 # allows them to relay through the system.
 #
-# auth_advertise_hosts = ${if eq {$tls_cipher}{}{}{*{{ '}}' }}
+# auth_advertise_hosts = ${if eq {$tls_cipher}{}{}{*}}
 #
 # By default, we set this option to allow SMTP AUTH from nowhere
 # (Exim's default would be to allow it from anywhere, even on an
@@ -277,13 +277,13 @@ host_lookup = {{ host_lookup }}
 # Comment this one out if you uncomment the above. Did you make sure
 # saslauthd is actually running first?
 #
-auth_advertise_hosts = {{ auth_advertise_hosts }}
+auth_advertise_hosts {{ auth_advertise_hosts | default('=') }}
 
 # The setting below causes Exim to try to initialize the system resolver
 # library with DNSSEC support.  It has no effect if your library lacks
 # DNSSEC support.
 
-dns_dnssec_ok = {{ dns_dnssec_ok }}
+dns_dnssec_ok = {{ dns_dnssec_ok | default('1') }}
 
 
 # The settings below cause Exim to make RFC 1413 (ident) callbacks
@@ -297,9 +297,11 @@ dns_dnssec_ok = {{ dns_dnssec_ok }}
 # (The default was reduced from 30s to 5s for release 4.61. and to
 # disabled for release 4.86)
 #
-#rfc1413_hosts = *
-#rfc1413_query_timeout = 5s
-
+{% if rfc1413_hosts is defined and rfc1413_hosts is not none and (rfc1413_hosts is number or rfc1413_hosts is boolean or rfc1413_hosts | length > 0) %}rfc1413_hosts = {{ rfc1413_hosts }}
+{% else %}#rfc1413_hosts = *
+{% endif %}{% if rfc1413_query_timeout is defined and rfc1413_query_timeout is not none and (rfc1413_query_timeout is number or rfc1413_query_timeout is boolean or rfc1413_query_timeout | length > 0) %}rfc1413_query_timeout = {{ rfc1413_query_timeout }}
+{% else %}#rfc1413_query_timeout = 5s
+{% endif %}
 
 # Enable an efficiency feature.  We advertise the feature; clients
 # may request to use it.  For multi-recipient mails we then can
@@ -311,7 +313,7 @@ dns_dnssec_ok = {{ dns_dnssec_ok }}
 # not flagging support for PRDR (visible via $prdr_requested).
 #
 .ifdef _HAVE_PRDR
-prdr_enable = {{ prdr_enable | lower }}
+prdr_enable = {{ prdr_enable | default('true') }}
 .endif
 
 
@@ -331,7 +333,8 @@ prdr_enable = {{ prdr_enable | lower }}
 # Unless you run a high-volume site you probably want more logging
 # detail than the default.  Adjust to suit.
 
-log_selector = {{ log_selector }}
+log_selector = +smtp_protocol_error +smtp_syntax_error \
+        +tls_certificate_verified
 
 
 # If you want Exim to support the "percent hack" for certain domains,
@@ -356,11 +359,11 @@ log_selector = {{ log_selector }}
 # This option unfreezes frozen bounce messages after two days, tries
 # once more to deliver them, and ignores any delivery failures.
 
-ignore_bounce_errors_after = {{ ignore_bounce_errors_after }}
+ignore_bounce_errors_after = {{ ignore_bounce_errors_after | default('2d') }}
 
 # This option cancels (removes) frozen messages that are older than a week.
 
-timeout_frozen_after = {{ timeout_frozen_after }}
+timeout_frozen_after = {{ timeout_frozen_after | default('7d') }}
 
 
 # By default, messages that are waiting on Exim's queue are all held in a
@@ -407,8 +410,8 @@ timeout_frozen_after = {{ timeout_frozen_after }}
 # Note that TZ is handled separately by the timezone runtime option
 # and TIMEZONE_DEFAULT buildtime option.
 
-keep_environment = {{ keep_environment }}
-add_environment = {{ add_environment }}
+keep_environment = {{ keep_environment | default('^LDAP') }}
+add_environment = {{ add_environment | default('PATH=/usr/bin::/bin') }}
 
 
 
@@ -429,13 +432,13 @@ acl_check_mail:
   # So don't allow them to use the MAIL command if they haven't
   # done so.
 
-  deny condition = ${if eq{$sender_helo_name}{} {1{{ '}}' }}
+  deny condition = ${if eq{$sender_helo_name}{} {1}}
        message = Nice boys say HELO first
 
   # Use the lack of reverse DNS to trigger greylisting. Some people
   # even reject for it but that would be a little excessive.
 
-  warn condition = ${if eq{$sender_host_name}{} {1{{ '}}' }}
+  warn condition = ${if eq{$sender_host_name}{} {1}}
        set acl_m_greylistreasons = Host $sender_host_address lacks reverse DNS\n$acl_m_greylistreasons
 
   accept
@@ -521,10 +524,10 @@ acl_check_rcpt:
   # invocations of more heavy-weight checks which would come after it.
 
   deny    condition     = ${if and {\
-                        {>{$rcpt_count}{10{{ '}}' }}\
-                        {<{$recipients_count}{${eval:$rcpt_count/2{{ '}}' }}} {{ '}}' }}
+                        {>{$rcpt_count}{10}}\
+                        {<{$recipients_count}{${eval:$rcpt_count/2}}} }}
           message       = Rejected for too many bad recipients
-          logwrite      = REJECT [$sender_host_address]: bad recipient count high [${eval:$rcpt_count-$recipients_count}]
+          logwrite      = {{ logwrite | default('REJECT [$sender_host_address]: bad recipient count high [${eval:$rcpt_count-$recipients_count}]') }}
 
   # Accept if the message comes from one of the hosts for which we are an
   # outgoing relay. It is assumed that such hosts are most likely to be MUAs,
@@ -610,11 +613,11 @@ acl_check_rcpt:
   # to the first recipient must be deferred unless the sender talks PRDR.
   #
   # defer  !condition     = $prdr_requested
-  #        condition      = ${if > {0}{$recipients_count{{ '}}' }}
+  #        condition      = ${if > {0}{$recipients_count}}
   #        condition      = ${if !eq {$acl_m_content_filter} \
-  #                                  {${lookup PER_RCPT_CONTENT_FILTER{{ '}}' }}}
+  #                                  {${lookup PER_RCPT_CONTENT_FILTER}}}
   # warn   !condition     = $prdr_requested
-  #        condition      = ${if > {0}{$recipients_count{{ '}}' }}
+  #        condition      = ${if > {0}{$recipients_count}}
   #        set acl_m_content_filter = ${lookup PER_RCPT_CONTENT_FILTER}
   #############################################################################
 
@@ -661,15 +664,15 @@ acl_check_data:
   # Deny if the message contains an overlong line.  Per the standards
   # we should never receive one such via SMTP.
   #
-  deny    condition  = ${if > {$max_received_linelength}{998{{ '}}' }}
+  deny    condition  = ${if > {$max_received_linelength}{998}}
           message    = maximum allowed line length is 998 octets, \
-                       got $max_received_linelength
+                       got {{ got | default('$max_received_linelength') }}
 
   # Deny if the headers contain badly-formed addresses.
   #
   deny    !verify =     header_syntax
           message =     header syntax
-          log_message = header syntax ($acl_verify_message)
+          log_message = {{ log_message | default('header syntax ($acl_verify_message)') }}
 
   # Put simple tests first. A good one is to check for the presence of a
   # Message-Id: header, which RFC2822 says SHOULD be present. Some broken
@@ -677,14 +680,14 @@ acl_check_data:
   # messages too, though -- although it's not hard for the offender to fix
   # after they receive a bounce because of it.
   #
-  # deny    condition  = ${if !def:h_Message-ID: {1{{ '}}' }}
+  # deny    condition  = ${if !def:h_Message-ID: {1}}
   #         message    = RFC2822 says that all mail SHOULD have a Message-ID header.\n\
   #                      Most messages without it are spam, so your mail has been rejected.
   #
   # Alternatively if we're feeling more lenient we could just use it to
   # trigger greylisting instead:
 
-  warn    condition  = ${if !def:h_Message-ID: {1{{ '}}' }}
+  warn    condition  = ${if !def:h_Message-ID: {1}}
           set acl_m_greylistreasons = Message lacks Message-Id: header. Consult RFC2822.\n$acl_m_greylistreasons
 
   # Deny if the message contains a virus. Before enabling this check, you
@@ -695,7 +698,7 @@ acl_check_data:
 
   # Bypass SpamAssassin checks if the message is too large.
   #
-  # accept  condition  = ${if >={$message_size}{100000} {1{{ '}}' }}
+  # accept  condition  = ${if >={$message_size}{100000} {1}}
   #         add_header = X-Spam-Note: SpamAssassin run bypassed due to message size
 
   #############################################################################
@@ -717,7 +720,7 @@ acl_check_data:
   # warn    spam       = nobody/defer_ok
   #         add_header = X-Spam-Flag: YES
   #
-  # accept  condition  = ${if !def:spam_score_int {1{{ '}}' }}
+  # accept  condition  = ${if !def:spam_score_int {1}}
   #         add_header = X-Spam-Note: SpamAssassin invocation failed
   #
 
@@ -728,13 +731,13 @@ acl_check_data:
 
   # And reject if the SpamAssassin score is greater than ten
   #
-  # deny    condition = ${if >{$spam_score_int}{100} {1{{ '}}' }}
+  # deny    condition = ${if >{$spam_score_int}{100} {1}}
   #         message   = Your message scored $spam_score SpamAssassin point. Report follows:\n\
   #  	    	        $spam_report
 
   # Trigger greylisting (if enabled) if the SpamAssassin score is greater than 0.5
   #
-  # warn    condition = ${if >{$spam_score_int}{5} {1{{ '}}' }}
+  # warn    condition = ${if >{$spam_score_int}{5} {1}}
   #         set acl_m_greylistreasons = Message has $spam_score SpamAssassin points\n$acl_m_greylistreasons
 
 
@@ -762,12 +765,11 @@ acl_check_mime:
   # File extension filtering.
   deny message = Blacklisted file extension detected
        condition = ${if match \
-                        {${lc:$mime_filename{{ '}}' }} \
+                        {${lc:$mime_filename}} \
                         {\N(\.exe|\.pif|\.bat|\.scr|\.lnk|\.com)$\N} \
-                     {1}{0{{ '}}' }}
+                     {1}{0}}
 
   accept
-
 
 
 ######################################################################
@@ -779,7 +781,6 @@ acl_check_mime:
 ######################################################################
 
 begin routers
-
 
 # This router routes to remote hosts over SMTP by explicit IP address,
 # when an email address is given in "domain literal" form, for example,
@@ -809,7 +810,7 @@ smarthost:
   driver = manualroute
   domains = ! +local_domains
   transport = smarthost_smtp
-  route_data = ROUTER_SMARTHOST
+  route_data = {{ route_data | default('ROUTER_SMARTHOST') }}
   ignore_target_hosts = <; 0.0.0.0 ; 127.0.0.0/8 ; ::1
   no_more
 
@@ -846,7 +847,6 @@ dnslookup:
 # domains that are defined by "domainlist local_domains" above.
 
 
-
 # This router handles aliasing using a linearly searched alias file with the
 # name SYSTEM_ALIASES_FILE. When this configuration is installed automatically,
 # the name gets inserted into this file from whatever is set in Exim's
@@ -871,11 +871,10 @@ system_aliases:
   driver = redirect
   allow_fail
   allow_defer
-  data = ${lookup{$local_part}lsearch{/etc/aliases{{ '}}' }}
+  data = {{ data | default('${lookup{$local_part}lsearch{/etc/aliases}}') }}
 # user = exim
   file_transport = address_file
   pipe_transport = address_pipe
-
 
 
 # This router handles forwarding using traditional .forward files in users'
@@ -916,12 +915,12 @@ userforward:
   check_ancestor
   file_transport = address_file
   pipe_transport = address_pipe
-  reply_transport = address_reply
+  reply_transport = {{ reply_transport | default('address_reply') }}
 
 procmail:
   driver = accept
   check_local_user
-  require_files = ${local_part}:+${home}/.procmailrc:/usr/bin/procmail
+  require_files = {{ require_files | default('${local_part}:+${home}/.procmailrc:/usr/bin/procmail') }}
   transport = procmail
   no_verify
 
@@ -939,8 +938,7 @@ localuser:
 # local_part_suffix = +* : -*
 # local_part_suffix_optional
   transport = local_delivery
-  cannot_route_message = Unknown user
-
+  cannot_route_message = {{ cannot_route_message | default('Unknown user') }}
 
 
 
@@ -970,18 +968,18 @@ remote_smtp:
 
 remote_msa:
   driver = smtp
-  port = {{ remote_msa_port }}
-  hosts_require_auth = *
+  port = {{ port | default('587') }}
+  hosts_require_auth = {{ hosts_require_auth | default('*') }}
 
 
 # This transport invokes procmail to deliver mail
 procmail:
   driver = pipe
-  command = "/usr/bin/procmail -d $local_part"
+  command = {{ command | default('"/usr/bin/procmail -d $local_part"') }}
   return_path_add
   delivery_date_add
   envelope_to_add
-  user = $local_part
+  user = {{ user | default('$local_part') }}
   initgroups
   return_output
 
@@ -999,19 +997,19 @@ smarthost_smtp:
 .ifdef _HAVE_TLS
   # Comment out any of these which you have to, then file a Support
   # request with your smarthost provider to get things fixed:
-  hosts_require_tls = *
-  tls_verify_hosts = *
+  hosts_require_tls = {{ hosts_require_tls | default('*') }}
+  tls_verify_hosts = {{ tls_verify_hosts | default('*') }}
   # As long as tls_verify_hosts is enabled this will have no effect,
   # but if you have to comment it out then this will at least log whether
   # you succeed or not:
-  tls_try_verify_hosts = *
+  tls_try_verify_hosts = {{ tls_try_verify_hosts | default('*') }}
   #
   # The SNI name should match the name which we'll expect to verify;
   # many mail systems don't use SNI and this doesn't matter, but if it does,
   # we need to send a name which the remote site will recognize.
   # This _should_ be the name which the smarthost operators specified as
   # the hostname for sending your mail to.
-  tls_sni = ROUTER_SMARTHOST
+  tls_sni = {{ tls_sni | default('ROUTER_SMARTHOST') }}
   #
 .ifdef _HAVE_OPENSSL
   tls_require_ciphers = HIGH:!aNULL:@STRENGTH
@@ -1038,9 +1036,8 @@ local_delivery:
   delivery_date_add
   envelope_to_add
   return_path_add
-  group = {{ local_delivery_group }}
-  mode = 0660
-
+  group = {{ group | default('mail') }}
+  mode = {{ mode | default('0660') }}
 
 
 # This transport is used for handling pipe deliveries generated by alias or
@@ -1090,7 +1087,6 @@ address_reply:
 
 begin retry
 
-
 # This single retry rule applies to all domains and all errors. It specifies
 # retries every 15 minutes for 2 hours, then increasing retry intervals,
 # starting at 1 hour and increasing each time by a factor of 1.5, up to 16
@@ -1125,7 +1121,6 @@ begin rewrite
 ######################################################################
 
 begin authenticators
-
 
 # This authenticator supports CRAM-MD5 username/password authentication
 # with Exim acting as a _client_, as it might when sending its outgoing
@@ -1169,7 +1164,7 @@ begin authenticators
 #  driver                     = plaintext
 #  server_set_id              = $auth2
 #  server_prompts             = :
-#  server_condition           = ${if saslauthd{{ '{{' }}$2}{$3}{smtp{{ '}}' }} {1{{ '}}' }}
+#  server_condition           = ${if saslauthd{{ '{{' }}$2}{$3}{smtp}} {1}}
 #  server_advertise_condition = ${if def:tls_in_cipher }
 
 # LOGIN authentication has traditional prompts and responses. There is no
@@ -1181,7 +1176,7 @@ begin authenticators
 #  driver                     = plaintext
 #  server_set_id              = $auth1
 #  server_prompts             = <| Username: | Password:
-#  server_condition           = ${if saslauthd{{ '{{' }}$1}{$2}{smtp{{ '}}' }} {1{{ '}}' }}
+#  server_condition           = ${if saslauthd{{ '{{' }}$1}{$2}{smtp}} {1}}
 #  server_advertise_condition = ${if def:tls_in_cipher }
 
 

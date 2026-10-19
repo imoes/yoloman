@@ -1,108 +1,31 @@
-#! /bin/sh
 #
-# xymon-client    This shell script takes care of starting and stopping
-#                 the xymon client.
+# The clientlaunch.cfg file is loaded by "xymonlaunch".
+# It controls which of the Xymon client-side modules to run, 
+# (both the main client "xymonclient.sh" and any client-side
+# extensions); how often, and with which parameters, options 
+# and environment variables.
+#
+# Note: On the Xymon *server* itself, this file is normally 
+#       NOT used. Instead, both the client- and server-tasks
+#       are controlled by the tasks.cfg file.
+#
 
-### BEGIN INIT INFO
-# Provides:          xymon-client
-# Required-Start:    $remote_fs $network
-# Should-Start:    $all
-# Required-Stop:     $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Xymon system monitor client
-# Description:       Client to feed system data to a remote Xymon server.
-### END INIT INFO
+# msgcache is used for passive clients, that cannot connect
+# directly to the Xymon server. This is not the default
+# setup, so this task is normally disabled.
+[msgcache]
+	# Path to the PID file for the msgcache process.
+	DISABLED
+	ENVFILE $XYMONCLIENTHOME/etc/xymonclient.cfg
+	CMD $XYMONCLIENTHOME/bin/msgcache --no-daemon --pidfile={{ pidfile_path_msgcache | default('/var/run/xymon/msgcache.pid') }}
+	LOGFILE $XYMONCLIENTLOGS/msgcache.log
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON="{{ daemion_path }}"
-NAME=xymon-client
-DESC="Xymon Client"
-PIDFILE="{{ pidfile_path }}"
-XYMONCLIENTHOME="{{ xymon_client_home }}"
+# The main client task
+[client]
+	ENVFILE $XYMONCLIENTHOME/etc/xymonclient.cfg
+	CMD $XYMONCLIENTHOME/bin/xymonclient.sh 
+	LOGFILE $XYMONCLIENTLOGS/xymonclient.log
+	INTERVAL 5m
 
-test -x $DAEMON || exit 0
-
-. /lib/lsb/init-functions
-. /usr/share/xymon/init-common.sh
-
-# Include xymon-client defaults if available
-if [ -f /etc/default/xymon-client ] ; then
-	. /etc/default/xymon-client
-fi
-[ -z "$MACHINE" ] && MACHINE="$CLIENTHOSTNAME"
-[ -z "$MACHINEDOTS" ] && MACHINEDOTS="`hostname -f`"
-export XYMONSERVERS XYMONCLIENTHOME CLIENTHOSTNAME MACHINE MACHINEDOTS
-
-case "$1" in
-  start)
-	# do not run the client script on the server
-	[ -x /usr/lib/xymon/server/bin/xymond ] && exit 0
-
-	create_includefiles
-
-	if test "$TMPFSSIZE" && test -e /proc/mounts && ! grep -q /var/lib/xymon/tmp /proc/mounts; then
-		echo "Mounting tmpfs on /var/lib/xymon/tmp"
-		rm -f /var/lib/xymon/tmp/*
-		mount -t tmpfs -o"size=$TMPFSSIZE,mode=755,uid=$(id -u xymon)" tmpfs /var/lib/xymon/tmp
-	fi
-
-	log_daemon_msg "Starting $DESC" "$NAME"
-       start-stop-daemon --pidfile "$PIDFILE" --exec $DAEMON --chuid xymon --umask 022 --start \
-		-- \
-		--config=/etc/xymon/clientlaunch.cfg \
-		--log={{ client_log_path }} \
-		--pidfile=$PIDFILE
-	log_end_msg $?
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-       start-stop-daemon --pidfile "$PIDFILE" --exec $DAEMON --pidfile $PIDFILE --stop --retry 5
-	log_end_msg $?
-	;;
-  status)
-	if test -s $PIDFILE
-	then
-		kill -0 `cat $PIDFILE`
-		if test $? -eq 0
-		then
-                        echo "Xymon client running with PID `cat $PIDFILE`"
-			exit 0
-		else
-			echo "Xymon client not running, removing stale PID file"
-			rm -f $PIDFILE
-			exit 1
-		fi
-	else
-		echo "Xymon client does not appear to be running"
-		exit 3
-	fi
-	;;
-  restart)
-	if [ -x /usr/lib/xymon/server/bin/xymond ] ; then
-		log_action_msg "Xymon server installed. Please restart 'xymon' instead"
-		exit 0
-	fi
-	$0 stop
-	sleep 1
-	$0 start
-	;;
-  reload|force-reload)
-	[ -x /usr/lib/xymon/server/bin/xymond ] && exit 0
-	create_includefiles
-	kill -HUP `cat /var/run/xymon/clientlaunch.pid`
-	;;
-  rotate)
-	for PIDFILE in /var/run/xymon/*.pid
-	do
-		test -e $PIDFILE && kill -HUP `cat $PIDFILE`
-	done
-	;;
-  *)
-	N=/etc/init.d/$NAME
-	echo "Usage: $N {start|stop|restart|reload|force-reload|status|rotate}" >&2
-	exit 1
-	;;
-esac
-
-exit 0
+# Path to the included configuration file for clientlaunch.
+include {{ include_path_clientlaunch | default('/var/run/xymon/clientlaunch-include.cfg') }}

@@ -6,16 +6,16 @@
 port={{ port | default(64738) }}
 
 # Hostname or IP address the server binds to (empty = all interfaces)
-host={{ host | default('') }}
+{% if host is defined and host is not none and (host is number or host is boolean or host | length > 0) %}host={{ host | default('') }}{% else %};host={% endif %}
 
 # SSL certificate path (required for secure connections)
-sslCert={{ ssl_cert_path | default('/etc/ssl/certs/mumble-server.crt') }}
+{% if ssl_cert_path is defined and ssl_cert_path is not none and (ssl_cert_path is number or ssl_cert_path is boolean or ssl_cert_path | length > 0) %}sslCert={{ ssl_cert_path | default('/etc/ssl/certs/mumble-server.crt') }}{% else %};sslCert={% endif %}
 
 # SSL private key path
-sslKey={{ ssl_key_path | default('/etc/ssl/private/mumble-server.key') }}
+{% if ssl_key_path is defined and ssl_key_path is not none and (ssl_key_path is number or ssl_key_path is boolean or ssl_key_path | length > 0) %}sslKey={{ ssl_key_path | default('/etc/ssl/private/mumble-server.key') }}{% else %};sslKey={% endif %}
 
 # SSL CA certificate chain (optional)
-sslCA={{ ssl_ca_path | default('') }}
+{% if ssl_ca_path is defined and ssl_ca_path is not none and (ssl_ca_path is number or ssl_ca_path is boolean or ssl_ca_path | length > 0) %}sslCA={{ ssl_ca_path | default('') }}{% else %};sslCA={% endif %}
 
 # Enable SSLv3/TLSv1.2+ only; disable legacy protocols
 sslVerifyPeers={{ ssl_verify_peers | default(1) | lower }}
@@ -27,7 +27,7 @@ password={{ server_password | default('') }}
 supervisor_password={{ super_user_password | default('') }}
 
 # Maximum number of concurrent users
-bandwidth={{ max_bandwidth | default(72000) }}
+bandwidth={{ max_bandwidth | default(558000) }}
 
 # Number of concurrent users allowed (default: 100)
 users={{ max_users | default(100) }}
@@ -36,7 +36,7 @@ users={{ max_users | default(100) }}
 loglevel={{ log_level | default(2) }}
 
 # Path to log file (empty = stderr)
-logfile={{ log_file_path | default('') }}
+{% if log_file_path is defined and log_file_path is not none and (log_file_path is number or log_file_path is boolean or log_file_path | length > 0) %}logfile={{ log_file_path | default('') }}{% else %};logfile=mumble-server.log{% endif %}
 
 # Enable Web UI (requires mumble-website or similar backend)
 web_enable={{ web_enable | default(false) | lower }}
@@ -52,16 +52,16 @@ dbDriver=QSQLITE
 dbDatabase={{ db_path | default('/var/lib/mumble-server/mumble-server.sqlite') }}
 
 # Database username (not used for SQLite)
-dbUsername={{ db_username | default('') }}
+{% if db_username is defined and db_username is not none and db_username != '' %}dbUsername={{ db_username }}{% else %};dbUsername={% endif %}
 
 # Database password (not used for SQLite)
-dbPassword={{ db_password | default('') }}
+{% if db_password is defined and db_password is not none and db_password != '' %}dbPassword={{ db_password }}{% else %};dbPassword={% endif %}
 
 # Database host (not used for SQLite)
-dbHost={{ db_host | default('') }}
+{% if db_host is defined and db_host is not none and db_host != '' %}dbHost={{ db_host }}{% else %};dbHost={% endif %}
 
 # Database port (not used for SQLite)
-dbPort={{ db_port | default(0) }}
+{% if db_port is defined and db_port is not none and db_port != '' %}dbPort={{ db_port }}{% else %};dbPort={% endif %}
 
 # Path to PID file
 pid={{ pid_file_path | default('/run/mumble-server/mumble-server.pid') }}
@@ -73,7 +73,7 @@ locale={{ locale | default('en_US') }}
 tz={{ timezone | default('') }}
 
 # Enable Bonjour/Zeroconf service discovery
-bonjour={{ bonjour_enabled | default(false) | lower }}
+{% if bonjour_enabled is defined and bonjour_enabled is not none and (bonjour_enabled is number or bonjour_enabled is boolean or bonjour_enabled | length > 0) %}bonjour={{ bonjour_enabled | default(false) | lower }}{% else %};bonjour=true{% endif %}
 
 # Allow clients to change their own channel permissions (0=never, 1=always, 2=admin-only)
 allow_reload_config_changes={{ config_reload_policy | default(2) }}

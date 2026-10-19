@@ -1,127 +1,124 @@
 # ==============================================================================
-# PIMd (Protocol Independent Multicast Daemon) Configuration
+# pimd Configuration Template
 # ==============================================================================
-# This template generates the configuration file for pimd, a lightweight,
-# stand-alone PIM-SM/SSM multicast routing daemon.
+# This file configures pimd (PIM Sparse Mode daemon).
+# The order of directives is critical for pimd's parser.
 #
-# It supports PIM-Sparse Mode (PIM-SM), PIM-Dense Mode (PIM-DM), VRRP
-# interoperability, RP configuration, Bootstrap Router (BSR), and per-interface
-# settings including IGMP querier and boundary ACLs.
+# Global defaults must appear before phyint (interface) specific directives.
+#
+# Variable Mapping:
+#   default_route_distance : Admin distance for PIM Assert messages
+#   default_route_metric   : Metric for PIM Assert messages
+#   hello_interval         : PIM Hello packet interval (seconds)
+#   bsr_candidate_priority : Priority for Bootstrap Router election
+#   rp_candidate_time      : RP advertisement interval (seconds)
+#   rp_candidate_priority  : RP election priority
+#   spt_threshold_packets  : Packets to trigger Shortest Path Tree switch
+#   spt_threshold_interval : SPT threshold test interval (seconds)
 # ==============================================================================
 
 # --------------------------------------------------------------------------
-# Global Debug Settings
+# Global Defaults
 # --------------------------------------------------------------------------
+# Default admin distance for PIM Assert messages.
+# Lower value = higher priority. 101 is commonly recommended to prefer
+# Cisco/GateD asserts over pimd asserts if they have higher values.
+# Range: 1-255
+{% if default_route_distance | default('') != '' %}
+default-route-distance {{ default_route_distance }}
+{% else %}
+#default-route-distance 101
+{% endif %}
 
-# Enable debugging output to syslog.
-# Type: boolean
-debug {{ debug | default(false) | lower }}
+# Default metric for PIM Assert messages.
+# Used in PIM Assert elections if distances are equal.
+# Range: 1-1024
+{% if default_route_metric | default('') != '' %}
+default-route-metric {{ default_route_metric }}
+{% else %}
+#default-route-metric 1024
+{% endif %}
 
-# Debug level suffix (e.g., ' 2' for more verbose logs); empty to use default level.
-# Type: string
-debug_level {{ debug_level | default('') }}
-
-# --------------------------------------------------------------------------
-# Global Multicast Routing Settings
-# --------------------------------------------------------------------------
-
-# Virtual Router ID (0–255) for VRRP interoperability. Only relevant if using VRRP with PIM.
-# Type: integer
-vrid {{ vrid | default(1) }}
-
-# Enable PIM-Sparse Mode (required for most production deployments).
-# Type: boolean
-pimsm_enabled {{ pimsm_enabled | default(true) | lower }}
-
-# Enable PIM-Dense Mode (rarely used; disable unless explicitly required).
-# Type: boolean
-pimdm_enabled {{ pimdm_enabled | default(false) | lower }}
-
-# TTL threshold (0–255) for multicast packets to be forwarded. 0 = forward all.
-# Type: integer
-cp_threshold {{ cp_threshold | default(0) }}
-
-# --------------------------------------------------------------------------
-# Rendezvous Point (RP) Configuration
-# --------------------------------------------------------------------------
-
-# IP address of the Rendezvous Point (RP) for PIM-SM.
-# This is used as a static RP when BSR is not enabled.
-# Type: string (IP address)
-rp_address {{ rp_address | default('192.168.1.1') }}
-
-# Enable Bootstrap Router (BSR) functionality for dynamic RP discovery.
-# If enabled, the static rp_address is ignored for RP election purposes.
-# Type: boolean
-bsr_enabled {{ bsr_enabled | default(false) | lower }}
+# PIM Hello interval in seconds.
+# Controls how often PIM Hello messages are sent to neighbors.
+# Do not set lower than 30 seconds to avoid excessive control plane traffic.
+# Range: 30-18724
+{% if hello_interval | default('') != '' %}
+hello-interval {{ hello_interval }}
+{% else %}
+#hello-interval 30
+{% endif %}
 
 # --------------------------------------------------------------------------
-# Static Multicast Routes
+# Interface Defaults (phyint)
 # --------------------------------------------------------------------------
-
-# List of static (*,G) multicast routes for manual forwarding control.
-# Format per item: source_group_prefix
-# Example: "239.0.0.1/32" or "192.168.1.1/32" for S(*,G)
-# If empty, no static routes are configured.
-{% for route in static_routes | default([]) %}
-static_route {{ route }}
-{% endfor %}
-
-# --------------------------------------------------------------------------
-# Access Lists
-# --------------------------------------------------------------------------
-
-# Access-lists to filter multicast groups and sources.
-# These are typically referenced by boundary filters.
-# Format per item: a valid pimd access-list definition string.
-# Example: "access_list 10 permit 224.0.0.0/4"
-{% for acl in access_lists | default([]) %}
-access_list {{ acl }}
-{% endfor %}
+# The following section defines default behaviors for all PIM-enabled
+# physical interfaces (phyint). Specific interface overrides can be
+# added below if needed.
+#
+# By default, PIM is enabled on all non-loopback multicast-capable interfaces.
+# To disable PIM on a specific interface, use:
+# phyint <interface_name> disable
+#
+# To enable PIM on a loopback or specific interface, use:
+# phyint <interface_name> enable
+#
+# Note: phyint directives must follow the global defaults above.
 
 # --------------------------------------------------------------------------
-# Interface-Specific Configurations
+# Bootstrap Router (BSR) Configuration
 # --------------------------------------------------------------------------
-
-# Per-interface PIM/IGMP settings.
-# Each interface item includes:
-#   - name: Interface name (e.g., eth0)
-#   - mode: 'sm' for Sparse Mode, 'dm' for Dense Mode
-#   - hello_interval: Seconds between PIM Hello messages (default 30)
-#   - dr_priority: DR Election priority (higher wins)
-#   - pim_disabled: If true, disable PIM on this interface
-#   - igmp_querier: If true, enable IGMP Querier on this interface
-
-{% for iface in interfaces | default([{'name': 'eth0', 'mode': 'sm', 'hello_interval': 30, 'dr_priority': 1, 'pim_disabled': False, 'igmp_querier': True}]) %}
-interface {{ iface.name | default('eth0') }}
-  # Mode for this interface: sm (Sparse) or dm (Dense)
-  mode {{ iface.mode | default('sm') }}
-
-  # Hello interval in seconds
-  hello_interval {{ iface.hello_interval | default(30) }}
-
-  # DR Priority for this interface
-  dr_priority {{ iface.dr_priority | default(1) }}
-
-  # Disable PIM on this interface if true
-  {% if iface.pim_disabled | default(false) %}
-  pim_disabled
-  {% endif %}
-
-  # Enable IGMP Querier on this interface if true
-  {% if iface.igmp_querier | default(true) %}
-  igmp_querier
-  {% endif %}
-{% endfor %}
+# The BSR mechanism dynamically distributes RP (Rendezvous Point) information.
+# This router can act as a candidate BSR.
+#
+# bsr-candidate [local-addr | ifname] [priority <0-255>]
+#   local-addr/ifname: Optional. If omitted, the highest local IP is used.
+#   priority:          Higher value = higher priority to become the active BSR.
+#                      Default is usually 5.
+bsr-candidate priority {{ bsr_candidate_priority | default('5') }}
 
 # --------------------------------------------------------------------------
-# Boundary Filters
+# Rendezvous Point (RP) Candidate Configuration
 # --------------------------------------------------------------------------
+# This router can act as a candidate RP for multicast groups.
+#
+# rp-candidate [local-addr | ifname] [priority <0-255>] [time <10-16383>]
+#   local-addr/ifname: Optional. If omitted, the highest local IP is used.
+#   priority:          Lower value = higher priority to become the RP.
+#   time:              Interval in seconds to advertise RP candidacy.
+#                      Smaller values mean faster convergence but more traffic.
+#
+# group-prefix <group-addr>[/masklen]
+#   Defines the range of multicast groups this router is offering as RP.
+#   Multiple group-prefix lines can be specified.
 
-# List of boundary filters (inbound ACLs) per interface to restrict multicast sources or groups.
-# Format per item: interface_name:acl_name_or_number
-# Example: "eth0:10" applies access-list 10 to eth0
-# If empty, no boundary filters are applied.
-{% for boundary in boundaries | default([]) %}
-boundary {{ boundary }}
-{% endfor %}
+# Advertise RP candidacy for the IPv4 multicast range (224.0.0.0/4)
+# Time interval in seconds between RP announcements.
+# Default/Recommended: 30
+rp-candidate time {{ rp_candidate_time | default(30) }} priority {{ rp_candidate_priority | default(20) }}
+group-prefix 224.0.0.0 masklen 4
+
+# Static RP Configuration (Optional)
+# If you do not want to use BSR, you can statically define RPs.
+# Uncomment and modify the line below if using static RP.
+# rp-address <rp-ip> <group-addr>[/masklen]
+# Example:
+# rp-address 192.168.1.1 224.0.0.0/4
+
+# --------------------------------------------------------------------------
+# Shortest Path Tree (SPT) Threshold
+# --------------------------------------------------------------------------
+# By default, receivers switch from the Shared Tree (RPT) to the
+# Shortest Path Tree (SPT) when they receive the first packet.
+# This can cause unnecessary tree switches for low-bandwidth streams.
+#
+# spt-threshold [packets <N> | rate <KBPS> | infinity] [interval <SEC>]
+#   packets: Number of packets received before switching to SPT.
+#            0 means switch immediately after the first packet.
+#   rate:    Switch if bandwidth exceeds this rate (kbps).
+#   infinity: Never switch to SPT (stay on RPT).
+#   interval: Time in seconds to re-evaluate the threshold.
+
+# Switch to SPT after receiving the first packet (0).
+# Re-evaluate the threshold every 100 seconds.
+spt-threshold packets {{ spt_threshold_packets | default(0) }} interval {{ spt_threshold_interval | default(100) }}

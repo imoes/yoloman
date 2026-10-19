@@ -41,7 +41,7 @@ image_aliases.{{ alias.name }} = "{{ alias.target }}"{% endfor %}
 {% if server.name %}allowed_image_servers.{{ server.name }} = "{{ server.url }}"{% endif %}{% endfor %}
 
 # Features: enable/disable experimental features
-{% for feature, enabled in features.items() %}# Feature: {{ feature }} — {{ 'enabled' if enabled else 'disabled' }}
+{% for feature, enabled in (features | default({})) | dictsort %}# Feature: {{ feature }} — {{ 'enabled' if enabled else 'disabled' }}
 {% if enabled %}features.{{ feature }} = true{% else %}features.{{ feature }} = false{% endif %}{% endfor %}
 
 # Cluster configuration (for multi-node setups)

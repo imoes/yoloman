@@ -5,7 +5,7 @@ executes at runtime.
 
 | | run by |
 |---|---|
-| `seed_admin.py` | the compose `seed` service, and `bossman-create-admin` in the package |
+| `seed_admin.py` | `bossman-create-admin` in the package (the compose `seed` service is gone — the console asks for the first admin itself) |
 | `qualify_packages.py` | the on-demand qualify endpoint (`api/package_qualify.py`) |
 | `build_package_catalog.py` | the same endpoint, right after it |
 | `dump_module_sources.py` | the module-library surface |

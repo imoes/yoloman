@@ -1,92 +1,120 @@
-## Path:        Hardware/IPMI
-## Description: Enable standard hardware interfaces (KCS, BT, SMIC)
-## Type:        yesno
-## Default:     "yes"
-## Config:      ipmi
-# Enable standard hardware interfaces (KCS, BT, SMIC).
-# This is generally recommended as most servers rely on these interfaces
-# for out-of-band management and hardware monitoring.
-# Set to 'yes' unless you are running in a specific container or virtualized
-# environment where these kernel interfaces are unnecessary or conflicting.
-IPMI_SI={{ IPMI_SI | default('yes') }}
+# IPMI Simulator Configuration Template
+# This template generates configuration for ipmi_sim to simulate a Baseboard
+# Management Controller (BMC). It sets up the main management controller,
+# sensors (watchdog, temperature, memory presence), and a satellite MC.
 
-## Path:        Hardware/IPMI
-## Description: Enable /dev/ipmi0 interface, used by ipmitool, ipmicmd,
-## Type:        yesno
-## Default:     "yes"
-## Config:      ipmi
-# Enable /dev/ipmi0 interface, used by ipmitool, ipmicmd,
-# and other userspace IPMI-using applications.
-# This creates a device node that allows userspace tools to communicate
-# with the IPMI BMC. Without this, standard tools like ipmitool will
-# fail to send commands to the management controller.
-# Set to 'no' if you are using a different interface or running headless
-# without userspace IPMI access needs.
-DEV_IPMI={{ DEV_IPMI | default('yes') }}
+# -----------------------------------------------------------------------------
+# BMC Address Configuration
+# The IPMI BMC address (MC address) for the main management controller.
+# -----------------------------------------------------------------------------
 
-## Path:        Hardware/IPMI
-## Description: Enable IPMI_WATCHDOG if you want the IPMI watchdog
-## Type:        yesno
-## Default:     "no"
-## Config:      ipmi
-# Enable IPMI_WATCHDOG if you want the IPMI watchdog
-# to reboot the system if it hangs.
-# This loads the ipmi_watchdog kernel module, allowing the system
-# to automatically reset if the OS becomes unresponsive for a set period.
-# Use with caution: ensure your system is stable and that the watchdog
-# timeout is long enough to allow for legitimate long-running maintenance
-# tasks to complete without triggering a reboot.
-IPMI_WATCHDOG={{ IPMI_WATCHDOG | default('no') }}
+{% if BMC_ADDRESS is defined and BMC_ADDRESS is not none and (BMC_ADDRESS is number or BMC_ADDRESS is boolean or BMC_ADDRESS | length > 0) %}
+# The BMC is the MC at address {{ BMC_ADDRESS }}
+{% else %}
+# The BMC is the MC at address 20
+{% endif %}
 
-## Path:        Hardware/IPMI
-## Description: Watchdog options - modinfo ipmi_watchdog for details
-## Type:        string
-## Default:     "timeout=60"
-## Config:      ipmi
-# Watchdog options - modinfo ipmi_watchdog for details.
-# Sets parameters for the IPMI watchdog module.
-# The 'timeout' specifies the number of seconds before the watchdog
-# triggers a reboot.
-# Since there is no userspace ping application that runs during shutdown,
-# be sure to give it enough time for any device drivers to
-# do their cleanup (e.g. megaraid cache flushes)
-# without the watchdog triggering prematurely.
-# Format: key=value pairs as accepted by the kernel module.
-IPMI_WATCHDOG_OPTIONS="{{ IPMI_WATCHDOG_OPTIONS | default('timeout=60') }}"
+# Set the BMC address for the main controller.
+# Default: 32 (0x20)
+mc_setbmc {{ BMC_ADDRESS | default(32) }}
 
-## Path:        Hardware/IPMI
-## Description: Enable IPMI_POWEROFF if you want the IPMI poweroff module to be loaded.
-## Type:        yesno
-## Default:     "no"
-## Config:      ipmi
-# Enable IPMI_POWEROFF if you want the IPMI poweroff module to be loaded.
-# This allows the system to use the IPMI command to gracefully power off
-# the server via the BMC, rather than using ACPI or other hardware-specific
-# power-off mechanisms. Useful for remote power management.
-IPMI_POWEROFF={{ IPMI_POWEROFF | default('no') }}
+# Add the main BMC device.
+mc_add {{ BMC_ADDRESS | default(32) }} 0 no-device-sdrs 0x23 9 8 0x9f 0x1291 0xf02 persist_sdr
 
-## Path:        Hardware/IPMI
-## Description: Enable IPMI_POWERCYCLE if you want the system to be power-cycled on reboot
-## Type:        yesno
-## Default:     "no"
-## Config:      ipmi
-# Enable IPMI_POWERCYCLE if you want the system to be power-cycled (power
-# down, delay briefly, power on) rather than power off, on systems
-# that support such. IPMI_POWEROFF=yes is also required.
-# This is useful for systems that need a full power cycle on reboot to
-# ensure hardware state is reset, or for remote recovery scenarios where
-# a simple reboot command is not enough.
-IPMI_POWERCYCLE={{ IPMI_POWERCYCLE | default('no') }}
+# Enable the SEL (System Event Log) for the BMC.
+sel_enable {{ BMC_ADDRESS | default(32) }} 1000 0x0a
 
-## Path:        Hardware/IPMI
-## Description: Enable "legacy" interfaces for applications
-## Type:        yesno
-## Default:     "no"
-## Config:      ipmi
-# Enable "legacy" interfaces for applications
-# Intel IMB driver interface.
-# This loads the ipmi_mb kernel module, providing a legacy interface
-# for applications that expect the old Intel Message Bus interface.
-# Generally not needed on modern systems, but required for compatibility
-# with older IPMI management applications or scripts.
-IPMI_IMB={{ IPMI_IMB | default('no') }}
+# -----------------------------------------------------------------------------
+# Watchdog Sensor
+# This must be sensor zero for the watchdog functionality.
+# -----------------------------------------------------------------------------
+
+# Add the watchdog sensor at index 0.
+sensor_add {{ BMC_ADDRESS | default(32) }} 0 0 35 0x6f event-only
+
+# Configure event support for the watchdog sensor.
+sensor_set_event_support {{ BMC_ADDRESS | default(32) }} 0 0 enable scanning per-state \
+	000000000001111 000000000000000 \
+	000000000001111 000000000000000
+
+# -----------------------------------------------------------------------------
+# Temperature Sensor
+# Adds a temperature sensor at index 1.
+# -----------------------------------------------------------------------------
+
+# Add a temperature sensor and its SDR. Note that sensor 0 is already
+# taken as the watchdog sensor.
+sensor_add {{ BMC_ADDRESS | default(32) }} 0 1 0x01 0x01
+
+# Start with the value set to 0x60
+sensor_set_value {{ BMC_ADDRESS | default(32) }} 0 1 0x60 0
+
+# Set just the upper thresholds with the values 0x70, 0x90, and 0xa0
+sensor_set_threshold {{ BMC_ADDRESS | default(32) }} 0 1 settable 111000 0xa0 0x90 0x70 00 00 00
+
+# Enable all upper threshold events events
+sensor_set_event_support {{ BMC_ADDRESS | default(32) }} 0 1 enable scanning per-state \
+	000111111000000 000111111000000 \
+	000111111000000 000111111000000
+
+# -----------------------------------------------------------------------------
+# Memory Module Presence Sensor
+# Adds a sensor at index 2 to detect memory module presence.
+# -----------------------------------------------------------------------------
+
+# Add a memory module presence sensor.
+sensor_add {{ BMC_ADDRESS | default(32) }} 0 2 37 0x6f
+
+# Clear bit settings for the memory sensor.
+sensor_set_bit_clr_rest {{ BMC_ADDRESS | default(32) }} 0 2 1 1
+
+{% if BMC_ADDRESS is defined and BMC_ADDRESS is not none and (BMC_ADDRESS is number or BMC_ADDRESS is boolean or BMC_ADDRESS | length > 0) %}
+sensor_set_bit_clr_rest {{ BMC_ADDRESS }} 0 2 0 1
+{% else %}
+#sensor_set_bit_clr_rest 0x20 0 2 0 1
+{% endif %}
+
+# Enable events for the memory presence sensor.
+sensor_set_event_support {{ BMC_ADDRESS | default(32) }} 0 2 enable scanning per-state \
+	000000000000011 000000000000011 \
+	000000000000011 000000000000011
+
+# -----------------------------------------------------------------------------
+# FRU Data
+# FRU (Field Replaceable Unit) data for entity 8.2.
+# -----------------------------------------------------------------------------
+
+mc_add_fru_data 0x30 3 128 data 0
+
+# -----------------------------------------------------------------------------
+# Satellite Management Controller
+# Adds a secondary/satellite MC to the simulation.
+# -----------------------------------------------------------------------------
+
+# Add a satellite MC.
+mc_add 0x30 2 no-device-sdrs 0x98 0x10 1 0xa0 0x1291 0xf03
+
+# Add a temperature sensor to the satellite MC.
+sensor_add 0x30 0 1 0x01 0x01
+
+# Uncomment the following and comment the preceding to read the value
+# from the given file. You can modify the file contents.
+#sensor_add 0x30 0 1 0x01 0x01 poll 1000 file "/tmp/file1.ipm"
+
+# Set thresholds for the satellite MC's temperature sensor.
+sensor_set_threshold 0x30 0 1 settable 111000 0xa0 0x90 0x70 00 00 00
+
+# Enable events for the satellite MC's temperature sensor.
+sensor_set_event_support 0x30 0 1 enable scanning per-state \
+	000111111000000 000111111000000 \
+	000111111000000 000111111000000
+
+# Enable the satellite MC.
+mc_enable 0x30
+
+# -----------------------------------------------------------------------------
+# Finalization
+# Turn on the main BMC.
+# -----------------------------------------------------------------------------
+
+mc_enable {{ BMC_ADDRESS | default(32) }}

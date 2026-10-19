@@ -18,17 +18,21 @@
 # Set administrator's e-mail address here.  The administrator receives
 # quarantine messages and is listed as the contact for site-wide
 # MIMEDefang policy.    A good example would be 'defang-admin@mydomain.com'
+# Schema Field: admin_address
+# Description: Administrator's e-mail address for quarantine messages and site-wide policy contact.
 #***********************************************************************
-$AdminAddress = '{{ action_replace_sender }}';
-$AdminName = "{{ action_replace_subject_prefix }}";
+$AdminAddress = '{{ admin_address | default("postmaster@localhost") }}';
+$AdminName = "{{ admin_name | default("MIMEDefang Administrator's Full Name") }}";
 
 #***********************************************************************
 # Set the e-mail address from which MIMEDefang quarantine warnings and
 # user notifications appear to come.    A good example would be
 # 'mimedefang@mydomain.com'.    Make sure to have an alias for this
 # address if you want replies to it to work.
+# Schema Field: daemon_address
+# Description: E-mail address from which MIMEDefang quarantine warnings and user notifications appear to come.
 #***********************************************************************
-$DaemonAddress = '{{ action_replace_recipients }}';
+$DaemonAddress = '{{ daemon_address | default("mimedefang@localhost") }}';
 
 #***********************************************************************
 # If you set $AddWarningsInline to 1, then MIMEDefang tries *very* hard
@@ -49,8 +53,10 @@ $AddWarningsInline = 0;
 # for each recipient (if it is 1), or only a single summary line
 # for all recipients (if it is 0.)  The default is 1.
 # Comment this line out to disable logging.
+# Schema Field: log_facility
+# Description: Syslog facility to use for MIMEDefang logging. Enum: daemon, user, mail, syslog, news, local4.
 #***********************************************************************
-md_graphdefang_log_enable('{{ log_facility }}', 1);
+md_graphdefang_log_enable('{{ log_facility | default("mail") }}', 1);
 
 #***********************************************************************
 # Uncomment this to block messages with more than 50 parts.  This will
@@ -158,8 +164,8 @@ sub filter_begin {
 #
 #  NOTE: There are two likely and one unlikely place for a filename to
 #  appear in a MIME message:    In Content-Disposition: filename, in
-#  Content-Type: name, and in Content-Description.  If you are paranoid,
-#  you will use the re_match and re_match_ext functions, which return true
+#  Content-Type: name, and in Content-Description.  If you are paranoid, you will use the
+#  re_match and re_match_ext functions, which return true
 #  if ANY of these possibilities match.  re_match checks the whole name;
 #  re_match_ext checks the extension.  See the sample filter below for usage.
 # %RETURNS:
@@ -261,7 +267,7 @@ sub filter_end {
 
     # Spam checks if SpamAssassin is installed
     if ($Features{"SpamAssassin"}) {
-        if (-s "./INPUTMSG" < {{ max_message_size }}) {
+        if (-s "./INPUTMSG" < {{ max_message_size | default("512*1024") }}) {
             # Only scan messages smaller than 512KB. Larger messages are 
             # unlikely to be spam and SpamAssassin is slow on very large messages.
             my($hits, $req, $names, $report) = spam_assassin_check();

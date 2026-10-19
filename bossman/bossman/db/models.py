@@ -405,7 +405,7 @@ class Metric(Base):
     # The mapped key is (series_id, time) — metrics_raw's own primary key, i.e. the row's
     # true identity. It used to be (time, agent_id, metric), which excluded the labels
     # that make a series a series, and the consequence was severe: the agent stamps every
-    # point of one sampling tick with the identical timestamp, so vpp0221's 5 disk mounts
+    # point of one sampling tick with the identical timestamp, so pve1's 5 disk mounts
     # all share (time, agent_id, metric). SQLAlchemy's identity map folded them into ONE
     # object — `select(Metric)` returned five results that were the same Python object
     # five times, all reporting mount "/" — so evaluate_host's per-mount dict held a
@@ -967,7 +967,7 @@ class OrchestrationPlan(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_orchestration_plans_tenant_name"),
         CheckConstraint(
-            "plan_type IN ('role', 'cluster', 'deployment', 'remediation', 'maintenance', 'bootstrap')",
+            "plan_type IN ('role', 'feature', 'cluster', 'deployment', 'remediation', 'maintenance', 'bootstrap')",
             name="ck_orchestration_plans_plan_type",
         ),
     )
@@ -1048,6 +1048,108 @@ class OrchestrationPlanLink(Base):
         ),
         CheckConstraint(
             "status IN ('pending_approval', 'active', 'rejected')", name="ck_orchestration_plan_links_status"
+        ),
+    )
+
+
+class RoleDeployment(Base):
+    """One SCCM-style desired-state deployment.
+
+    The scope and governance live on the deployment; one or more immutable
+    role/feature versions live in RoleDeploymentItem.  Per-host truth is kept
+    in RoleDeploymentTarget, rather than inferring success from the existence
+    of an orchestration link.
+    """
+
+    __tablename__ = "role_deployments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    scope_type: Mapped[str] = mapped_column(String, nullable=False)
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
+    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
+    host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
+    site_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sites.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(String, nullable=False, default="draft")
+    require_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    pilot_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    target_hash: Mapped[str] = mapped_column(String, nullable=False)
+    removal_behavior: Mapped[str] = mapped_column(String, nullable=False, default="unmanage")
+    created_by: Mapped[str | None] = mapped_column(String)
+    approved_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('host', 'group', 'ou', 'site', 'global')", name="ck_role_deployments_scope"),
+        CheckConstraint(
+            "status IN ('draft', 'pending_approval', 'active', 'paused', 'failed', 'retired')",
+            name="ck_role_deployments_status",
+        ),
+        CheckConstraint("removal_behavior IN ('unmanage', 'uninstall')", name="ck_role_deployments_removal"),
+    )
+
+
+class RoleDeploymentItem(Base):
+    """A pinned role/feature version and its parameters within a deployment."""
+
+    __tablename__ = "role_deployment_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    deployment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("role_deployments.id", ondelete="CASCADE"), nullable=False
+    )
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orchestration_plans.id", ondelete="RESTRICT"), nullable=False
+    )
+    plan_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    item_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("deployment_id", "plan_id", name="uq_role_deployment_item_plan"),
+    )
+
+
+class RoleDeploymentTarget(Base):
+    """Compliance and execution state for one deployment item on one host."""
+
+    __tablename__ = "role_deployment_targets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    deployment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("role_deployments.id", ondelete="CASCADE"), nullable=False
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("role_deployment_items.id", ondelete="CASCADE"), nullable=False
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    phase: Mapped[str] = mapped_column(String, nullable=False, default="main")
+    state: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    desired_hash: Mapped[str] = mapped_column(String, nullable=False)
+    # Explicit per-target "stop managing" exclusion.  Distinct from
+    # unmanaged because a host temporarily left a dynamic scope; the latter
+    # must converge again if it rejoins, the former must stay excluded.
+    excluded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    correction_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    link_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orchestration_plan_links.id", ondelete="SET NULL")
+    )
+    last_error: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    detected_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    applied_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("item_id", "agent_id", name="uq_role_deployment_target_item_agent"),
+        CheckConstraint("phase IN ('pilot', 'main', 'steady')", name="ck_role_deployment_targets_phase"),
+        CheckConstraint(
+            "state IN ('pending', 'not_applicable', 'blocked', 'installing', 'compliant', "
+            "'noncompliant', 'unknown', 'error', 'unmanaged')",
+            name="ck_role_deployment_targets_state",
         ),
     )
 
@@ -1872,31 +1974,6 @@ class DockerAppTemplate(Base):
     __table_args__ = (UniqueConstraint("image", name="uq_docker_app_templates_image"),)
 
 
-class Blueprint(Base):
-    """A composition of services (native roles + docker containers) wired by
-    capability (requires↔provides), managed as a draft and compiled into a typed
-    playbook that provisions + configures the whole stack. `services` mirrors the
-    UI compose model: [{name, kind, role|image, template?, environment, values,
-    ports, depends_on, provides, requires, bindings}]."""
-
-    __tablename__ = "blueprints"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
-    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=DEFAULT_TENANT_ID)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    status: Mapped[str] = mapped_column(String, nullable=False, default="draft")   # draft | ready
-    # Folder path for the blueprint tree (e.g. "web/wordpress"); "" = root. The UI
-    # groups blueprints into a tree by splitting this on "/", instead of a flat list.
-    path: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
-    services: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    created_by: Mapped[str | None] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
-
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_blueprints_name"),)
-
-
 class VmHost(Base):
     """A hypervisor the provisioner can create VMs on: vCenter or Proxmox. The credentials are stored
     encrypted (vault) so the environment is picked once and reused; the `kind` is auto-detected from the
@@ -1920,6 +1997,88 @@ class VmHost(Base):
         UniqueConstraint("tenant_id", "name", name="uq_vm_hosts_name"),
         CheckConstraint("kind IN ('proxmox', 'vcenter')", name="ck_vm_hosts_kind"),
     )
+
+
+class NetinstallJob(Base):
+    """A VM installed by its distribution's own network installer from a generated kickstart — the path for
+    distributions the image restore cannot handle (it is Debian-only: grub-install, initramfs-tools, dpkg).
+    Keyed on the MAC the hypervisor handed out, so the PXE DHCP answers exactly this machine
+    (services/netboot_dhcp.py) and the PXE container writes a boot entry for this MAC only.
+    `done` is not reported by the installer: it is the moment the new host's agent first reports."""
+
+    __tablename__ = "netinstall_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    target_mac: Mapped[str] = mapped_column(String, nullable=False)
+    hostname: Mapped[str] = mapped_column(String, nullable=False)
+    distro: Mapped[str] = mapped_column(String, nullable=False)
+    release: Mapped[str] = mapped_column(String, nullable=False)
+    network: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    packages: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    kickstart: Mapped[str] = mapped_column(Text, nullable=False)
+    ks_path: Mapped[str] = mapped_column(String, nullable=False)
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"))
+    vm_host_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("vm_hosts.id", ondelete="SET NULL"))
+    vm_node: Mapped[str | None] = mapped_column(String)
+    vm_id: Mapped[str | None] = mapped_column(String)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DeployFinalization(Base):
+    """The runbook a deployment runs once, when its new host's agent first reports — for an image restore and a
+    network install alike (services/finalize.py). `apply=false` runs it in check mode."""
+
+    __tablename__ = "deploy_finalizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    hostname: Mapped[str] = mapped_column(String, nullable=False)
+    runbook: Mapped[str] = mapped_column(String, nullable=False)
+    variables: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    apply: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="waiting")
+    result: Mapped[dict | None] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(Text)
+    requested_by: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TuningExperiment(Base):
+    """One A/B measurement of a kernel tunable on one host (services/experiment.py, docs/kernel-tuning.md block 5).
+
+    A = the host as it is, B = the candidate (the parameters of the agent module yoloman.<tunable>). Runs alternate
+    A/B/A/B so slow drift lands on both sides; the candidate is set and undone with the module's own undo, and the
+    host is back at A when the experiment ends. The verdict is one of a closed set: better | worse | no_difference
+    | inconclusive | aborted — an effect inside the measured noise is no_difference, never better."""
+
+    __tablename__ = "tuning_experiments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    hostname: Mapped[str] = mapped_column(String, nullable=False)
+    tunable: Mapped[str] = mapped_column(String, nullable=False)          # resource name, e.g. sched_ext, blockdev_tuning:sda
+    candidate: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)   # module params of B
+    profile: Mapped[str] = mapped_column(String, nullable=False)          # yoloman.benchmark profile
+    runs: Mapped[int] = mapped_column(Integer, nullable=False, default=5)  # per side
+    hypothesis: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # planned → running → done | aborted
+    status: Mapped[str] = mapped_column(String, nullable=False, default="planned")
+    verdict: Mapped[str | None] = mapped_column(String)
+    measurements: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)  # [{side, run, value, unit, ...}]
+    summary: Mapped[dict | None] = mapped_column(JSONB)                   # medians, IQR, noise band, delta, reason
+    undo: Mapped[dict | None] = mapped_column(JSONB)                      # the module's rollback params for B
+    rehearsal: Mapped[dict | None] = mapped_column(JSONB)                 # VM snapshot used (block 6), if any
+    error: Mapped[str | None] = mapped_column(Text)
+    requested_by: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class RestoreJob(Base):
@@ -1948,7 +2107,10 @@ class RestoreJob(Base):
     steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     # The grow policy snapshotted at check-in (from the active image), so a retry reproduces the exact
     # partitioning even if the template's policy changes later — same reasoning as snapshotting `steps`.
+    # A deployment may bring its OWN sizing (deploy_vm grow_policy/grow_mode, the wizard's sizing step): then
+    # grow_mode is set at arm time and check-in keeps this policy instead of the image's. NULL = the image's.
     grow_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    grow_mode: Mapped[str | None] = mapped_column(String)
     step_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     log: Mapped[str] = mapped_column(Text, nullable=False, default="")
     error: Mapped[str | None] = mapped_column(Text)
@@ -2475,6 +2637,47 @@ class DockerDesiredState(Base):
     )
 
 
+class KubernetesCluster(Base):
+    """A Kubernetes cluster Bossman administers THROUGH an access host (project kubernetes-console).
+
+    The access host is the enrolled agent that holds `kubectl` and the kubeconfig; Bossman never stores a
+    cluster credential and never talks to etcd — every read and write goes agent → kubectl → API server,
+    which is the cluster's only writer by design. Called "Kubernetes cluster" everywhere (code, API, UI):
+    plain "cluster" is already the monitoring HostCluster, and a Proxmox cluster is a third thing.
+
+    The row also carries the INVENTORY CACHE (nodes, namespaces, api-resources, workload summary) the
+    explorer opens from, refreshed by the poller and on demand — the same pattern as AgentObservedState,
+    kept on this row because one object with one cache is one source. `reachability` is a named state
+    (reachable | unreachable | never) with its reason, so an unreachable cluster is shown as such and
+    never as an empty list."""
+
+    __tablename__ = "kubernetes_clusters"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, server_default=DEFAULT_TENANT_ID)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    context: Mapped[str | None] = mapped_column(String)          # kubeconfig context; None = current-context
+    kubeconfig_path: Mapped[str | None] = mapped_column(String)  # None = the agent user's default kubeconfig
+    description: Mapped[str | None] = mapped_column(String)
+    server_url: Mapped[str | None] = mapped_column(String)
+    server_version: Mapped[str | None] = mapped_column(String)
+    node_count: Mapped[int | None] = mapped_column(Integer)
+    namespace_count: Mapped[int | None] = mapped_column(Integer)
+    reachability: Mapped[str] = mapped_column(String, nullable=False, default="never", server_default="never")
+    unreachable_reason: Mapped[str | None] = mapped_column(String)
+    inventory: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    observed_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_kubernetes_cluster_name"),
+        CheckConstraint("reachability IN ('reachable', 'unreachable', 'never')", name="ck_kubernetes_clusters_reachability"),
+        Index("idx_kubernetes_clusters_agent", "agent_id"),
+    )
+
+
 class SavedSearch(Base):
     """A named Fleet-search query the operator can recall (Checkmk saved-views
     parity, Fleet-search P3). Just the omnibox query string (crit:/site:/tag:/…)
@@ -2977,4 +3180,47 @@ class OperationLog(Base):
 
     __table_args__ = (
         UniqueConstraint("agent_id", "boot_id", "seq", name="uq_operation_log_agent_boot_seq"),
+    )
+
+
+class Diagnosis(Base):
+    """WHY A SERVICE DOES NOT RUN — one diagnosis document as an agent produced it (docs/diagnosis.md).
+
+    The agents decide (deterministic rules over measurements, certainty Proven/Likely/Unknown); Bossman keeps the
+    document unchanged in `document` and re-checks it on arrival against the same contract
+    (services/diagnosis_contract.py), because the fleet runs older agents too. A document that does not hold is
+    STORED with `contract_status = 'violation'` and its reasons — never dropped, never repaired, its certainty never
+    raised. The evidence stays inside the document: it is cited by id within that document only, so one row per
+    diagnosis keeps evidence and findings in one place (event record ids repeat after a log is cleared, which is
+    why they are not keys of their own).
+
+    The flat columns (status, leading rule, certainty, summary) are copies for listing and filtering; the document
+    is the source."""
+
+    __tablename__ = "diagnoses"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"),
+                                                 nullable=False, server_default="00000000-0000-0000-0000-000000000001")
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    diagnosis_id: Mapped[str] = mapped_column(String, nullable=False)          # the agent's id of the run
+    host: Mapped[str] = mapped_column(String, nullable=False)
+    platform: Mapped[str] = mapped_column(String, nullable=False)              # windows | linux
+    target_kind: Mapped[str] = mapped_column(String, nullable=False, default="service")
+    target_name: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)                # the document's status word
+    summary: Mapped[str] = mapped_column(String, nullable=False, default="")
+    leading_rule: Mapped[str | None] = mapped_column(String)                   # findings[0].rule_id, None = no finding
+    leading_certainty: Mapped[str | None] = mapped_column(String)
+    contract_status: Mapped[str] = mapped_column(String, nullable=False)       # ok | violation
+    contract_violations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    agent_version: Mapped[str | None] = mapped_column(String)
+    document: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    collected_at: Mapped[datetime] = mapped_column(TZ_DATETIME, nullable=False)  # when the agent measured
+    received_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "diagnosis_id", name="uq_diagnoses_agent_run"),
+        Index("idx_diagnoses_target", "agent_id", "target_name", "collected_at"),
+        CheckConstraint("contract_status IN ('ok', 'violation')", name="ck_diagnoses_contract_status"),
     )

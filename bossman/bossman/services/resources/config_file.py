@@ -136,7 +136,10 @@ class ConfigResource:
         for g in gens if isinstance(gens, list) else []:
             out.append({
                 "generation": g.get("number") if "number" in g else g.get("generation"),
-                "note": f"{g.get('resources', '?')} resources · host-scoped",
+                # The files THAT generation changed, so a host-scoped rollback says what it reverts.
+                "note": " · ".join(x for x in (
+                    ", ".join(g.get("files") or []) or f"{g.get('resources', '?')} resources",
+                    g.get("note") or "", "host-scoped") if x),
                 "applied_at": g.get("applied_at"),
                 "spec": {"hash": g.get("hash")},
             })

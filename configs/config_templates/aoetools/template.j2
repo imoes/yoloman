@@ -1,35 +1,46 @@
-# ============================================================================
-# aoetools Configuration
-# ============================================================================
-# NOTE: This file is NOT READ under systemd. It is consumed by shell scripts.
+# =============================================================================
+# Configuration file for aoetools (AoE - ATA over Ethernet client tools)
+# =============================================================================
+#
+# NOTE: This file is NOT READ by systemd services directly. It is intended
+#       for use by shell scripts or init systems that source this configuration.
+#
 # WARNING: All the following settings are interpolated in the shell.
-# Make sure to not configure anything that is shell syntax (e.g. semicolons).
-# ============================================================================
+#          Do NOT configure anything that contains shell syntax (e.g., semicolons).
+#          Values are expected to be simple strings or space-separated lists.
+# =============================================================================
 
-# Enter the list of network interfaces to restrict the AoE discovery to,
-# separated by spaces. It can be blank, i.e., "", if you want to run AoE
-# over all the interfaces. If you do not want AoE discovery at all,
-# enter "none" as the list of interfaces.
-# If neither the aoe_iflist module load option nor this list of
-# interfaces are used, the aoe driver will use any network interface for
-# AoE traffic.
-# Schema default: 'none'
-INTERFACES='{{ interfaces | default('none') }}'
+# -------------------------------------------------------------------------
+# Field: interfaces
+# Description: List of network interfaces to restrict AoE discovery to.
+#              Space-separated list (e.g., 'eth0 eth1').
+#              Use 'none' to disable discovery entirely.
+#              Use '' (empty) or leave unset to use all interfaces.
+# -------------------------------------------------------------------------
+# If interfaces is defined, not none, and has content, use it.
+# Otherwise default to empty string for "all interfaces".
+INTERFACES='{{ (interfaces | default('')) | string }}'
 
-# Enter a list of RAID arrays to be activated after AoE volumes are
-# ready, separated by spaces, without the /dev/ prefix and quoted. It
-# may be blank.
-# Example: RAID_ARRAYS='md0 md1'
-# Schema default: ''
-RAID_ARRAYS='{{ raid_arrays | default('') }}'
+# -------------------------------------------------------------------------
+# Field: raid_arrays
+# Description: Space-separated list of RAID arrays to activate after AoE
+#              volumes are ready. Do NOT include the /dev/ prefix.
+#              Example: 'md0 md1'
+# -------------------------------------------------------------------------
+RAID_ARRAYS='{{ raid_arrays | default('') | string }}'
 
-# Enter a list of LVM2 volume groups to be activated after AoE volumes
-# are ready, separated by spaces. It can be blank, i.e., ''.
-# Schema default: ''
-LVMGROUPS='{{ lvm_groups | default('') }}'
+# -------------------------------------------------------------------------
+# Field: lvm_groups
+# Description: Space-separated list of LVM2 volume groups to activate
+#              after AoE volumes are ready.
+# -------------------------------------------------------------------------
+LVMGROUPS='{{ (lvm_groups | default('')) | string }}'
 
-# Enter a list of file systems to be mounted over AoE. Note that those
-# entries listed in /etc/fstab that contain "/dev/etherd/" will be
-# automatically added to this list.
-# Schema default: ''
-AOEMOUNTS='{{ aoemounts | default('') }}'
+# -------------------------------------------------------------------------
+# Field: aoemounts
+# Description: Space-separated list of file systems to mount over AoE.
+#              Note: Entries in /etc/fstab containing '/dev/etherd/' are
+#              auto-included by the mounting script, so this list is
+#              primarily for explicit mounts not in fstab.
+# -------------------------------------------------------------------------
+AOEMOUNTS='{{ aoemounts | default('') | string }}'

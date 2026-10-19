@@ -1,38 +1,74 @@
-#!/bin/sh
-# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
-if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
-    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
-fi
-### BEGIN INIT INFO
-# Provides:          pound
-# Required-Start:    $local_fs $syslog
-# Required-Stop:     $local_fs $syslog
-# Should-Start:      $named
-# Should-Stop:       $named
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: reverse proxy and load balancer
-# Description:       reverse proxy, load balancer and
-#                    HTTPS front-end for Web servers
-### END INIT INFO
+## Minimal sample pound.cfg
+##
+## see pound(8) for details
+## for a complete user manual, run "info pound"
 
-DAEMON=/usr/sbin/pound
-DESC="reverse proxy and load balancer"
-NAME=pound
-PIDFILE=/run/pound.pid
+######################################################################
+## global options:
 
-do_start_prepare() {
-    if [ ! -f "/etc/pound.cfg" ]; then
-	log_daemon_msg "Pound unconfigured, not (re)starting (/etc/pound.cfg is missing)\n"
-	exit 0
-    elif $DAEMON -c ; then
-	true
-    else
-	log_daemon_msg "Failed to validate config file, refusing to (re)start\n"
-	exit 0
-    fi
-}
+# User account under which Pound runs (security hardening).
+User		"{{ user | default('_pound') }}"
 
-do_restart_prepare() {
-    do_start_prepare
-}
+# Group account under which Pound runs (security hardening).
+Group		"{{ group | default('_pound') }}"
+
+# Root Jail for chroot environment.
+#RootJail	"/chroot/pound"
+
+## Logging: (goes to syslog by default)
+## Built-in formats:
+##  0 or "null"		  no logging.
+##  1 or "regular"	  log source address, request line and response status.
+##  2 or "extended" 	  Same as 1, plus selected service and backend info.
+##  3 or "vhost_combined" Apache-style (common log format).
+##  4 or "combined"       Same as 3, but without virtual host info.
+##  5 or "detailed"       Same as 4, plus selected service and backend info.
+## Any other format may be defined using the LogFormat statement and its 
+## name given as argument instead of the predefined names above.
+LogLevel	{{ log_level | default(1) }}
+
+## check backend every X secs:
+Alive		{{ alive_interval | default(30) }}
+
+## use hardware-accelleration card supported by openssl(1):
+#SSLEngine	"<hw>"
+
+# poundctl control socket for administrative access.
+Control "/run/poundctl.socket"
+
+# If you prefer using Perl-compatible regular expressions, uncomment the
+# statement below:
+#RegexType pcre
+
+# You can also select the regex flavor to use with each matching directive
+# individually, by using the following flags: -posix, -pcre.
+
+######################################################################
+## listen, redirect and ... to:
+
+# ListenHTTP directive: Defines a listener for HTTP traffic.
+# Configured via http_listen_port and http_listen_address schema fields.
+{% if (http_listen_port | default(None)) is not none and http_listen_port | default(None) != '' %}ListenHTTP
+    {# IP address to bind HTTP listeners on. Use 0.0.0.0 to bind all interfaces. #}
+    Address	{{ http_listen_address | default('127.0.0.1') }}
+    {# Port for HTTP traffic. #}
+    Port	{{ http_listen_port | default(80) }}
+
+    ## allow PUT and DELETE also (by default only GET, POST and HEAD)?:
+    xHTTP		1
+
+    Service
+        BackEnd
+            Address	127.0.0.1
+            Port	80
+        End
+    End
+End
+{% else %}## No HTTP listener configured (http_listen_port is undefined/empty).
+## Uncomment and configure ListenHTTP below to enable reverse proxying.
+## Example:
+## ListenHTTP
+##     Address 0.0.0.0
+##     Port    80
+##     ...
+{% endif %}

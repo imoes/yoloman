@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fontconfig configuration for Google Noto Sans Glagolitic.
+  This template configures the font family, hash hinting, and aliasing.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Match rule for sans-serif font requests.
+    Prepends the configured Noto Sans Glagolitic family to the font list
+    when a sans-serif font is requested.
+  -->
+  <match>
+    <!--
+      Test if the requested font family is 'sans-serif'.
+    -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    <!--
+      Prepend the Noto Sans Glagolitic font family to the matched font list.
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Glagolitic') }}</string>
+    </edit>
+    <!--
+      Enable font hash hinting if configured.
+      Used for font subsetting or caching optimization.
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hash_hint | default(false) | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias definition for the Noto Sans Glagolitic font family.
+    Maps the specific font family to a generic fallback.
+  -->
+  <alias>
+    <!--
+      The primary font family name to be configured.
+    -->
+    <family>{{ font_family | default('Noto Sans Glagolitic') }}</family>
+    <!--
+      The fallback font family used when the primary font is not available.
+    -->
+    <default>
+      <family>{{ fallback_font_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

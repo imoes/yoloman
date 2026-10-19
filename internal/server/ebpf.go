@@ -6,8 +6,37 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/mutkluge/agentic-mcp/internal/diagnosis"
 	"github.com/mutkluge/agentic-mcp/internal/ebpf"
 )
+
+// abnormalSignals are the captured signals that mean a process DIED unexpectedly — a crash (SIGSEGV/SIGABRT), an
+// explicit kill (SIGKILL) or a quit-with-core (SIGQUIT). SIGTERM/SIGINT are how a service is normally stopped, so
+// they are NOT incidents.
+var abnormalSignals = map[string]bool{"SIGSEGV": true, "SIGABRT": true, "SIGKILL": true, "SIGQUIT": true}
+
+// RecentIncidents maps the eBPF collector's in-memory rings (OOM kills, fatal signals) to diagnosis incidents for the
+// diagnosis to look back on (plan E4). READ-ONLY: it reads the bounded in-memory rings the collector already keeps and
+// writes NOTHING to the metrics store — the incidents surface only on demand inside a diagnosis document.
+func RecentIncidents(c *ebpf.Collector, limit int) []diagnosis.Incident {
+	if c == nil {
+		return nil
+	}
+	var out []diagnosis.Incident
+	for _, k := range c.RecentOOMKills(limit) {
+		out = append(out, diagnosis.Incident{Kind: diagnosis.IncidentOOMKill, At: k.Timestamp, PID: int(k.PID),
+			Image: k.Comm, Source: "ebpf"})
+	}
+	for _, s := range c.RecentSignals(limit) {
+		if !abnormalSignals[s.Signal] {
+			continue // a normal SIGTERM/SIGINT stop is not an incident
+		}
+		// killsnoop: the RECIPIENT (target) is the process that died.
+		out = append(out, diagnosis.Incident{Kind: diagnosis.IncidentFatalSignal, At: s.Timestamp, PID: int(s.TargetPID),
+			Image: s.TargetComm, Detail: s.Signal, Source: "ebpf"})
+	}
+	return out
+}
 
 // NetConnectionsInput is the input schema for the net_connections tool.
 type NetConnectionsInput struct {

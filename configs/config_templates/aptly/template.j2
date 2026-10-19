@@ -143,7 +143,7 @@ skipBz2Publishing: {{ skip_bz2_publishing | default(false) | lower }}
 # Filesystem publishing endpoints configuration.
 # Defines local directories where repositories can be published.
 FileSystemPublishEndpoints:
-{% for ep_name, ep_config in (filesystem_publish_endpoints | default({})) | dict2items %}
+{% for ep_name, ep_config in (filesystem_publish_endpoints | default({})) | dictsort %}
   {{ ep_name }}:
     # Directory for publishing packages and indexes
     rootDir: {{ (ep_config | default({})).root_dir | default('/opt/srv/aptly_public') }}
@@ -156,7 +156,7 @@ FileSystemPublishEndpoints:
 # S3 publishing endpoints configuration.
 # Defines AWS S3 or S3-compatible buckets for publishing repositories.
 S3PublishEndpoints:
-{% for ep_name, ep_config in (s3_publish_endpoints | default({})) | dict2items %}
+{% for ep_name, ep_config in (s3_publish_endpoints | default({})) | dictsort %}
   {{ ep_name }}:
     # AWS region for the S3 bucket
     region: {{ (ep_config | default({})).region | default('us-east-1') }}
@@ -188,7 +188,7 @@ S3PublishEndpoints:
 
 # Swift (OpenStack Object Storage) publishing endpoints configuration.
 SwiftPublishEndpoints:
-{% for ep_name, ep_config in (swift_publish_endpoints | default({})) | dict2items %}
+{% for ep_name, ep_config in (swift_publish_endpoints | default({})) | dictsort %}
   {{ ep_name }}:
     # Swift container name
     container: {{ (ep_config | default({})).container | default('') }}
@@ -208,7 +208,7 @@ SwiftPublishEndpoints:
 
 # Azure Blob Storage publishing endpoints configuration.
 AzurePublishEndpoints:
-{% for ep_name, ep_config in (azure_publish_endpoints | default({})) | dict2items %}
+{% for ep_name, ep_config in (azure_publish_endpoints | default({})) | dictsort %}
   {{ ep_name }}:
     # Azure container name
     container: {{ (ep_config | default({})).container | default('') }}

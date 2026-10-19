@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Noto Sans Malayalam.
+  This XML file configures font substitution and aliasing for the langconfig system.
+-->
+<fontconfig>
+  <!--
+    Match block: Identifies text rendered with the generic 'sans-serif' family
+    for the specified language and prepends the specific Noto font.
+  -->
+  <match>
+    <!-- Match against the language code specified by the user. -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('ml') }}</string>
+    </test>
+    <!-- Match against the generic font family name. -->
+    <test name="family">
+      <string>{{ generic_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the specific font family to the font list. -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Malayalam') }}</string>
+    </edit>
+    <!-- Append the fonthashint boolean value to the font properties. -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hint | default(false) | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias block: Defines the preferred font alias mapping.
+    When an application requests the specific font, it defaults to the generic family.
+  -->
+  <alias>
+    <family>{{ font_family | default('Noto Sans Malayalam') }}</family>
+    <default>
+      <family>{{ generic_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Configuration for Noto Sans Kharoshthi font aliasing and preferences.
+    This XML file is used by Fontconfig (libfontconfig) to define font aliases and
+    fallback behavior. It maps the generic "sans-serif" family to the specific
+    Noto Sans Kharoshthi font, while preserving standard fallbacks.
+  -->
+
+  <!--
+    Match block: Defines font substitution rules.
+    This block intercepts requests for the "sans-serif" font family and
+    prepends the Noto Sans Kharoshthi font to the search list, ensuring
+    it is preferred if available.
+  -->
+  <match>
+    <!--
+      Test: Check if the requested font family is "sans-serif".
+    -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    <!--
+      Edit: Prepend the configured Noto Sans Kharoshthi font to the
+      list of available fonts for this family.
+      Variable: font_family
+      Default: 'Noto Sans Kharoshthi'
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Kharoshthi') }}</string>
+    </edit>
+    <!--
+      Edit: Control whether font hash hinting is disabled.
+      Hash hinting is a mechanism to cache font metrics; setting this
+      to false disables it for this specific font configuration.
+      Variable: font_hash_hint
+      Default: 'false'
+      Note: Fontconfig XML expects string representations of booleans ("true"/"false")
+      inside the <bool> tag.
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hash_hint | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias block: Defines a permanent alias for a generic font family.
+    This ensures that applications requesting the alias name will receive
+    the specific font family, with a standard fallback.
+  -->
+  <alias>
+    <!--
+      The alias name being defined.
+      Variable: font_family
+      Default: 'Noto Sans Kharoshthi'
+    -->
+    <family>{{ font_family | default('Noto Sans Kharoshthi') }}</family>
+    <default>
+      <!--
+        The fallback font family if the primary alias font is unavailable.
+        Variable: fallback_font_family
+        Default: 'sans-serif'
+      -->
+      <family>{{ fallback_font_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

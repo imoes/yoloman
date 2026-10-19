@@ -15,7 +15,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
  */
 
 /** The kinds the backend implements today. Adding one is a backend file + a descriptor — not a new service. */
-export type ResourceKind = 'config' | 'docker' | 'helm' | 'role' | 'package' | 'service';
+export type ResourceKind = 'config' | 'docker' | 'helm' | 'k8s' | 'role' | 'package' | 'service' | 'tunable';
 
 /** Identifies one resource instance on one host. */
 export interface ResourceRef {
@@ -23,9 +23,21 @@ export interface ResourceRef {
   kind: ResourceKind;
   /** Container/release/role name, or the file path for `config`. */
   name: string;
-  /** Helm only: the release's namespace. */
+  /** Helm + k8s: the release's / object's namespace. */
   namespace?: string;
+  /** k8s only: the Kubernetes cluster id (`?cluster=`); the agent is its access host. */
+  cluster?: string;
+  /** k8s only: the object's apiVersion (`?api_version=`), e.g. apps/v1. */
+  apiVersion?: string;
+  /** k8s only: the object's kind (`?object_kind=`), e.g. Deployment. `kind` is the RESOURCE kind. */
+  objectKind?: string;
 }
+
+/** ResourceRef field → the query parameter the server declares for it (GET /resource-kinds). One table,
+ *  so a declared parameter can never be forgotten by one URL builder and remembered by another. */
+const QUERY_FIELDS: Record<string, keyof ResourceRef> = {
+  namespace: 'namespace', cluster: 'cluster', api_version: 'apiVersion', object_kind: 'objectKind',
+};
 
 /** `plan()` — the field-wise diff (services/resources/base.diff_specs). */
 export interface ResourceDiff {
@@ -44,8 +56,13 @@ export interface ResourceResult {
   error?: string;
   generation?: number;
   plan?: ResourceDiff;
-  /** `role` only: the binding's state after applying ('active' | 'pending' | …). */
+  /** `role` + `k8s`: the state after applying ('active' | 'pending_approval' | 'applied' | …). */
   status?: string;
+  /** `k8s`: false when the apply was filed as a ChangeProposal instead of applied. */
+  applied?: boolean;
+  awaiting_approval?: boolean;
+  proposal_id?: string;
+  warnings?: string | null;
   /** `role` only: how many links `unbind()` removed. */
   unbound?: number;
 }
@@ -59,6 +76,20 @@ export interface ResourceGeneration {
   spec: Record<string, unknown>;
   note?: string | null;
   created_at?: string;
+}
+
+/** `k8s` DELETE …/object — what goes, what stays, and whether it was done. */
+export interface K8sDeleteResult {
+  ok: boolean;
+  preview: boolean;
+  error?: string;
+  deleted?: boolean;
+  generation?: number;
+  /** Filed as a change proposal (YOLO mode off): nothing is deleted until it is approved. */
+  awaiting_approval?: boolean;
+  proposal_id?: string;
+  dependents: { kind: string; name: string; why: string }[];
+  kept: { kind: string; name: string; why: string }[];
 }
 
 /** Aliases kept for the components that used to import from the deleted second
@@ -94,6 +125,7 @@ const FALLBACK_CAPS: Record<string, Pick<ResourceKindCaps, 'addressed_by' | 'has
   role: { addressed_by: 'name', has_schema: true, query_params: [] },
   package: { addressed_by: 'name', has_schema: true, query_params: [] },
   service: { addressed_by: 'name', has_schema: true, query_params: [] },
+  k8s: { addressed_by: 'name', has_schema: true, query_params: ['cluster', 'namespace', 'api_version', 'object_kind'] },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -129,23 +161,23 @@ export class ResourceService {
     return this.byPath(ref.kind) ? `${base}/${verb}` : `${base}/${encodeURIComponent(ref.name)}/${verb}`;
   }
 
-  /** Identity that does not fit in the path: the instance itself when it is a path, and
-   *  any declared query parameter (helm's namespace). */
+  /** Identity that does not fit in the path: the instance itself when it is a path, and every query
+   *  parameter the server DECLARES for the kind (helm's namespace; k8s's cluster, namespace, api_version,
+   *  object_kind) — read from the ref through one table, never special-cased per kind. */
   private ident(ref: ResourceRef): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     if (this.byPath(ref.kind)) out['path'] = ref.name;
-    if (this.kindCaps(ref.kind).query_params.includes('namespace') && ref.namespace) {
-      out['namespace'] = ref.namespace;
+    for (const q of this.kindCaps(ref.kind).query_params) {
+      const field = QUERY_FIELDS[q];
+      const v = field ? ref[field] : undefined;
+      if (v) out[q] = v;
     }
     return out;
   }
 
   private query(ref: ResourceRef): Record<string, string> {
     const out: Record<string, string> = {};
-    if (this.byPath(ref.kind)) out['path'] = ref.name;
-    if (this.kindCaps(ref.kind).query_params.includes('namespace') && ref.namespace) {
-      out['namespace'] = ref.namespace;
-    }
+    for (const [k, v] of Object.entries(this.ident(ref))) out[k] = String(v);
     return out;
   }
 
@@ -155,7 +187,14 @@ export class ResourceService {
     // A kind without a schema endpoint must not be asked for one — that request was
     // the concrete damage of guessing (it 404s by design; see /resource-kinds).
     if (!this.kindCaps(ref.kind).has_schema) return of({} as ParamSchema);
-    return this.http.get<ParamSchema>(this.url(ref, 'schema'), { params: this.query(ref) });
+    // The API wraps the verb as `{resource_key, type, schema}` (services/resources.read_verb) — unwrap it
+    // like observe/generations, or the form renders the envelope's three keys as fields.
+    return this.http
+      .get<Record<string, unknown>>(this.url(ref, 'schema'), { params: this.query(ref) })
+      .pipe(map((b) => {
+        const envelope = b && typeof b === 'object' && 'resource_key' in b && 'schema' in b;
+        return (envelope ? (b['schema'] as unknown) ?? {} : b) as ParamSchema;
+      }));
   }
 
   /**
@@ -174,13 +213,13 @@ export class ResourceService {
 
   /** `plan(desired)` → what WOULD change. */
   plan(ref: ResourceRef, desired: Record<string, unknown>): Observable<ResourceDiff> {
-    return this.http.post<ResourceDiff>(this.url(ref, 'plan'), { ...this.ident(ref), ...desired });
+    return this.http.post<ResourceDiff>(this.url(ref, 'plan'), { ...this.ident(ref), ...desired }, { params: this.query(ref) });
   }
 
   /** `apply(desired)` → make it so. dryRun previews without touching the host. */
   apply(ref: ResourceRef, desired: Record<string, unknown>, dryRun = true, note?: string): Observable<ResourceResult> {
     return this.http.post<ResourceResult>(this.url(ref, 'apply'),
-      { ...this.ident(ref), ...desired, dry_run: dryRun, ...(note ? { note } : {}) });
+      { ...this.ident(ref), ...desired, dry_run: dryRun, ...(note ? { note } : {}) }, { params: this.query(ref) });
   }
 
   /** The recorded applies, newest first (unwrapped from `{resource_key, generations}`). */
@@ -199,7 +238,15 @@ export class ResourceService {
       `${environment.apiUrl}/agents/${ref.agentId}/resources/role/${encodeURIComponent(ref.name)}/binding`);
   }
 
+  /** `k8s` only: the DELETE extra verb. preview=true lists the dependents that go and the PVCs that stay;
+   *  preview=false deletes and records the deletion as a generation (the object shows as vanished). */
+  deleteObject(ref: ResourceRef, preview = true, note?: string): Observable<K8sDeleteResult> {
+    return this.http.delete<K8sDeleteResult>(
+      `${environment.apiUrl}/agents/${ref.agentId}/resources/k8s/${encodeURIComponent(ref.name)}/object`,
+      { params: { ...this.query(ref), preview: String(preview), ...(note ? { note } : {}) } });
+  }
+
   rollback(ref: ResourceRef, generation: number): Observable<ResourceResult> {
-    return this.http.post<ResourceResult>(this.url(ref, 'rollback'), { ...this.ident(ref), generation });
+    return this.http.post<ResourceResult>(this.url(ref, 'rollback'), { ...this.ident(ref), generation }, { params: this.query(ref) });
   }
 }

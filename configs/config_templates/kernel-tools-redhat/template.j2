@@ -1,0 +1,32 @@
+# Configuration for kvm_stat log rotation.
+# This block defines how /var/log/kvm_stat.csv is managed by logrotate.
+
+/var/log/kvm_stat.csv {
+    # Log size threshold for rotation.
+    # Default: 10M
+    size {{ size | default('10M') }}
+
+    # If the log file is missing, do not throw an error.
+    missingok
+
+    # Compress rotated log files to save space.
+    compress
+
+    # Maximum age in days to keep rotated logs.
+    # Default: 30
+    maxage {{ maxage | default('30') }}
+
+    # Number of rotated log files to keep.
+    # Default: 5
+    rotate {{ rotate | default('5') }}
+
+    # Do not add a date extension to rotated files.
+    nodateext
+
+    # Script to run after rotation.
+    postrotate
+        # Restart the kvm_stat service if it is running,
+        # to ensure it starts writing to the new log file.
+        /usr/bin/systemctl try-restart kvm_stat.service
+    endscript
+}

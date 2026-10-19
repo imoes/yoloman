@@ -1,0 +1,40 @@
+fqcn: yoloman.systemd_resource
+name: systemd_resource
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Set a systemd unit's cgroup resource limits (CPUWeight, CPUQuota, MemoryMax, IOWeight, ...), live and persistent
+description: >-
+  Kernel-tuning tunable (docs/kernel-tuning.md). Applies resource-control properties to a running unit
+  with `systemctl set-property --runtime` and persists them in yoloman's own drop-in
+  /etc/systemd/system/<unit>.d/90-yoloman-resource.conf (never systemd's system.control directory,
+  so removing yoloman's settings cannot remove anyone else's). Values are compared the way systemd
+  reports them (sizes in bytes, CPUQuota as CPUQuotaPerSecUSec), so a repeated run is unchanged.
+  Returns before/after per property, persistence (live | persistent) and the rollback parameters.
+  OpenRC hosts fail with "unsupported:".
+options:
+  unit:
+    type: str
+    required: true
+    description: The unit, e.g. postgresql.service or user.slice. A name without a suffix means .service.
+  properties:
+    type: dict
+    description: >-
+      Property → value. Allowed: CPUWeight, StartupCPUWeight, CPUQuota (percent, e.g. "50%"), MemoryMax,
+      MemoryHigh, MemoryLow, MemorySwapMax (bytes or K/M/G/T suffix or "infinity"), IOWeight, TasksMax,
+      AllowedCPUs, AllowedMemoryNodes.
+  persistent:
+    type: bool
+    default: true
+    description: Also write the drop-in. false changes only the running unit.
+  state:
+    type: str
+    default: present
+    choices: [present, absent]
+    description: absent removes yoloman's drop-in and reloads systemd; runtime values set earlier stay until the unit restarts.
+examples: |
+  - yoloman.systemd_resource:
+      unit: postgresql.service
+      properties:
+        CPUWeight: 400
+        MemoryHigh: 6G

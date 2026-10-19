@@ -1,6 +1,28 @@
-# /usr/share/doc/lighttpd/magnet.txt.gz
-# http://trac.lighttpd.net/trac/wiki/Docs%3AModMagnet
+# ==============================================================================
+# Lighttpd Configuration: Lua Modules
+# ==============================================================================
+# This file configures the lighttpd server to load specific modules, primarily
+# focusing on Lua scripting support (mod_magnet) as indicated by the schema.
+#
+# Variables:
+#   - modules: List of module names to load. Default: ['mod_magnet']
+#     See the Lighttpd documentation for available modules:
+#     https://redmine.lighttpd.net/projects/lighttpd/wiki
+# ==============================================================================
 
-# List of lighttpd modules to load.
-# Defaults to mod_magnet if not specified.
-server.modules += ( {{ modules | default(['mod_magnet']) | join(', ') }} )
+# server.modules is a list of module names to load at server startup.
+# Each entry must be a string enclosed in double quotes.
+# The default configuration in the schema specifies ['mod_magnet'].
+#
+# Example for multiple modules:
+# server.modules += (
+#     "mod_rewrite",
+#     "mod_magnet",
+#     "mod_fastcgi"
+# )
+
+server.modules += (
+    {% for module in modules | default(['mod_magnet']) %}
+    "{{ module }}",
+    {% endfor %}
+)

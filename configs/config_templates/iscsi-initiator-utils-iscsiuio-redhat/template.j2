@@ -1,0 +1,29 @@
+# Log rotation configuration for iscsiuio (iSCSI Userspace IO).
+# Managed by Ansible. Do not edit manually.
+
+# Path to the log file managed by logrotate.
+# Defaults to 'iscsiuio.log' located in /var/log/ based on the package behavior.
+/var/log/{{ log_file | default('iscsiuio.log') }} {
+    # Rotate logs weekly.
+    weekly
+
+    # Do not error if the log file is missing.
+    missingok
+
+    # Do not rotate empty log files.
+    notifempty
+
+    # Number of rotated log files to keep.
+    # Defaults to 4.
+    rotate {{ log_rotate_count | default('4') }}
+
+    # Share log file between multiple processes (if applicable).
+    sharedscripts
+
+    # Commands to execute after log rotation.
+    postrotate
+        # Send USR1 signal to iscsiuio to reopen log files.
+        # Silently ignore errors if the process is not running.
+        pkill -USR1 iscsiuio 2> /dev/null || true
+    endscript
+}

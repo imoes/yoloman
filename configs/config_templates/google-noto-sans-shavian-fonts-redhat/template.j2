@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig configuration for Noto Sans Shavian.
+  This template configures font substitution for the Shavian script
+  and sets up an alias for the generic sans-serif family.
+-->
+<fontconfig>
+  <!--
+    Match rule: Apply when the requested language contains the specified
+    BCP 47 language tag for Shavian script support.
+  -->
+  <match>
+    <test name="lang" compare="contains">
+      <!-- The BCP 47 language tag to match for Shavian script support. -->
+      <string>{{ shavian_lang_code | default('en@shaw') }}</string>
+    </test>
+    <test name="family">
+      <!-- The generic font family to substitute or prepend when Shavian glyphs are requested. -->
+      <string>{{ generic_font_family | default('sans-serif') }}</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name provided by the package to use for Shavian script. -->
+      <string>{{ font_family_name | default('Noto Sans Shavian') }}</string>
+    </edit>
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hinting for this specific font match. -->
+      <bool>{{ font_hinting_enabled | default(false) }}</bool>
+    </edit>
+  </match>
+  <!--
+    Alias rule: Define a default fallback family for the specific Shavian font.
+    If a font requested as the Shavian family cannot be found or rendered,
+    fall back to the specified generic family.
+  -->
+  <alias>
+    <!-- The specific font family name provided by the package to use for Shavian script. -->
+    <family>{{ font_family_name | default('Noto Sans Shavian') }}</family>
+    <default>
+      <!-- The generic font family to substitute or prepend when Shavian glyphs are requested in the generic family. -->
+      <family>{{ generic_font_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

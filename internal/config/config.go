@@ -157,8 +157,8 @@ type Collect struct {
 	// the DRBD device is a per-guest view of disk I/O, which is the whole point of the `vm` label.
 	//
 	// Worth turning off only where something else reports the same I/O. Measured on this cluster:
-	// vpp0222/vpp0223 have a ZFS zvol under every DRBD resource carrying the same `vm` label, so the
-	// DRBD layer is redundant there (63 series per host, 9 resources x 7 counters). vpp0221 has nine
+	// pve2/pve3 have a ZFS zvol under every DRBD resource carrying the same `vm` label, so the
+	// DRBD layer is redundant there (63 series per host, 9 resources x 7 counters). pve1 has nine
 	// DRBD devices and no zvols at all — switching it off there would remove the only per-guest disk
 	// view that host has. Hence per-host, and hence not off by default.
 	DRBDDevices bool `yaml:"drbd_devices"`

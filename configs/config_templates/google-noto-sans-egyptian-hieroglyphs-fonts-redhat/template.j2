@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Font alias configuration for Google Noto Sans Egyptian Hieroglyphs.
+    This template generates a fontconfig XML snippet that aliases a generic
+    sans-serif font to the specific Noto Sans Egyptian Hieroglyphs font,
+    and optionally adjusts font hash hinting.
+  -->
+
+  <!--
+    Match rule: Intercept requests for the generic sans-serif family.
+    The variable `sans_serif_family` defines which generic family to catch
+    (typically 'sans-serif').
+  -->
+  <match>
+    <!--
+      Test: Check if the requested font family name matches the generic family.
+      Uses the `sans_serif_family` variable (default: 'sans-serif').
+    -->
+    <test name="family">
+      <string>{{ sans_serif_family | default('sans-serif') }}</string>
+    </test>
+
+    <!--
+      Edit: Prepend the specific Noto Sans Egyptian Hieroglyphs font to the
+      list of candidates for this family. This ensures the specific font is
+      tried first when a user requests the generic sans-serif.
+      Uses the `target_font_family` variable (default: 'Noto Sans Egyptian Hieroglyphs').
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ target_font_family | default('Noto Sans Egyptian Hieroglyphs') }}</string>
+    </edit>
+
+    <!--
+      Edit: Configure font hash hinting for this font match.
+      Font hash hinting is a mechanism to speed up font matching by caching
+      hash sums. Setting this to 'false' disables it, which can be useful
+      for debugging font rendering issues or ensuring strict matching.
+      Uses the `font_hash_hint` variable (default: 'false'). Note: The
+      variable name implies "hinting", but setting it to true effectively
+      *enables* the hint (by appending true). The schema default 'false'
+      means hinting is disabled by default.
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ font_hash_hint | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias rule: Define the official alias for the Noto Sans Egyptian Hieroglyphs font.
+    This tells fontconfig that when an application explicitly requests
+    'target_font_family', it should actually use 'sans_serif_family' as the
+    underlying generic family for fallback purposes, or simply register the
+    alias. In standard fontconfig, <alias> with <default> sets what happens
+    if the named family is not found, but often this block is used in
+    conjunction with <match> or just to register the family name mapping.
+    Specifically here: If 'target_font_family' is requested, and it maps
+    to 'sans_serif_family', this ensures the generic family is the default
+    target if resolution fails or for inheritance.
+  -->
+  <alias>
+    <!--
+      The specific font family name being aliased.
+      Uses the `target_font_family` variable (default: 'Noto Sans Egyptian Hieroglyphs').
+    -->
+    <family>{{ target_font_family | default('Noto Sans Egyptian Hieroglyphs') }}</family>
+    <default>
+      <!--
+        The generic family to use as the default for this alias.
+        Uses the `sans_serif_family` variable (default: 'sans-serif').
+      -->
+      <family>{{ sans_serif_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

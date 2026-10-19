@@ -1,0 +1,59 @@
+# =============================================================================
+# mysql-mmm-monitor configuration
+# Managed by Ansible. Do not edit manually.
+# =============================================================================
+
+# Source common configuration (agents and hosts definitions)
+include mmm_common.conf
+
+# -----------------------------------------------------------------------------
+# Monitor Daemon Configuration
+# Controls the behavior of the MySQL-MMM monitor daemon.
+# -----------------------------------------------------------------------------
+
+<monitor>
+    # The IP address on which the monitor daemon binds/listens.
+    ip                  {{ monitor_ip | default('127.0.0.1') }}
+
+    # Path to the PID file for the monitor daemon.
+    pid_path            {{ monitor_pid_path | default('/run/mysql-mmm-monitor.pid') }}
+
+    # Path to the mysql-mmm binary directory.
+    bin_path            {{ monitor_bin_path | default('/usr/libexec/mysql-mmm') }}
+
+    # Path to the monitor status file.
+    status_path         {{ monitor_status_path | default('/var/lib/mysql-mmm/mmm_mond.status') }}
+
+    # Space-separated list of IPs to ping for health checks.
+    ping_ips            {{ monitor_ping_ips | default('192.168.100.50') }}
+
+    # Number of successful pings before marking a host as online.
+    auto_set_online     {{ monitor_auto_set_online | default('60') }}
+
+    # The kill_host_bin does not exist by default, though the monitor will
+    # throw a warning about it missing.  See the section 5.10 "Kill Host
+    # Functionality" in the PDF documentation.
+    #
+    # kill_host_bin     /usr/libexec/mysql-mmm/monitor/kill_host
+    #
+</monitor>
+
+# -----------------------------------------------------------------------------
+# Default Host Settings
+# Default credentials used by the monitor to check MySQL replication status.
+# -----------------------------------------------------------------------------
+
+<host default>
+    # MySQL user used by the monitor for checking replication status.
+    monitor_user        {{ monitor_user | default('mmm_monitor') }}
+
+    # Password for the MySQL monitor user.
+    monitor_password    {{ monitor_password | default('RepMonitor') }}
+</host>
+
+# -----------------------------------------------------------------------------
+# Debugging
+# -----------------------------------------------------------------------------
+
+# Debug level (0-3). Higher levels produce more verbose output.
+debug {{ debug_level | default('0') }}

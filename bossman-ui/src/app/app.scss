@@ -24,7 +24,7 @@
 }
 
 .bm-nav-head {
-  padding: 20px 16px 12px;
+  padding: 14px 16px 10px;
   display: flex;
   flex-direction: column;
 }
@@ -80,9 +80,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  // 9px (not 10) so the largest workspace tree — Monitor's 11 entries — plus the brand, switcher, title
-  // and footer still fit a 720px viewport without the nav needing its own scrollbar.
-  padding: 9px 16px;
+  // Sized so the largest workspace trees — Monitor and Library, 14 entries each — plus the brand, switcher,
+  // title and footer fit a 720px viewport without the nav needing its own scrollbar: 14 × 30px rows. Measured
+  // 744px at 6px padding, so the row and the brand block gave up a few px rather than the 14px text shrinking.
+  // Pinned by the Playwright consistency suite ("the nav fits the viewport", at 720px).
+  padding: 5px 16px;
   color: inherit;
   text-decoration: none;
   font-size: 14px;
@@ -150,7 +152,8 @@
 }
 .bm-ws-hint {
   font-size: 11px;
-  opacity: 0.35;
+  // 0.35 measured 2.77:1 against the nav background (axe, every screen); 0.62 reaches AA.
+  opacity: 0.62;
 }
 
 // Help lives in the footer so it stays one click from anywhere without costing a nav row.
@@ -162,6 +165,20 @@
   border-radius: 6px;
 }
 .bm-help:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+/* Table density toggle (nav footer): a pressed toggle, so its state is announced, not just drawn. */
+.bm-density {
+  color: inherit;
+  opacity: 0.7;
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.bm-density:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+.bm-density[aria-pressed='true'] { opacity: 1; background: var(--bm-sel); }
+.bm-density mat-icon { width: 18px; height: 18px; font-size: 18px; }
 
 // "Setup" group header — a button styled like a nav item.
 .bm-nav-group {
@@ -226,12 +243,16 @@
   position: relative; // anchor for the Event Console badge
 }
 
-/* Event Console — floating, top-right corner, above page content. */
+/* Event Console — floating, BOTTOM-right corner, above page content.
+ * It used to sit top-right, which is exactly where pages put their close (×) buttons and header actions: it covered
+ * the Kubernetes inspector's Close, so the drawer could not be closed with the mouse. The bottom-right corner is the
+ * floating-action position, and anything it overlaps there scrolls out from under it. */
 .bm-eventconsole {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  bottom: 16px;
+  right: 20px;
   z-index: 40;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -311,27 +332,32 @@
   background: var(--mat-sys-surface);
 }
 
-/* P5: global Ctrl/Cmd+K fleet-search overlay */
-.bm-gsearch-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 1000;
+/* Opens the Ctrl/Cmd+K command palette — a visible way in for those who do not know the shortcut. */
+.bm-cp-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 12px 0;
+  padding: 5px 8px;
+  border: 1px solid var(--bm-hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  opacity: 0.8;
+  cursor: pointer;
 }
-.bm-gsearch {
-  position: fixed;
-  top: 12vh;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(760px, 92vw);
-  z-index: 1001;
-}
-.bm-gsearch-hint {
-  margin-top: 8px;
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.6;
-  color: #fff;
+.bm-cp-trigger:hover { background: var(--bm-hover); opacity: 1; }
+.bm-cp-trigger mat-icon { width: 16px; height: 16px; font-size: 16px; }
+.bm-cp-trigger span { flex: 1; text-align: left; }
+.bm-cp-trigger kbd {
+  font: inherit;
+  font-size: 10.5px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--bm-hairline);
+  opacity: 0.75;
 }
 
 /* Print / Save-as-PDF: drop the nav + assistant so only the page content prints. */

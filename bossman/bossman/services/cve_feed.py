@@ -61,6 +61,9 @@ class CveFeed:
         self.stats = stats or CveFeedStats()
         self._debian: Index = {}
         self._ubuntu: Index = {}
+        # Windows: KB → {cve: {severity, title}} from the MSRC CVRF documents (one per Patch Tuesday month)
+        self._msrc: dict[str, dict[str, dict[str, str]]] = {}
+        self.msrc_months: list[str] = []
 
     # ---- lookup (used by the correlator) ----
 
@@ -69,7 +72,13 @@ class CveFeed:
         return idx.get(release, {}).get(source_package, [])
 
     def has(self, distro: str) -> bool:
+        if distro == "windows":
+            return bool(self._msrc)
         return bool(self._index_for(distro))
+
+    def lookup_kb(self, kb: str) -> list[Advisory]:
+        """The CVEs Microsoft lists for one KB (\"KB5066782\"), each {cve, severity, title}."""
+        return [{"cve": c, **v} for c, v in sorted(self._msrc.get(kb.upper(), {}).items())]
 
     def _index_for(self, distro: str) -> Index:
         if distro in ("debian", "raspbian"):
@@ -101,8 +110,34 @@ class CveFeed:
                 except Exception as exc:  # noqa: BLE001 — one distro's failure must not sink the others
                     errors.append(f"{distro}: {exc}")
                     logger.warning("cve_feed refresh failed for %s", distro, exc_info=True)
+            if self.settings.cve_msrc_url:
+                try:
+                    await self._refresh_msrc(client)
+                except Exception as exc:  # noqa: BLE001 — same rule: Windows failing leaves Linux intact
+                    errors.append(f"windows (msrc): {exc}")
+                    logger.warning("cve_feed refresh failed for msrc", exc_info=True)
         self.stats.last_error = "; ".join(errors) if errors else None
         self.stats.last_run_ok = not errors
+
+    # ---- Windows: MSRC CVRF ----
+
+    async def _refresh_msrc(self, client: httpx.AsyncClient) -> None:
+        """The last `cve_msrc_months` monthly documents (~25 MB each) → one compact KB index, cached as windows.json."""
+        base = self.settings.cve_msrc_url.rstrip("/")
+        listing = json.loads(await self._fetch_json(client, f"{base}/updates"))
+        docs = sorted(listing.get("value") or [], key=lambda d: d.get("InitialReleaseDate") or "")[-self.settings.cve_msrc_months:]
+        idx: dict[str, dict[str, dict[str, str]]] = {}
+        for d in docs:
+            merge_msrc(idx, json.loads(await self._fetch_json(client, f"{base}/cvrf/{d['ID']}")))
+        self._msrc, self.msrc_months = idx, [d["ID"] for d in docs]
+        self.stats.counts["windows"] = sum(len(v) for v in idx.values())
+        self._write_cache("windows", json.dumps({"months": self.msrc_months, "kb": idx}).encode())
+        logger.info("cve_feed refreshed windows: %d KB→CVE pairs from %s", self.stats.counts["windows"], self.msrc_months)
+
+    async def _fetch_json(self, client: httpx.AsyncClient, url: str) -> bytes:
+        resp = await client.get(url, headers={"Accept": "application/json"}, follow_redirects=True)
+        resp.raise_for_status()
+        return resp.content
 
     async def _fetch(self, client: httpx.AsyncClient, url: str) -> bytes:
         resp = await client.get(url, follow_redirects=True)
@@ -129,6 +164,15 @@ class CveFeed:
 
     def load_from_cache(self) -> None:
         """Populate indexes from any on-disk cache (fast startup, offline-safe)."""
+        path = self._cache_path("windows")
+        if os.path.exists(path):
+            try:
+                with open(path, "rb") as fh:
+                    cached = json.loads(fh.read())
+                self._msrc, self.msrc_months = cached.get("kb") or {}, cached.get("months") or []
+                self.stats.counts["windows"] = sum(len(v) for v in self._msrc.values())
+            except Exception:  # noqa: BLE001
+                logger.warning("cve_feed could not load cache for windows", exc_info=True)
         for distro, parse in (("debian", self._parse_debian), ("ubuntu", self._parse_ubuntu)):
             path = self._cache_path(distro)
             if not os.path.exists(path):
@@ -292,3 +336,33 @@ async def cve_feed_loop(feed: CveFeed, settings, stop_event: asyncio.Event, afte
         if stop_event.is_set():
             return
         await _refresh_and_collect(initial=False)
+
+
+# MSRC's own severity words, ranked; a CVE listed for a KB under several products keeps its highest.
+_MSRC_RANK = {"Critical": 4, "Important": 3, "Moderate": 2, "Low": 1}
+
+
+def merge_msrc(idx: dict[str, dict[str, dict[str, str]]], doc: dict[str, Any]) -> None:
+    """Fold one CVRF document into the KB index. A Vendor Fix remediation (Type 2) whose description is a KB number
+    names the KB; the severity is the Threat of Type 3 for the same products, in MSRC's words."""
+    for v in doc.get("Vulnerability") or []:
+        cve = v.get("CVE") or ""
+        if not cve.startswith("CVE-"):
+            continue
+        title = ((v.get("Title") or {}).get("Value") or "").strip()
+        sev_by_product: dict[str, str] = {}
+        for th in v.get("Threats") or []:
+            word = ((th.get("Description") or {}).get("Value") or "").strip()
+            if th.get("Type") == 3 and word in _MSRC_RANK:
+                for pid in th.get("ProductID") or []:
+                    if _MSRC_RANK[word] > _MSRC_RANK.get(sev_by_product.get(pid, ""), 0):
+                        sev_by_product[pid] = word
+        for r in v.get("Remediations") or []:
+            num = ((r.get("Description") or {}).get("Value") or "").strip()
+            if r.get("Type") != 2 or not num.isdigit():
+                continue
+            kb = "KB" + num
+            sev = max((sev_by_product.get(p, "") for p in r.get("ProductID") or []), key=lambda s: _MSRC_RANK.get(s, 0), default="")
+            prev = idx.setdefault(kb, {}).get(cve)
+            if prev is None or _MSRC_RANK.get(sev, 0) > _MSRC_RANK.get(prev["severity"], 0):
+                idx[kb][cve] = {"severity": sev, "title": title}

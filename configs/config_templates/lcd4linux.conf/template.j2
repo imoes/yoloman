@@ -1,161 +1,1914 @@
-[# =============================================================================]
-[# LCD4Linux Configuration File]
-[# This file defines the general behavior, layout, widgets, and backend options]
-[# for the LCD4Linux daemon.]
-[# =============================================================================]
+# lcd4linux configuration file
+# This file configures the lcd4linux daemon, managing various LCD drivers,
+# plugins (MySQL, POP3, DBus, Seti), and widget layouts.
+#
+# Variables define global timing and default values for displays.
 
-[# ---------------- General configuration -------------------------------------]
-[# Core LCD4Linux settings: which backend/driver to use, device path,]
-[# display dimensions, font, update frequency, and orientation.]
-[General]
+Variables {
+    # Global update interval in milliseconds (variable tick).
+    tick {{ (general | default({})).update_interval | default(500) }}
+    # Tack interval variable.
+    tack {{ tack_default | default('100') }}
+    # Minute interval variable.
+    minute {{ minute_default | default('60000') }}
+}
 
-# Backend to use for LCD device
-# LCD driver backend (e.g., FBv5, G15, G19, HD44780, LCD2USB, SerialLCD, USBHID, X11).
-Backend = {{ (general | default({})).backend | default('FBv5') }}
+# Display: ACool (serdisplib driver)
+# This is a sample display configuration using serdisplib.
+Display ACool {
+    Driver 'serdisplib'
+    Port 'USB:060c/04eb'
+    Model 'ALPHACOOL'
+}
 
-# Device path (e.g., /dev/lcd0 or USB bus info)
-# Device path (e.g., framebuffer, serial port, USB device).
-Device = {{ (general | default({})).device | default('/dev/fb0') }}
+# Display: G15 (Logitech G15 LCD)
+# Configures the Logitech G15 gaming keyboard LCD.
+Display G15 {
+    Driver 'G-15'
+    # Font for G15 display.
+    Font '{{ g15_font | default("6x8") }}'
+    # Contrast for G15 display.
+    Contrast {{ g15_contrast | default(10) }}
+    # Inverted setting for G15.
+    Inverted {{ g15_inverted | default(0) }}
+    # UInput device path for G15.
+    UInput '{{ g15_uinput | default("/dev/input/uinput") }}'
+    # Single key press setting for G15.
+    SingleKeyPress {{ g15_single_key_press | default('1') }}
+}
 
-# LCD width in pixels (or characters for text-only displays)
-# Display width in pixels (or characters for text-only displays).
-Width = {{ (general | default({})).width | default(128) }}
+# Display: SerDispLib (Generic serdisplib device)
+# Configures a display using the serdisplib library.
+Display SerDispLib {
+    Driver 'serdisplib'
+    # Port for serdisplib display.
+    Port '{{ serdisplib_port | default("PAR:/dev/parports/0") }}'
+    # Alternative port for serdisplib.
+    Port '{{ serdisplib_port_alternative | default("") }}'
+    Model 'OPTREX323'
+    # Options for serdisplib.
+    Options '{{ serdisplib_options | default("") }}'
+}
 
-# LCD height in pixels (or lines)
-# Display height in pixels (or lines).
-Height = {{ (general | default({})).height | default(64) }}
+# Display: TeakLCM
+# Configures a TeakLCM display.
+Display TeakLCM {
+    Driver 'TeakLCM'
+    # Size for TeakLCM.
+    Size '{{ teaklcm_size | default("20x2") }}'
+    # Port for TeakLCM.
+    Port '{{ teaklcm_port | default("/dev/ttyS1") }}'
+    # Speed for TeakLCM.
+    Speed {{ teaklcm_speed | default(38400) }}
+    # Backlight for TeakLCM.
+    Backlight {{ teaklcm_backlight | default(1) }}
+    # Icons for TeakLCM.
+    Icons {{ teaklcm_icons | default(0) }}
+}
 
-# Font to use for text rendering (e.g., '7x13', 'fixed', 'miscfixed')
-# Font name for text rendering (must be loadable by the backend).
-Font = {{ (general | default({})).font | default('7x13') }}
+# Display: Trefon
+# Configures a Trefon display.
+Display Trefon {
+    Driver 'TREFON'
+    # Size for Trefon.
+    Size '{{ trefon_size | default("16x2") }}'
+    # Backlight for Trefon.
+    Backlight {{ trefon_backlight | default(1) }}
+    # Icons for Trefon.
+    Icons {{ trefon_icons | default(1) }}
+}
 
-# Update interval in milliseconds
-# Global update interval in milliseconds.
-UpdateInterval = {{ (general | default({})).update_interval | default(500) }}
+# Display: LCD-Linux
+# Configures an LCD-Linux display.
+Display LCD-Linux {
+    Driver 'LCD-Linux'
+    # Size for LCD-Linux.
+    Size '{{ lcdlinux_size | default("20x2") }}'
+    # UseBusy for LCD-Linux.
+    UseBusy {{ lcdlinux_use_busy | default(0) }}
+}
 
-# Flip display vertically
-# Flip the display vertically (useful for inverted mounting).
-FlipY = {{ (general | default({})).flip_y | default(False) | lower }}
+# Display: IRLCD
+# Configures an IRLCD display.
+Display IRLCD {
+    Driver 'IRLCD'
+    # Size for IRLCD.
+    Size '{{ irlcd_size | default("16x2") }}'
+    # Backlight for IRLCD.
+    Backlight {{ irlcd_backlight | default(0) }}
+    # Icons for IRLCD.
+    Icons {{ irlcd_icons | default(1) }}
+}
 
-[# ---------------- Layout definition -----------------------------------------]
-[# Layout for each LCD line (rows 1–4). For 4-line displays, rows 5–8 are optional.]
-[Layout.Default]
+# Display: LCD2USB
+# Configures an LCD2USB display.
+Display LCD2USB {
+    Driver 'LCD2USB'
+    # Size for LCD2USB.
+    Size '{{ lcd2usb_size | default("20x2") }}'
+    # Backlight for LCD2USB.
+    Backlight {{ lcd2usb_backlight | default(1) }}
+    # Icons for LCD2USB.
+    Icons {{ lcd2usb_icons | default(1) }}
+}
 
-# Display refresh order and content
-# Content for the first line (supports widgets like $date, $time, $hostname, etc.).
-Row1 = {{ (layout | default({})).row1 | default('$date $time') }}
+# Display: GLCD2USB
+# Configures a GLCD2USB display.
+Display GLCD2USB {
+    Driver 'GLCD2USB'
+    # Brightness for GLCD2USB.
+    Brightness {{ glcd2usb_brightness | default(255) }}
+}
 
-# Content for the second line.
-Row2 = {{ (layout | default({})).row2 | default('$uptime') }}
+# Display: ABP08-16x3
+# Configures an ABP08-16x3 display.
+Display ABP08-16x3 {
+    Driver 'LW_ABP'
+    # Port for ABP08-16x3.
+    Port '{{ abp_port | default("/dev/tts/0") }}'
+    # Speed for ABP08-16x3.
+    Speed {{ abp_speed | default(19200) }}
+    # Size for ABP08-16x3.
+    Size '{{ abp_size | default("16x3") }}'
+}
 
-# Content for the third line.
-Row3 = {{ (layout | default({})).row3 | default('$load') }}
+# Display: LCD2041
+# Configures a MatrixOrbital LCD2041 display.
+Display LCD2041 {
+    Driver 'MatrixOrbital'
+    # Model for LCD2041.
+    Model '{{ lcd2041_model | default("LCD2041") }}'
+    # Port for LCD2041.
+    Port '{{ lcd2041_port | default("/dev/tts/0") }}'
+    # Speed for LCD2041.
+    Speed {{ lcd2041_speed | default(19200) }}
+    # Contrast for LCD2041.
+    Contrast {{ lcd2041_contrast | default(160) }}
+}
 
-# Content for the fourth line.
-Row4 = {{ (layout | default({})).row4 | default('$cpu $mem') }}
+# Display: LK202
+# Configures a MatrixOrbital LK202 display.
+Display LK202 {
+    Driver 'MatrixOrbital'
+    # Model for LK202.
+    Model '{{ lk202_model | default("LK202-24-USB") }}'
+    # Port for LK202.
+    Port '{{ lk202_port | default("/dev/tts/USB0") }}'
+    # Speed for LK202.
+    Speed {{ lk202_speed | default(19200) }}
+    # Contrast for LK202.
+    Contrast {{ lk202_contrast | default(256) }}
+}
 
-# Optional rows 5–8 (list of up to 4 strings). Only used on 8-line displays.
-# Note: The list `layout.extra_rows` is iterated safely below.
-{% set extra = (layout | default({})).extra_rows | default([]) | list %}
-{% if extra | length >= 1 %}
-Row5 = {{ extra[0] }}
-{% endif %}
-{% if extra | length >= 2 %}
-Row6 = {{ extra[1] }}
-{% endif %}
-{% if extra | length >= 3 %}
-Row7 = {{ extra[2] }}
-{% endif %}
-{% if extra | length >= 4 %}
-Row8 = {{ extra[3] }}
-{% endif %}
+# Display: LK204
+# Configures a MatrixOrbital LK204 display.
+Display LK204 {
+    Driver 'MatrixOrbital'
+    # Model for LK204.
+    Model '{{ lk204_model | default("LK204-24-USB") }}'
+    # Port for LK204.
+    Port '{{ lk204_port | default("/dev/usb/tts/0") }}'
+    # Speed for LK204.
+    Speed {{ lk204_speed | default(19200) }}
+    # Contrast for LK204.
+    Contrast {{ lk204_contrast | default(256) }}
+}
 
-[# ---------------- Widget definitions ----------------------------------------]
-[# List of widget definitions. Each widget provides dynamic data to the display]
-[# (e.g., CPU, memory, network).]
-{% for widget in (widgets | default([])) %}
-# Widget: {{ widget.name }}
-[Widget.{{ widget.name }}]
+# Display: MDM166A
+# Configures an MDM166A display.
+Display MDM166A {
+    Driver 'MDM166A'
+    # Brightness for MDM166A.
+    Brightness {{ mdm166a_brightness | default('1') }}
+    # Inverted for MDM166A.
+    Inverted {{ mdm166a_inverted | default('0') }}
+    # Size for MDM166A.
+    Size '{{ mdm166a_size | default("96x16") }}'
+    # Font for MDM166A.
+    Font '{{ mdm166a_font | default("6x8") }}'
+}
 
-# Widget Type
-Type = {{ widget.type | default('') }}
+# Display: MI240
+# Configures a Milford Instruments MI240 display.
+Display MI240 {
+    Driver 'MilfordInstruments'
+    # Model for MI240.
+    Model '{{ mi240_model | default("MI240") }}'
+    # Port for MI240.
+    Port '{{ mi240_port | default("/dev/tts/0") }}'
+    # Speed for MI240.
+    Speed {{ mi240_speed | default(19200) }}
+}
 
-# Widget Driver
-Driver = {{ widget.driver | default('') }}
+# Display: CW12232
+# Configures a Cwlinux CW12232 display.
+Display CW12232 {
+    Driver 'Cwlinux'
+    # Model for CW12232.
+    Model '{{ cw12232_model | default("CW12232") }}'
+    # Port for CW12232.
+    Port '{{ cw12232_port | default("/dev/ttyUSB0") }}'
+    # Speed for CW12232.
+    Speed {{ cw12232_speed | default(19200) }}
+    # Brightness for CW12232.
+    Brightness {{ cw12232_brightness | default(2) }}
+    # Icons for CW12232.
+    Icons {{ cw12232_icons | default(1) }}
+}
 
-# Widget Alignment
-{% if widget.align is defined %}
-Align = {{ widget.align }}
-{% endif %}
+# Display: NULL
+# Configures a NULL (dummy) display for testing.
+Display NULL {
+    # Driver for NULL display.
+    Driver '{{ null_driver | default("NULL") }}'
+    # Size for NULL display.
+    Size '{{ null_size | default("20x4") }}'
+}
 
-# Widget Width
-{% if widget.width is defined %}
-Width = {{ widget.width }}
-{% endif %}
+# Display: CF631
+# Configures a Crystalfontz CF631 display.
+Display CF631 {
+    Driver 'Crystalfontz'
+    # Model for CF631.
+    Model '{{ cf631_model | default("631") }}'
+    # Port for CF631.
+    Port '{{ cf631_port | default("/dev/tts/USB0") }}'
+    # Speed for CF631.
+    Speed {{ cf631_speed | default(115200) }}
+    # Contrast for CF631.
+    Contrast {{ cf631_contrast | default(95) }}
+    # Backlight for CF631.
+    Backlight {{ cf631_backlight | default(50) }}
+    # Icons for CF631.
+    Icons {{ cf631_icons | default(1) }}
+}
 
-# Widget Height
-{% if widget.height is defined %}
-Height = {{ widget.height }}
-{% endif %}
+# Display: CF632
+# Configures a Crystalfontz CF632 display.
+Display CF632 {
+    Driver 'Crystalfontz'
+    # Model for CF632.
+    Model '{{ cf632_model | default("632") }}'
+    # Port for CF632.
+    Port '{{ cf632_port | default("/dev/tts/0") }}'
+    # Speed for CF632.
+    Speed {{ cf632_speed | default(19200) }}
+    # Icons for CF632.
+    Icons {{ cf632_icons | default(1) }}
+}
 
-# Widget X Position
-{% if widget.x is defined %}
-X = {{ widget.x }}
-{% endif %}
+# Display: CF633
+# Configures a Crystalfontz CF633 display.
+Display CF633 {
+    # Icons for CF633.
+    Icons {{ cf633_icons | default(1) }}
+    Driver 'Crystalfontz'
+    # Model for CF633.
+    Model '{{ cf633_model | default("633") }}'
+    # Port for CF633.
+    Port '{{ cf633_port | default("/dev/tts/0") }}'
+    # Speed for CF633.
+    Speed {{ cf633_speed | default(19200) }}
+    # Contrast for CF633.
+    Contrast {{ cf633_contrast | default(16) }}
+    # Backlight for CF633.
+    Backlight {{ cf633_backlight | default(50) }}
+}
 
-# Widget Y Position
-{% if widget.y is defined %}
-Y = {{ widget.y }}
-{% endif %}
+# Display: CF635
+# Configures a Crystalfontz CF635 display.
+Display CF635 {
+    # Icons for CF635.
+    Icons {{ cf635_icons | default(1) }}
+    Driver 'Crystalfontz'
+    # Model for CF635.
+    Model '{{ cf635_model | default("635") }}'
+    # Port for CF635.
+    Port '{{ cf635_port | default("/dev/ttyUSB0") }}'
+    # Speed for CF635.
+    Speed {{ cf635_speed | default(115200) }}
+    # Contrast for CF635.
+    Contrast {{ cf635_contrast | default(100) }}
+    # Backlight for CF635.
+    Backlight {{ cf635_backlight | default(128) }}
+}
 
-# Widget Update Interval
-{% if widget.update_interval is defined %}
-UpdateInterval = {{ widget.update_interval }}
-{% endif %}
+# Display: Curses
+# Configures a Curses-based text display.
+Display Curses {
+    Driver 'Curses'
+    # Size for Curses.
+    Size '{{ curses_size | default("20x6") }}'
+}
 
-# Widget Color
-{% if widget.color is defined %}
-Color = {{ widget.color }}
-{% endif %}
+# generic HD44780 display (LCD4Linux wiring)
+Display HD44780-generic {
+    Driver 'HD44780'
+    Model 'generic'
+    # Port for HD44780-generic.
+    Port '{{ hd44780_generic_port | default("/dev/parports/0") }}'
+    # Size for HD44780-generic.
+    Size '{{ hd44780_generic_size | default("8x2") }}'
+    # asc255bug for HD44780-generic.
+    asc255bug {{ hd44780_generic_asc255bug | default(0) }}
+    # GPOs for HD44780-generic.
+    GPOs {{ hd44780_generic_gpos | default('8') }}
+    Wire {
+        # RW wire for HD44780-generic.
+        RW '{{ hd44780_generic_wire_rw | default("GND") }}'
+        # RS wire for HD44780-generic.
+        RS '{{ hd44780_generic_wire_rs | default("AUTOFD") }}'
+        # ENABLE wire for HD44780-generic.
+        ENABLE '{{ hd44780_generic_wire_enable | default("STROBE") }}'
+        # ENABLE2 wire for HD44780-generic.
+        ENABLE2 '{{ hd44780_generic_wire_enable2 | default("GND") }}'
+        # GPO wire for HD44780-generic.
+        GPO '{{ hd44780_generic_wire_gpo | default("INIT") }}'
+        # POWER wire for HD44780-generic.
+        POWER '{{ hd44780_generic_wire_power | default("GND") }}'
+    }
+}
 
-# Widget Background Color
-{% if widget.bgcolor is defined %}
-BgColor = {{ widget.bgcolor }}
-{% endif %}
+# generic HD44780 display (WinAmp wiring)
+Display HD44780-winamp {
+    Driver 'HD44780'
+    Model 'generic'
+    # UseBusy for HD44780-winamp.
+    UseBusy {{ hd44780_winamp_use_busy | default(1) }}
+    # Port for HD44780-winamp.
+    Port '{{ hd44780_winamp_port | default("/dev/parports/0") }}'
+    # Size for HD44780-winamp.
+    Size '{{ hd44780_winamp_size | default("20x4") }}'
+    # asc255bug for HD44780-winamp.
+    asc255bug {{ hd44780_winamp_asc255bug | default(1) }}
+    Wire {
+        # RW wire for HD44780-winamp.
+        RW '{{ hd44780_winamp_wire_rw | default("AUTOFD") }}'
+        # RS wire for HD44780-winamp.
+        RS '{{ hd44780_winamp_wire_rs | default("INIT") }}'
+        # ENABLE wire for HD44780-winamp.
+        ENABLE '{{ hd44780_winamp_wire_enable | default("STROBE") }}'
+        # ENABLE2 wire for HD44780-winamp.
+        ENABLE2 '{{ hd44780_winamp_wire_enable2 | default("GND") }}'
+        # GPO wire for HD44780-winamp.
+        GPO '{{ hd44780_winamp_wire_gpo | default("GND") }}'
+        # POWER wire for HD44780-winamp.
+        POWER '{{ hd44780_winamp_wire_power | default("GND") }}'
+    }
+    Timing {
+        # fuzz timings by value (100 = no change)
+        # Fuzz timing for HD44780-winamp.
+        fuzz {{ hd44780_winamp_timing_fuzz | default('100') }}
+        # low-level communication [ns]
+        # CY timing for HD44780-winamp.
+        CY {{ hd44780_winamp_timing_cy | default('1000') }}  # Enable cycle time
+        # PW timing for HD44780-winamp.
+        PW {{ hd44780_winamp_timing_pw | default('450') }}  # Enable pulse width
+        # AS timing for HD44780-winamp.
+        AS {{ hd44780_winamp_timing_as | default('140') }}  # Address setup time
+        # AH timing for HD44780-winamp.
+        AH {{ hd44780_winamp_timing_ah | default(' 20') }}  # Address hold time
+        # HD44780 execution timings [us]
+        # INIT1 timing for HD44780-winamp.
+        INIT1 {{ hd44780_winamp_timing_init1 | default('4100') }}  # first init sequence: 4.1 msec
+        # INIT2 timing for HD44780-winamp.
+        INIT2 {{ hd44780_winamp_timing_init2 | default('100') }}  # second init sequence: 100 usec
+        # EXEC timing for HD44780-winamp.
+        EXEC {{ hd44780_winamp_timing_exec | default('80') }}  # normal execution time
+        # WRCG timing for HD44780-winamp.
+        WRCG {{ hd44780_winamp_timing_wr_cg | default('120') }}  # CG RAM Write
+        # CLEAR timing for HD44780-winamp.
+        CLEAR {{ hd44780_winamp_timing_clear | default('2250') }}  # Clear Display
+        # HOME timing for HD44780-winamp.
+        HOME {{ hd44780_winamp_timing_home | default('2250') }}  # Return Cursor Home
+        # ONOFF timing for HD44780-winamp.
+        ONOFF {{ hd44780_winamp_timing_onoff | default('2250') }}  # Display On/Off Control
+        # GPO timing [ns]
+        # GPO_ST timing for HD44780-winamp.
+        GPO_ST {{ hd44780_winamp_timing_gpo_st | default('20') }}  # 74HCT573 set-up time
+        # GPO_PW timing for HD44780-winamp.
+        GPO_PW {{ hd44780_winamp_timing_gpo_pw | default('230') }}  # 74HCT573 enable pulse width
+        # Power supply timing [ms]
+        # POWER timing for HD44780-winamp.
+        POWER {{ hd44780_winamp_timing_power | default('500') }}  # power-on delay
+    }
+}
 
-# Widget Font
-{% if widget.font is defined %}
-Font = {{ widget.font }}
-{% endif %}
+# HD44780 display 4-Bit mode
+Display HD44780-4bit {
+    Driver 'HD44780'
+    Model 'generic'
+    # Port for HD44780-4bit.
+    Port '{{ hd44780_4bit_port | default("/dev/parports/0") }}'
+    # Size for HD44780-4bit.
+    Size '{{ hd44780_4bit_size | default("16x1") }}'
+    # Bits for HD44780-4bit.
+    Bits {{ hd44780_4bit_bits | default(4) }}
+    # UseBusy for HD44780-4bit.
+    UseBusy {{ hd44780_4bit_use_busy | default(0) }}
+    # asc255bug for HD44780-4bit.
+    asc255bug {{ hd44780_4bit_asc255bug | default(0) }}
+    Wire {
+        # RW wire for HD44780-4bit.
+        RW '{{ hd44780_4bit_wire_rw | default("GND") }}'
+        # RS wire for HD44780-4bit.
+        RS '{{ hd44780_4bit_wire_rs | default("DB4") }}'
+        # ENABLE wire for HD44780-4bit.
+        ENABLE '{{ hd44780_4bit_wire_enable | default("DB6") }}'
+        # GPO wire for HD44780-4bit.
+        GPO '{{ hd44780_4bit_wire_gpo | default("GND") }}'
+    }
+}
 
-# Widget Source
-{% if widget.source is defined %}
-Source = {{ widget.source }}
-{% endif %}
+# Dual-HD44780 display from Pollin
+Display WDC2704M {
+    Driver 'HD44780'
+    Model 'generic'
+    # Controllers for WDC2704M.
+    Controllers {{ wdc2704m_controllers | default('2') }}
+    # UseBusy for WDC2704M.
+    UseBusy {{ wdc2704m_use_busy | default(1) }}
+    # Port for WDC2704M.
+    Port '{{ wdc2704m_port | default("/dev/parports/0") }}'
+    # Size for WDC2704M.
+    Size '{{ wdc2704m_size | default("27x4") }}'
+    Wire {
+        # RW wire for WDC2704M.
+        RW '{{ wdc2704m_wire_rw | default("AUTOFD") }}'
+        # RS wire for WDC2704M.
+        RS '{{ wdc2704m_wire_rs | default("INIT") }}'
+        # ENABLE wire for WDC2704M.
+        ENABLE '{{ wdc2704m_wire_enable | default("STROBE") }}'
+        # ENABLE2 wire for WDC2704M.
+        ENABLE2 '{{ wdc2704m_wire_enable2 | default("SLCTIN") }}'
+        # GPO wire for WDC2704M.
+        GPO '{{ wdc2704m_wire_gpo | default("GND") }}'
+        # POWER wire for WDC2704M.
+        POWER '{{ wdc2704m_wire_power | default("GND") }}'
+    }
+}
 
-# Widget Format
-{% if widget.format is defined %}
-Format = {{ widget.format }}
-{% endif %}
+# HD44780 display from www.kernelconcepts.de
+Display HD44780-kernelconcepts {
+    Driver 'HD44780'
+    # Model for HD44780-kernelconcepts.
+    Model '{{ hd44780_kc_model | default("HD66712") }}'
+    # UseBusy for HD44780-kernelconcepts.
+    UseBusy {{ hd44780_kc_use_busy | default(1) }}
+    # Port for HD44780-kernelconcepts.
+    Port '{{ hd44780_kc_port | default("/dev/parports/0") }}'
+    # Size for HD44780-kernelconcepts.
+    Size '{{ hd44780_kc_size | default("20x4") }}'
+    Wire {
+        # RW wire for HD44780-kernelconcepts.
+        RW '{{ hd44780_kc_wire_rw | default("AUTOFD") }}'
+        # RS wire for HD44780-kernelconcepts.
+        RS '{{ hd44780_kc_wire_rs | default("INIT") }}'
+        # ENABLE wire for HD44780-kernelconcepts.
+        ENABLE '{{ hd44780_kc_wire_enable | default("STROBE") }}'
+        # ENABLE2 wire for HD44780-kernelconcepts.
+        ENABLE2 '{{ hd44780_kc_wire_enable2 | default("GND") }}'
+        # GPO wire for HD44780-kernelconcepts.
+        GPO '{{ hd44780_kc_wire_gpo | default("GND") }}'
+        # POWER wire for HD44780-kernelconcepts.
+        POWER '{{ hd44780_kc_wire_power | default("GND") }}'
+    }
+}
 
-# Widget OneLine Mode
-{% if widget.oneline is defined %}
-OneLine = {{ widget.oneline | lower }}
-{% endif %}
+Display picoLCD {
+    Driver 'picoLCD'
+    # Size for picoLCD.
+    Size '{{ picolcd_size | default("20x2") }}'
+    # Contrast for picoLCD.
+    Contrast {{ picolcd_contrast | default('0') }}
+    # Backlight for picoLCD.
+    Backlight {{ picolcd_backlight | default(1) }}
+    # Icons for picoLCD.
+    Icons {{ picolcd_icons | default('1') }}
+}
 
-# Widget Threshold
-{% if widget.threshold is defined %}
-Threshold = {{ widget.threshold }}
-{% endif %}
+Display picoLCDGraphic {
+    Driver 'picoLCDGraphic'
+    # Size for picoLCDGraphic.
+    Size '{{ picolcdgraphic_size | default("256x64") }}'
+    # Contrast for picoLCDGraphic.
+    Contrast {{ picolcdgraphic_contrast | default('0') }}
+    # Backlight for picoLCDGraphic.
+    Backlight {{ picolcdgraphic_backlight | default(100) }}
+}
 
-{% endfor %}
+Display SC1602D {
+    Driver 'HD44780'
+    # Port for SC1602D.
+    Port '{{ sc1602d_port | default("/dev/parports/0") }}'
+    # Bits for SC1602D.
+    Bits '{{ sc1602d_bits | default("8") }}'
+    # Size for SC1602D.
+    Size '{{ sc1602d_size | default("16x2") }}'
+    # asc255bug for SC1602D.
+    asc255bug {{ sc1602d_asc255bug | default(0) }}
+    # Icons for SC1602D.
+    Icons {{ sc1602d_icons | default(1) }}
+    Wire {
+        # RW wire for SC1602D.
+        RW '{{ sc1602d_wire_rw | default("GND") }}'
+        # RS wire for SC1602D.
+        RS '{{ sc1602d_wire_rs | default("AUTOFD") }}'
+        # ENABLE wire for SC1602D.
+        ENABLE '{{ sc1602d_wire_enable | default("STROBE") }}'
+        # GPO wire for SC1602D.
+        GPO '{{ sc1602d_wire_gpo | default("INIT") }}'
+        # POWER wire for SC1602D.
+        POWER '{{ sc1602d_wire_power | default("GND") }}'
+    }
+}
 
-[# ---------------- Backend-specific options ----------------------------------]
-[# Backend-specific key-value options (e.g., for FBv5: 'Gamma=1.0', 'Invert=1').]
-{% set opts = (backend_options | default({})) %}
-{% if opts %}
-[Backend.{{ (general | default({})).backend | default('FBv5') }}]
-{% for key, value in opts | dict2items %}
-{{ key.value }} = {{ value.value }}
-{% endfor %}
-{% endif %}
+Display LCM-162 {
+    Driver 'HD44780'
+    # Model for LCM-162.
+    Model '{{ lcm162_model | default("LCM-162") }}'
+    # Port for LCM-162.
+    Port '{{ lcm162_port | default("/dev/parports/0") }}'
+    # Size for LCM-162.
+    Size '{{ lcm162_size | default("16x2") }}'
+    # UseBusy for LCM-162.
+    UseBusy {{ lcm162_use_busy | default(1) }}
+    # asc255bug for LCM-162.
+    asc255bug {{ lcm162_asc255bug | default(0) }}
+    # Icons for LCM-162.
+    Icons {{ lcm162_icons | default(1) }}
+}
+
+Display HD44780-I2C {
+    Driver 'HD44780'
+    Model 'generic'
+    # Bus for HD44780-I2C.
+    Bus '{{ hd44780_i2c_bus | default("i2c") }}'
+    # Port for HD44780-I2C.
+    Port '{{ hd44780_i2c_port | default("/dev/i2c-0") }}'
+    # Device for HD44780-I2C.
+    Device '{{ hd44780_i2c_device | default("70") }}'
+    # Bits for HD44780-I2C.
+    Bits '{{ hd44780_i2c_bits | default("4") }}'
+    # Size for HD44780-I2C.
+    Size '{{ hd44780_i2c_size | default("20x4") }}'
+    # asc255bug for HD44780-I2C.
+    asc255bug {{ hd44780_i2c_asc255bug | default(0) }}
+    # Icons for HD44780-I2C.
+    Icons {{ hd44780_i2c_icons | default(1) }}
+    Wire {
+        # RW wire for HD44780-I2C.
+        RW '{{ hd44780_i2c_wire_rw | default("DB5") }}'
+        # RS wire for HD44780-I2C.
+        RS '{{ hd44780_i2c_wire_rs | default("DB4") }}'
+        # ENABLE wire for HD44780-I2C.
+        ENABLE '{{ hd44780_i2c_wire_enable | default("DB6") }}'
+        # GPO wire for HD44780-I2C.
+        GPO '{{ hd44780_i2c_wire_gpo | default("GND") }}'
+    }
+}
+
+Display LCDTerm {
+    Driver 'LCDTerm'
+    # Port for LCDTerm.
+    Port '{{ lcdterm_port | default("/dev/tts/0") }}'
+    # Speed for LCDTerm.
+    Speed {{ lcdterm_speed | default(19200) }}
+    # Size for LCDTerm.
+    Size '{{ lcdterm_size | default("20x4") }}'
+    # Icons for LCDTerm.
+    Icons {{ lcdterm_icons | default(1) }}
+}
+
+Display SimpleLCD {
+    Driver 'SimpleLCD'
+    # Port for SimpleLCD.
+    Port '{{ simplelcd_port | default("/dev/tts/0") }}'
+    # Speed for SimpleLCD.
+    Speed {{ simplelcd_speed | default(1200) }}
+    # Options for SimpleLCD.
+    Options {{ simplelcd_options | default(0) }}
+    # Size for SimpleLCD.
+    Size '{{ simplelcd_size | default("20x2") }}'
+}
+
+Display PHAnderson {
+    Driver 'PHAnderson'
+    # Port for PHAnderson.
+    Port '{{ phanderson_port | default("/dev/tts/0") }}'
+    # Speed for PHAnderson.
+    Speed {{ phanderson_speed | default(19200) }}
+    # Size for PHAnderson.
+    Size '{{ phanderson_size | default("24x2") }}'
+    # Blacklight for PHAnderson.
+    Blackligth {{ phanderson_blacklight | default('100') }}
+    # Bootscreen for PHAnderson.
+    Bootscreen '{{ phanderson_bootscreen | default("123456789012345678901234ABCDEFGHIJKLMNOPQRSTUVWX") }}'
+}
+
+Display BA63 {
+    Driver 'WincorNixdorf'
+    # Model for BA63.
+    Model '{{ ba63_model | default("BA63") }}'
+    # Port for BA63.
+    Port '{{ ba63_port | default("/dev/tts/0") }}'
+    # Speed for BA63.
+    Speed {{ ba63_speed | default('9600') }}
+    # BarChar for BA63.
+    BarChar {{ ba63_bar_char | default('219') }}
+    # SelfTest for BA63.
+    SelfTest {{ ba63_self_test | default('0') }}
+}
+
+Display M50530-24x8 {
+    Driver 'M50530'
+    # Port for M50530-24x8.
+    Port '{{ m50530_port | default("/dev/parports/0") }}'
+    # Size for M50530-24x8.
+    Size '{{ m50530_size | default("24x8") }}'
+    # Font for M50530-24x8.
+    Font '{{ m50530_font | default("5x7") }}'
+    # Duty for M50530-24x8.
+    Duty {{ m50530_duty | default('2') }}
+    # RW wire for M50530-24x8.
+    Wire.RW '{{ m50530_wire_rw | default("INIT") }}'
+    # EX wire for M50530-24x8.
+    Wire.EX '{{ m50530_wire_ex | default("STROBE") }}'
+    # IOC1 wire for M50530-24x8.
+    Wire.IOC1 '{{ m50530_wire_ioc1 | default("SLCTIN") }}'
+    # IOC2 wire for M50530-24x8.
+    Wire.IOC2 '{{ m50530_wire_ioc2 | default("AUTOFD") }}'
+    # GPO wire for M50530-24x8.
+    Wire.GPO '{{ m50530_wire_gpo | default("GND") }}'
+    # UseBusy for M50530-24x8.
+    UseBusy {{ m50530_use_busy | default('1') }}
+    # Timing fuzz for M50530-24x8.
+    Timing.fuzz {{ m50530_timing_fuzz | default(100) }}
+}
+
+Display CT20x4 {
+    Driver 'Beckmann+Egle'
+    # Model for CT20x4.
+    Model '{{ ct20x4_model | default("CT20x4") }}'
+    # Port for CT20x4.
+    Port '{{ ct20x4_port | default("/dev/tts/0") }}'
+    # Icons for CT20x4.
+    Icons {{ ct20x4_icons | default(1) }}
+}
+
+Display ULA200 {
+    Driver 'ULA200'
+    # Size for ULA200.
+    Size '{{ ula200_size | default("20x4") }}'
+    # Icons for ULA200.
+    Icons {{ ula200_icons | default(0) }}
+    # Backlight for ULA200.
+    Backlight {{ ula200_backlight | default(1) }}
+}
+
+Display USBLCD {
+    Driver 'USBLCD'
+    # Port for USBLCD.
+    Port '{{ usblcd_port | default("libusb") }}'
+    # Size for USBLCD.
+    Size '{{ usblcd_size | default("20x4") }}'
+    # asc255bug for USBLCD.
+    asc255bug {{ usblcd_asc255bug | default(1) }}
+    # Icons for USBLCD.
+    Icons {{ usblcd_icons | default(1) }}
+}
+
+Display BWCT {
+    Driver 'BWCT'
+    # Size for BWCT.
+    Size '{{ bwct_size | default("20x4") }}'
+    # Contrast for BWCT.
+    Contrast {{ bwct_contrast | default(220) }}
+    # asc255bug for BWCT.
+    asc255bug {{ bwct_asc255bug | default(1) }}
+    # Icons for BWCT.
+    Icons {{ bwct_icons | default(1) }}
+}
+
+Display T6963-240x64 {
+    Driver 'T6963'
+    # Port for T6963-240x64.
+    Port '{{ t6963_240x64_port | default("/dev/parports/0") }}'
+    # Size for T6963-240x64.
+    Size '{{ t6963_240x64_size | default("240x64") }}'
+    # DualScan for T6963-240x64.
+    DualScan {{ t6963_240x64_dual_scan | default(0) }}
+    # Cell for T6963-240x64.
+    Cell {{ t6963_240x64_cell | default('6') }}
+    # CE wire for T6963-240x64.
+    Wire.CE '{{ t6963_240x64_wire_ce | default("STROBE") }}'
+    # CD wire for T6963-240x64.
+    Wire.CD '{{ t6963_240x64_wire_cd | default("SLCTIN") }}'
+    # RD wire for T6963-240x64.
+    Wire.RD '{{ t6963_240x64_wire_rd | default("AUTOFD") }}'
+    # WR wire for T6963-240x64.
+    Wire.WR '{{ t6963_240x64_wire_wr | default("INIT") }}'
+    # Timing fuzz for T6963-240x64.
+    Timing.fuzz {{ t6963_240x64_timing_fuzz | default(120) }}
+    # Font for T6963-240x64.
+    Font '{{ t6963_240x64_font | default("6x8") }}'
+}
+
+Display T6963-240x128 {
+    Driver 'T6963'
+    # Port for T6963-240x128.
+    Port '{{ t6963_240x128_port | default("/dev/parports/0") }}'
+    # Size for T6963-240x128.
+    Size '{{ t6963_240x128_size | default("240x128") }}'
+    # DualScan for T6963-240x128.
+    DualScan {{ t6963_240x128_dual_scan | default(0) }}
+    # Cell for T6963-240x128.
+    Cell {{ t6963_240x128_cell | default('6') }}
+    # CE wire for T6963-240x128.
+    Wire.CE '{{ t6963_240x128_wire_ce | default("STROBE") }}'
+    # CD wire for T6963-240x128.
+    Wire.CD '{{ t6963_240x128_wire_cd | default("SLCTIN") }}'
+    # RD wire for T6963-240x128.
+    Wire.RD '{{ t6963_240x128_wire_rd | default("AUTOFD") }}'
+    # WR wire for T6963-240x128.
+    Wire.WR '{{ t6963_240x128_wire_wr | default("INIT") }}'
+    # Timing fuzz for T6963-240x128.
+    Timing.fuzz {{ t6963_240x128_timing_fuzz | default(120) }}
+    # Font for T6963-240x128.
+    Font '{{ t6963_240x128_font | default("6x8") }}'
+}
+
+Display T6963-240x128D {
+    Driver 'T6963'
+    # Port for T6963-240x128D.
+    Port '{{ t6963_240x128d_port | default("/dev/parports/0") }}'
+    # Size for T6963-240x128D.
+    Size '{{ t6963_240x128d_size | default("240x128") }}'
+    # DualScan for T6963-240x128D.
+    DualScan {{ t6963_240x128d_dual_scan | default(1) }}
+    # Cell for T6963-240x128D.
+    Cell {{ t6963_240x128d_cell | default('6') }}
+    # CE wire for T6963-240x128D.
+    Wire.CE '{{ t6963_240x128d_wire_ce | default("STROBE") }}'
+    # CD wire for T6963-240x128D.
+    Wire.CD '{{ t6963_240x128d_wire_cd | default("SLCTIN") }}'
+    # RD wire for T6963-240x128D.
+    Wire.RD '{{ t6963_240x128d_wire_rd | default("AUTOFD") }}'
+    # WR wire for T6963-240x128D.
+    Wire.WR '{{ t6963_240x128d_wire_wr | default("INIT") }}'
+    # Timing fuzz for T6963-240x128D.
+    Timing.fuzz {{ t6963_240x128d_timing_fuzz | default(120) }}
+    # Font for T6963-240x128D.
+    Font '{{ t6963_240x128d_font | default("6x8") }}'
+}
+
+Display LPH7508 {
+    Driver 'LPH7508'
+    # Port for LPH7508.
+    Port '{{ lph7508_port | default("/dev/parports/0") }}'
+    # Font for LPH7508.
+    Font '{{ lph7508_font | default("6x8") }}'
+    # Contrast for LPH7508.
+    Contrast {{ lph7508_contrast | default(15) }}
+    # Inverted for LPH7508.
+    Inverted {{ lph7508_inverted | default(0) }}
+}
+
+Display LPH7508-serdisplib {
+    Driver 'serdisplib'
+    # Port for LPH7508-serdisplib.
+    Port '{{ lph7508_serdisplib_port | default("PAR:/dev/parports/0") }}'
+    # Model for LPH7508-serdisplib.
+    Model '{{ lph7508_serdisplib_model | default("LPH7508") }}'
+}
+
+Display ctinclud {
+   Driver 'serdisplib'
+   # Port for ctinclud.
+   Port '{{ ctinclud_port | default("USB:7c0/1501") }}'
+   # Model for ctinclud.
+   Model '{{ ctinclud_model | default("CTINCLUD") }}'
+   # Options for ctinclud.
+   Options '{{ ctinclud_options | default("") }}'
+   # Inverted for ctinclud.
+   Inverted {{ ctinclud_inverted | default('0') }}
+}
+
+Display ASTUSB {
+    Driver 'ASTUSB'
+    # Size for ASTUSB.
+    Size '{{ astusb_size | default("20x4") }}'
+    # Backlight for ASTUSB.
+    Backlight {{ astusb_backlight | default(1) }}
+}
+
+Display XWindow {
+    Driver 'X11'
+    # Size for XWindow.
+    Size '{{ xwindow_size | default("120x32") }}'
+    # Font for XWindow.
+    Font '{{ xwindow_font | default("5x8") }}'
+    # Pixel for XWindow.
+    Pixel '{{ xwindow_pixel | default("4+1") }}'
+    # Gap for XWindow.
+    Gap '{{ xwindow_gap | default("-1x-1") }}'
+    # Border for XWindow.
+    Border {{ xwindow_border | default('20') }}
+    # Buttons for XWindow.
+    Buttons {{ xwindow_buttons | default(2) }}
+    # Foreground for XWindow.
+    Foreground '{{ xwindow_foreground | default("000000cc") }}'
+    # Background for XWindow.
+    Background '{{ xwindow_background | default("00000022") }}'
+    # Basecolor for XWindow.
+    Basecolor '{{ xwindow_basecolor | default("80d000") }}'
+    # Bordercolor for XWindow.
+    Bordercolor '{{ xwindow_bordercolor | default("90e000") }}'
+}
+
+Display Image {
+    Driver 'Image'
+    # Format for Image.
+    Format '{{ image_format | default("PNG") }}'
+    # Size for Image.
+    Size '{{ image_size | default("120x32") }}'
+    # Font for Image.
+    Font '{{ image_font | default("6x8") }}'
+    # Pixel for Image.
+    Pixel '{{ image_pixel | default("4+1") }}'
+    # Gap for Image.
+    Gap '{{ image_gap | default("-1x-1") }}'
+    # Border for Image.
+    Border {{ image_border | default('20') }}
+    # Foreground for Image.
+    Foreground '{{ image_foreground | default("000000cc") }}'
+    # Background for Image.
+    Background '{{ image_background | default("00000022") }}'
+    # Basecolor for Image.
+    Basecolor '{{ image_basecolor | default("80d000") }}'
+}
+
+Display VNC {
+    # Driver for VNC.
+    Driver '{{ vnc_driver | default("VNC") }}'
+    # Font for VNC.
+    Font '{{ vnc_font | default("6x8") }}'
+    # Port for VNC.
+    Port '{{ vnc_port | default("5900") }}'
+    # Xres for VNC.
+    Xres '{{ vnc_xres | default("320") }}'
+    # Yres for VNC.
+    Yres '{{ vnc_yres | default("140") }}'
+    # Bpp for VNC.
+    Bpp '{{ vnc_bpp | default("4") }}'
+    # Maxclients for VNC.
+    Maxclients '{{ vnc_maxclients | default("2") }}'
+    # Buttons for VNC.
+    Buttons '{{ vnc_buttons | default("4") }}'
+    # Keypadxofs for VNC.
+    Keypadxofs '{{ vnc_keypadxofs | default("40") }}'
+    # Keypadyofs for VNC.
+    Keypadyofs '{{ vnc_keypadyofs | default("70") }}'
+    # Keypadygap for VNC.
+    Keypadygap '{{ vnc_keypadygap | default("10") }}'
+    # Keypadcol for VNC.
+    Keypadcol '{{ vnc_keypadcol | default("8745877") }}'
+    # Osd_showtime for VNC.
+    Osd_showtime '{{ vnc_osd_showtime | default("2000") }}'
+    # Maxfps for VNC.
+    Maxfps '{{ vnc_maxfps | default("25") }}'
+    # HttpPort for VNC.
+    HttpPort '{{ vnc_http_port | default("5800") }}'
+}
+
+Display FutabaVFD {
+    Driver 'FutabaVFD'
+    # Port for FutabaVFD.
+    Port '{{ futabavfd_port | default("/dev/parport0") }}'
+    # Size for FutabaVFD.
+    Size '{{ futabavfd_size | default("40x2") }}'
+    # Brightness for FutabaVFD.
+    Brightness {{ futabavfd_brightness | default(3) }}
+    Wire {
+        # RW wire for FutabaVFD.
+        RW '{{ futabavfd_wire_rw | default("STROBE") }}'
+        # TEST wire for FutabaVFD.
+        TEST '{{ futabavfd_wire_test | default("AUTOFD") }}'
+        # SELECT wire for FutabaVFD.
+        SELECT '{{ futabavfd_wire_select | default("SLCTIN") }}'
+        # BUSY wire for FutabaVFD.
+        BUSY '{{ futabavfd_wire_busy | default("BUSY") }}'
+    }
+}
+
+Plugin Seti {
+    # Directory for Seti plugin.
+    Directory '{{ seti_directory | default("/root/setiathome-3.08.i686-pc-linux-gnu") }}'
+}
+
+Plugin MySQL {
+    # Server for MySQL plugin.
+    server '{{ mysql_server | default("gsmlandia.com") }}'	# if none, localhost assumed
+    # Port for MySQL plugin.
+    port {{ mysql_port | default('3306') }}			# if none, MySQL default assumed
+    # User for MySQL plugin.
+    user '{{ mysql_user | default("lcd4linux") }}'		# if none, lcd4linux unix owner assumed
+    # Password for MySQL plugin.
+    password '{{ mysql_password | default("lcd4linux") }}'	# if none, empty password assumed
+    # Database for MySQL plugin.
+    database '{{ mysql_database | default("lcd4linux") }}'	# MUST be specified
+}
+
+Plugin Pop3 {
+   # Server for Pop3 plugin.
+   server1 '{{ pop3_server1 | default("localhost") }}'
+   # Port for Pop3 plugin.
+   port1 {{ pop3_port1 | default('110') }}
+   # User for Pop3 plugin.
+   user1 '{{ pop3_user1 | default("michael") }}'
+   # Password for Pop3 plugin.
+   password1 '{{ pop3_password1 | default("secret") }}'
+}
+
+Plugin DBus {
+       # signal 0 is displayed IM msg
+       #
+       # Signal0sender for DBus plugin.
+       signal0sender '{{ dbus_signal0sender | default("im.pidgin.purple.PurpleService") }}'	      # should be in the form com.domain.app.service,
+                                                                                                   # the :1.23 form given by dbus-monitor will NOT work,
+                                                                                                   # if unsure skip it
+       # Signal0path for DBus plugin.
+       signal0path '{{ dbus_signal0path | default("/im/pidgin/purple/PurpleObject") }}'	        # find using dbus-monitor
+       # Signal0interface for DBus plugin.
+       signal0interface '{{ dbus_signal0interface | default("im.pidgin.purple.PurpleInterface") }}'	 # find using dbus-monitor
+       # Signal0member for DBus plugin.
+       signal0member '{{ dbus_signal0member | default("DisplayedImMsg") }}'	                      # find using dbus-monitor
+       # Signal0eventname for DBus plugin.
+       signal0eventname '{{ dbus_signal0eventname | default("got_im") }}' # make something up, all Text widgets with an
+                                 # event option matching this will be updated
+}
+
+#this example prints the second argument of signal# 0
+#(in this case it prints the message displayed)
+Widget Pidgin {
+    class 'Text'
+    expression dbus::argument(0, 1) . ': ' . dbus::argument(0, 2))
+    # Width for Pidgin widget.
+    width {{ pidgin_width | default(20) }}	
+    # Align for Pidgin widget.
+    align '{{ pidgin_align | default("R") }}'	
+    # Event for Pidgin widget.
+    event '{{ pidgin_event | default("got_im") }}'	
+}
+
+Widget OS {
+    class 'Text'
+    expression '*** '.uname('sysname').' '.uname('release').' ***'
+    # Width for OS widget.
+    width {{ os_width | default(20) }}
+    # Align for OS widget.
+    align '{{ os_align | default("M") }}'
+    # Style for OS widget.
+    style '{{ os_style | default("bold") }}'
+    # Speed for OS widget.
+    speed {{ os_speed | default(250) }}	
+    update tick
+}
+
+Widget CPU {
+    class 'Text'
+    expression uname('machine')
+    # Prefix for CPU widget.
+    prefix '{{ cpu_prefix | default("CPU ") }}'
+    # Width for CPU widget.
+    width {{ cpu_width | default(9) }}
+    # Align for CPU widget.
+    align '{{ cpu_align | default("L") }}'
+    # Style for CPU widget.
+    style {{ cpu_style | default("test::onoff(7)>0?'bold':'norm'") }}
+    update tick
+}
+
+Widget CPUinfo {
+    class 'Text'
+    expression cpuinfo('model name')
+    # Prefix for CPUinfo widget.
+    prefix '{{ cpuinfo_prefix | default("") }}'
+    # Width for CPUinfo widget.
+    width {{ cpuinfo_width | default(20) }}
+    # Align for CPUinfo widget.
+    align '{{ cpuinfo_align | default("M") }}'
+    # Speed for CPUinfo widget.
+    speed {{ cpuinfo_speed | default(100) }}	
+    update tick
+}
+
+Widget RAM {
+    class 'Text'
+    expression meminfo('MemTotal')/1024
+    # Postfix for RAM widget.
+    postfix '{{ ram_postfix | default(" MB RAM") }}'	
+    # Width for RAM widget.
+    width {{ ram_width | default(11) }}
+    # Precision for RAM widget.
+    precision {{ ram_precision | default(0) }}
+    # Align for RAM widget.
+    align '{{ ram_align | default("R") }}'
+    update tick
+}
+
+Widget Busy {
+    class 'Text'
+    expression proc_stat::cpu('busy', 500)
+    # Prefix for Busy widget.
+    prefix '{{ busy_prefix | default("Busy") }}'	
+    # Postfix for Busy widget.
+    postfix '{{ busy_postfix | default("%") }}'	
+    # Width for Busy widget.
+    width {{ busy_width | default(9) }}	
+    # Precision for Busy widget.
+    precision {{ busy_precision | default(1) }}
+    # Align for Busy widget.
+    align '{{ busy_align | default("R") }}'	
+    update tick	
+}
+
+Widget BusyBar {
+    class 'Bar'
+    expression  proc_stat::cpu('busy',   500)
+    expression2 proc_stat::cpu('system', 500)
+    # Length for BusyBar widget.
+    length {{ busybar_length | default(10) }}	
+    # Direction for BusyBar widget.
+    direction '{{ busybar_direction | default("E") }}'
+    update tack
+}
+
+Widget Load {
+    class 'Text'
+    expression loadavg(1)
+    # Prefix for Load widget.
+    prefix '{{ load_prefix | default("Load") }}'
+    # Postfix for Load widget.
+    postfix {{ load_postfix | default("loadavg(1)>1.0?'!':' '") }}
+    # Width for Load widget.
+    width {{ load_width | default(10) }}
+    # Precision for Load widget.
+    precision {{ load_precision | default(1) }}
+    # Align for Load widget.
+    align '{{ load_align | default("R") }}'
+    update tick
+}
+
+Widget LoadBar {
+    class 'Bar'
+    expression  loadavg(1)
+    # Max for LoadBar widget.
+    max {{ loadbar_max | default(2.0) }}
+    # Length for LoadBar widget.
+    length {{ loadbar_length | default(10) }}	
+    # Direction for LoadBar widget.
+    direction '{{ loadbar_direction | default("E") }}'
+    update tack
+}
+
+Widget Disk {
+    class 'Text'
+    # disk.[rw]blk return blocks, we assume a blocksize of 512
+    # to get the number in kB/s we would do blk*512/1024, which is blk/2 
+    # expression (proc_stat::disk('.*', 'rblk', 500)+proc_stat::disk('.*', 'wblk', 500))/2
+    # with kernel 2.6, disk_io disappeared from /proc/stat but moved to /proc/diskstat
+    # therefore you have to use another function called 'diskstats':
+    expression diskstats('hd.', 'read_sectors', 500) + diskstats('hd.', 'write_sectors', 500)
+    # Prefix for Disk widget.
+    prefix '{{ disk_prefix | default("disk") }}'
+    # Postfix for Disk widget.
+    postfix '{{ disk_postfix | default(" ") }}'
+    # Width for Disk widget.
+    width {{ disk_width | default(10) }}	
+    # Precision for Disk widget.
+    precision {{ disk_precision | default(0) }}
+    # Align for Disk widget.
+    align '{{ disk_align | default("R") }}'	
+    update tick	
+}
+
+Widget DiskBar {
+    class 'Bar'
+    #expression  proc_stat::disk('.*', 'rblk', 500)
+    #expression2 proc_stat::disk('.*', 'wblk', 500)
+    # for kernel 2.6:
+    expression  diskstats('hd.', 'read_sectors',  500)
+    expression2 diskstats('hd.', 'write_sectors', 500)
+    # Length for DiskBar widget.
+    length {{ diskbar_length | default(14) }}	
+    # Direction for DiskBar widget.
+    direction '{{ diskbar_direction | default("E") }}'
+    update tack
+}
+
+Widget Eth0 {
+    class 'Text'
+    expression (netdev('eth0', 'Rx_bytes', 500)+netdev('eth0', 'Tx_bytes', 500))/1024
+    # Prefix for Eth0 widget.
+    prefix '{{ eth0_prefix | default("eth0") }}'
+    # Postfix for Eth0 widget.
+    postfix '{{ eth0_postfix | default(" ") }}'
+    # Width for Eth0 widget.
+    width {{ eth0_width | default(10) }}	
+    # Precision for Eth0 widget.
+    precision {{ eth0_precision | default(0) }}
+    # Align for Eth0 widget.
+    align '{{ eth0_align | default("R") }}'	
+    update tick	
+}
+
+Widget Eth0Bar {
+    class 'Bar'
+    expression  netdev('eth0', 'Rx_bytes', 500)
+    expression2 netdev('eth0', 'Tx_bytes', 500)
+    # Length for Eth0Bar widget.
+    length {{ eth0bar_length | default(14) }}	
+    # Direction for Eth0Bar widget.
+    direction '{{ eth0bar_direction | default("E") }}'
+    update tack
+}
+
+Widget PPP {
+    class 'Text'
+    expression (ppp('Rx:0', 500)+ppp('Tx:0', 500))
+    # Prefix for PPP widget.
+    prefix '{{ ppp_prefix | default("PPP") }}'
+    # Width for PPP widget.
+    width {{ ppp_width | default(9) }}
+    # Precision for PPP widget.
+    precision {{ ppp_precision | default(0) }}
+    # Align for PPP widget.
+    align '{{ ppp_align | default("R") }}'
+    update tick
+}
+
+Widget Temp {
+    class 'Text'
+    expression i2c_sensors('temp_input3')*1.0324-67
+    # Prefix for Temp widget.
+    prefix '{{ temp_prefix | default("Temp") }}'
+    # Width for Temp widget.
+    width {{ temp_width | default(9) }}
+    # Precision for Temp widget.
+    precision {{ temp_precision | default(1) }}
+    # Align for Temp widget.
+    align '{{ temp_align | default("R") }}'
+    update tick
+}
+
+Widget TempBar {
+    class 'Bar'
+    expression  i2c_sensors('temp_input3')*1.0324-67
+    # Min for TempBar widget.
+    min {{ tempbar_min | default(40) }}
+    # Max for TempBar widget.
+    max {{ tempbar_max | default(80) }}
+    # Length for TempBar widget.
+    length {{ tempbar_length | default(10) }}
+    # Direction for TempBar widget.
+    direction '{{ tempbar_direction | default("E") }}'
+    update tack
+}
+
+Widget MySQLtest1 {
+    class 'Text'
+    expression MySQL::query('SELECT id FROM table1')
+    # Width for MySQLtest1 widget.
+    width {{ mysqlltest1_width | default(20) }}
+    # Align for MySQLtest1 widget.
+    align '{{ mysqlltest1_align | default("R") }}'
+    # Prefix for MySQLtest1 widget.
+    prefix '{{ mysqlltest1_prefix | default("MySQL test:") }}'
+    update minute
+}
+
+Widget MySQLtest2 {
+    class 'Text'
+    expression MySQL::status()
+    # Width for MySQLtest2 widget.
+    width {{ mysqlltest2_width | default(20) }}
+    # Align for MySQLtest2 widget.
+    align '{{ mysqlltest2_align | default("M") }}'
+    # Prefix for MySQLtest2 widget.
+    prefix '{{ mysqlltest2_prefix | default("Status: ") }}'
+    update minute
+}
+
+Widget Uptime {
+    class 'Text'
+    expression uptime('%d days %H:%M:%S')
+    # Width for Uptime widget.
+    width {{ uptime_width | default(20) }}
+    # Align for Uptime widget.
+    align '{{ uptime_align | default("R") }}'
+    # Prefix for Uptime widget.
+    prefix '{{ uptime_prefix | default("Up ") }}'
+    # Update for Uptime widget.
+    update {{ uptime_update | default(1000) }}
+}
+
+Widget mpris_TrackPosition_bar {
+    class 'Bar'
+    expression  mpris_dbus::method_PositionGet('org.kde.amarok')
+    # Length for mpris_TrackPosition_bar widget.
+    length {{ mpris_trackposition_bar_length | default('40') }}   
+    # Min for mpris_TrackPosition_bar widget.
+    min {{ mpris_trackposition_bar_min | default(0) }}
+    # Max for mpris_TrackPosition_bar widget.
+    max {{ mpris_trackposition_bar_max | default(100) }}
+    # Direction for mpris_TrackPosition_bar widget.
+    direction '{{ mpris_trackposition_bar_direction | default("E") }}'
+    # Style for mpris_TrackPosition_bar widget.
+    style '{{ mpris_trackposition_bar_style | default("H") }}'
+    # Update for mpris_TrackPosition_bar widget.
+    update {{ mpris_trackposition_bar_update | default(200) }}
+}
+
+# debugging widgets 
+
+Widget BarTest {
+    class 'Bar'
+    # test::bar(barno,maxval,startval,delta) - move a test value between 0 and max.
+    # delta= step to change value by each time it's read.
+    # barno - ten different test bar values can be set up, with barno=0..9
+    # if delta=0, just returns the value of bar n instead of changing it.
+    expression test::bar(0,30,25,1)
+    expression2 test::bar(1,30,0,1)
+    # Length for BarTest widget.
+    length {{ bartest_length | default(8) }}
+    # max 50
+    # Direction for BarTest widget.
+    direction '{{ bartest_direction | default("E") }}'
+    # Update for BarTest widget.
+    update {{ bartest_update | default(10) }}
+}
+
+Widget BarTestVal {
+    class 'Text'
+    expression test::bar(0,100,50,0)
+    # Prefix for BarTestVal widget.
+    prefix '{{ bartestval_prefix | default("Test ") }}'
+    # Width for BarTestVal widget.
+    width {{ bartestval_width | default(9) }}
+    # Update for BarTestVal widget.
+    update {{ bartestval_update | default(200) }}
+}
+
+Widget LightningTest {
+    class 'icon'
+    # Speed for LightningTest widget.
+    speed {{ lightningtest_speed | default(500) }}
+    visible test::onoff(0)
+    bitmap {
+        row1 '...***'
+        row2 '..***.'
+        row3 '.***..'
+        row4 '.****.'
+        row5 '..**..'
+        row6 '.**...'
+        row7 '**....'
+        row8 '*.....'
+    }
+}
+
+# Icons
+
+Widget Heartbeat {
+    class 'Icon'
+    # Speed for Heartbeat widget.
+    speed {{ heartbeat_speed | default(800) }}
+    Bitmap {
+	Row1 '.....|.....'
+	Row2 '.*.*.|.*.*.'
+	Row3 '*****|*.*.*'
+	Row4 '*****|*...*'
+	Row5 '.***.|.*.*.'
+	Row6 '.***.|.*.*.'
+	Row7 '..*..|..*..'
+	Row8 '.....|.....'
+    }
+}
+
+Widget EKG {
+    class 'Icon'
+    # Speed for EKG widget.
+    speed {{ ekg_speed | default(50) }}
+    Bitmap {
+	Row1 '.....|.....|.....|.....|.....|.....|.....|.....'
+	Row2 '.....|....*|...*.|..*..|.*...|*....|.....|.....'
+	Row3 '.....|....*|...*.|..*..|.*...|*....|.....|.....'
+	Row4 '.....|....*|...**|..**.|**..|**...|*....|.....'
+	Row5 '.....|....*|...**|..**.|**..|**...|*....|.....'
+	Row6 '.....|....*|...*.|..*.*|.*.*.|*.*..|.*...|*....'
+	Row7 '*****|*****|****.|***..|**..*|*..**|..***|.****'
+	Row8 '.....|.....|.....|.....|.....|.....|.....|.....'
+    }
+}
+Widget Karo {
+    class 'Icon'
+    # Speed for Karo widget.
+    speed {{ karo_speed | default(200) }}
+    Bitmap {
+	Row1 '.....|.....|.....|.....|..*..|.....|.....|.....'
+	Row2 '.....|.....|.....|..*..|.*.*.|..*..|.....|.....'
+	Row3 '.....|.....|..*..|.*.*.|*...*|.*.*.|..*..|.....'
+	Row4 '.....|..*..|.*.*.|*...*|.....|*...*|.*.*.|..*..'
+	Row5 '.....|.....|..*..|.*.*.|*...*|.*.*.|..*..|.....'
+	Row6 '.....|.....|.....|..*..|.*.*.|..*..|.....|.....'
+	Row7 '.....|.....|.....|.....|..*..|.....|.....|.....'
+	Row8 '.....|.....|.....|.....|.....|.....|.....|.....'
+    }
+}
+Widget Heart {
+    class 'Icon'
+    # Speed for Heart widget.
+    speed {{ heart_speed | default(250) }}
+    Bitmap {
+	Row1 '.....|.....|.....|.....|.....|.....'
+	Row2 '.*.*.|.....|.*.*.|.....|.....|.....'
+	Row3 '*****|.*.*.|*****|.*.*.|.*.*.|.*.*.'
+	Row4 '*****|.***.|*****|.***.|.***.|.***.'
+	Row5 '.***.|.***.|.***.|.***.|.***.|.***.'
+	Row6 '.***.|..*..|.***.|..*..|..*..|..*..'
+	Row7 '..*..|.....|..*..|.....|.....|.....'
+	Row8 '.....|.....|.....|.....|.....|.....'
+    }
+}
+Widget Blob {
+    class 'Icon'
+    # Speed for Blob widget.
+    speed {{ blob_speed | default(250) }}
+    Bitmap {
+	Row1 '.....|.....|.....'
+	Row2 '.....|.....|.***.'
+	Row3 '.....|.***.|*...*'
+	Row4 '..*..|.*.*.|*...*'
+	Row5 '.....|.***.|*...*'
+	Row6 '.....|.....|.***.'
+	Row7 '.....|.....|.....'
+	Row8 '.....|.....|.....'
+    }
+}
+Widget Wave {
+    class 'Icon'
+    # Speed for Wave widget.
+    speed {{ wave_speed | default(100) }}
+    Bitmap {
+	Row1 '..**.|.**..|**...|*....|.....|.....|.....|.....|....*|...**'
+	Row2 '.*..*|*..*.|..*..|.*...|*....|.....|.....|....*|...*.|..*..'
+	Row3 '*....|....*|...*.|..*..|.*...|*....|....*|...*.|..*..|.*...'
+	Row4 '*....|....*|...*.|..*..|.*...|*....|....*|...*.|..*..|.*...'
+	Row5 '*....|....*|...*.|..*..|.*...|*....|....*|...*.|..*..|.*...'
+	Row6 '.....|.....|....*|...*.|..*..|.*..*|*..*.|..*..|.*...|*....'
+	Row7 '.....|.....|.....|....*|...**|..**.|.**..|**...|*....|.....'
+	Row8 '.....|.....|.....|.....|.....|.....|.....|.....|.....|.....'
+    }
+}
+Widget Squirrel {
+    class 'Icon'
+    # Speed for Squirrel widget.
+    speed {{ squirrel_speed | default(100) }}
+    Bitmap {
+	Row1 '.....|.....|.....|.....|.....|.....'
+	Row2 '.....|.....|.....|.....|.....|.....'
+	Row3 '.....|.....|.....|.....|.....|.....'
+	Row4 '**...|.**..|..**.|...**|....*|.....'
+	Row5 '*****|*****|*****|*****|*****|*****'
+	Row6 '...**|..**.|.**..|**...|*....|.....'
+	Row7 '.....|.....|.....|.....|.....|.....'
+	Row8 '.....|.....|.....|.....|.....|.....'
+    }
+}
+
+Widget Lightning {
+    class 'icon'
+    # Speed for Lightning widget.
+    speed {{ lightning_speed | default(100) }}
+    visible cpu('busy', 500)-50
+    bitmap {
+        row1 '...***'
+        row2 '..***.'
+        row3 '.***..'
+        row4 '.****.'
+        row5 '..**..'
+        row6 '.**...'
+        row7 '**....'
+        row8 '*.....'
+    }
+}
+
+Widget Rain {
+    class 'icon'
+    # Speed for Rain widget.
+    speed {{ rain_speed | default(200) }}
+    bitmap {
+	row1 '...*.|.....|.....|.*...|....*|..*..|.....|*....'
+	row2 '*....|...*.|.....|.....|.*...|....*|..*..|.....'
+	row3 '.....|*....|...*.|.....|.....|.*...|....*|..*..'
+	row4 '..*..|.....|*....|...*.|.....|.....|.*...|....*'
+	row5 '....*|..*..|.....|*....|...*.|.....|.....|.*...'
+	row6 '.*...|....*|..*..|.....|*....|...*.|.....|.....'
+	row7 '.....|.*...|....*|..*..|.....|*....|...*.|.....'
+	row8 '.....|.....|.*...|....*|..*..|.....|*....|...*.'
+    }
+}
+
+Widget Timer {
+    class 'Icon'
+    # Speed for Timer widget.
+    speed {{ timer_speed | default(50) }}
+    Bitmap {
+	Row1 '.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|'
+	Row2 '.***.|.*+*.|.*++.|.*++.|.*++.|.*++.|.*++.|.*++.|.*++.|.*++.|.*++.|.*++.|.+++.|.+*+.|.+**.|.+**.|.+**.|.+**.|.+**.|.+**.|.+**.|.+**.|.+**.|'
+	Row3 '*****|**+**|**++*|**+++|**++.|**++.|**+++|**+++|**+++|**+++|**+++|+++++|+++++|++*++|++**+|++***|++**.|++**.|++***|++***|++***|++***|++***|*****|'
+	Row4 '*****|**+**|**+**|**+**|**+++|**+++|**+++|**+++|**+++|**+++|+++++|+++++|+++++|++*++|++*++|++*++|++***|++***|++***|++***|++***|++***|*****|*****|'
+	Row5 '*****|*****|*****|*****|*****|***++|***++|**+++|*++++|+++++|+++++|+++++|+++++|+++++|+++++|+++++|+++++|+++**|+++**|++***|+****|*****|*****|*****|'
+	Row6 '.***.|.***.|.***.|.***.|.***.|.***.|.**+.|.*++.|.+++.|.+++.|.+++.|.+++.|.+++.|.+++.|.+++.|.+++.|.+++.|.+++.|.++*.|.+**.|.***.|.***.|.***.|.***.|'
+	Row7 '.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|'
+	Row8 '.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|.....|'
+    }
+}
+
+Widget Test {
+    class 'Text'
+    expression '1234567890123456789012345678901234567890'
+    # Width for Test widget.
+    width {{ test_width | default(40) }}
+    # Foreground for Test widget.
+    foreground '{{ test_foreground | default("ff0000ff") }}'
+}
+
+Widget Test1 {
+    class 'Text'
+    expression 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
+    # Width for Test1 widget.
+    width {{ test1_width | default(40) }}
+    # Align for Test1 widget.
+    align '{{ test1_align | default("M") }}'
+    # Speed for Test1 widget.
+    speed {{ test1_speed | default(100) }}
+}
+
+Widget Test2 {
+    class 'Text'
+    expression '1234567890abcdefghijklmnopqrstuvwxyz'
+    # Width for Test2 widget.
+    width {{ test2_width | default(40) }}
+    # Align for Test2 widget.
+    align '{{ test2_align | default("M") }}'
+    # Speed for Test2 widget.
+    speed {{ test2_speed | default(150) }}
+}
+
+Widget GPO_Val1 {
+    class 'Text'
+    expression LCD::GPO(1)
+    # Prefix for GPO_Val1 widget.
+    prefix '{{ gp0_val1_prefix | default("GPO#1") }}'
+    # Width for GPO_Val1 widget.
+    width {{ gp0_val1_width | default(10) }}
+    # Precision for GPO_Val1 widget.
+    precision {{ gp0_val1_precision | default(0) }}
+    # Align for GPO_Val1 widget.
+    align '{{ gp0_val1_align | default("R") }}'
+    update tick
+}
+
+Widget GPI_Val1 {
+    class 'Text'
+    expression LCD::GPI(1)
+    # Prefix for GPI_Val1 widget.
+    prefix '{{ gpi_val1_prefix | default("GPI#1") }}'
+    # Width for GPI_Val1 widget.
+    width {{ gpi_val1_width | default(10) }}
+    # Precision for GPI_Val1 widget.
+    precision {{ gpi_val1_precision | default(0) }}
+    # Align for GPI_Val1 widget.
+    align '{{ gpi_val1_align | default("R") }}'
+    update tick
+}
+
+Widget GPO_Val4 {
+    class 'Text'
+    expression LCD::GPO(4)
+    # Prefix for GPO_Val4 widget.
+    prefix '{{ gp0_val4_prefix | default("GPO#4") }}'
+    # Width for GPO_Val4 widget.
+    width {{ gp0_val4_width | default(10) }}
+    # Precision for GPO_Val4 widget.
+    precision {{ gp0_val4_precision | default(0) }}
+    # Align for GPO_Val4 widget.
+    align '{{ gp0_val4_align | default("R") }}'
+    update tick
+}
+
+Widget GPO_Test1 {
+    class 'GPO'
+    # Expression for GPO_Test1 widget.
+    expression {{ gp0_test1_expression | default(255) }}
+    # Update for GPO_Test1 widget.
+    update {{ gp0_test1_update | default(300) }}
+}
+
+Widget GPO_Test255 {
+    class 'GPO'
+    # Expression for GPO_Test255 widget.
+    expression {{ gp0_test255_expression | default(0) }}
+    # Update for GPO_Test255 widget.
+    update {{ gp0_test255_update | default(100) }}
+}
+
+Widget ImageTest {
+    class 'Image'
+    # File for ImageTest widget.
+    file '{{ imagetest_file | default("tux.png") }}'
+    # Update for ImageTest widget.
+    update {{ imagetest_update | default(1000) }}
+    # Visible for ImageTest widget.
+    visible {{ imagetest_visible | default(1) }}
+    # Inverted for ImageTest widget.
+    inverted {{ imagetest_inverted | default('0') }}
+}
+
+Widget KVV {
+    class 'Text'
+    expression kvv::line(0).' '.kvv::station(0)
+    # Width for KVV widget.
+    width {{ kvv_width | default(11) }}
+    # Align for KVV widget.
+    align '{{ kvv_align | default("L") }}'
+    update tick
+    # Foreground for KVV widget.
+    Foreground '{{ kvv_foreground | default("ffff00") }}'
+    # Style for KVV widget.
+    style '{{ kvv_style | default("bold") }}'
+}
+
+Widget KVV_TIME {
+    class 'Text'
+    expression kvv::time_str(0)
+    # Width for KVV_TIME widget.
+    width {{ kvv_time_width | default(2) }}
+    # Align for KVV_TIME widget.
+    align '{{ kvv_time_align | default("R") }}'
+    update tick
+    # Foreground for KVV_TIME widget.
+    foreground {{ kvv_time_foreground_expression | default("kvv::time(0) < 2 ? 'FF0000' : ( kvv::time(0) < 5 ? 'FFFF00' : '00FF00' )") }}
+    # Style for KVV_TIME widget.
+    style '{{ kvv_time_style | default("bold") }}'
+}
+
+Layout Default {
+    Row1 {
+        # Row1 Col1 for Default layout.
+	Col1  '{{ layout_default_row1_col1 | default("OS") }}'
+    }
+    Row2 {
+        # Row2 Col1 for Default layout.
+	Col1  '{{ layout_default_row2_col1 | default("CPU") }}'
+	# Row2 Col10 for Default layout.
+	Col10 '{{ layout_default_row2_col10 | default("RAM") }}'
+    }
+    Row3 {
+        # Row3 Col1 for Default layout.
+	Col1  '{{ layout_default_row3_col1 | default("Busy") }}'
+	# Row3 Col10 for Default layout.
+	Col10 '{{ layout_default_row3_col10 | default("Rain") }}'
+	# Row3 Col11 for Default layout.
+	Col11 '{{ layout_default_row3_col11 | default("BusyBar") }}'
+    }
+    Row4 {
+        # Row4 Col1 for Default layout.
+	Col1 '{{ layout_default_row4_col1 | default("Load") }}'
+	# Row4 Col11 for Default layout.
+	Col11 '{{ layout_default_row4_col11 | default("LoadBar") }}'
+    }
+    Row5 {
+        # Row5 Col1 for Default layout.
+	Col1  '{{ layout_default_row5_col1 | default("Disk") }}'
+	# Row5 Col11 for Default layout.
+	Col11 '{{ layout_default_row5_col11 | default("DiskBar") }}'
+    }
+    Row6 {
+        # Row6 Col1 for Default layout.
+	Col1  '{{ layout_default_row6_col1 | default("Eth0") }}'
+	# Row6 Col11 for Default layout.
+	Col11 '{{ layout_default_row6_col11 | default("Eth0Bar") }}'
+    }
+}
+
+Layout TestLayer {
+    Row1 {
+        # Row1 Col1 for TestLayer layout.
+	Col1  '{{ layout_testlayer_row1_col1 | default("OS") }}'
+    }
+    Row2 {
+        # Row2 Col1 for TestLayer layout.
+	Col1  '{{ layout_testlayer_row2_col1 | default("CPU") }}'
+	# Row2 Col10 for TestLayer layout.
+	Col10 '{{ layout_testlayer_row2_col10 | default("RAM") }}'
+    }
+    Row3 {
+        # Row3 Col1 for TestLayer layout.
+	Col1  '{{ layout_testlayer_row3_col1 | default("Busy") }}'
+	# Row3 Col10 for TestLayer layout.
+	Col10 '{{ layout_testlayer_row3_col10 | default("Rain") }}'
+	# Row3 Col11 for TestLayer layout.
+	Col11 '{{ layout_testlayer_row3_col11 | default("BusyBar") }}'
+    }
+    Row4 {
+        # Row4 Col1 for TestLayer layout.
+	Col1 '{{ layout_testlayer_row4_col1 | default("Load") }}'
+	# Row4 Col11 for TestLayer layout.
+	Col11 '{{ layout_testlayer_row4_col11 | default("LoadBar") }}'
+    }
+    Row5 {
+        # Row5 Col1 for TestLayer layout.
+	Col1  '{{ layout_testlayer_row5_col1 | default("Disk") }}'
+	# Row5 Col11 for TestLayer layout.
+	Col11 '{{ layout_testlayer_row5_col11 | default("DiskBar") }}'
+    }
+    Row6 {
+        # Row6 Col1 for TestLayer layout.
+	Col1  '{{ layout_testlayer_row6_col1 | default("Eth0") }}'
+	# Row6 Col11 for TestLayer layout.
+	Col11 '{{ layout_testlayer_row6_col11 | default("Eth0Bar") }}'
+    }
+    Layer 2 {
+        # Layer 2 X1.Y1 for TestLayer layout.
+	X1.Y1 '{{ layout_testlayer_layer2_x1_y1 | default("ImageTest") }}'
+    }
+}
+
+Layout TestImage {
+    Layer 2 {
+        # Layer 2 X1.Y1 for TestImage layout.
+	X1.Y1 '{{ layout_testimage_layer2_x1_y1 | default("ImageTest") }}'
+    }
+}
+
+Layout L24x8 {
+    Row1 {
+        # Row1 Col1 for L24x8 layout.
+	Col1  '{{ layout_l24x8_row1_col1 | default("Load") }}'
+	# Row1 Col11 for L24x8 layout.
+	Col11 '{{ layout_l24x8_row1_col11 | default("BusyBar") }}'
+    }
+    Row2 {
+    }
+}
+
+Layout L8x2 {
+    Row1 {
+        # Row1 Col1 for L8x2 layout.
+	Col1  '{{ layout_l8x2_row1_col1 | default("Busy") }}'
+    }
+    Row2 {
+        # Row2 Col1 for L8x2 layout.
+	Col1 '{{ layout_l8x2_row2_col1 | default("BarTest") }}'
+    }
+}
+
+Layout L16x1 {
+    Row1 {
+        # Row1 Col1 for L16x1 layout.
+	Col1  '{{ layout_l16x1_row1_col1 | default("Busy") }}'
+	# Row1 Col11 for L16x1 layout.
+	Col11 '{{ layout_l16x1_row1_col11 | default("BusyBar") }}'
+    }
+}
+
+Layout L16x2 {
+    Row1 {
+        # Row1 Col1 for L16x2 layout.
+	Col1  '{{ layout_l16x2_row1_col1 | default("Busy") }}'
+	# Row1 Col11 for L16x2 layout.
+	Col11 '{{ layout_l16x2_row1_col11 | default("BusyBar") }}'
+    }
+    Row2 {
+        # Row2 Col1 for L16x2 layout.
+	Col1  '{{ layout_l16x2_row2_col1 | default("Disk") }}'
+	#Col11 'DiskBar'
+	# Row2 Col11 for L16x2 layout.
+	Col11 '{{ layout_l16x2_row2_col11 | default("BarTest") }}'
+    }
+}
+
+Layout L20x2 {
+    Row1 {
+        # Row1 Col1 for L20x2 layout.
+        Col1  '{{ layout_l20x2_row1_col1 | default("CPUinfo") }}'
+    }
+    Row2 {
+        # Row2 Col1 for L20x2 layout.
+	Col1  '{{ layout_l20x2_row2_col1 | default("Busy") }}'
+	# Row2 Col11 for L20x2 layout.
+	Col11 '{{ layout_l20x2_row2_col11 | default("BusyBar") }}'
+    }
+}
+
+Layout L40x2 {
+    Row1 {
+        # Row1 Col1 for L40x2 layout.
+	Col1  '{{ layout_l40x2_row1_col1 | default("OS") }}'
+	# Row1 Col21 for L40x2 layout.
+	Col21  '{{ layout_l40x2_row1_col21 | default("Busy") }}'
+	# Row1 Col31 for L40x2 layout.
+	Col31 '{{ layout_l40x2_row1_col31 | default("BusyBar") }}'
+    }
+    Row2 {
+        # Row2 Col1 for L40x2 layout.
+	Col1  '{{ layout_l40x2_row2_col1 | default("CPU") }}'
+	# Row2 Col10 for L40x2 layout.
+	Col10 '{{ layout_l40x2_row2_col10 | default("RAM") }}'
+	# Row2 Col21 for L40x2 layout.
+	Col21 '{{ layout_l40x2_row2_col21 | default("Load") }}'
+	# Row2 Col31 for L40x2 layout.
+	Col31 '{{ layout_l40x2_row2_col31 | default("LoadBar") }}'
+    }
+}
+
+Layout Test {
+    # Row01 Col1 for Test layout.
+    Row01.Col1 '{{ layout_test_row01_col1 | default("Test1") }}'
+    # Row02 Col1 for Test layout.
+    Row02.Col1 '{{ layout_test_row02_col1 | default("Test1") }}'
+    # Row03 Col1 for Test layout.
+    Row03.Col1 '{{ layout_test_row03_col1 | default("Test1") }}'
+    # Row04 Col1 for Test layout.
+    Row04.Col1 '{{ layout_test_row04_col1 | default("Test1") }}'
+    # Row05 Col1 for Test layout.
+    Row05.Col1 '{{ layout_test_row05_col1 | default("Test1") }}'
+    # Row06 Col1 for Test layout.
+    Row06.Col1 '{{ layout_test_row06_col1 | default("Test1") }}'
+    # Row07 Col1 for Test layout.
+    Row07.Col1 '{{ layout_test_row07_col1 | default("Test1") }}'
+    # Row08 Col1 for Test layout.
+    Row08.Col1 '{{ layout_test_row08_col1 | default("Test1") }}'
+    # Row09 Col1 for Test layout.
+    Row09.Col1 '{{ layout_test_row09_col1 | default("Test1") }}'
+    # Row10 Col1 for Test layout.
+    Row10.Col1 '{{ layout_test_row10_col1 | default("Test1") }}'
+    # Row11 Col1 for Test layout.
+    Row11.Col1 '{{ layout_test_row11_col1 | default("Test1") }}'
+    # Row12 Col1 for Test layout.
+    Row12.Col1 '{{ layout_test_row12_col1 | default("Test1") }}'
+    # Row13 Col1 for Test layout.
+    Row13.Col1 '{{ layout_test_row13_col1 | default("Test1") }}'
+    # Row14 Col1 for Test layout.
+    Row14.Col1 '{{ layout_test_row14_col1 | default("Test1") }}'
+    # Row15 Col1 for Test layout.
+    Row15.Col1 '{{ layout_test_row15_col1 | default("Test1") }}'
+    # Row16 Col1 for Test layout.
+    Row16.Col1 '{{ layout_test_row16_col1 | default("Test1") }}'
+    # Row17 Col1 for Test layout.
+    Row17.Col1 '{{ layout_test_row17_col1 | default("Test1") }}'
+    # Row18 Col1 for Test layout.
+    Row18.Col1 '{{ layout_test_row18_col1 | default("Test1") }}'
+    # Row19 Col1 for Test layout.
+    Row19.Col1 '{{ layout_test_row19_col1 | default("Test1") }}'
+    # Row20 Col1 for Test layout.
+    Row20.Col1 '{{ layout_test_row20_col1 | default("Test1") }}'
+    # Row21 Col1 for Test layout.
+    Row21.Col1 '{{ layout_test_row21_col1 | default("Test1") }}'
+    # Row22 Col1 for Test layout.
+    Row22.Col1 '{{ layout_test_row22_col1 | default("Test1") }}'
+    # Row23 Col1 for Test layout.
+    Row23.Col1 '{{ layout_test_row23_col1 | default("Test1") }}'
+    # Row24 Col1 for Test layout.
+    Row24.Col1 '{{ layout_test_row24_col1 | default("Test1") }}'
+}
+
+Layout Test2 {
+    # Row01 Col1 for Test2 layout.
+    Row01.Col1 '{{ layout_test2_row01_col1 | default("Test1") }}'
+    #Row02.Col1 'Rain'
+    # Row02 Col1 for Test2 layout.
+    Row02.Col1 '{{ layout_test2_row02_col1 | default("Test2") }}'
+    # Row03 Col1 for Test2 layout.
+    Row03.Col1 '{{ layout_test2_row03_col1 | default("Test1") }}'
+    # Row04 Col1 for Test2 layout.
+    Row04.Col1 '{{ layout_test2_row04_col1 | default("Test2") }}'
+    # Row05 Col1 for Test2 layout.
+    Row05.Col1 '{{ layout_test2_row05_col1 | default("Test1") }}'
+    # Row06 Col1 for Test2 layout.
+    Row06.Col1 '{{ layout_test2_row06_col1 | default("Test2") }}'
+    # Row07 Col1 for Test2 layout.
+    Row07.Col1 '{{ layout_test2_row07_col1 | default("Test1") }}'
+    # Row08 Col1 for Test2 layout.
+    Row08.Col1 '{{ layout_test2_row08_col1 | default("Test2") }}'
+}
+
+Layout TestGPO {
+    # Row1 Col1 for TestGPO layout.
+    Row1.Col1  '{{ layout_testgpo_row1_col1 | default("GPO_Val1") }}'
+    # Row1 Col10 for TestGPO layout.
+    Row1.Col10 '{{ layout_testgpo_row1_col10 | default("GPI_Val1") }}'
+    # Row2 Col1 for TestGPO layout.
+    Row2.Col1  '{{ layout_testgpo_row2_col1 | default("GPO_Val4") }}'
+    # GPO1 for TestGPO layout.
+    GPO1       '{{ layout_testgpo_gpo1 | default("GPO_Test255") }}'
+    # GPO4 for TestGPO layout.
+    GPO4       '{{ layout_testgpo_gpo4 | default("GPO_Test1") }}'
+}
+
+Layout TestIcons {
+    # Row1 Col1 for TestIcons layout.
+    Row1.Col1 '{{ layout_testicons_row1_col1 | default("Timer") }}'
+    # Row1 Col2 for TestIcons layout.
+    Row1.Col2 '{{ layout_testicons_row1_col2 | default("Rain") }}'
+    # Row1 Col3 for TestIcons layout.
+    Row1.Col3 '{{ layout_testicons_row1_col3 | default("Squirrel") }}'
+    # Row1 Col4 for TestIcons layout.
+    Row1.Col4 '{{ layout_testicons_row1_col4 | default("Wave") }}'
+    # Row1 Col5 for TestIcons layout.
+    Row1.Col5 '{{ layout_testicons_row1_col5 | default("Blob") }}'
+    # Row1 Col6 for TestIcons layout.
+    Row1.Col6 '{{ layout_testicons_row1_col6 | default("Heart") }}'
+    # Row1 Col7 for TestIcons layout.
+    Row1.Col7 '{{ layout_testicons_row1_col7 | default("Karo") }}'
+    # Row1 Col8 for TestIcons layout.
+    Row1.Col8 '{{ layout_testicons_row1_col8 | default("EKG") }}'
+}
+
+Layout testMySQL {
+	Row1 {
+		# Row1 Col1 for testMySQL layout.
+		Col1 '{{ layout_testmysql_row1_col1 | default("MySQLtest1") }}'
+	}
+	Row2 {
+		# Row2 Col1 for testMySQL layout.
+		Col1 '{{ layout_testmysql_row2_col1 | default("MySQLtest2") }}'
+	}
+}
+
+Layout Debug {
+    #Row09.Col1 'Test'
+    # Row09 Col1 for Debug layout.
+    Row09.Col1 '{{ layout_debug_row09_col1 | default("Heartbeat") }}'
+}
+
+#Display 'ACool'
+#Display 'SerDispLib'
+#Display 'LCD-Linux'
+#Display 'LCD2041'
+#Display 'LK202'
+#Display 'LK204'
+#Display 'MI240'
+#Display 'CW12232'
+# Name of the active Display block to use.
+Display '{{ active_display_name | default("NULL") }}'
+#Display 'HD44780-generic'
+#Display 'HD44780-WinAmp'
+#Display 'HD44780-4bit'
+#Display 'WDC2704M'
+#Display 'SC1602D'
+#Display 'LCM-162'
+#Display 'CF631'
+#Display 'CF632'
+#Display 'CF633'
+#Display 'Curses'
+#Display 'M50530-24x8'
+#Display 'LCDTerm'
+#Display 'SimpleLCD'
+#Display 'BA63'
+#Display 'CT20x4'
+#Display 'T6963-240x64'
+#Display 'T6963-240x128'
+#Display 'T6963-240x128D'
+#Display 'XWindow'
+#Display 'IRLCD'
+#Display 'USBLCD'
+#Display 'BWCT'
+#Display 'Image'
+#Display 'TeakLCD'
+#Display 'Trefon'
+#Display 'LCD2USB'
+#Display 'LPH7508-serdisplib'
+#Display 'LPH7508'
+#Display 'ctinclud'
+#Display 'picoLCD'
+#Display 'VNC'
+#Display 'FutabaVFD'
+#Display 'GLCD2USB'
+
+# Name of the active Layout block to use.
+Layout '{{ active_layout_name | default("Default") }}'
+#Layout 'TestLayer'
+#Layout 'TestImage'
+#Layout 'L8x2'
+#Layout 'L16x1'
+#Layout 'L16x2'
+#Layout 'L20x2'
+#Layout 'L40x2'
+#Layout 'Test'
+#Layout 'Test2'
+#Layout 'TestGPO'
+#Layout 'Debug'
+#Layout 'TestIcons'

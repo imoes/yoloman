@@ -1,37 +1,12 @@
 {
-  "options": {
-    "use_syslog": true,
-    "interface": "eth0",
-    "tcp_timeout": 10
-  },
-  "sequences": {
-    "open": [
-      {
-        "port": 7000,
-        "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
-      },
-      {
-        "port": 8000,
-        "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
-      },
-      {
-        "port": 9000,
-        "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 443 -j ACCEPT"
-      }
-    ],
-    "close": [
-      {
-        "port": 9000,
-        "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 443 -j ACCEPT"
-      },
-      {
-        "port": 8000,
-        "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
-      },
-      {
-        "port": 7000,
-        "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
-      }
-    ]
-  }
+  "use_syslog": true,
+  "openSSH_sequence": "7000,8000,9000",
+  "openSSH_seq_timeout": 5,
+  "openSSH_command": "/sbin/iptables -A INPUT -s %IP% -p tcp --dport 22 -j ACCEPT",
+  "closeSSH_sequence": "9000,8000,7000",
+  "closeSSH_seq_timeout": 5,
+  "closeSSH_command": "/sbin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT",
+  "openHTTPS_sequence": "12345,54321,24680,13579",
+  "openHTTPS_seq_timeout": 5,
+  "openHTTPS_command": "/usr/local/sbin/knock_add -i -c INPUT -p tcp -d 443 -f %IP%"
 }

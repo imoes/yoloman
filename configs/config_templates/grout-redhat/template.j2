@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Robin Jarry
+#
+# This file is piped into 'grcli -xe' after grout has started successfully.
+# It configures CPU affinity, physical interfaces, IP addressing, and routing
+# for the grout RedHat package.
+#
+# Each block below corresponds to a schema field. Defaults are applied automatically
+# if the variable is not provided by the Ansible role or inventory.
+
+# ==============================================================================
+# CPU Affinity Configuration
+# Controls which CPU cores handle the control plane vs the dataplane (packet processing).
+# ==============================================================================
+
+{% if affinity_datapath_cpus | default('', true) %}
+# Set CPU affinity for both control plane and dataplane.
+# affinity_control_cpus: {{ affinity_control_cpus | default('0,1') }}
+# affinity_datapath_cpus: {{ affinity_datapath_cpus | default('', true) }}
+affinity cpus set control {{ affinity_control_cpus | default('0,1') }} datapath {{ affinity_datapath_cpus | default('', true) }}
+{% else %}
+# No specific dataplane CPUs defined; comment out explicit affinity or use defaults.
+# Default control CPUs: {{ affinity_control_cpus | default('0,1') }}
+# Default dataplane CPUs: (unset)
+#affinity cpus set control {{ affinity_control_cpus | default('0,1') }} datapath 2,22,4,24
+{% endif %}
+
+# ==============================================================================
+# Physical Interface Definitions
+# Defines the physical network ports, their PCI addresses, and receive queues.
+# ==============================================================================
+
+# Interface p0
+# interface_p0_name: {{ interface_p0_name | default('p0') }}
+# interface_p0_devargs: {{ interface_p0_devargs | default('0000:4b:00.0') }}
+# interface_p0_rxqs: {{ interface_p0_rxqs | default(2) }}
+#interface add port {{ interface_p0_name | default('p0') }} devargs {{ interface_p0_devargs | default('0000:4b:00.0') }} rxqs {{ interface_p0_rxqs | default(2) }}
+
+# Interface p1
+# interface_p1_name: {{ interface_p1_name | default('p1') }}
+# interface_p1_devargs: {{ interface_p1_devargs | default('0000:4b:00.1') }}
+# interface_p1_rxqs: {{ interface_p1_rxqs | default(2) }}
+#interface add port {{ interface_p1_name | default('p1') }} devargs {{ interface_p1_devargs | default('0000:4b:00.1') }} rxqs {{ interface_p1_rxqs | default(2) }}
+
+# ==============================================================================
+# IP Address Assignment
+# Assigns IP addresses and CIDR masks to the defined physical interfaces.
+# ==============================================================================
+
+# Address for p0
+# address_p0: {{ address_p0 | default('1.2.3.4/24') }}
+# iface_p0_name: {{ interface_p0_name | default('p0') }}
+#address add {{ address_p0 | default('1.2.3.4/24') }} iface {{ interface_p0_name | default('p0') }}
+
+# Address for p1
+# address_p1: {{ address_p1 | default('4.3.2.1/24') }}
+# iface_p1_name: {{ interface_p1_name | default('p1') }}
+#address add {{ address_p1 | default('4.3.2.1/24') }} iface {{ interface_p1_name | default('p1') }}
+
+# ==============================================================================
+# Default Route Configuration
+# Sets the default gateway for outbound traffic.
+# ==============================================================================
+
+{% if route_default_gateway | default('', true) %}
+# Default route is explicitly configured.
+# route_default_cidr: {{ route_default_cidr | default('0.0.0.0/0') }}
+# route_default_gateway: {{ route_default_gateway | default('', true) }}
+route add {{ route_default_cidr | default('0.0.0.0/0') }} via {{ route_default_gateway | default('', true) }}
+{% else %}
+# No default gateway specified; route addition is commented out.
+# route_default_cidr: {{ route_default_cidr | default('0.0.0.0/0') }}
+# route_default_gateway: (unset)
+#route add {{ route_default_cidr | default('0.0.0.0/0') }} via 1.2.3.254
+{% endif %}

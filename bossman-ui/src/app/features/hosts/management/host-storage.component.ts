@@ -13,6 +13,7 @@ import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog
 import { UsageBarComponent, fmtBytes } from '../../../shared/config-dialog/usage-bar.component';
 import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
 import { HostDisksComponent } from '../host-disks.component';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 /** A flattened lsblk device row carrying its nesting depth. */
 interface DevRow {
@@ -48,7 +49,7 @@ interface SwapArea {
 @Component({
   selector: 'app-host-storage',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent, HostDisksComponent],
+  imports: [BlockedReasonDirective, MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent, HostDisksComponent],
   template: `
     <div class="bm-mgmt-section">
       @if (loading()) {
@@ -84,8 +85,8 @@ interface SwapArea {
             <label class="bm-chk" title="Preview the rendered /etc/fstab instead of writing it">
               <input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run</label>
             <button mat-icon-button (click)="reload()" [disabled]="loading()" title="Reload"><mat-icon>refresh</mat-icon></button>
-            <button mat-stroked-button (click)="addMount()" [disabled]="busy() || !fstabAvail()"><mat-icon>add</mat-icon> Add mount</button>
-            <button mat-flat-button color="primary" (click)="saveFstab()" [disabled]="busy() || !fstabDirty()">{{ dryRun() ? 'Preview' : 'Apply' }}</button>
+            <button mat-stroked-button (click)="addMount()" [disabled]="busy()" [bmBlocked]="!fstabAvail() ? 'fstab could not be read on this host' : ''" bmBlockedMode="tip"><mat-icon>add</mat-icon> Add mount</button>
+            <button mat-flat-button color="primary" (click)="saveFstab()" [disabled]="busy()" [bmBlocked]="!fstabDirty() ? 'No changes to apply' : ''" bmBlockedMode="tip">{{ dryRun() ? 'Preview' : 'Apply' }}</button>
           </header>
           @if (fstabAvail()) {
             <table class="bm-ct bm-fstab">
@@ -146,7 +147,7 @@ interface SwapArea {
                    (input)="newSwapSize.set($any($event.target).value)" />
             <input class="bm-fi bm-fi-xs" placeholder="prio" [value]="newSwapPrio()"
                    (input)="newSwapPrio.set($any($event.target).value)" />
-            <button mat-stroked-button [disabled]="swapBusy() || !newSwapPath() || !newSwapSize()"
+            <button mat-stroked-button [disabled]="swapBusy()" [bmBlocked]="!newSwapPath() || !newSwapSize() ? 'Enter a path and a size' : ''"
                     (click)="addSwap()">{{ dryRun() ? 'Preview' : 'Add swap file' }}</button>
           </div>
           @if (swapSteps().length) {
@@ -173,9 +174,9 @@ interface SwapArea {
       .bm-card-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
       .bm-na { color: var(--mat-sys-on-surface); opacity: 0.5; font-size: 12px; }
-      .bm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: 6px 14px; font-size: 12px; }
-      .bm-ct td { padding: 8px 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
+      .bm-ct { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+      .bm-ct th { text-align: left; font-weight: 500; opacity: 0.6; padding: var(--bm-cell-py) 14px; font-size: 12px; }
+      .bm-ct td { padding: var(--bm-cell-py) 14px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
       .bm-right { text-align: right; }
       .bm-dev { font-family: monospace; font-weight: 600; display: flex; align-items: center; gap: 6px; }
       .bm-dev-ic { font-size: 17px; width: 17px; height: 17px; opacity: 0.6; }

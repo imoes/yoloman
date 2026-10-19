@@ -1,0 +1,1177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Config>
+
+<!-- Common FM configuration, applies to all FM instances/subnets -->
+<Common>
+  <!-- Various sets of Applications which may be used in Virtual Fabrics -->
+  <!-- Applications defined here are available for use in all FM instances. -->
+  <!-- Additional Applications may be defined here or per FM instance. -->
+  <!-- Applications specified per FM instance will add to -->
+  <!-- instead of replace these Application definitions. -->
+  <Applications>
+    <!-- Each Application can have one or more ServiceIDs and/or MGIDs. -->
+    <!-- These will be matched against PathRecord and Multicast SA queries -->
+    <!-- so that the returned SLID/DLID, PKey, SL, etc are appropriate for -->
+    <!-- the Virtual Fabric(VF) which contains the application(s). -->
+
+    <!-- Every Application must have a unique <Name> -->
+    <!-- The name must be unique among all Application names within an -->
+    <!-- FM instance. -->
+    <!-- When defined at Common level must be unique within all instances. -->
+    <!-- The name is limited to 64 characters and is case sensitive. -->
+
+    <!-- ServiceIDs are 64 bit values which identify applications within the -->
+    <!-- PathRecord query and are typically used within the InfiniBand -->
+    <!-- Communication Manager (CM) protocol to identify the application for -->
+    <!-- a connection request. -->
+    <!-- In many ways ServiceIDs are IBs equivalent of TCP "socket ports". -->
+    <!-- ServiceIDs can be specified in the following ways in the -->
+    <!-- Application section: -->
+    <!-- a single ServiceID: <ServiceID>0x1234567812345678</ServiceID> -->
+    <!-- a range of ServiceIDs: -->
+    <!--       <ServiceIDRange>0-0xffffffffffffffff</ServiceIDRange> -->
+    <!-- a masked compare of ServiceID: -->
+    <!--       <ServiceIDMasked>0x120003567*0xff000ffff</ServiceIDMasked> -->
+    <!--       Matches ServiceIDs which when ANDed with 2nd value (the -->
+    <!--       mask) match the 1st value -->
+    <!-- all others not in any VF: <Select>UnmatchedServiceID</Select> -->
+    <!--      UnmatchedServiceID matches all applications' ServiceIDs -->
+    <!--      which match none of the Virtual Fabrics after filtering -->
+    <!--      by src/dest/requester. -->
+    <!--      Can be used as an easy catch-all. -->
+    <!-- MGIDs (IB Multicast GIDs) are 128 bit values which identify -->
+    <!-- multicast groups for Unreliable Datagram applications such as IPoIB -->
+    <!-- MGIDs are represented as two 64 bit values separated by a colon (:) -->
+    <!-- This way of representing 128 bit values is the same as used in  -->
+    <!-- other FastFabric Tools such as opasaquery, opashowmc, etc. -->
+    <!-- MGIDs can be specified in the following ways in the Application -->
+    <!-- section: -->
+    <!-- a single MGID: <MGID>0xabc:0x123567</MGID> -->
+    <!-- a range of MGIDs: -->
+    <!--       <MGIDRange>0:0-0xffffffffffffffff:0xffffffffffffffff</MGIDRange> -->
+    <!-- a masked compare of MGID: -->
+    <!--       <MGIDMasked>0xabc:0x120003567*0xfff:0xff000ffff</MGIDMasked> -->
+    <!--       Matches MGIDs which when ANDed with 2nd value (the -->
+    <!--       mask) match the 1st value. -->
+    <!-- all others not in any VF: <Select>UnmatchedMGID</Select> -->
+    <!--      UnmatchedMGID matches all applications' MGIDs which match -->
+    <!--      none of the Virtual Fabrics after filtering by -->
+    <!--      src/dest/requester. -->
+    <!--      Can be used as an easy catch-all -->
+
+    <!-- A special case is SA queries.  This special "application" allows -->
+    <!-- SA query operations to be assigned to an appropriate VF.  -->
+    <!-- SA queries must use the default Partition Key (0x7fff or 0xffff). -->
+    <!-- However other aspects of SA access can be controlled (SL, etc). -->
+    <!-- This syntax allows an Application to be specified which includes -->
+    <!-- SA queries: <Select>SA</Select> -->
+
+    <!-- In addition, an Application can include another Application via: -->
+    <!-- <IncludeApplication>myapplication</IncludeApplication> -->
+    <!-- This will include all the ServiceIDs and MGIDs in the given -->
+    <!-- Application. -->
+    <!-- Loops (including the parent Application) are not allowed. -->
+    <!-- There is a nesting limit of 32. -->
+
+    <!-- Some predefined Applications follow.  These are also a good set -->
+    <!-- of examples to cut/paste to make other site specific applications: -->
+
+    <!-- All Applications, can be used when per Application VFs not needed -->
+    <Application>
+      <Name>All</Name>
+      <!-- Selects all service ID's -->
+      <ServiceIDRange>0-0xffffffffffffffff</ServiceIDRange>
+      <!-- selects all MGID's -->
+      <MGIDRange>0:0-0xffffffffffffffff:0xffffffffffffffff</MGIDRange>
+      <!-- these are redundant in this case, but don't hurt -->
+      <Select>UnmatchedServiceID</Select>
+      <Select>UnmatchedMGID</Select>
+    </Application>
+
+    <!-- An application just consisting of SA queries -->
+    <Application>
+      <Name>SA</Name>
+      <Select>SA</Select>
+    </Application>
+
+    <!-- An application just consisting of PA queries -->
+    <Application>
+      <Name>PA</Name>
+      <!-- ServiceID for the PA (Path Agent) Application -->
+      <ServiceID>{{pa_service_id | default('0x1100d03c34845555')}}</ServiceID>
+    </Application>
+
+    <!-- An application just consisting of PM sweep traffic -->
+    <Application>
+      <Name>PM</Name>
+      <Select>PM</Select>
+    </Application>
+
+    <!-- IPv4 over IB (IETF UD mode) for all partitions -->
+    <Application>
+      <Name>IPv4</Name>
+      <!-- MGID = 0xffFS401bPPPP0000:00000000GGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00401b00000000:0*0xff00ffff0000ffff:0xffffffff00000000</MGIDMasked>
+    </Application>
+
+    <!-- Sample of IPv4 over IB (IETF UD mode) for PKey 0x8002/0x0002 -->
+    <Application>
+      <Name>IPv4_0002</Name>
+      <!-- MGID = 0xffFS401bPPPP0000:00000000GGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00401b80020000:0*0xff00ffffffffffff:0xffffffff00000000</MGIDMasked>
+    </Application>
+
+    <!-- IPv6 over IB (IETF UD mode) for all partitions -->
+    <Application>
+      <Name>IPv6</Name>
+      <!-- MGID = 0xffFS601bPPPPGGGG:GGGGGGGGGGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00601b00000000:0*0xff00ffff00000000:0</MGIDMasked>
+    </Application>
+
+    <!-- Sample of IPv6 over IB (IETF UD mode) for PKey 0x8002/0x0002 -->
+    <Application>
+      <Name>IPv6_0002</Name>
+      <!-- MGID = 0xffFS601bPPPPGGGG:GGGGGGGGGGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00601b80020000:0*0xff00ffffffff0000:0</MGIDMasked>
+    </Application>
+
+    <!-- IPoIB Connected Mode (IPv4 and IPv6) -->
+    <Application>
+      <Name>IPoIBCM</Name>
+      <!-- Unlike UD mode the ServiceID does not include PKey -->
+      <!-- ServiceID = 0x1000000000XXXXXX where XXXXXX is QPN -->
+      <ServiceIDMasked>0x1000000000000000*0xffffffffff000000</ServiceIDMasked>
+    </Application>
+
+    <!-- Reliable Datagram Service (RDS) (for Oracle) -->
+    <Application>
+      <Name>RDS</Name>
+      <!-- ServiceID = 0x000000000106XXXX where XXXX is socket "port number" -->
+      <!-- ServiceID range for RDS Application -->
+      <ServiceIDRange>{{rds_service_id_range | default('0x0000000001060000-0x000000000106ffff')}}</ServiceIDRange>
+    </Application>
+
+    <!-- Unfortunately, none of the OFA Verbs MPIs use the SA nor CM. -->
+    <!-- Hence to put an MPI job in its own Virtual Fabric, the PKey/SL of -->
+    <!-- the desired Virtual fabric must be manually provided to the MPI run -->
+    <Application>
+      <Name>VerbsMPI</Name>
+      <!-- <ServiceID>TBD</ServiceID> -->
+    </Application>
+
+    <!-- HPC Libraries (MPI, SHMEM, etc) which use PSM can query the SA and -->
+    <!-- hence can use service IDs to select the desired Virtual Fabric. -->
+
+    <!-- when separating PSM Control from Data Traffic: -->
+    <!-- 1st Service ID in range is used for Control traffic. -->
+    <!-- This will be the service ID used on the command line. -->
+    <Application>
+      <Name>PSM_Control</Name>
+      <!-- ServiceID range for PSM Control Application -->
+      <ServiceIDRange>{{psm_control_service_id_range | default('0x1000117500000000-0x1000117500000007')}}</ServiceIDRange>
+      <!-- for simplicity, when serviceId is needed on mpirun command line -->
+      <!-- we also allow serviceId 0x1 to 0x7. -->
+      <ServiceIDRange>0x1-0x7</ServiceIDRange>
+    </Application>
+
+    <!-- when separating PSM Control from Data Traffic: -->
+    <!-- Control Service ID +8 is used for Eager/Bulk traffic. -->
+    <!-- Do NOT use this service ID on the command line. -->
+    <Application>
+      <Name>PSM_Data</Name>
+      <!-- ServiceID range for PSM Data Application -->
+      <ServiceIDRange>{{psm_data_service_id_range | default('0x1000117500000008-0x100011750000000f')}}</ServiceIDRange>
+      <!-- for simplicity, when serviceId is needed on mpirun command line -->
+      <!-- we also allow serviceId 0x9 to 0xf. -->
+      <ServiceIDRange>0x9-0xf</ServiceIDRange>
+    </Application>
+
+    <!-- When not separating PSM Control from Data Traffic, map all -->
+    <!-- PSM Service IDs as one application -->
+    <Application>
+      <Name>PSM</Name>
+      <!-- ServiceID range for PSM Application -->
+      <ServiceIDRange>{{psm_service_id_range | default('0x1000117500000000-0x100011750000000f')}}</ServiceIDRange>
+      <!-- for simplicity, when serviceId is needed on mpirun command line -->
+      <!-- we also allow serviceId 0x1 to 0xf -->
+      <ServiceIDRange>0x1-0xf</ServiceIDRange>
+    </Application>
+
+    <Application>
+      <Name>ibacm</Name>
+      <!-- MGID = 0xff154001PPPP00RR:MM00000000000000 -->
+      <!-- where  P=PKey, R=Rate and M=MTU -->
+      <!-- Rate: 9 (75gb), 12 (50gb), 15 (25gb), 16 (100gb) -->
+      <!-- MTU: 4 (2K), 5 (4K) -->
+      <MGIDMasked>0xff15400100000000:0*0xffffffff0000ff00:0x00ffffffffffffff</MGIDMasked>
+    </Application>
+
+    <Application>
+      <Name>iSER</Name>
+      <!-- ServiceID = 0x000000000106XXXX where XXXX is socket "port number" -->
+      <!-- <ServiceIDRange>0x0000000001060000-0x000000000106FFFF</ServiceIDRange> -->
+      <!-- Default port 3260 = 0x0CBC -->
+      <!-- ServiceID for iSER Application -->
+      <ServiceID>{{iser_service_id | default('0x0000000001060CBC')}}</ServiceID>
+    </Application>
+
+    <Application>
+      <Name>Lustre</Name>
+      <!-- ServiceID = 0x000000000106XXXX where XXXX is socket "port number" -->
+      <!-- <ServiceIDRange>0x0000000001060000-0x000000000106FFFF</ServiceIDRange> -->
+      <!-- Default port 987 = 0x03DB -->
+      <!-- ServiceID for Lustre Application -->
+      <ServiceID>{{lustre_service_id | default('0x00000000010603DB')}}</ServiceID>
+    </Application>
+
+    <Application>
+      <Name>RDMA_Apps</Name>
+      <!-- ServiceID range for RDMA Apps -->
+      <ServiceIDRange>{{rdma_apps_service_id_range | default('0x0000000001000000-0x0000000001FFFFFF')}}</ServiceIDRange>
+    </Application>
+
+    <!-- all the common networking protocols/applications -->
+    <Application>
+      <Name>Networking</Name>
+      <IncludeApplication>IPv4</IncludeApplication>
+      <IncludeApplication>IPv6</IncludeApplication>
+      <IncludeApplication>IPoIBCM</IncludeApplication>
+      <IncludeApplication>RDS</IncludeApplication>
+    </Application>
+
+    <!-- all the common storage protocols/applications -->
+    <Application>
+      <Name>Storage</Name>
+      <IncludeApplication>iSER</IncludeApplication>
+      <IncludeApplication>Lustre</IncludeApplication>
+    </Application>
+
+    <!-- all the common compute protocols/applications -->
+    <Application>
+      <Name>Compute</Name>
+      <IncludeApplication>VerbsMPI</IncludeApplication>
+      <IncludeApplication>PSM</IncludeApplication>
+    </Application>
+
+    <!-- This is a catchall which can be used to identify all applications  -->
+    <!-- which are not part of some other vFabric.  -->
+    <Application>
+      <Name>AllOthers</Name>
+      <Select>UnmatchedServiceID</Select>
+      <Select>UnmatchedMGID</Select>
+    </Application>
+  </Applications>
+
+  <!-- Various Groups of Ports/Nodes which may be used in Virtual Fabrics    -->
+  <!-- DeviceGroups defined here are available for use in all FM instances.  -->
+  <!-- Additional DeviceGroups may be defined here or per FM instance.       -->
+  <!-- DeviceGroups specified per FM instance will add to                    -->
+  <!-- instead of replace these DeviceGroup definitions.                     -->
+  <DeviceGroups>
+    <!-- Each DeviceGroup can have one or more Nodes/Ports (e.g. Devices).   -->
+    <!-- These will be matched against PathRecord and Multicast SA queries   -->
+    <!-- so that the returned SLID/DLID, PKey, SL, etc are appropriate for   -->
+    <!-- the Virtual Fabric(VF) which contains the Device(s).                -->
+    <!-- Devices in a DeviceGroup but not found in the fabric are ignored.   -->
+
+    <!-- Every DeviceGroup must have a unique <Name>                         -->
+    <!-- The name must be unique among all DeviceGroup names within an       -->
+    <!-- FM instance.                                                        -->
+    <!-- When defined at Common level must be unique within all instances.   -->
+    <!-- The name is limited to 64 characters and is case sensitive.         -->
+
+    <!-- Devices can be explicitly specified in the following ways in the    -->
+    <!-- DeviceGroup section:                                                -->
+    <!-- A SystemImageGUID: <SystemImageGUID>0x123567</SystemImageGUID>      -->
+    <!--      selects all nodes and ports in the system                    -->
+    <!-- A NodeGUID: <NodeGUID>0x123567</NodeGUID>                           -->
+    <!--      selects all ports in the node (a FI or SW is a single node)  -->
+    <!-- A PortGUID: <PortGUID>0x123567</PortGUID>                           -->
+    <!--      selects a specific port                                      -->
+    <!-- A NodeDesc: <NodeDesc>Some Name</NodeDesc>                          -->
+    <!--      selects all nodes exactly matching given name                -->
+    <!--      typically will match exactly one, but multiple nodes with    -->
+    <!--      same NodeDesc is possible.                                   -->
+    <!-- Wild card rules that can be used in NodeDesc specification:         -->
+    <!--      * Wild card is 0 or more of any combination of:              -->
+    <!--           (A-Z)(a-z)(0-9) "-" "," "=" "." "_"                     -->
+    <!--      ? Wild card is 0 or 1 of any combination of:                 -->
+    <!--           (A-Z)(a-z)(0-9) "-" "," "=" "." "_"                     -->
+    <!--      [##-##] can be used to specify a range of numbers            -->
+    <!--           (ie: node[1-4] matches nodes named node1, node2,        -->
+    <!--           node3, node4)                                           -->
+    <!--           leading zeros may be specified and must match           -->
+    <!--           (ie: node[06-10] matches nodes named node06, node07,    -->
+    <!--           node08, node09, node10, but does not match node6)       -->
+    <!--           more than one range can be specified                    -->
+    <!--           (ie: rack[1-2]node[01-02] matches nodes named           -->
+    <!--           rack1node01, rack1node02, rack2node01, rack2node02      -->
+    <!--      :[##-##] can be used to specify a range of ports             -->
+    <!--           (ie: switch:[2-4] would match node name "switch",       -->
+    <!--           ports 2,3, and 4                                        -->
+    <!-- Wild card Examples:                                                 -->
+    <!--      <NodeDesc>SWITCH*</NodeDesc>                                 -->
+    <!--      <NodeDesc>HFI?</NodeDesc>                                    -->
+    <!--      <NodeDesc>HFI[1-4]</NodeDesc>                                -->
+    <!--      <NodeDesc>?SWITCH[0-1]</NodeDesc>                            -->
+    <!--      <NodeDesc>?SWITCH[0-1]:[2-3]</NodeDesc>                      -->
+    <!--      <NodeDesc>SWITCH</NodeDesc>                                  -->
+
+    <!-- Devices can be generically specified in the following ways in the   -->
+    <!-- DeviceGroup section:                                                -->
+    <!-- All FIs: <NodeType>FI</NodeType>                                    -->
+    <!-- All Switches: <NodeType>SW</NodeType>                               -->
+    <!-- The values above are case insensitive: FI, SW                       -->
+    <!-- Each of the above selects all ports on the selected nodes.          -->
+    <!-- The above can be combined as desired in the same DeviceGroup.       -->
+
+    <!-- Some special types of Devices can be generically specified in       -->
+    <!-- the following ways in the DeviceGroup section:                      -->
+    <!-- All Devices: <Select>All</Select>                                   -->
+    <!-- This FM Instance's Port: <Select>Self</Select>                      -->
+    <!-- All HFIs directly connected: <Select>HFIDirectConnect</Select>      -->
+    <!--      Both HFI ports which are directly connected to each other    -->
+    <!--      with no switch. A typical back to back configuration         -->
+    <!-- All TFIs: <Select>TFIs</Select>                                     -->
+    <!--      A TFI is a passive device e.g. storage unit or gateway       -->
+    <!--      which reports a Device Management Agent capability           -->
+    <!--      This DeviceGroup will select all ports on all TFI devices    -->
+    <!-- All Switch Enhanced Port 0s: <Select>SWE0</Select>                  -->
+    <!--      All Switch Port 0 with Enhanced Port 0 in Capability Mask.   -->
+    <!--      By definition will also include all Embedded SMs.            -->
+    <!-- The values above are case insensitive:                              -->
+    <!--     All, Self, SWE0, HFIDirectConnect, TFIs                -->
+    <!-- The above can be combined as desired in the same DeviceGroup.       -->
+
+    <!-- In addition, a DeviceGroup can include another DeviceGroup via:     -->
+    <!-- <IncludeGroup>mygroup</IncludeGroup>                                -->
+    <!-- This will include all the Devices in the given DeviceGroup.         -->
+    <!-- It is valid to have more than 1 specification match the same device -->
+    <!-- in which case the device is only included in the DeviceGroup once.  -->
+
+    <!-- Some predefined DeviceGroups follow.  These are also a good set     -->
+    <!-- of examples to cut/paste to make other site specific DeviceGroups:  -->
+
+    <!-- All Nodes/Ports, can be used when Device specific VFs not needed    -->
+    <DeviceGroup>
+      <Name>All</Name>
+      <Select>All</Select>
+    </DeviceGroup>
+
+    <!-- All Fabric Interfaces, includes HFIs and TFIs -->
+    <DeviceGroup>
+      <Name>AllFIs</Name>
+      <NodeType>FI</NodeType>
+    </DeviceGroup>
+
+    <DeviceGroup>
+      <Name>AllTFIs</Name>
+      <Select>TFIs</Select>
+    </DeviceGroup>
+
+    <!-- All ports on all Switches -->
+    <DeviceGroup>
+      <Name>AllSWs</Name>
+      <NodeType>SW</NodeType>
+    </DeviceGroup>
+
+    <!-- All Enhanced Port 0 ports on all Switches -->
+    <DeviceGroup>
+      <Name>AllSWE0s</Name>
+      <Select>SWE0</Select>
+    </DeviceGroup>
+
+    <!-- All End-Nodes including Enhanced Port 0 ports on all Switches -->
+    <DeviceGroup>
+      <Name>AllEndNodes</Name>
+      <IncludeGroup>AllFIs</IncludeGroup>
+      <IncludeGroup>AllSWE0s</IncludeGroup>
+    </DeviceGroup>
+
+    <!-- Both ports in an HFI connected to HFI configuration -->
+    <DeviceGroup>
+      <Name>HFIDirectConnect</Name>
+      <Select>HFIDirectConnect</Select>
+    </DeviceGroup>
+
+    <!-- All nodes which have MgmtAllowed set -->
+    <DeviceGroup>
+      <Name>AllMgmtAllowed</Name>
+      <Select>AllMgmtAllowed</Select>
+    </DeviceGroup>
+
+    <!-- Just the port running this FM Instance -->
+    <DeviceGroup>
+      <Name>Self</Name>
+      <Select>Self</Select>
+    </DeviceGroup>
+
+    <!-- Example using specific device selection -->
+    <DeviceGroup>
+      <Name>Example</Name>
+      <!-- SystemImageGUID for example DeviceGroup -->
+      <SystemImageGUID>{{example_system_image_guid | default('0x123567812345678')}}</SystemImageGUID>
+      <!-- NodeGUID for example DeviceGroup -->
+      <NodeGUID>{{example_node_guid | default('0x123567812345678')}}</NodeGUID>
+      <!-- PortGUID for example DeviceGroup -->
+      <PortGUID>{{example_port_guid | default('0x123567812345678')}}</PortGUID>
+      <!-- NodeDesc for example DeviceGroup -->
+      <NodeDesc>{{example_node_desc | default('Some Name')}}</NodeDesc>
+      <IncludeGroup>AllSWE0s</IncludeGroup>
+    </DeviceGroup>
+
+    <!-- Group for all nodes matching wild carded NodeDesc -->
+    <DeviceGroup>
+      <!-- Name for Rack1 DeviceGroup -->
+      <Name>{{rack1dg_name | default('Rack1DG')}}</Name>
+      <!-- NodeDesc pattern for Rack1 DeviceGroup -->
+      <NodeDesc>{{rack1dg_node_desc | default('*Rack1*')}}</NodeDesc>
+    </DeviceGroup>
+
+
+  </DeviceGroups>
+
+  <!-- Quality of Service Configuration                                      -->
+  <!-- QOSGroups defined here are available for use in all FM instances      -->
+  <!-- If any QOSGroup is Enabled, all Enabled VirtualFabrics must           -->
+  <!-- specify a <QOSGroup>.                                                 -->
+  <!-- Additional QOSGroups may be defined here or per FM instance.          -->
+  <QOSGroups>
+    <!-- Every QOSGroup must have a unique <Name>                            -->
+    <!-- The name must be unique among all QOSGroup names within an          -->
+    <!-- FM instance.                                                        -->
+    <!-- When defined at Common level, must be unique within all instances.  -->
+    <!-- The name is limited to 64 characters and is case sensitive.         -->
+    <!-- Enable: <Enable>0</Enable>                                          -->
+    <!--      To access a QOSGroup within a VirtualFabric, the QOSGroup    -->
+    <!--      Must be enabled. QOSGroups default to Disabled.              -->
+    <!-- The following QOS parameters are supported. See VirtualFabrics for  -->
+    <!-- more information.                                                   -->
+    <!-- High Priority: <HighPriority>0</HighPriority>                       -->
+    <!-- Bandwidth Allocation: <Bandwidth>100%</Bandwidth>                   -->
+    <!-- Packet Lifetime Multiplier: <PktLifeTimeMult>2</PktLifeTimeMult>    -->
+    <!-- Base Service Level: <BaseSL>0</BaseSL>                              -->
+    <!-- Multicast Service Level: <MulticastSL>1</MulticastSL>               -->
+    <!-- FlowControlDisable: <FlowControlDisable>0</FlowControlDisable>      -->
+    <!-- Preemption Rank: <PreemptRank>0</PreemptRank>                       -->
+    <!-- HoqLife: <HoqLife>8ms</HoqLife>                                     -->
+  </QOSGroups>
+
+  <!-- Virtual Fabric Configuration                                          -->
+  <!-- VirtualFabrics defined here are available for use in all FM instances -->
+  <!-- Additional VirtualFabrics may be defined here or per FM instance.     -->
+  <!-- VirtualFabrics specified per FM instance will add to                  -->
+  <!-- instead of replace these VirtualFabric definitions.                   -->
+  <VirtualFabrics>
+    <!-- Each VirtualFabric (VF) is comprised of:                            -->
+    <!-- 1. one or more Groups of devices                                    -->
+    <!-- 2. AND one or more sets of Applications                             -->
+    <!-- 3. AND administrator policies                                       -->
+
+    <!-- The Virtual Fabric will control the configuration of Security for   -->
+    <!-- the given set of Devices and Applications in the overall Fabric.    -->
+    <!-- Default for Security is 0(Off).                                     -->
+
+    <!-- The Applications and DeviceGroups are matched against PathRecord and-->
+    <!-- Multicast SA queries so that the returned SLID/DLID, PKey, SL, etc  -->
+    <!-- are consistent with the policies established for the VirtualFabric. -->
+    <!-- Devices in a DeviceGroup but not found in the fabric are ignored.   -->
+
+    <!-- Every VirtualFabric must have a unique <Name>                       -->
+    <!-- The name must be unique among all VirtualFabric names within an     -->
+    <!-- FM instance.                                                        -->
+    <!-- When defined at Common level must be unique within all instances.   -->
+    <!-- The name is limited to 64 characters and is case sensitive.         -->
+
+    <!-- Devices are specified by DeviceGroup Name in the following ways in  -->
+    <!-- the VirtualFabric section:                                          -->
+    <!-- As Full Members: <Member>group_name</Member>                        -->
+    <!--      such devices may talk to any other Member or LimitedMember   -->
+    <!-- As Limited Members: <LimitedMember>group_name</LimitedMember>       -->
+    <!--      When Security is 1 (On), LimitedMembers are not permitted    -->
+    <!--      to talk to other LimitedMembers.                             -->
+    <!--      However LimitedMembers can always talk to Members.           -->
+    <!--      If Security is 0 (Off) LimitedMembers are treated the same   -->
+    <!--      as Members                                                   -->
+    <!--      This allows the user to easily turn off Security for a       -->
+    <!--      Virtual Fabric without changing the rest of the definition.  -->
+    <!--      When Security is on, LimitedMembers will not be able to      -->
+    <!--      join multicast groups in the VirtualFabric.                  -->
+    <!-- Member and LimitedMember can each be specified more than once per   -->
+    <!-- VirtualFabric if desired.                                           -->
+    <!-- If a Device is in both the Members and LimitedMembers DeviceGroups, -->
+    <!-- they will be treated as Members.                                    -->
+    <!-- This allows All to be specified as a LimitedMember, then selected   -->
+    <!-- Members can be specified.  Hence insuring the VirtualFabric         -->
+    <!-- includes All devices while allowing a limited set of Members.       -->
+
+    <!-- Applications are specified by Application Name via:                 -->
+    <!-- <Application>application_name</Application>                         -->
+    <!-- Application can be specified more than once per VirtualFabric if    -->
+    <!-- desired.                                                            -->
+
+    <!-- The following Administrator Policies and Controls can be specified: -->
+    <!-- Enable/Disable: <Enable>1</Enable>                                  -->
+    <!--      When Disabled (0) the VirtualFabric is ignored.              -->
+    <!--      This allows the user to easily disable a VirtualFabric       -->
+    <!--      without deleting it's definition.                            -->
+    <!-- Security: <Security>1</Security>                                    -->
+    <!--      When On (1) the FM will provide security within this VF      -->
+    <!--      and between other VFs.                                       -->
+    <!--      When On, LimitedMembers cannot talk to each other in the VF. -->
+    <!--      When Off (0) the FM is free to manage Routes and PKeys as    -->
+    <!--      it chooses and there are no guarantees.                      -->
+    <!--      When Off (0) LimitedMembers can talk to each other in the VF.-->
+    <!-- Partition Key: <PKey>0x1234</PKey>                                  -->
+    <!--      By default the FM will pick an available PKey.               -->
+    <!--      However if desired a user selected PKey can be specified.    -->
+    <!--      Specification may be necessary such that it is known apriori -->
+    <!--      for applications which do not use SA PathRecord queries,     -->
+    <!--      such as MPIs which use non-OFA compliant mechanisms for job  -->
+    <!--      startup.                                                     -->
+    <!--      The PKey is a 15 bit value, ranging from 0x1 to 0x7fff.      -->
+    <!--      The FM will use the appropriate high bit based on the        -->
+    <!--      Security and Member/LimitedMember status per device.         -->
+    <!-- Max MTU: <MaxMTU>2048</MaxMTU>                                      -->
+    <!--      Maximum MTU for SM to return in any PathRecord or            -->
+    <!--      Multicast group for the VirtualFabric.                       -->
+    <!--      Actual values may be further reduced by Hardware             -->
+    <!--      capabilities or if the PathRecord or Multicast group is      -->
+    <!--      requested to have a smaller MTU.                             -->
+    <!--      However, SM will consider it an error to create a Multicast  -->
+    <!--      group with MTU larger than that of the VirtualFabric.        -->
+    <!--      Value should be one of 2048, 4096, 8192, 10240, or Unlimited -->
+    <!--      If not specified the default MaxMTU will be Unlimited.       -->
+    <!-- Max Rate: <MaxRate>100g</MaxRate>                                   -->
+    <!--      Maximum static rate for SM to return in any PathRecord or    -->
+    <!--      Multicast group for the VirtualFabric.                       -->
+    <!--      Similar behaviors to MaxMTU.                                 -->
+    <!--      Value should be one of 25g, 50g, 75g, 100g, or Unlimited.    -->
+    <!--      If not specified the default MaxRate will be Unlimited.      -->
+    <!-- Active/Standby: <Standby>0</Standby>                                -->
+    <!--      A Virtual Fabric in Standby cannot pass traffic.             -->
+    <!--      The active/standby state of a Virtual Fabric can be          -->
+    <!--      changed dynamically (without restarting the FM).             -->
+    <!--      Defaults to active (0).                                      -->
+
+    <!-- QOS settings                                                        -->
+    <!-- QOS Enable: <QOS>0</QOS>                                            -->
+    <!--      0=disable, 1=enable, if 0 the QOS settings are ignored       -->
+    <!-- High Priority: <HighPriority>0</HighPriority>                       -->
+    <!--      If set to one, this indicates high priority traffic which    -->
+    <!--      does not require any bandwidth limiting. This would          -->
+    <!--      typically include management or control traffic which is low -->
+    <!--      bandwidth, but critical to process in a timely manner.       -->
+    <!--      An example is PM traffic where there is no reason to         -->
+    <!--      restrict bandwidth since it is low volume, but it needs to   -->
+    <!--      be serviced at a high priority.                              -->
+    <!--      When priority is set to High, any bandwidth allocation is    -->
+    <!--      ignored for this Virtual Fabric.                             -->
+    <!-- Bandwidth Allocation: <Bandwidth>100%</Bandwidth>                   -->
+    <!--      0-100%   This is the minimum percentage of bandwidth which   -->
+    <!--      should be given to this Virtual Fabric relative to other low -->
+    <!--      priority Virtual Fabrics.  When there is no contention, this -->
+    <!--      Virtual Fabric could get more than this amount.              -->
+    <!--      If unspecified, the SM evenly distributes remaining          -->
+    <!--      bandwidth among all the Virtual Fabrics with unspecified     -->
+    <!--      Bandwidth.                                                   -->
+    <!--      Total Bandwidth cannot exceed 95% for enabled Virtual        -->
+    <!--      Fabrics with QoS enabled when there is at least 1            -->
+    <!--      enabled VF with QoS disabled.                                -->
+    <!--      Total Bandwidth cannot exceed 100% for enabled Virtual       -->
+    <!--      Fabrics.  VFs with QoS disabled share at least 5% BW and     -->
+    <!--      all QoS enabled VFs require at least 1% BW.                  -->
+    <!--      If HighPriority is specified, this field is ignored.         -->
+    <!-- Packet Lifetime Multiplier: <PktLifeTimeMult>2</PktLifeTimeMult>    -->
+    <!--      Amount to multiply PktLifeTime by when reported by SM for    -->
+    <!--      this Virtual Fabric.                                         -->
+    <!--      This can permit PktLifeTime in PathRecords (and hence end to -->
+    <!--      end timeouts) to account for delays in Low Priority Virtual  -->
+    <!--      Fabrics which are given low bandwidth allocations.           -->
+    <!--      Value will be rounded up to the next power of 2.             -->
+    <!--      0 is invalid, default is 1                                   -->
+    <!-- Service Levels:                                                     -->
+    <!--      Up to 2 service levels can be specified per VF: BaseSL,      -->
+    <!--      and MulticastSL. If the configuration does not include       -->
+    <!--      either of these service levels, the SM will allocate         -->
+    <!--      unique SLs from the unused SLs. The SM will only allocate    -->
+    <!--      SLs required by the VF. If QoS is disabled on the VF, any    -->
+    <!--      configured SLs will be ignored. All QoS disabled VFs share   -->
+    <!--      the same SLs.                                                -->
+    <!-- Base Service Level: <BaseSL>0</BaseSL>                              -->
+    <!--      Used for unicast traffic, and multicast traffic              -->
+    <!--      (if MulticastSL is not specified).                           -->
+    <!--      Valid values: 0-15                                           -->
+    <!-- Multicast Service Level: <MulticastSL>1</MulticastSL>               -->
+    <!--      Used to isolate Multicast traffic from other traffic. Some   -->
+    <!--      routing algorithms may require a separate MulticastSL for    -->
+    <!--      VFs with multicast groups. Any SL used to isolate Multicast  -->
+    <!--      cannot be used as a BaseSL in any VF.                        -->
+    <!--      Valid values: 0-15                                           -->
+    <!-- FlowControlDisable: <FlowControlDisable>0</FlowControlDisable>      -->
+    <!--      By default, the fabric uses link level flow control.         -->
+    <!--      When link layer flow control has been disabled, packets will -->
+    <!--      be discarded by that VL when there are insufficient credits. -->
+    <!--      Disabling flow control for a vFabric can affect traffic on   -->
+    <!--      VLs shared with other vFabrics, so the user is generally     -->
+    <!--      advised not to disable flow control without care.            -->
+    <!-- Preemption Rank: <PreemptRank>0</PreemptRank>                       -->
+    <!--      See SM Common / Instance - Fabric Programming for detailed   -->
+    <!--      description of preemption configuration.                     -->
+    <!--      Preemption capability can be configured per Virtual Fabric   -->
+    <!--      in terms of a rank, which is a value ranging from 0 to 127.  -->
+    <!--      Rank 0 indicates that this VF cannot preempt nor be          -->
+    <!--      preempted.  Ranks of a higher value can preempt ranks of     -->
+    <!--      a lower value (except ranks of 0)                            -->
+    <!--      If QOS is disabled then preemption is disabled and the rank  -->
+    <!--      is 0.                                                        -->
+    <!-- HoqLife:                                                            -->
+    <!--      This timeout is specified per SM instance and may be         -->
+    <!--      overridden per Virtual Fabric.  See SM instance              -->
+    <!--      representation for detailed configuration options. If not    -->
+    <!--      specified per Virtual Fabric, default to the SM instance     -->
+    <!--      values                                                       -->
+
+    <!-- Alternatively, a VirtualFabric can specify a QOSGroup instead of    -->
+    <!-- individual QOS parameters.                                          -->
+    <!-- QOSGroup: <QOSGroup>LowPriority</QOSGroup>                          -->
+    <!--      Specifies the name of the QOSGroup used by this VF.          -->
+    <!--      If any QOSGroup is enabled, all VirtualFabrics must          -->
+    <!--      specify a QOSGroup and no VirtualFabric may specify          -->
+    <!--      any other QOS parameter.                                     -->
+    <!--      If a VirtualFabric specifies a QOSGroup, it must             -->
+    <!--      also specify a PKey.                                         -->
+
+    <!-- OPA requires a "Admin" partition.                                   -->
+    <!-- To meet this requirement there must be an enabled VirtualFabric:    -->
+    <!-- *  with a PKey of 0x7fff (or 0xffff)                                -->
+    <!-- *  it must include the SA Application                               -->
+    <!-- *  it must be the only enabled VF which includes the SA Application -->
+    <!-- *  it must have All as a Member or LimitedMember                    -->
+    <!-- *  as desired it may have additional Applications                   -->
+    <!-- *  as desired it may have additional DeviceGroups as Member         -->
+    <!-- *  all other VF policies (Security, MTU ...) may be set as desired  -->
+
+    <!-- Some predefined VirtualFabrics follow.  These are also a good set   -->
+    <!-- of examples to cut/paste to make other site specific VFs:           -->
+
+    <!-- An example networking VF.  When IPoIB runs, it will use the         -->
+    <!-- 1st PKey on the given Port for the default (ib0 ...) network device -->
+    <!-- Hence its best to place the Networking/IPoIB VF 1st.                -->
+    <!-- For additional IPoIB subnets which a node participates in, the PKey -->
+    <!-- needs to be manually specified to IPoIB as a "ipoib vlan"           -->
+    <VirtualFabric>
+      <!-- Name for Networking VirtualFabric -->
+      <Name>{{networking_vf_name | default('Networking')}}</Name>
+      <!-- Enable flag for Networking VirtualFabric -->
+      <Enable>{{networking_vf_enable | default('0')}}</Enable>
+      <!-- Partition Key for Networking VirtualFabric -->
+      <PKey>{{networking_vf_pkey | default('0x0002')}}</PKey>
+      <!-- Security flag for Networking VirtualFabric -->
+      <Security>{{networking_vf_security | default('1')}}</Security>
+      <!-- QOS flag for Networking VirtualFabric -->
+      <QOS>{{networking_vf_qos | default('1')}}</QOS>
+      <!-- Bandwidth for Networking VirtualFabric -->
+      <Bandwidth>{{networking_vf_bandwidth | default('10%')}}</Bandwidth>
+      <!-- FlowControlDisable for Networking VirtualFabric -->
+      <FlowControlDisable>{{networking_vf_flow_control_disable | default('0')}}</FlowControlDisable>
+      <Member>All</Member>   <!-- can use a smaller DeviceGroup if desired -->
+      <!-- Since IPoIB uses Multicast, LimitedMembers wouldn't make sense -->
+      <Application>Networking</Application>
+    </VirtualFabric>
+ 
+    <!-- A default VF with all Devices and Applications -->
+    <!-- This is the default Virtual Fabric config -->
+    <VirtualFabric>
+      <!-- Name for Default VirtualFabric -->
+      <Name>{{default_vf_name | default('Default')}}</Name>
+      <!-- Enable flag for Default VirtualFabric -->
+      <Enable>{{default_vf_enable | default('1')}}</Enable>
+      <!-- Partition Key for Default VirtualFabric -->
+      <PKey>{{default_vf_pkey | default('0x0001')}}</PKey>
+      <!-- Security flag for Default VirtualFabric -->
+      <Security>{{default_vf_security | default('0')}}</Security>
+      <!-- QOS flag for Default VirtualFabric -->
+      <QOS>{{default_vf_qos | default('0')}}</QOS>
+      <Member>All</Member>
+      <Application>AllOthers</Application>
+      <!-- MaxMTU for Default VirtualFabric -->
+      <MaxMTU>{{default_vf_max_mtu | default('Unlimited')}}</MaxMTU>
+      <!-- MaxRate for Default VirtualFabric -->
+      <MaxRate>{{default_vf_max_rate | default('Unlimited')}}</MaxRate>
+    </VirtualFabric>
+
+    <!-- The Admin partition -->
+    <!-- This gives non-SMs limited privileges -->
+    <VirtualFabric>
+      <!-- Name for Admin VirtualFabric -->
+      <Name>{{admin_vf_name | default('Admin')}}</Name>
+      <!-- Enable flag for Admin VirtualFabric -->
+      <Enable>{{admin_vf_enable | default('1')}}</Enable>
+      <!-- Partition Key for Admin VirtualFabric -->
+      <PKey>{{admin_vf_pkey | default('0x7fff')}}</PKey> <!-- must be OPA Management PKey -->
+      <!-- Security flag for Admin VirtualFabric -->
+      <Security>{{admin_vf_security | default('1')}}</Security>
+      <!-- QOS flag for Admin VirtualFabric -->
+      <QOS>{{admin_vf_qos | default('0')}}</QOS>
+      <!-- <HighPriority>1</HighPriority> can make admin High priority -->
+      <Member>HFIDirectConnect</Member> <!-- Both HFIs directly connected -->
+      <Member>AllMgmtAllowed</Member>
+      <Member>AllSWE0s</Member> <!-- so chassis CMU can access leafs & spines-->
+      <!-- <Member>AdminNodes</Member> add more FF/admin nodes if desired -->
+      <LimitedMember>All</LimitedMember>
+      <Application>SA</Application>
+      <Application>PA</Application>
+      <Application>PM</Application>
+      <!-- add other applications if desired -->
+      <!-- <MaxMTU>2048</MaxMTU> can reduce MTU, SA only uses MADs -->
+    </VirtualFabric>
+
+
+    <!-- This vFabric can be used as a simple catchall.  When none of the -->
+    <!-- other enabled vFabrics include the "All" Application, this will -->
+    <!-- pick up the remaining applications.  This is also very useful when -->
+    <!-- uncertain about how to identify applications of interest such as -->
+    <!-- storage devices or file systems with undocumented Service IDs -->
+    <VirtualFabric>
+      <!-- Name for AllOthers VirtualFabric -->
+      <Name>{{allothers_vf_name | default('AllOthers')}}</Name>
+      <!-- Enable flag for AllOthers VirtualFabric -->
+      <Enable>{{allothers_vf_enable | default('0')}}</Enable>
+      <!-- Security flag for AllOthers VirtualFabric -->
+      <Security>{{allothers_vf_security | default('1')}}</Security>
+      <!-- QOS flag for AllOthers VirtualFabric -->
+      <QOS>{{allothers_vf_qos | default('1')}}</QOS>
+      <!-- Bandwidth for AllOthers VirtualFabric -->
+      <Bandwidth>{{allothers_vf_bandwidth | default('20%')}}</Bandwidth>
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>AllOthers</Application>
+    </VirtualFabric>
+ 
+    <!-- a template for a storage Virtual Fabric -->
+    <!-- This vFabric can be used for Lustre traffic.  The PKey field should -->
+    <!-- be specified to map Lustre traffic.  The CMA in OFA currently -->
+    <!-- specifies the PKey and ServiceID in the path record query.  The CMA -->
+    <!-- requires that the PKey match the PKey for networking traffic -->
+    <!-- (IPoIB). When setting up this vFabric the PKey should be configured -->
+    <!-- to be identical to the PKey used for IPoIB.  For example if the -->
+    <!-- Default VF is used for IPoIB, the PKey of the Default VF and the -->
+    <!-- PKey of the Storage VF should match. In addition, either the -->
+    <!-- <Security> should be disabled OR the VF should be changed from -->
+    <!-- <LimitedMember> to <Member>. -->
+    <VirtualFabric>
+      <!-- Name for Storage VirtualFabric -->
+      <Name>{{storage_vf_name | default('Storage')}}</Name>
+      <!-- Enable flag for Storage VirtualFabric -->
+      <Enable>{{storage_vf_enable | default('0')}}</Enable>
+      <!-- Security flag for Storage VirtualFabric -->
+      <Security>{{storage_vf_security | default('1')}}</Security>
+      <!-- QOS flag for Storage VirtualFabric -->
+      <QOS>{{storage_vf_qos | default('1')}}</QOS>
+      <!-- Bandwidth for Storage VirtualFabric -->
+      <Bandwidth>{{storage_vf_bandwidth | default('20%')}}</Bandwidth>
+      <!-- <Member>group_with_storage_targets</Member> -->
+      <LimitedMember>All</LimitedMember>
+      <Application>Storage</Application>
+      <!-- <PreemptRank>1</PreemptRank> others can preempt this vf -->
+    </VirtualFabric>
+ 
+    <!-- a template for a compute Virtual Fabric -->
+    <!-- QOS is configured for utilization of 70% of the bandwidth for MPI -->
+    <VirtualFabric>
+      <!-- Name for Compute VirtualFabric -->
+      <Name>{{compute_vf_name | default('Compute')}}</Name>
+      <!-- Enable flag for Compute VirtualFabric -->
+      <Enable>{{compute_vf_enable | default('0')}}</Enable>
+      <!-- Partition Key for Compute VirtualFabric -->
+      <PKey>{{compute_vf_pkey | default('0x0003')}}</PKey> <!-- manually specify so can supply to MPI -->
+      <!-- Security flag for Compute VirtualFabric -->
+      <Security>{{compute_vf_security | default('1')}}</Security>
+      <!-- QOS flag for Compute VirtualFabric -->
+      <QOS>{{compute_vf_qos | default('1')}}</QOS>
+      <!-- Bandwidth for Compute VirtualFabric -->
+      <Bandwidth>{{compute_vf_bandwidth | default('70%')}}</Bandwidth>
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <!-- if using the PSM vFabric examples below, use VerbsMPI not Compute -->
+      <Application>Compute</Application>
+      <!-- <Application>VerbsMPI</Application> -->
+      <!-- <PreemptRank>127</PreemptRank> can preempt all others -->
+      <!-- <HoqLife>8ms</HoqLife> Override SM instance value -->
+    </VirtualFabric>
+ 
+    <!-- when using Cornelis OmniPath Fabric HFIs with PSM technology,-->
+    <!-- there is no need to configure PKey nor SL. FM can freely select -->
+    <!-- since PSM will query the SA using the PSM ServiceIds when -->
+    <!-- PSM_PATH_REC="opp" -->
+    <VirtualFabric>
+      <!-- Name for PSM Compute VirtualFabric -->
+      <Name>{{psm_compute_vf_name | default('PSM_Compute')}}</Name>
+      <!-- Enable flag for PSM Compute VirtualFabric -->
+      <Enable>{{psm_compute_vf_enable | default('0')}}</Enable>
+      <!-- Security flag for PSM Compute VirtualFabric -->
+      <Security>{{psm_compute_vf_security | default('1')}}</Security>
+      <!-- QOS flag for PSM Compute VirtualFabric -->
+      <QOS>{{psm_compute_vf_qos | default('1')}}</QOS>
+      <!-- Bandwidth for PSM Compute VirtualFabric -->
+      <Bandwidth>{{psm_compute_vf_bandwidth | default('70%')}}</Bandwidth>
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>PSM</Application>
+    </VirtualFabric>
+ 
+    <!-- when using PSM, Control and Data traffic can be separated into -->
+    <!-- different vFabrics. -->
+    <!-- To do this, PSM must be run with PSM_PATH_REC="opp" -->
+    <!-- Then enable these two VFs instead of the MPI Compute ones above -->
+    <VirtualFabric>
+      <!-- Name for PSM Compute Control VirtualFabric -->
+      <Name>{{psm_compute_control_vf_name | default('PSM_Compute_Control')}}</Name>
+      <!-- Enable flag for PSM Compute Control VirtualFabric -->
+      <Enable>{{psm_compute_control_vf_enable | default('0')}}</Enable>
+      <!-- Security flag for PSM Compute Control VirtualFabric -->
+      <Security>{{psm_compute_control_vf_security | default('1')}}</Security>
+      <!-- QOS flag for PSM Compute Control VirtualFabric -->
+      <QOS>{{psm_compute_control_vf_qos | default('1')}}</QOS>
+      <!-- HighPriority flag for PSM Compute Control VirtualFabric -->
+      <HighPriority>{{psm_compute_control_vf_high_priority | default('1')}}</HighPriority> <!-- admin traffic is High priority -->
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>PSM_Control</Application>
+    </VirtualFabric>
+ 
+    <VirtualFabric>
+      <!-- Name for PSM Compute Data VirtualFabric -->
+      <Name>{{psm_compute_data_vf_name | default('PSM_Compute_Data')}}</Name>
+      <!-- Enable flag for PSM Compute Data VirtualFabric -->
+      <Enable>{{psm_compute_data_vf_enable | default('0')}}</Enable>
+      <!-- Security flag for PSM Compute Data VirtualFabric -->
+      <Security>{{psm_compute_data_vf_security | default('1')}}</Security>
+      <!-- QOS flag for PSM Compute Data VirtualFabric -->
+      <QOS>{{psm_compute_data_vf_qos | default('1')}}</QOS>
+      <!-- Bandwidth for PSM Compute Data VirtualFabric -->
+      <Bandwidth>{{psm_compute_data_vf_bandwidth | default('70%')}}</Bandwidth>
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>PSM_Data</Application>
+    </VirtualFabric>
+  </VirtualFabrics>
+
+  <!-- PM Port Group Configuration -->
+  <!-- PM Port Groups allow the PM to gather and consolidate statistics for -->
+  <!-- the specified set of devices.  In addition, the PM will always have -->
+  <!-- the All, HFIs and SWs groups. -->
+  <!-- PM Port Groups defined here are available for use in all FM instances -->
+  <!-- Additional PmPortGroups may be defined here or per FM instance. -->
+  <!-- PmPortGroups specified per FM instance will add to -->
+  <!-- instead of replace these PmPortGroup definitions. -->
+  <PmPortGroups>
+    <!-- Each PMPortGroup is comprised of: -->
+    <!-- 1. a name -->
+    <!-- 2. AND one or more sets of DeviceGroups to be monitored -->
+    <!-- 3. AND an enable/disable flag -->
+
+    <!-- All ports providing a Device Management Agent, typically IO devices -->
+    <PmPortGroup>
+      <Name>TFIs</Name>
+      <Monitor>AllTFIs</Monitor>
+      <Enable>0</Enable>
+    </PmPortGroup>
+
+    <!-- All ports on Fabric Interfaces, includes HFIs and TFIs -->
+    <PmPortGroup>
+      <Name>AllFIs</Name>
+      <Monitor>AllFIs</Monitor>
+      <Enable>0</Enable>
+    </PmPortGroup>
+
+    <!-- All ports in rack 1 as per DG -->
+    <PmPortGroup>
+      <!-- Name for Rack1 PM PortGroup -->
+      <Name>{{rack1pg_name | default('Rack1PG')}}</Name>
+      <!-- Monitor DeviceGroup for Rack1 PM PortGroup -->
+      <Monitor>{{rack1pg_monitor | default('Rack1DG')}}</Monitor>
+      <!-- Enable flag for Rack1 PM PortGroup -->
+      <Enable>{{rack1pg_enable | default('0')}}</Enable>
+    </PmPortGroup>
+  </PmPortGroups>
+
+  <!-- Shared Common config, applies to all components: SM, PM and FE -->
+  <!-- Most of the parameters below can also be set per component if needed -->
+  <Shared>
+    <!-- Configure maximum number of times an FM component can be restarted -->
+    <!-- after running less then StartupStableWait minutes before terminating the opafm service. -->
+    <!-- Max FM component restarts before terminating -->
+    <StartupRetries>{{startup_retries | default('5')}}</StartupRetries>
+    <!-- Amount of time in minutes before an instance is considered -->
+    <!-- successfully started and stable. -->
+    <!-- Minutes before instance is considered stable -->
+    <StartupStableWait>{{startup_stable_wait | default('10')}}</StartupStableWait>
+    <!-- Max FI Ports, estimates switches assuming optimal Fat Tree. -->
+    <!-- Increase if non-optimal Fat Tree. -->
+    <!-- For ESM this will be automatically adjusted to ESM maximum -->
+    <!-- Max FI Ports / Subnet Size estimate -->
+    <SubnetSize>{{subnet_size | default('9216')}}</SubnetSize>
+
+    <!-- Core file generation options to aid debug of Host FM crashes -->
+    <!-- Max core size in bytes or unlimited,  Suffix of K, M or G should -->
+    <!-- be used to define larger limits. -->
+    <!-- values less than 8192 are treated as Megabytes -->
+    <!-- This sets the linux core dump soft ulimit for the FM.  Hard ulimit -->
+    <!-- for root user on system must be appropriately set to permit this. -->
+    <!-- Default CoreDumpLimit is 10 GB -->
+    <!-- Max core file size limit -->
+    <CoreDumpLimit>{{core_dump_limit | default('10G')}}</CoreDumpLimit>
+    <!-- Directory for Host FM core files -->
+    <!-- Actual core filenames will be controlled by linux kernel config. -->
+    <!-- The parent directory (/var/crash in default) must be pre-created. -->
+    <!-- Directory for Host FM core files -->
+    <CoreDumpDir>{{core_dump_dir | default('/var/crash/opafm')}}</CoreDumpDir>
+
+    <!-- Priority and Elevated Priority control failover for SM, PM. -->
+    <!-- Priority is used during initial negotiation, higher Priority wins. -->
+    <!-- ElevatedPriority is assumed by winning master, this can prevent -->
+    <!-- fallback when previous master comes back on line.  -->
+    <!-- Priority for SM/PM failover (0-15) -->
+    <Priority>{{priority | default('0')}}</Priority>
+    <!-- Elevated Priority for SM/PM failover (0-15) -->
+    <ElevatedPriority>{{elevated_priority | default('0')}}</ElevatedPriority>
+
+    <!-- Sets log level option for SM, PM and FE -->
+    <!-- 0 = disable vast majority of logging output -->
+    <!-- 1 = fatal, error, warn (syslog CRIT, ERR, WARN)-->
+    <!-- 2 = +notice, progress (syslog NOTICE, INFO) -->
+    <!-- 3 = +INFO (syslog DEBUG) -->
+    <!-- 4 = +VERBOSE and some packet data (syslog DEBUG) -->
+    <!-- 5 = debug1 and debug2 trace info (syslog DEBUG) -->
+    <!-- 6 = debug3 and debug4 trace info (syslog DEBUG) -->
+    <!-- 7 = +function trace info (syslog DEBUG) -->
+    <!-- For ESM corresponding Chassis Logging must also be enabled -->
+    <!-- and Sm config applies to all managers. -->
+    <!-- Log level for SM, PM and FE -->
+    <LogLevel>{{log_level | default('2')}}</LogLevel>
+
+    <!-- Sets log output location for SM, PM and FE -->
+    <!-- By default log output is done via syslog.  However if a LogFile -->
+    <!-- is specified, logging will be done to the given file. -->
+    <!-- LogMode further controls logging -->
+    <!-- ESM does not support LogFile -->
+    <!-- <LogFile>/var/log/fm.log</LogFile> --> <!-- log for all instances -->
+
+    <!-- Controls mode for logging by SM, PM and FE -->
+    <!-- low 2 bits control logging as follows: -->
+    <!-- Low Bit (0/1): -->
+    <!--    0 - use normal logging levels -->
+    <!--    1 - logging is quieted by downgrading the majority of -->
+    <!--        fatal, error, warn and progress log messages to level -->
+    <!--        3 (INFO) and only outputting user actionable events when -->
+    <!--        LogLevel is 1 or 2. -->
+    <!-- Next Bit (0/2) (only affects logging when LogFile specified): -->
+    <!--    0 - user actionable events go to syslog and LogFile -->
+    <!--    2 - when LogFile specified, nothing goes to syslog -->
+    <!-- ESM does not support LogMode -->
+    <!-- Log mode configuration -->
+    <LogMode>{{log_mode | default('0')}}</LogMode>
+
+    <!-- Controls the Syslog Facility for SM, PM and FE -->
+    <!-- Can be: auth, authpriv, cron, daemon, ftp, kern, local0-local7, -->
+    <!-- lpr, mail, news, syslog, user, or uucp -->
+    <!-- ESM does not support SyslogFacility, select via chassis Logging -->
+    <!-- Syslog Facility for SM, PM and FE -->
+    <SyslogFacility>{{syslog_facility | default('local6')}}</SyslogFacility>
+
+
+    <!-- OpenSSL FE network security parameters  -->
+    <!-- Enable OpenSSL FE network security -->
+    <SslSecurityEnable>{{ssl_security_enable | default('1')}}</SslSecurityEnable>
+    <!-- SSL Security directory -->
+    <SslSecurityDir>{{ssl_security_dir | default('/usr/local/ssl/opafm')}}</SslSecurityDir>
+    <!-- FM SSL Certificate filename -->
+    <SslSecurityFmCertificate>{{ssl_security_fm_certificate | default('fm_cert.pem')}}</SslSecurityFmCertificate>
+    <!-- FM SSL Private Key filename -->
+    <SslSecurityFmPrivateKey>{{ssl_security_fm_private_key | default('fm_key.pem')}}</SslSecurityFmPrivateKey>
+    <!-- FM CA Certificate filename -->
+    <SslSecurityFmCaCertificate>{{ssl_security_fm_ca_certificate | default('fm_ca_cert.pem')}}</SslSecurityFmCaCertificate>
+    <!-- FM Certificate Chain Depth -->
+    <SslSecurityFmCertChainDepth>{{ssl_security_fm_cert_chain_depth | default('1')}}</SslSecurityFmCertChainDepth>
+    <!-- FM DH Parameters filename -->
+    <SslSecurityFmDHParameters>{{ssl_security_fm_dh_parameters | default('fm_dh_parms.pem')}}</SslSecurityFmDHParameters>
+    <!-- Enable FM CA CRL -->
+    <SslSecurityFmCaCRLEnable>{{ssl_security_fm_ca_crl_enable | default('0')}}</SslSecurityFmCaCRLEnable>
+    <!-- FM CA CRL filename -->
+    <SslSecurityFmCaCRL>{{ssl_security_fm_ca_crl | default('fm_ca_crl.pem')}}</SslSecurityFmCaCRL>
+
+    <!-- Additional parameters for debug/development use -->
+    <!-- Debug mode for SM, PM and FE -->
+    <Debug>{{debug | default('0')}}</Debug>
+    <!-- RMPP debug messages for SA, PM and FE -->
+    <RmppDebug>{{rmpp_debug | default('0')}}</RmppDebug>
+
+    <!-- Alternative to use of LogLevel.  Use of LogLevel recommended. -->
+    <!-- For each subsystem there can be a LogMask.  The mask selects -->
+    <!-- severities of log messages to enable: --> 
+    <!-- 0x1=fatal, 0x2=actionable error, 0x4=actionable warning, -->
+    <!-- 0x8=actionable notice, 0x10=actionable info, 0x20=error, 0x40=warn, -->
+    <!-- 0x80=notice, 0x100=progress, 0x200=info, 0x400=verbose, 0x800=data, -->
+    <!-- 0x1000=debug1, 0x2000=debug2, 0x4000=debug3, 0x8000=debug4 -->
+    <!-- 0x10000=func call, 0x20000=func args, 0x40000=func exit, -->
+    <!-- For Host SM, the Linux syslog service will need to have an -->
+    <!-- appropriate level of logging enabled. -->
+    <!-- For ESM corresponding Chassis Logging must also be enabled -->
+    <!-- and Sm config applies to all managers. -->
+    <!-- <CS_LogMask>0x00000000</CS_LogMask> -->
+    <!-- <MAI_LogMask>0x000001ff</MAI_LogMask> -->
+    <!-- <CAL_LogMask>0x000001ff</CAL_LogMask> -->
+    <!-- <DVR_LogMask>0x000001ff</DVR_LogMask> -->
+    <!-- <IF3_LogMask>0x000001ff</IF3_LogMask> -->
+    <!-- <SM_LogMask>0x000001ff</SM_LogMask> -->
+    <!-- <SA_LogMask>0x000001ff</SA_LogMask> -->
+    <!-- <PM_LogMask>0x000001ff</PM_LogMask> -->
+    <!-- <PA_LogMask>0x000001ff</PA_LogMask> -->
+    <!-- <FE_LogMask>0x000001ff</FE_LogMask> -->
+    <!-- <APP_LogMask>0x000001ff</APP_LogMask> -->
+    
+    <!-- Controls the Configuration Consistency Check for SM, and PM -->
+    <!-- Setting can be completely disabled, or can be set to take action -->
+    <!-- by deactivating Standby SM or PM if configuration does not -->
+    <!-- pass the consistency check criteria. The default level is 2 -->
+    <!-- 1 = enable Configuration Consistency Checking without taking action -->
+    <!--     only logs a message when a consistency mismatch is detected  -->
+    <!--     this is a debug option not recommended for typical use -->
+    <!-- 2 = enable Configuration Consistency Checking and take action -->
+    <!--      (log message and move standby to inactive state) -->
+    <!-- This parameter cannot be overridden in the SM or PM section. -->
+    <!-- <ConfigConsistencyCheckLevel>2</ConfigConsistencyCheckLevel> -->
+        
+  </Shared>
+
+  <!-- Common SM (Subnet Manager) attributes -->
+  <Sm>
+    <!-- ESM does not support Start via XML configuration. Use CLI commands -->
+    <!-- Default SM startup for all instances -->
+    <Start>{{sm_start | default('1')}}</Start>
+    <!-- SM restart parameters can be configured separately; overrides Common.Shared settings -->
+    <!-- <StartupRetries>5</StartupRetries> -->
+    <!-- <StartupStableWait>10</StartupStableWait> -->
+    <!-- *************** SM Redundancy **************************** -->
+    <!-- MasterPingInterval is the interval secondary SM pings master. -->
+    <!-- Ping must fail MasterPingMaxFail times before secondary takes over. -->
+    <!-- Secondary SMs will synchronize their fabric database with the -->
+    <!-- master at DbSyncInterval -->
+    <!-- Interval secondary SM pings master (seconds) -->
+    <MasterPingInterval>{{master_ping_interval | default('5')}}</MasterPingInterval>
+    <!-- Max pings fails before takeover -->
+    <MasterPingMaxFail>{{master_ping_max_fail | default('3')}}</MasterPingMaxFail>
+    <!-- DB sync interval in minutes, 0-> off -->
+    <DbSyncInterval>{{db_sync_interval | default('15')}}</DbSyncInterval>
+
+    <!-- ********************* Fabric Routing **************************** -->
+    <!-- The following Routing Algorithms are supported                    -->
+    <!-- shortestpath - pick shortest path and balance lids on ISLs        -->
+    <!-- fattree -  A variation of shortestpath with better balancing      -->
+    <!--            and improved SM performance on fat tree-like fabrics.  -->
+    <!--            See section <FatTreeTopology> below.                   -->
+    <!-- dgshortestpath - A variation of shortestpath that uses the        -->
+    <!--            RoutingOrder parameter to control the order in which   -->
+    <!--            switch egress ports are assigned to LIDs being routed  -->
+    <!--            through the fabric. This can provide a better balance  -->
+    <!--            of traffic through fabrics with multiple types of end  -->
+    <!--            nodes.                                                 -->
+    <!--            See the <DGShortestPathTopology> section, below, for   -->
+    <!--            more information.                                      -->
+    <!-- dor -      Dimension ordered routing for use with mesh and torus  -->
+    <!--            topologies cabled in port-to-dimension order.          -->
+    <!--            See the <MeshTorusTopology> section below for more     -->
+    <!--            information. (Cornelis Technical Preview)              -->
+    <!-- hypercube - A variation of dg shortest path for enhanced          -->
+    <!--            hypercube and mesh topologies.  See section            -->
+    <!--            <HypercubeTopology> below. (Supported via 3rd parties) -->
+    <!-- Routing Algorithm (shortestpath, fattree, etc) -->
+    <RoutingAlgorithm>{{routing_algorithm | default('shortestpath')}}</RoutingAlgorithm>
+
+    <!-- SpineFirstRouting - An option to avoid credit loops in complex    -->
+    <!--            fabrics using Cornelis Switches.                       -->
+    <!--            Given equal length routes, this option routes through  -->
+    <!--            director class switches spine first. This avoids       -->
+    <!--            credit loops caused by routing via edge/leaf switches  -->
+    <!--            instead of spines.                                     -->
+    <!-- SpineFirstRouting option -->
+    <SpineFirstRouting>{{spine_first_routing | default('1')}}</SpineFirstRouting>
+
+    <!-- LID Mask Control: The LMC parameter provides a method for assigning multiple -->
+    <!-- LIDs to a single physical port, allowing the SM to configure the fabric with -->
+    <!-- multiple routes between each end node port, it further helps applications to -->
+    <!-- load balance traffic. This permits selected applications (such as MPIs using -->
+    <!--Cornelis(TM) PSM to optimize performance and/or resiliency by using dispersive-->
+    <!-- routing. Default 0 assigns 1 LID per HFI. LMC is used for Failover/Redundant -->
+    <!-- Routing and for Dispersive Routing. -->
+    <!-- LID Mask Control (0-7) -->
+    <Lmc>{{lmc | default('0')}}</Lmc>
+    <!-- LID Mask Control for Switch Port 0: Lmc for LID assignment to Switches with  -->
+    <!-- an Enhanced Port 0 capability. LmcE0 and Lmc can be used for Failover/Redundant -->
+    <!-- Routing especially when in-band ULPs (such as IPoIB) are run on enhanced port 0 -->
+    <!-- of switch. LmcE0 cannot be used to enable/control Dispersive Routing, as its -->
+    <!-- applicable only to hosts -->
+    <!-- LID Mask Control for Switch Port 0 -->
+    <LmcE0>{{lmc_e0 | default('0')}}</LmcE0>
+
+    <!-- Toggle to force rebalancing routing every change -->
+    <ForceRebalance>{{force_rebalance | default('0')}}</ForceRebalance>
+    <!-- Toggle to force rebalancing routing every change -->
+
+    <!-- ******************** Fat Tree Topology **************************** -->
+    <!-- When the RoutingAlgorithm is set to fattree, the following section  -->
+    <!-- is used to configure fat tree parameters.                           -->
+    <!-- FatTreeTopology:                                                    -->
+    <!--    To properly handle routing decisions, the SM needs to understand -->
+    <!--    some fabric topology information.  Specifically, how many tiers  -->
+    <!--    are in the fat tree and which tier a switch belongs to.  This is -->
+    <!--    used to balance the tree and determine which links are up/down   -->
+    <!--    for deadlock avoidance.                                          -->
+    <!--    If all FIs are on the same tier, the SM can easily determine the -->
+    <!--    fat tree topology and tier a given switch resides in. If they    -->
+    <!--    are not, a list of CoreSwitches will be used to identify the     -->
+    <!--    topology.  It is a good practice to specify the CoreSwitches     -->
+    <!--    group explicitly and disable the FIsOnSameTier config, this will -->
+    <!--    determine the proper layout of the fabric in the event that some -->
+    <!--    of the HFIs are offline.                                         -->
+    <FatTreeTopology>
+      <!-- Number of tiers in the fat tree -->
+      <TierCount>{{tier_count | default('3')}}</TierCount>
+      <!-- Flag if all HFIs are on the same tier -->
+      <FIsOnSameTier>{{fis_on_same_tier | default('1')}}</FIsOnSameTier>
+      <!-- Fabric topology will be discovered using information that all     -->
+      <!-- HFIs are on the same tier in the fat tree.                        -->
+      <!-- Fabric topology will be discovered based on the location of the   -->
+      <!-- core/root switches.  The following must be setup if the HFIs are  -->
+      <!-- not on the same tier.  It's also a good practice to use the core  -->
+      <!-- switches group to discover the fabric topology (in the event      -->
+      <!-- that HFIs are offline).  Note, FIsOnSameTier should be set to     -->
+      <!-- zero when using the CoreSwitches discovery method.                -->
+      <!-- <CoreSwitches>core_device_group</CoreSwitches>                    -->
+      <!-- Nodes may be specified for exclusion from initial round-robin     -->
+      <!-- to give better route balancing of remaining nodes.                -->
+      <!-- This may be useful in asymmetric fat trees or to initially        -->
+      <!-- balance across compute nodes in the tree.                         -->
+      <!-- <RouteLast>hfi_device_group</RouteLast>                           -->
+      <!-- The following can be enabled to setup routing with a simple       -->
+      <!-- round robin.  Paths are selected without offsetting the start     -->
+      <!-- such that the first HFI on a switch is routed through the first   -->
+      <!-- ISL on the same tier, the second HFI on the second ISL, etc. in   -->
+      <!-- a pass through type assignment.                                   -->
+      <!-- Enable simple round robin routing -->
+      <PassThrough>{{pass_through | default('0')}}</PassThrough>
+      <!-- For 3-tier fat trees, converge routes at core to get optimal      -->
+      <!-- balance when down routing.                                        -->
+      <Converge>{{converge | default('0')}}</Converge>
+    </FatTreeTopology>
+
+    <!-- **************** DG ShortestPath Topology ************************* -->
+    <!-- When the routing algorithm is set to "dgshortestpath" the following -->
+    <!-- section is used to configure the algorithm.                         -->
+    <!-- Overall, "dgshortestpath" routing is a form of "Min Hop" or         -->
+    <!-- "Shortestpath" rout

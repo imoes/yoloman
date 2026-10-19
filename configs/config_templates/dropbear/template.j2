@@ -4,12 +4,12 @@
 
 # The TCP port that Dropbear listens on.
 # Default: 22
-DROPBEAR_PORT={{ DROPBEAR_PORT | default(22) }}
+{% if DROPBEAR_PORT is defined and DROPBEAR_PORT is not none and (DROPBEAR_PORT is number or DROPBEAR_PORT is boolean or DROPBEAR_PORT | length > 0) %}DROPBEAR_PORT={{ DROPBEAR_PORT | default(22) }}{% else %}#DROPBEAR_PORT=22{% endif %}
 
 # Receive window size — a tradeoff between memory usage and network performance.
 # Larger values improve throughput on high-latency links but increase memory consumption.
 # Default: 65536
-DROPBEAR_RECEIVE_WINDOW={{ DROPBEAR_RECEIVE_WINDOW | default(65536) }}
+{% if DROPBEAR_RECEIVE_WINDOW is defined and DROPBEAR_RECEIVE_WINDOW is not none and (DROPBEAR_RECEIVE_WINDOW is number or DROPBEAR_RECEIVE_WINDOW is boolean or DROPBEAR_RECEIVE_WINDOW | length > 0) %}DROPBEAR_RECEIVE_WINDOW={{ DROPBEAR_RECEIVE_WINDOW | default(65536) }}{% else %}#DROPBEAR_RECEIVE_WINDOW=65536{% endif %}
 
 # Any additional arguments for Dropbear.
 # Examples:
@@ -18,4 +18,4 @@ DROPBEAR_RECEIVE_WINDOW={{ DROPBEAR_RECEIVE_WINDOW | default(65536) }}
 #   -r /etc/dropbear/ed25519_host_key       (custom Ed25519 host key)
 # See dropbear(8) for the full list of supported options.
 # Default: '' (empty)
-DROPBEAR_EXTRA_ARGS={{ DROPBEAR_EXTRA_ARGS | default('') }}
+{% if DROPBEAR_EXTRA_ARGS is defined and DROPBEAR_EXTRA_ARGS is not none and DROPBEAR_EXTRA_ARGS != '' %}DROPBEAR_EXTRA_ARGS={{ DROPBEAR_EXTRA_ARGS }}{% else %}#DROPBEAR_EXTRA_ARGS=""{% endif %}

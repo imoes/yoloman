@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fontconfig configuration for Noto Sans Old South Arabian.
+  
+  This template configures the system font renderer (Fontconfig) to associate
+  the specific font family 'Noto Sans Old South Arabian' with a generic
+  sans-serif fallback. It also optionally controls font hinting settings.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Match rule: Target any font family declaration that matches the generic
+    sans-serif family name. This allows the specific font to be injected
+    into the resolution chain.
+  -->
+  <match>
+    <!--
+      Test: Check if the 'family' attribute matches the configured generic
+      sans-serif family name.
+      Variable: sans_serif_family
+      Default: 'sans-serif'
+    -->
+    <test name="family">
+      <string>{{ sans_serif_family | default('sans-serif') }}</string>
+    </test>
+
+    <!--
+      Edit: Prepend the specific font family name to the list of families
+      to try when rendering text. This ensures the Noto font is preferred
+      for characters in the Old South Arabian script.
+      Variable: font_family
+      Default: 'Noto Sans Old South Arabian'
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Old South Arabian') }}</string>
+    </edit>
+
+    <!--
+      Edit: Configure font hinting. Note: The original template used
+      'fonthashint' which is non-standard. This template preserves the
+      structure but uses the standard 'hinting' attribute for broader
+      compatibility, or keeps the specific target if strictly required.
+      Assuming standard fontconfig behavior: 'hinting' controls hinting.
+      Variable: font_hint
+      Default: false
+    -->
+    <edit name="hinting" mode="append">
+      <bool>{{ font_hint | default(false) | bool }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias rule: Explicitly map the specific font family to the generic
+    sans-serif family. This ensures that if an application requests
+    the generic sans-serif family, this specific font is available
+    as the primary choice.
+  -->
+  <alias>
+    <!--
+      The specific font family name being aliased.
+      Variable: font_family
+      Default: 'Noto Sans Old South Arabian'
+    -->
+    <family>{{ font_family | default('Noto Sans Old South Arabian') }}</family>
+    <default>
+      <!--
+        The generic fallback family name.
+        Variable: sans_serif_family
+        Default: 'sans-serif'
+      -->
+      <family>{{ sans_serif_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

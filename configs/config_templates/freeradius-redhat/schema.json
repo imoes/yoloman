@@ -1,172 +1,346 @@
 {
- "cleanup_delay": {
-  "default": "5",
-  "description": "Time in seconds to wait before cleaning up a reply",
-  "type": "number"
- },
- "correct_escapes": {
-  "default": true,
-  "description": "Use correct backslash escaping",
-  "type": "bool"
- },
- "exec_prefix": {
-  "default": "/usr",
-  "description": "The execution prefix directory",
-  "type": "string"
- },
- "hostname_lookups": {
-  "default": "no",
-  "description": "Log names of clients or just their IP addresses",
-  "type": "string"
- },
- "libdir": {
-  "default": "/usr/lib64/freeradius",
-  "description": "Directory where rlm_* modules are located",
-  "type": "string"
- },
- "localstatedir": {
-  "default": "/var",
-  "description": "The variable state directory",
-  "type": "string"
- },
- "log_auth": {
-  "default": false,
-  "description": "Log all authentication results to the log file",
-  "type": "bool"
- },
- "log_auth_badpass": {
-  "default": false,
-  "description": "Log password if it's rejected",
-  "type": "bool"
- },
- "log_auth_goodpass": {
-  "default": false,
-  "description": "Log password if it's correct",
-  "type": "bool"
- },
- "log_colourise": {
-  "default": true,
-  "description": "Highlight important messages sent to stderr and stdout",
-  "type": "bool"
- },
- "log_destination": {
-  "default": "files",
-  "description": "Destination for log messages (files, syslog, stdout, stderr)",
-  "type": "string"
- },
- "log_stripped_names": {
-  "default": false,
-  "description": "Log the full User-Name attribute as found in the request",
-  "type": "bool"
- },
- "log_syslog_facility": {
-  "default": "daemon",
-  "description": "Syslog facility to use if destination is syslog",
-  "type": "string"
- },
- "max_request_time": {
-  "default": "30",
-  "description": "Maximum time in seconds to handle a request",
-  "type": "number"
- },
- "max_requests": {
-  "default": "16384",
-  "description": "Maximum number of requests the server keeps track of",
-  "type": "number"
- },
- "name": {
-  "default": "radiusd",
-  "description": "Name of the running server",
-  "type": "string"
- },
- "prefix": {
-  "default": "/usr",
-  "description": "The installation prefix directory",
-  "type": "string"
- },
- "proxy_requests": {
-  "default": true,
-  "description": "Turns proxying of RADIUS requests on or off",
-  "type": "bool"
- },
- "sbindir": {
-  "default": "/usr/sbin",
-  "description": "The system binaries directory",
-  "type": "string"
- },
- "security_allow_core_dumps": {
-  "default": false,
-  "description": "Allow core dumps",
-  "type": "bool"
- },
- "security_group": {
-  "default": "radiusd",
-  "description": "Group to run radiusd as",
-  "type": "string"
- },
- "security_limit_proxy_state": {
-  "default": "auto",
-  "description": "Limit the combination of Proxy-State and Message-Authenticator",
-  "type": "string"
- },
- "security_max_attributes": {
-  "default": "200",
-  "description": "Maximum number of attributes permitted in a RADIUS packet",
-  "type": "number"
- },
- "security_reject_delay": {
-  "default": "1",
-  "description": "Delay in seconds when sending an Access-Reject",
-  "type": "number"
- },
- "security_require_message_authenticator": {
-  "default": "auto",
-  "description": "Require Message-Authenticator in Access-* packets",
-  "type": "string"
- },
- "security_status_server": {
-  "default": true,
-  "description": "Whether the server responds to Status-Server requests",
-  "type": "bool"
- },
- "security_user": {
-  "default": "radiusd",
-  "description": "User to run radiusd as",
-  "type": "string"
- },
- "sysconfdir": {
-  "default": "/etc",
-  "description": "The system configuration directory",
-  "type": "string"
- },
- "thread_pool_auto_limit_acct": {
-  "default": false,
-  "description": "Automatically limit the number of accounting requests",
-  "type": "bool"
- },
- "thread_pool_max_requests_per_server": {
-  "default": "0",
-  "description": "Clean up old threads periodically (0 means infinity)",
-  "type": "number"
- },
- "thread_pool_max_servers": {
-  "default": "32",
-  "description": "Limit on the total number of servers running",
-  "type": "number"
- },
- "thread_pool_max_spare_servers": {
-  "default": "10",
-  "description": "Maximum number of spare servers",
-  "type": "number"
- },
- "thread_pool_min_spare_servers": {
-  "default": "3",
-  "description": "Minimum number of spare servers",
-  "type": "number"
- },
- "thread_pool_start_servers": {
-  "default": "5",
-  "description": "Number of servers to start initially",
-  "type": "number"
- }
+  "FREERADIUS_ALLOW_CORE_DUMPS": {
+    "type": "string",
+    "description": "Whether core dumps are allowed (yes/no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_AUTO_LIMIT_ACCT": {
+    "type": "string",
+    "description": "Automatically limit the number of accounting requests if the queue is full.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_CLEANUP_DELAY": {
+    "type": "number",
+    "description": "The time to wait (in seconds) before cleaning up a sent reply.",
+    "default": 5
+  },
+  "FREERADIUS_EXEC_PREFIX": {
+    "type": "string",
+    "description": "The executable prefix directory, typically same as prefix.",
+    "default": "/usr"
+  },
+  "FREERADIUS_GROUP": {
+    "type": "string",
+    "description": "The group ID to run the radiusd server as.",
+    "default": "radiusd"
+  },
+  "FREERADIUS_HOSTNAME_LOOKUPS": {
+    "type": "string",
+    "description": "Whether to log client names instead of just IP addresses (yes/no).",
+    "enum": [
+      "no",
+      "yes"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_LIBDIR": {
+    "type": "string",
+    "description": "The directory where rlm_* modules are located.",
+    "default": "/usr/lib64/freeradius"
+  },
+  "FREERADIUS_LIMIT_PROXY_STATE": {
+    "type": "string",
+    "description": "Global setting for limiting Proxy-State and Message-Authenticator combination (no/yes/auto).",
+    "enum": [
+      "no",
+      "yes",
+      "auto"
+    ],
+    "default": "auto"
+  },
+  "FREERADIUS_LOCALSTATEDIR": {
+    "type": "string",
+    "description": "The local state directory for runtime files and logs.",
+    "default": "/var"
+  },
+  "FREERADIUS_LOGDIR": {
+    "type": "string",
+    "description": "The directory where FreeRADIUS stores its log files.",
+    "default": "${localstatedir}/log/radius"
+  },
+  "FREERADIUS_LOG_AUTH": {
+    "type": "string",
+    "description": "Log all authentication results (accept and reject) to the log file.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_LOG_AUTH_BADPASS": {
+    "type": "string",
+    "description": "Log passwords if they are rejected.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_LOG_AUTH_GOODPASS": {
+    "type": "string",
+    "description": "Log passwords if they are correct.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_LOG_COLOURISE": {
+    "type": "string",
+    "description": "Highlight important messages sent to stderr and stdout.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "yes"
+  },
+  "FREERADIUS_LOG_DESTINATION": {
+    "type": "string",
+    "description": "Destination for log messages: files, syslog, stdout, or stderr.",
+    "enum": [
+      "files",
+      "syslog",
+      "stdout",
+      "stderr"
+    ],
+    "default": "files"
+  },
+  "FREERADIUS_LOG_STRIPPED_NAMES": {
+    "type": "string",
+    "description": "Log the full User-Name attribute including suffix (no=yes).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "no"
+  },
+  "FREERADIUS_LOG_SYSLOG_FACILITY": {
+    "type": "string",
+    "description": "Which syslog facility to use if destination is syslog.",
+    "default": "daemon"
+  },
+  "FREERADIUS_MAX_ATTRIBUTES": {
+    "type": "number",
+    "description": "The maximum number of attributes permitted in a RADIUS packet.",
+    "default": 200
+  },
+  "FREERADIUS_MAX_REQUESTS": {
+    "type": "number",
+    "description": "The maximum number of requests the server keeps track of.",
+    "default": 16384
+  },
+  "FREERADIUS_MAX_REQUEST_TIME": {
+    "type": "number",
+    "description": "The maximum time (in seconds) to handle a request before killing it.",
+    "default": 30
+  },
+  "FREERADIUS_NAME": {
+    "type": "string",
+    "description": "The name of the running server instance.",
+    "default": "radiusd"
+  },
+  "FREERADIUS_PREFIX": {
+    "type": "string",
+    "description": "The installation prefix directory for FreeRADIUS.",
+    "default": "/usr"
+  },
+  "FREERADIUS_PROXY_REQUESTS": {
+    "type": "string",
+    "description": "Turns proxying of RADIUS requests on or off.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "yes"
+  },
+  "FREERADIUS_RADDDBDIR": {
+    "type": "string",
+    "description": "The directory containing the FreeRADIUS configuration files (raddb).",
+    "default": "${sysconfdir}/raddb"
+  },
+  "FREERADIUS_REJECT_DELAY": {
+    "type": "number",
+    "description": "Delay in seconds when sending an Access-Reject.",
+    "default": 1
+  },
+  "FREERADIUS_REQUIRE_MESSAGE_AUTHENTICATOR": {
+    "type": "string",
+    "description": "Global setting for requiring Message-Authenticator in Access-* packets (no/yes/auto).",
+    "enum": [
+      "no",
+      "yes",
+      "auto"
+    ],
+    "default": "auto"
+  },
+  "FREERADIUS_STATUS_SERVER": {
+    "type": "string",
+    "description": "Whether the server responds to Status-Server requests.",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": "yes"
+  },
+  "FREERADIUS_SYSCONFDIR": {
+    "type": "string",
+    "description": "The system configuration directory.",
+    "default": "/etc"
+  },
+  "FREERADIUS_THREAD_POOL_MAX_REQUESTS_PER_SERVER": {
+    "type": "number",
+    "description": "Clean up old threads after this many requests. 0 means infinity.",
+    "default": 0
+  },
+  "FREERADIUS_THREAD_POOL_MAX_SERVERS": {
+    "type": "number",
+    "description": "Limit on the total number of servers running in the thread pool.",
+    "default": 32
+  },
+  "FREERADIUS_THREAD_POOL_MAX_SPARE_SERVERS": {
+    "type": "number",
+    "description": "Maximum number of spare servers in the thread pool.",
+    "default": 10
+  },
+  "FREERADIUS_THREAD_POOL_MIN_SPARE_SERVERS": {
+    "type": "number",
+    "description": "Minimum number of spare servers in the thread pool.",
+    "default": 3
+  },
+  "FREERADIUS_THREAD_POOL_START_SERVERS": {
+    "type": "number",
+    "description": "Number of servers to start initially in the thread pool.",
+    "default": 5
+  },
+  "FREERADIUS_USER": {
+    "type": "string",
+    "description": "The user ID to run the radiusd server as.",
+    "default": "radiusd"
+  },
+  "cadir": {
+    "type": "string",
+    "description": "cadir (as documented in the shipped file).",
+    "default": "${confdir}/certs"
+  },
+  "certdir": {
+    "type": "string",
+    "description": "certdir (as documented in the shipped file).",
+    "default": "${confdir}/certs"
+  },
+  "checkrad": {
+    "type": "string",
+    "description": "checkrad (as documented in the shipped file).",
+    "default": "${sbindir}/checkrad"
+  },
+  "confdir": {
+    "type": "string",
+    "description": "confdir (as documented in the shipped file).",
+    "default": "${raddbdir}"
+  },
+  "correct_escapes": {
+    "type": "string",
+    "description": "correct_escapes (as documented in the shipped file).",
+    "enum": [
+      "true",
+      "false"
+    ],
+    "default": "true"
+  },
+  "db_dir": {
+    "type": "string",
+    "description": "db_dir (as documented in the shipped file).",
+    "default": "${localstatedir}/lib/radiusd"
+  },
+  "env": {
+    "type": "string",
+    "description": "ENV (as documented in the shipped file).",
+    "default": "{"
+  },
+  "file": {
+    "type": "string",
+    "description": "file (as documented in the shipped file).",
+    "default": "${logdir}/radius.log"
+  },
+  "instantiate": {
+    "type": "string",
+    "description": "instantiate (as documented in the shipped file).",
+    "default": "{"
+  },
+  "log": {
+    "type": "string",
+    "description": "log (as documented in the shipped file).",
+    "default": "{"
+  },
+  "modconfdir": {
+    "type": "string",
+    "description": "modconfdir (as documented in the shipped file).",
+    "default": "${confdir}/mods-config"
+  },
+  "modules": {
+    "type": "string",
+    "description": "modules (as documented in the shipped file).",
+    "default": "{"
+  },
+  "msg_denied": {
+    "type": "string",
+    "description": "msg_denied (as documented in the shipped file).",
+    "default": "\"You are already logged in - access denied\""
+  },
+  "pidfile": {
+    "type": "string",
+    "description": "pidfile (as documented in the shipped file).",
+    "default": "${run_dir}/${name}.pid"
+  },
+  "policy": {
+    "type": "string",
+    "description": "policy (as documented in the shipped file).",
+    "default": "{"
+  },
+  "postauth_client_lost": {
+    "type": "string",
+    "description": "postauth_client_lost (as documented in the shipped file). Unset keeps the shipped commented line (#postauth_client_lost = no).",
+    "enum": [
+      "yes",
+      "no"
+    ],
+    "default": null
+  },
+  "radacctdir": {
+    "type": "string",
+    "description": "radacctdir (as documented in the shipped file).",
+    "default": "${logdir}/radacct"
+  },
+  "redundant": {
+    "type": "string",
+    "description": "redundant (as documented in the shipped file). Unset keeps the shipped commented line (#redundant redundant_sql {).",
+    "default": null
+  },
+  "run_dir": {
+    "type": "string",
+    "description": "run_dir (as documented in the shipped file).",
+    "default": "${localstatedir}/run/${name}"
+  },
+  "sbindir": {
+    "type": "string",
+    "description": "sbindir (as documented in the shipped file).",
+    "default": "/usr/sbin"
+  },
+  "security": {
+    "type": "string",
+    "description": "security (as documented in the shipped file).",
+    "default": "{"
+  },
+  "thread": {
+    "type": "string",
+    "description": "thread (as documented in the shipped file).",
+    "default": "pool {"
+  }
 }

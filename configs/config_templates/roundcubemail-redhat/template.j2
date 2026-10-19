@@ -1,0 +1,50 @@
+#
+# Round Cube Webmail is a browser-based multilingual IMAP client
+#
+
+# URL path alias for Roundcube (e.g., 'roundcubemail')
+# This defines the location where Roundcube will be accessible via HTTP/HTTPS.
+Alias /{{ roundcubemail_alias_path | default('roundcubemail') }} {{ roundcubemail_document_root | default('/usr/share/roundcubemail') }}
+
+# Define who can access the Webmail application root.
+# Default restrictions ensure only local access until configured.
+<Directory {{ roundcubemail_document_root | default('/usr/share/roundcubemail') }}/>
+    <IfModule mod_authz_core.c>
+        # Apache 2.4 access control: allow access only from localhost
+        Require local
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        # Apache 2.2 access control: deny all except localhost
+        Order Deny,Allow
+        Deny from all
+        Allow from 127.0.0.1
+        Allow from ::1
+    </IfModule>
+</Directory>
+
+# Define who can access the installer directory.
+# Keep this secured once the application is configured.
+<Directory {{ roundcubemail_document_root | default('/usr/share/roundcubemail') }}/installer/>
+    <IfModule mod_authz_core.c>
+        # Apache 2.4 access control: allow access only from localhost
+        Require local
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        # Apache 2.2 access control: deny all except localhost
+        Order Deny,Allow
+        Deny from all
+        Allow from 127.0.0.1
+        Allow from ::1
+    </IfModule>
+</Directory>
+
+# Those directories should not be viewed by Web clients for security reasons.
+<Directory {{ roundcubemail_document_root | default('/usr/share/roundcubemail') }}/bin/>
+    Order Allow,Deny
+    Deny from all
+</Directory>
+
+<Directory {{ roundcubemail_document_root | default('/usr/share/roundcubemail') }}/plugins/enigma/home/>
+    Order Allow,Deny
+    Deny from all
+</Directory>

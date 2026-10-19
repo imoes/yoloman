@@ -1,25 +1,28 @@
-# Configuration for logrotate of the 'super' service log file.
-# This block defines how super.log is managed: rotation frequency,
-# retention count, compression, and file permissions.
+# Logrotate configuration for {{ log_file | default('super.log') }}
+#
+# This block manages log rotation for the target application.
+# It ensures that logs are rotated weekly, compressed, and
+# a specific number of old logs are retained.
 
-/var/log/{{ log_file | default('/var/log/super.log') }} {
-	# Do not rotate the log file if it is empty.
-	notifempty
+{% set _lf = log_file | default('super.log') %}
+{% if _lf is string and _lf | length > 0 %}
+# Logrotate file for {{ _lf }}
+{% else %}
+# Logrotate file for super.log
+{% endif %}
+{{ log_file | default('super.log') }} {
+    notifempty
 
-	# Number of rotated log files to keep.
-	# (e.g., 4 means keeping super.log.1.gz through super.log.4.gz)
-	rotate {{ rotate_count | default(4) }}
+    # Number of rotated log files to keep.
+    rotate {{ rotate_count | default('4') }}
 
-	# Rotate logs on a weekly basis.
-	weekly
+    weekly
 
-	# Compress rotated log files to save disk space.
-	compress
+    compress
 
-	# Do not error if the log file is missing.
-	missingok
+    missingok
 
-	# Create new log files after rotation with the specified
-	# octal permissions, owner, and group.
-	create {{ permissions | default('0640') }} {{ owner | default('root') }} {{ group | default('adm') }}
+    # Octal permissions, owner, and group for newly created log files.
+    # Defaults to 0640 root:adm
+    create {{ permissions | default('0640') }} {{ owner | default('root') }} {{ group | default('adm') }}
 }

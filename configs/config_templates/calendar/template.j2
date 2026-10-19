@@ -1,29 +1,28 @@
-#!/bin/sh
-# /etc/cron.daily/calendar: BSD mainutils calendar daily maintenance script
-# Written by Austin Donnelly <and1000@debian.org>
-#
-# This script performs the daily maintenance for the `calendar` utility.
-# It sources the configuration from /etc/default/<default_calendar_config_file>
-# and, if enabled, runs the calendar binary to update its database.
-# The sendmail binary is checked but not actually used by this specific script logic,
-# though its presence is verified as a sanity check for mail-capable environments.
+# /etc/default/calendar: System-wide default configuration for the calendar(1) utility.
+# This file is sourced by the calendar command to determine paths and behavior.
+# Users can override these settings via their own configuration files or environment variables.
 
-# Source the configuration file. The variable default_calendar_config_file
-# specifies the name of the config file under /etc/default/.
-# Defaults to 'calendar' if not set.
-. /etc/default/{{ default_calendar_config_file | default('calendar') }}
+# Name of the default configuration file to source under /etc/default/.
+# This allows administrators to specify a specific config file name if multiple
+# configuration variants are needed.
+# Default: calendar
+CALENDAR_CONFIG={{ default_calendar_config_file | default('calendar') }}
 
-# Only proceed if daily maintenance is explicitly enabled via RUN_DAILY.
-# Defaults to 'true' if not set in the sourced config.
-[ x$RUN_DAILY = xtrue ] || exit 0
+# Full path to the sendmail executable.
+# Used by calendar(1) to send reminders or notifications via mail if configured.
+# Ensure the path points to a valid MTA binary installed on the system.
+# Default: /usr/sbin/sendmail
+SENDMAIL_PATH={{ sendmail_path | default('/usr/sbin/sendmail') }}
 
-# Verify that the sendmail executable exists and is executable.
-# This is a pre-check, even though this specific script snippet
-# does not invoke sendmail directly. It ensures the environment is valid.
-# Defaults to '/usr/sbin/sendmail'.
-[ -x {{ sendmail_path | default('/usr/sbin/sendmail') }} ] || exit 0
+# Full path to the calendar binary.
+# Specifies the location of the calendar(1) executable.
+# Useful in environments where the binary might be located in a non-standard path.
+# Default: /usr/bin/calendar
+CALENDAR_BINARY={{ calendar_binary | default('/usr/bin/calendar') }}
 
-# Run the calendar binary to update the calendar database.
-# Defaults to '/usr/bin/calendar'.
-# The -a flag typically indicates an update or specific action mode depending on the version.
-{{ calendar_binary | default('/usr/bin/calendar') }} -a
+# Name of the default calendar include file to source.
+# If set, this file is included in addition to or instead of the default calendar.all.
+# If empty, the system defaults to including /usr/share/calendar/calendar.all
+# (handled in the calendar data directory, not here).
+# Default: '' (empty, uses default include behavior)
+CALENDAR_INCLUDE_FILE={{ calendar_include_file | default('') }}

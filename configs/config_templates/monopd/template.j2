@@ -1,0 +1,43 @@
+#
+# ==============================================================================
+# Monopd Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of the Monopd (MonoPlay Online
+# Protocol daemon) service. It defines the network port for client connections,
+# the connection details for the central Metaserver, and the server's public
+# identity for registration.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Network Listener Port
+# Port which monopd should be listening to.
+# ------------------------------------------------------------------------------
+port={{ port | default('1234') }}
+
+# ------------------------------------------------------------------------------
+# Metaserver Connection Host
+# Metaserver host. The hostname or IP address of the central registry.
+# ------------------------------------------------------------------------------
+metaserverhost={{ metaserverhost | default('meta.atlanticd.net') }}
+
+# ------------------------------------------------------------------------------
+# Metaserver Connection Port
+# Metaserver port. The TCP port on which the metaserver accepts connections.
+# ------------------------------------------------------------------------------
+metaserverport={{ metaserverport | default('1240') }}
+
+# ------------------------------------------------------------------------------
+# Server Identity for Registration
+# Our identity. Monopd will not register automatically unless this value is set.
+# Leave empty or commented out for private servers.
+#
+# If you want to register your server with the public metaserver to appear
+# in the game list, uncomment the line below and provide a valid, reachable
+# hostname. Ensure DNS resolves correctly and that any firewalls allow
+# incoming connections from the metaserver to track game availability.
+# ------------------------------------------------------------------------------
+{% if metaserveridentity is defined and metaserveridentity != '' and metaserveridentity is not none %}
+metaserveridentity={{ metaserveridentity }}
+{% else %}
+#metaserveridentity=monopd.yourdomain.net
+{% endif %}

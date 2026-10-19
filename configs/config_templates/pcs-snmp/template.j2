@@ -1,12 +1,12 @@
-# pcs snmp agent configuration file
-# Self-documenting Jinja2 template for pcs-snmp agent settings.
+# PCS SNMP Agent Configuration File
+# This template configures the pcs-snmp agent service.
 
 # Enable logging of debugging messages for the pcs snmp agent.
-# Expected type: boolean (true/false).
-# Default: False.
-pcs_snmp_agent_debug={{ pcs_snmp_agent_debug | default(False) | lower }}
+# When set to true or a non-zero value, the agent will output verbose debug logs.
+# Default: false
+{% if pcs_snmp_agent_debug is defined and pcs_snmp_agent_debug is not none and (pcs_snmp_agent_debug is number or pcs_snmp_agent_debug is boolean or pcs_snmp_agent_debug | length > 0) %}PCS_SNMP_AGENT_DEBUG={{ pcs_snmp_agent_debug | default(false) | lower }}{% else %}#PCS_SNMP_AGENT_DEBUG=false{% endif %}
 
 # Data update interval in seconds for the pcs snmp agent.
-# Expected type: integer > 0.
-# Default: 30.
-pcs_snmp_agent_update_interval={{ pcs_snmp_agent_update_interval | default(30) | int }}
+# Defines how frequently the agent updates its polled data.
+# Default: 30
+{% if pcs_snmp_agent_update_interval is defined and pcs_snmp_agent_update_interval is not none and (pcs_snmp_agent_update_interval is number or pcs_snmp_agent_update_interval is boolean or pcs_snmp_agent_update_interval | length > 0) %}PCS_SNMP_AGENT_UPDATE_INTERVAL={{ pcs_snmp_agent_update_interval | default(30) }}{% else %}#PCS_SNMP_AGENT_UPDATE_INTERVAL=30{% endif %}

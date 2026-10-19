@@ -1,0 +1,25 @@
+# Kitty Terminal Emulator Bash Shell Integration Configuration
+# This template configures the Kitty terminal's shell integration for Bash.
+# It sets the installation directory and sources the integration script if Kitty
+# is running within the current shell session.
+
+# KITTY_INSTALLATION_DIR: The installation directory for Kitty terminal emulator.
+# Default: /usr/lib64/kitty
+# The path where Kitty is installed. The integration scripts are expected
+# to reside in $KITTY_INSTALLATION_DIR/shell-integration/bash/.
+KITTY_INSTALLATION_DIR="{{ kitty_installation_dir | default('/usr/lib64/kitty') }}"
+
+# Shell Integration Logic
+# This block ensures integration is only enabled when running inside the Bash
+# shell (`BASH_VERSION` is set) and specifically within a Kitty terminal
+# (`KITTY_PID` environment variable is set by Kitty).
+if [[ -n "${BASH_VERSION}" && -n "${KITTY_PID}" ]]; then
+    # Check if the specific integration script exists to prevent errors
+    # if Kitty is installed but integration files are missing or moved.
+    if [[ -f "$KITTY_INSTALLATION_DIR"/shell-integration/bash/kitty.bash ]]; then
+        # Mark that Kitty shell integration is active
+        export KITTY_SHELL_INTEGRATION="enabled"
+        # Source the integration script to set up Kitty-specific shell functions
+        source "$KITTY_INSTALLATION_DIR"/shell-integration/bash/kitty.bash
+    fi
+fi

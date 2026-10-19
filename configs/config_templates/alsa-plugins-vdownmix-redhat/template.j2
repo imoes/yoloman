@@ -1,0 +1,44 @@
+# ALSA vdownmix plugin configuration.
+# This plugin performs downmixing of multi-channel audio (e.g. 5.1) to stereo.
+# It reads parameters from the provided schema fields.
+
+pcm.vdownmix {
+	# The ALSA PCM device to use as the slave for downmixing.
+	# Default: plug:hw
+	@args [ SLAVE CHANNELS DELAY ]
+	@args.SLAVE {
+		type string
+		# Variable: slave_pcm
+		default "{{ slave_pcm | default('plug:hw') }}"
+	}
+
+	# The number of input channels to downmix (typically 6 for 5.1).
+	# Default: 6
+	@args.CHANNELS {
+		type integer
+		# Variable: channels_count
+		default {{ channels_count | default(6) }}
+	}
+
+	# Delay in milliseconds applied to the downmixed signal.
+	# Default: 0
+	@args.DELAY {
+		type integer
+		# Variable: delay_ms
+		default {{ delay_ms | default(0) }}
+	}
+
+	type vdownmix
+
+	# Reference the slave PCM device defined above.
+	# The $SLAVE syntax is part of the target ALSA config language, not Jinja.
+	slave.pcm $SLAVE
+
+	hint {
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+                description "Plugin for channel downmix (stereo) with a simple spacialization"
+	}
+}

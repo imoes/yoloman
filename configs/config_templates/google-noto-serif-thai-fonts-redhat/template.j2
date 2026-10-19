@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Noto Serif Thai Font Configuration
+  ----------------------------------
+  This template generates an XML configuration file for Fontconfig.
+  It performs two main actions:
+  1. Aliasing: Declares that the 'Noto Serif Thai' font family is the default
+     implementation for the generic 'serif' family.
+  2. Substitution: When a document requests the 'serif' family for Thai language
+     content (lang='th'), it prepends 'Noto Serif Thai' to the font list to ensure
+     proper rendering.
+
+  The `font_hinting` setting controls hinting optimization. Setting it to false
+  disables hinting for this specific font, which may improve rendering clarity
+  on high-DPI screens or when using FreeType's auto-hinter.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Substitution Rule for Thai Language
+    -----------------------------------
+    Matches documents where:
+    - The language is set to the specified language code (default: 'th').
+    - The requested font family is the fallback family (default: 'serif').
+    
+    Action: Prepends the specific Noto Serif Thai font to the available fonts.
+  -->
+  <match>
+    <!-- Check if the document language contains the target language code -->
+    <test name="lang" compare="contains">
+      <!--
+        lang_code: The IETF language tag to match.
+        Default: 'th' (Thai)
+      -->
+      <string>{{ lang_code | default('th') }}</string>
+    </test>
+
+    <!-- Check if the requested font family is the fallback family -->
+    <test name="family">
+      <!--
+        fallback_family: The generic font family name to intercept.
+        Default: 'serif'
+      -->
+      <string>{{ fallback_family | default('serif') }}</string>
+    </test>
+
+    <!-- Prepend the Noto Serif Thai font to the matching list -->
+    <edit name="family" mode="prepend">
+      <!--
+        font_family: The specific font family name to use.
+        Default: 'Noto Serif Thai'
+      -->
+      <string>{{ font_family | default('Noto Serif Thai') }}</string>
+    </edit>
+
+    <!--
+      Disable Font Hashing/Hinting Optimization
+      -----------------------------------------
+      Appends 'false' to the font hash hints. This effectively disables
+      hinting optimization for this font configuration, relying instead
+      on the font's native outlines or FreeType's auto-hinter.
+    -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        font_hinting: Whether to enable hinting optimization.
+        'false' disables it.
+        Default: 'false'
+      -->
+      <bool>{{ font_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Font Alias Declaration
+    ----------------------
+    Declares that the generic 'serif' family should resolve to 'Noto Serif Thai'
+    by default, if not overridden by the substitution rules above.
+  -->
+  <alias>
+    <!-- The specific font family being defined -->
+    <family>{{ font_family | default('Noto Serif Thai') }}</family>
+    <default>
+      <!-- The generic family this font satisfies -->
+      <family>{{ fallback_family | default('serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

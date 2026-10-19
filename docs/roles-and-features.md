@@ -57,6 +57,11 @@ für fast alle schon da.
 genau wie eine Rolle. Der **einzige** Unterschied ist die **Monitoring-/Notification-Schicht**: eine Rolle
 ist der überwachte Primärzweck des Hosts, ein Feature nicht. (Deckt sich mit MS: primär vs. unterstützend.)
 
+> Aktueller Ausführungsweg: Rollen **und** Features werden als dauerhafte Desired-State-Deployments
+> verwaltet; „keine Orchestrierung“ bei Features bezog sich auf die frühere Einmal-Ausführung. Features
+> erzeugen weiterhin kein rollenbezogenes Monitoring. Der aktuelle Workflow ist in
+> [role-deployments.md](role-deployments.md) beschrieben.
+
 Merksatz fürs Mining: **„Stellt es anderen Hosts einen Dienst bereit und würde man es als Zweck des Hosts
 überwachen?" → Rolle. Sonst installierbar → Feature. Kein Paket, nur Datei → config.** Grenzfälle bleiben
 Vorschläge; der Operator kann jeden Eintrag umklassifizieren.

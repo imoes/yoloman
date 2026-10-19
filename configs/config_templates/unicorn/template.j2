@@ -1,0 +1,51 @@
+# ==============================================================================
+# Unicorn Worker Configuration Template
+# ==============================================================================
+# This template generates the environment file/configuration for the Unicorn
+# Ruby web server. It controls worker lifecycle, application loading, and
+# service integration parameters.
+# ==============================================================================
+
+# --- Worker Lifecycle ---
+
+# Default timeout until child process is killed during server upgrade.
+# Note: This has *no* relation to the "timeout" option inside the server's
+# config.rb file. This value is used by the init system or supervisor to
+# determine how long to wait before force-killing unresponsive workers.
+# Variable: timeout
+# Type: string (integer representation)
+# Default: 60
+TIMEOUT={{ timeout | default('60') }}
+
+# --- Application Loading ---
+
+# Path to the Unicorn server's configuration file (unicorn.conf.rb).
+# This Ruby script defines the master process settings, worker count,
+# listen addresses, and preloading behavior.
+# It is distinct from Rack's config.ru, which defines the application stack.
+# Variable: config_rb
+# Type: string (file path)
+# Default: /path/to/your/web/application/unicorn.conf.rb
+CONFIG_RB="{{ config_rb | default('/path/to/your/web/application/unicorn.conf.rb') }}"
+
+# --- Process Management ---
+
+# Path to the file where the Unicorn master process PID is stored.
+# This file is used by init scripts and systemd to manage the service
+# (start, stop, restart) and to verify if the process is running.
+# NOTE: The 'pid' option must also be set identically within
+# the config.rb file (CONFIG_RB) for consistency.
+# Variable: pid
+# Type: string (file path)
+# Default: /run/unicorn.pid
+PID={{ pid | default('/run/unicorn.pid') }}
+
+# --- Execution Arguments ---
+
+# Additional arguments passed to the Unicorn executable on startup.
+# These are typically environment flags (e.g., -E production) or custom flags.
+# Refer to `man unicorn` for available options.
+# Variable: unicorn_opts
+# Type: string (command line arguments)
+# Default: -E production
+UNICORN_OPTS="{{ unicorn_opts | default('-E production') }}"

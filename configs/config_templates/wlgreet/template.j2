@@ -1,17 +1,12 @@
-# wlgreet configuration template
-#
-# This file is part of the greetd / Sway login greeter configuration.
-# It defines the command to launch the greeter, the default background color,
-# and the shutdown/reboot confirmation dialog.
+# Configuration for wlgreet, a login greeter wrapper for Wayland sessions.
+# This file defines the command to launch the greeter and the default visual appearance.
 
 # The command to execute for the login greeter.
-# The variable wlgreet_command should point to the actual greeter binary (e.g., /usr/sbin/wlgreet).
-# This line executes the configured greeter command, then sends a command to sway to exit the greeter
-# session once the greeter process terminates.
-exec "{{ (wlgreet_command | default('/usr/sbin/wlgreet')) | trim }}" swaymsg exit
+# Default: /usr/sbin/wlgreet
+exec "{{ wlgreet_command | default('/usr/sbin/wlgreet') }}; swaymsg exit"
 
-# Keybinding to trigger the logout/reboot/poweroff dialog.
-# When pressed, it launches swaynag with a warning message and two buttons.
+# Bind Mod4+shift+e to launch swaynag for power management options.
+# This provides a safe way to poweroff or reboot from the login screen.
 bindsym Mod4+shift+e exec swaynag \
 	-t warning \
 	-m 'What do you want to do?' \
@@ -19,12 +14,11 @@ bindsym Mod4+shift+e exec swaynag \
 	-b 'Reboot' 'systemctl reboot -i'
 
 # The default background color for outputs without a specific wallpaper.
-# The variable default_wallpaper_color defines the solid color to use as the background for outputs
-# that do not have a specific wallpaper configured.
-output * bg "{{ (default_wallpaper_color | default('#333333')) | trim }}" solid_color
+# This acts as a fallback solid color if no image is set.
+# Default: #333333
+output * bg {{ default_wallpaper_color | default('#333333') }} solid_color
 
-# Include additional Sway configuration fragments from the system directory.
+# Include additional configuration snippets from the system directories.
+# These allow local administrators to override or extend the default behavior.
 include /etc/sway/config.d/*
-
-# Include additional Sway configuration fragments from the greetd-specific directory.
 include /etc/greetd/sway-config.d/*

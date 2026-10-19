@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { EnrollService } from '../../core/services/enroll.service';
 import { EnrollInfo } from '../../core/models/enroll.model';
 import { AgentService } from '../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** "Add host" — the enrollment entry point, surfaced from the Hosts page
  * instead of being buried in Settings. Two paths, mirroring Settings:
@@ -17,7 +18,7 @@ import { AgentService } from '../../core/services/agent.service';
 @Component({
   selector: 'app-add-host-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>Add a host</h2>
     <mat-dialog-content>
@@ -41,7 +42,7 @@ import { AgentService } from '../../core/services/agent.service';
             <p class="bm-dim">One host per line (IP or DNS). Bossman SSHes in with its operator identity, installs the agent, and enrolls each.</p>
             <textarea [(ngModel)]="hosts" rows="4" placeholder="host1.example.com&#10;host2.example.com" [disabled]="deploying()"></textarea>
             <div class="bm-deploy-actions">
-              <button mat-flat-button color="primary" [disabled]="deploying() || !hosts.trim()" (click)="deploy()">
+              <button mat-flat-button color="primary" [disabled]="deploying()" [bmBlocked]="!hosts.trim() ? 'Enter at least one host name' : ''" (click)="deploy()">
                 {{ deploying() ? 'Deploying…' : 'Deploy & enroll' }}
               </button>
             </div>
@@ -69,7 +70,7 @@ import { AgentService } from '../../core/services/agent.service';
               <input [(ngModel)]="devUser" placeholder="ssh user" [disabled]="devBusy()" />
               <input [(ngModel)]="devPassword" type="password" placeholder="ssh password" [disabled]="devBusy()" />
             }
-            <button mat-flat-button color="primary" [disabled]="devBusy() || !devName.trim() || !devTarget.trim()" (click)="addDevice()">
+            <button mat-flat-button color="primary" [disabled]="devBusy()" [bmBlocked]="!devName.trim() || !devTarget.trim() ? 'Enter a name and a target address' : ''" (click)="addDevice()">
               {{ devBusy() ? 'Adding…' : 'Add device' }}
             </button>
           </div>

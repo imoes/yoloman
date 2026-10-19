@@ -32,7 +32,7 @@ console {{ console_level | default(3) }}
 
 # Default runlevel to enter at boot (e.g., S for single-user, 2 for multi-user without network, 3 for multi-user with network).
 # Note: mutually exclusive with 'target' in some configurations, but Finit often allows both.
-runlevel {{ default_runlevel | default('S') }}
+{% if default_runlevel is defined and default_runlevel is not none and (default_runlevel is number or default_runlevel is boolean or default_runlevel | length > 0) %}runlevel {{ default_runlevel | default('S') }}{% else %}#runlevel 2{% endif %}
 
 # Alternative to runlevel: target unit to activate at boot (e.g., multi-user, graphical).
 # Mutually exclusive with runlevel in strict POSIX definitions, but Finit may support both.
@@ -71,5 +71,5 @@ hostname {{ hostname_enabled | default(true) | lower }}
 
 # Key-value pairs passed as configuration to loaded plugins (syntax: plugin <key> <value>).
 # Iterates over the plugins_config dictionary. If empty or undefined, no directives are emitted.
-{% for key, value in (plugins_config | default({}) | dict2items) %}plugin {{ key }} {{ value.value }}
+{% for key, value in (plugins_config | default({}) | dictsort) %}plugin {{ key }} {{ value.value }}
 {% endfor %}

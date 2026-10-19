@@ -1,13 +1,13 @@
 # The HTTP API, endpoint by endpoint
 
 > **GENERATED** by `scripts/generate-api-reference.py` from a *running* server's `/openapi.json`, on
-> 2026-08-31. Do not edit by hand — the next run overwrites it. It is generated from the running server
+> 2026-10-18. Do not edit by hand — the next run overwrites it. It is generated from the running server
 > rather than from the source because a route that the router never included does not exist for a
 > caller, and measuring instead of reading the source caught exactly that twice here.
 
 ## How to read this, and how to use it
 
-This is the complete callable surface of Bossman: **481 operations** across **69 groups**. It is written in prose on purpose. If you
+This is the complete callable surface of Bossman: **510 operations** across **72 groups**. It is written in prose on purpose. If you
 are a language model working in this repository, this page plus [the developer guide](developing.md)
 should be enough to call anything here correctly without reading the server's source first.
 
@@ -27,7 +27,7 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-**Every one of the 481 operations carries a description** written in the handler itself. This page counted its own gap while there was one — it reached zero on 2026-08-31 — and the count stays here because the next endpoint added without a docstring will show up in it.
+Of the 510 operations, **500 carry a description** written in the handler itself; **10 carry only a summary** and are marked as such below rather than being quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
 
@@ -41,23 +41,24 @@ Three things hold everywhere and are not repeated per endpoint:
 
 | Group | Endpoints | What it is |
 |---|---|---|
-| [management](#management) | 32 | Day-to-day operations on one host — services, packages, users, files, processes. **Changes things.** |
+| [management](#management) | 39 | Day-to-day operations on one host — services, packages, users, files, processes. **Changes things.** |
 | [images](#images) | 30 | PXE: boot images, provisioning profiles and the hosts being installed right now. **Changes things.** |
+| [resources](#resources) | 26 | Declared state: what a host is supposed to look like, and the plan/apply that gets it there. **Changes things.** |
 | [ou](#ou) | 25 | Organisational units — the tree that policies, checks and configuration are inherited through. |
 | [agents](#agents) | 23 | The fleet: enrolled hosts, their facts, their modules, and the calls that reach into one host. |
 | [monitoring](#monitoring) | 22 | Check results as service states, with their history and their thresholds. |
-| [resources](#resources) | 22 | Declared state: what a host is supposed to look like, and the plan/apply that gets it there. **Changes things.** |
+| [kubernetes](#kubernetes) | 19 | Kubernetes clusters, reached through an access host: registration, the inventory cache, objects, events, logs. Objects are written through the `k8s` Resource kind. |
 | [orchestration](#orchestration) | 17 | Runbooks in flight: starting one, watching its steps, and the results per host. **Changes things.** |
 | [chat](#chat) | 16 | The natural-language interface over the fleet, and the tools it is allowed to call. |
 | [plans](#plans) | 15 | A plan is a proposed change with its diff, kept so it can be reviewed before it is applied. |
 | [remediation](#remediation) | 15 | Closed-loop repair: a proposal, its guardrails, its autonomy setting, and its rollback. **Changes things.** |
-| [blueprints](#blueprints) | 14 | A reusable bundle of declared state that can be applied to a new host. **Changes things.** |
 | [checks](#checks) | 14 | The check catalogue: what can be measured, and which hosts a check is assigned to. |
 | [runbooks](#runbooks) | 14 | The runbook library — the step lists themselves, before anyone runs them. |
 | [docker](#docker) | 13 | Containers and compose projects discovered on a host, and their desired state. **Changes things.** |
 | [templates](#templates) | 11 | Configuration templates — whole-file renders for configuration a codec cannot parse. |
 | [users](#users) | 11 | Accounts in this server, and their roles. **Changes things.** |
 | [dashboard](#dashboard) | 10 | The overview numbers, and the dashlets a user has arranged. |
+| [role-deployments](#role-deployments) | 10 | _Not yet described — see the endpoints._ |
 | [search](#search) | 10 | Fleet-wide search — the saved searches and the query language behind the Fleet Overview. |
 | [helm](#helm) | 9 | Kubernetes releases, as declared state. **Changes things.** |
 | [systems](#systems) | 8 | Test systems: a clone of a production system, for rehearsing a change. **Changes things.** |
@@ -73,10 +74,10 @@ Three things hold everywhere and are not repeated per endpoint:
 | [security](#security) | 5 | CVE exposure per host, and the actions taken about it. |
 | [system-settings](#system-settings) | 5 | This server's own settings. |
 | [time-periods](#time-periods) | 5 | Named windows — business hours, maintenance — that other rules refer to. |
+| [vm](#vm) | 5 | Virtual machine lifecycle on a hypervisor. **Changes things.** |
 | [change-proposals](#change-proposals) | 4 | Changes waiting for a human decision, with the reasoning that produced them. |
 | [clusters](#clusters) | 4 | Hosts that belong together as one failure domain. |
 | [value-maps](#value-maps) | 4 | Turning a raw number into the word a human reads. |
-| [vm](#vm) | 4 | Virtual machine lifecycle on a hypervisor. **Changes things.** |
 | [admin](#admin) | 3 | Server-side maintenance that is not about any one host. **Changes things.** |
 | [agent-release](#agent-release) | 3 | Agent packages this server offers for installation and upgrade. |
 | [audit](#audit) | 3 | Who did what, in this server. |
@@ -107,9 +108,14 @@ Three things hold everywhere and are not repeated per endpoint:
 | [package-catalog](#package-catalog) | 1 | Every package this system knows configuration for. |
 | [package-qualify](#package-qualify) | 1 | The batch that classifies a package's configuration files. |
 | [package-wizard](#package-wizard) | 1 | Guided setup for one package's configuration. |
+| [patch-rings](#patch-rings) | 1 | Rolling Windows updates out in ordered waves with a health gate — a staged rollout whose action is the update. **Changes things.** |
+| [provisioning](#provisioning) | 1 | Minting a database credential for a host: create the DB+user on a provider, store it for the consumer as a vault handle. **Changes things.** |
 | [relationships](#relationships) | 1 | Dependencies between objects, used to explain an outage by its cause. |
 | [topology](#topology) | 1 | How hosts are connected, as measured rather than as drawn. |
 | [translate](#translate) | 1 | Turning a catalogue specification into something an agent can execute. |
+
+The groups without a one-line description above are `role-deployments` — they are listed rather than hidden, so the gap is visible and closeable in
+`scripts/generate-api-reference.py` (`TAG_BLURBS`).
 
 ---
 
@@ -213,6 +219,32 @@ CVEs that this host's pending upgrades would fix — correlated live and persist
 In the path:
 
 - `agent_id` (string, required)
+
+#### `POST /api/v1/agents/{agent_id}/diagnose`
+
+Why does a service not run? Asks the host's `service_diagnose`, checks the document against the diagnosis contract and keeps it (docs/diagnosis.md). A document that does not hold comes back — and is stored — with contract_status "violation" and its reasons; it is never repaired. Read-only on the host.
+
+In the path:
+
+- `agent_id` (string, required)
+
+The JSON body carries:
+
+- `name` (string, required)
+- `timeout_seconds` (number, optional)
+
+#### `GET /api/v1/agents/{agent_id}/diagnoses`
+
+The host's stored diagnoses, newest first (without the documents; GET /api/v1/diagnoses/{id} has one).
+
+In the path:
+
+- `agent_id` (string, required)
+
+Query parameters:
+
+- `target` (string, optional, default `""`)
+- `limit` (whole number, optional, default `20`)
 
 #### `GET /api/v1/agents/{agent_id}/logs`
 
@@ -460,7 +492,7 @@ In the path:
 
 #### `POST /api/v1/agents/{agent_id}/tools/{tool_name}`
 
-Route a single tool call to one managed agent (proxies the agent's POST /api/v1/tools/{name}). The agent's write gate + ACL + audit are the enforcement point; a read-only agent rejecting a write tool surfaces as a 502 with the agent's message.
+Route a single tool call to one managed agent (proxies the agent's POST /api/v1/tools/{name}). The agent's write gate + ACL + audit are the enforcement point. A refusal the agent ANSWERED with 403 (closed write gate, ACL) is relayed as 403 with the agent's own reason — it is the host's decision, not a gateway fault; only transport failures and other agent errors are 502.
 
 In the path:
 
@@ -500,6 +532,56 @@ Local virtualization overview: which hypervisor stack(s) this host runs (Proxmox
 In the path:
 
 - `agent_id` (string, required)
+
+#### `GET /api/v1/diagnoses/{diagnosis_row_id}`
+
+Get Diagnosis Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+In the path:
+
+- `diagnosis_row_id` (string, required)
+
+#### `GET /api/v1/diagnoses/{diagnosis_row_id}/explain`
+
+A stored diagnosis explained for a person: `header` (each finding's certainty and claim, precedent, remedy and every gap — written by the code, word for word) and `sentences` from the configured model (or a template), each checked against the evidence it cites — `backed: false` with the reason when it cites nothing, cites what is not there, states a certainty, or names a name/number/time the evidence does not contain.
+
+In the path:
+
+- `diagnosis_row_id` (string, required)
+
+Query parameters:
+
+- `language` (string, optional, default `"en"`)
+- `use_model` (true or false, optional, default `true`)
+
+#### `POST /api/v1/diagnoses/{diagnosis_row_id}/export/gelf/send`
+
+Send this diagnosis's GELF messages (one per finding and per evidence) to the configured Graylog (BOSSMAN_GELF_HOST / _PORT / _PROTOCOL). Returns how many were sent and over which transport; a missing target or a connection error is a 422/502 with the reason, never a silent drop. Nothing about the diagnosis changes.
+
+In the path:
+
+- `diagnosis_row_id` (string, required)
+
+#### `GET /api/v1/diagnoses/{diagnosis_row_id}/export/{fmt}`
+
+One stored diagnosis in another tool's format: checkmk (a <<<local>>> line), gelf (one message per finding and evidence), ansible / dsc / powershell (the remedies and their rollback). What a format cannot express is listed in `not_expressible` with its reason. Nothing is executed.
+
+In the path:
+
+- `diagnosis_row_id` (string, required)
+- `fmt` (string, required)
+
+#### `POST /api/v1/diagnoses/{diagnosis_row_id}/propose`
+
+File the remedy of one finding as a change proposal (kind "remedy"): preview = claim, certainty, evidence, before/after/rollback/verify and the exports. Approval needs a second person and executes nothing.
+
+In the path:
+
+- `diagnosis_row_id` (string, required)
+
+The JSON body carries:
+
+- `finding` (whole number, optional, default `0`)
 
 #### `GET /api/v1/operations`
 
@@ -763,7 +845,7 @@ In the path:
 
 #### `POST /api/v1/provisioning/vm-hosts/{host_id}/auto-provision`
 
-Create the VM, then bind its MAC to a fresh planned host + restore job in one call — the single endpoint a blueprint→PXE job uses. Returns the created {vmid, mac}, the planned host id, and the armed restore job.
+Create the VM, then bind its MAC to a fresh planned host + restore job in one call — the single endpoint a provision→PXE job uses. Returns the created {vmid, mac}, the planned host id, and the armed restore job.
 
 Sequence (each step reuses the same logic the standalone endpoints do, so there is no behavioural drift): 1. create-vm on the hypervisor -> {vmid, mac} 2. planned host with provision_mac = that mac (upsert by hostname) 3. restore job with target_mac = that mac (+ VLAN handoff pointing at the VM)
 
@@ -858,6 +940,462 @@ Cancelling a *running* job does not stop the machine — it has the plan already
 In the path:
 
 - `job_id` (string, required)
+
+---
+
+## resources
+
+Declared state: what a host is supposed to look like, and the plan/apply that gets it there.
+
+**These endpoints change a host or this server.** Where a module or a resource is
+involved, `dry_run: true` returns the plan instead of applying it — use it first.
+
+#### `POST /api/v1/agents/{agent_id}/resources/config/apply`
+
+Write the declared keys to the file — by merge, so foreign keys survive.
+
+**`dry_run` defaults to `true`.** With `dry_run: false`, the agent parses the file, overlays exactly the keys in `values`, and serialises it back: keys nobody declared are left as they were, including comments where the codec preserves them. That is the whole point of the merge path — a whole-file render would silently destroy anything it did not know about.
+
+A key set to `null` is *removed* rather than written empty, which is a different statement about the file and is why the value model allows it.
+
+In the path:
+
+- `agent_id` (string, required)
+
+Query parameters:
+
+- `path` (string, required)
+
+The JSON body carries:
+
+- `dry_run` (true or false, optional, default `true`)
+- `format` (string, optional)
+- `separator` (string, optional)
+- `values` (object, optional, default `{}`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/config/plan`
+
+What would change in this configuration file, key by key.
+
+The file is addressed by `path` in the query string, not by a name segment — a filesystem path cannot ride in a URL segment unescaped. The body's `values` are the keys you want to declare; the plan shows them against what the host's file holds now.
+
+Which of the two write paths applies is decided by the file's **codec**, not by the caller: a file this system can parse is written by merge, one it cannot is written by whole-file render from a template. Ask `GET /api/v1/config-fields?path=…` to find out which, along with the fields this file actually has.
+
+In the path:
+
+- `agent_id` (string, required)
+
+Query parameters:
+
+- `path` (string, required)
+
+The JSON body carries:
+
+- `format` (string, optional)
+- `separator` (string, optional)
+- `values` (object, optional, default `{}`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/config/rollback`
+
+Restore this file to an earlier generation of declared values.
+
+`generation` comes from `GET .../generations?path=…`. What is restored is the declaration, then re-merged — so keys the host gained from elsewhere in the meantime are still not touched.
+
+Two limits worth knowing. **Only the newest 30 generations are kept** per resource, the same cap the docker desired-state model uses, pruned in the same transaction as the insert. A rollback to a generation that has been dropped says so — "pruned, the oldest still held is N" rather than "no such generation", because a trimmed history and a typo are different problems. And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
+
+In the path:
+
+- `agent_id` (string, required)
+
+Query parameters:
+
+- `path` (string, required)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `GET /api/v1/agents/{agent_id}/resources/config/{verb}`
+
+`config`'s read verbs. Separate only because its instance is a filesystem path, which cannot ride in a URL segment unescaped — the reason is declared as `addressed_by='path'` in the registry rather than implied by this route existing.
+
+In the path:
+
+- `agent_id` (string, required)
+- `verb` (string, required)
+
+Query parameters:
+
+- `path` (string, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/apply`
+
+Bring the container to the spec in the body — and note the default.
+
+**`dry_run` defaults to `true`.** A caller that omits it gets the plan and no change, which is the safe direction for a default to fail in, but it also means a naive "apply" reports success while having done nothing. Send `dry_run: false` when you mean it.
+
+A successful non-dry apply records a **generation**: the spec that was applied, with the optional `note`. That is what `rollback` reverts to and what `GET .../generations` lists — the container is recreated from the spec rather than patched, so anything not in the spec is not preserved.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `dry_run` (true or false, optional, default `true`)
+- `env` (object, optional, default `{}`)
+- `image` (string, optional, default `""`)
+- `note` (string, optional)
+- `ports` (list of object, optional, default `[]`)
+- `restart` (string, optional, default `"unless-stopped"`)
+- `volumes` (list of string, optional, default `[]`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/plan`
+
+What would change about this container, without touching it.
+
+Returns the diff between the container as it runs now and the spec in the body: image, published ports, environment, volumes, restart policy. Nothing is written, so this is safe to call on anything at any time — and it is the call to make before `apply`, because a plan is reviewable and an apply is not.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `env` (object, optional, default `{}`)
+- `image` (string, optional, default `""`)
+- `ports` (list of object, optional, default `[]`)
+- `restart` (string, optional, default `"unless-stopped"`)
+- `volumes` (list of string, optional, default `[]`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/rollback`
+
+Recreate the container from an earlier generation's spec.
+
+`generation` is a number from `GET .../generations`. This is a real revert, not a forward-converge: the stored spec is applied as it was. What it cannot restore is anything that was never part of the spec — data in an anonymous volume, or a manual `docker exec` change — because a generation records the declaration, not the container's contents.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/apply`
+
+Install or upgrade the release to the chart and values in the body.
+
+**`dry_run` defaults to `true`** here too — see `docker_apply` for why that matters. A non-dry apply records a generation (chart + values + note), which is what `rollback` targets. Helm keeps its own revision history as well; the generation recorded here is Bossman's, and the two are not the same numbering.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `namespace` (string, optional, default `"default"`)
+
+The JSON body carries:
+
+- `chart` (string, optional, default `""`)
+- `dry_run` (true or false, optional, default `true`)
+- `note` (string, optional)
+- `values` (object, optional, default `{}`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/plan`
+
+What this release would become: the chart and values in the body against the release as installed. Reads only. `namespace` defaults to `default`.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `namespace` (string, optional, default `"default"`)
+
+The JSON body carries:
+
+- `chart` (string, optional, default `""`)
+- `values` (object, optional, default `{}`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/rollback`
+
+Re-apply an earlier generation's chart and values. `generation` comes from `GET .../generations` — it is Bossman's number, not Helm's revision.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `namespace` (string, optional, default `"default"`)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/k8s/{name}/apply`
+
+Server-side apply of the manifest (field manager "bossman", strict validation), recorded as a Bossman generation. **`dry_run` defaults to `true`.** Outside global YOLO mode and without `require_approval: false` the change is filed as a ChangeProposal with its preview and NOT applied — the answer says `awaiting_approval: true` and names the proposal; no generation is recorded until the approval applies it. Kubernetes' own rollout revisions are a separate numbering.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `cluster` (string, required)
+- `namespace` (string, optional)
+- `api_version` (string, optional, default `"v1"`)
+- `object_kind` (string, required)
+
+The JSON body carries:
+
+- `dry_run` (true or false, optional, default `true`)
+- `manifest` (object, optional, default `{}`)
+- `note` (string, optional)
+- `require_approval` (true or false, optional, default `true`)
+
+#### `DELETE /api/v1/agents/{agent_id}/resources/k8s/{name}/object`
+
+Delete the object. **`preview` defaults to `true`**: the answer lists what goes with it (dependents by ownerReference — a Deployment's ReplicaSets and Pods) and what STAYS (PersistentVolumeClaims, with the reason), and deletes nothing. `preview=false` deletes and records the deletion as a generation, so the object shows as vanished in its history rather than disappearing — through the same approval gate as an apply or a scale: outside YOLO mode and without `require_approval=false` it files a change proposal.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `preview` (true or false, optional, default `true`)
+- `note` (string, optional)
+- `require_approval` (true or false, optional, default `true`)
+- `cluster` (string, required)
+- `namespace` (string, optional)
+- `api_version` (string, optional, default `"v1"`)
+- `object_kind` (string, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/k8s/{name}/plan`
+
+What applying this manifest WOULD do: a server-side dry run (admission, validation, Pod Security, quota — nothing persisted) plus `kubectl diff`. `action` is create | update | noop | refused; a refusal carries the server's reason, so the real apply is never the first place a bad manifest fails.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `cluster` (string, required)
+- `namespace` (string, optional)
+- `api_version` (string, optional, default `"v1"`)
+- `object_kind` (string, required)
+
+The JSON body carries:
+
+- `manifest` (object, optional, default `{}`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/k8s/{name}/rollback`
+
+Re-apply an earlier generation's manifest as a NEW generation (forward-converge). `generation` is Bossman's number from `GET .../generations`, not a Kubernetes rollout revision. Rolling back to a generation that recorded a deletion deletes again, and says so. Goes through the same approval gate.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `cluster` (string, required)
+- `namespace` (string, optional)
+- `api_version` (string, optional, default `"v1"`)
+- `object_kind` (string, required)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/package/{name}/apply`
+
+Install, remove or upgrade the package. **`dry_run` defaults to `true`.**
+
+Reaches the host's own package manager through the `package` module, so it is idempotent for `present` and `absent`: applying twice equals applying once, and the response says `changed: false` when nothing had to happen. A generation is recorded so `rollback` can restore the previous declared state — that restores the *declaration* (`present`/`absent`/version), not the exact binary contents of a repository that has moved on.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `dry_run` (true or false, optional, default `true`)
+- `note` (string, optional)
+- `state` (string, optional, default `"present"`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/package/{name}/plan`
+
+What installing, removing or upgrading this package would do on this host.
+
+`state` is `present`, `absent` or `latest`. `latest` is not idempotent in the way the other two are — it means "whatever the repository currently offers", so it can change on a host that nobody touched, and a plan for it is only true for as long as the repository stays put.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `state` (string, optional, default `"present"`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/package/{name}/rollback`
+
+Re-apply this package's previous declared state from `GET .../generations`. Restores the declaration, not a snapshot: if the repository now offers a different version, `present` will install that one.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/role/{name}/apply`
+
+Bind this role to the host — desired state, not an immediate run.
+
+A role is an OrchestrationPlan of type `role`; binding it means the host is *supposed* to have it, and the binding converges when the host next checks in. That is why this works on a host with no address at all, including a bare-metal machine that has not booted yet: the binding is database state.
+
+Two defaults to know. **`dry_run` defaults to `true`**, so an apply that omits it changes nothing. And **`require_approval` defaults to `true`**: the binding is created `pending_approval` and does nothing until someone approves it, unless approval is waived here or global YOLO mode is on. The gate is deliberate — see the remediation guardrails for the same pattern.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `dry_run` (true or false, optional, default `true`)
+- `note` (string, optional)
+- `parameters` (object, optional, default `{}`)
+- `require_approval` (true or false, optional, default `true`)
+
+#### `DELETE /api/v1/agents/{agent_id}/resources/role/{name}/binding`
+
+Remove this host's direct binding of the role (the counterpart of apply) and recompile the host's desired state. Inherited bindings (OU/group) are untouched — unbind those at their own scope.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/role/{name}/plan`
+
+Check-mode run: the steps that WOULD change (no writes).
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `parameters` (object, optional, default `{}`)
+
+#### `POST /api/v1/agents/{agent_id}/resources/role/{name}/rollback`
+
+Re-run the role with an earlier parameter set (forward-converge; only truly reverts if the role's steps are idempotent — the response says so).
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `POST /api/v1/agents/{agent_id}/resources/service/{name}/apply`
+
+Set the service's boot-enablement and/or run state. **`dry_run` defaults to `true`.**
+
+`enabled` and `state` are separate declarations and either may be omitted: a unit can legitimately be enabled and stopped, or running and disabled, and this endpoint will not quietly make them agree. Note that `restarted` and `reloaded` are *actions*, not states — they are never idempotent, and the response reports `changed: true` every time because that is what happened.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `dry_run` (true or false, optional, default `true`)
+- `enabled` (true or false, optional)
+- `note` (string, optional)
+- `state` (string, optional)
+
+#### `POST /api/v1/agents/{agent_id}/resources/service/{name}/plan`
+
+What would change about this service unit: whether it is enabled at boot (`enabled`) and whether it is running (`state`: started, stopped, restarted, reloaded). Only the fields you send are considered — the two are independent, and a plan that assumed the missing one would be inventing a declaration.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `enabled` (true or false, optional)
+- `state` (string, optional)
+
+#### `POST /api/v1/agents/{agent_id}/resources/service/{name}/rollback`
+
+Re-apply this unit's previous declared enablement and run state from `GET .../generations`. A rollback of `restarted` re-runs the restart, since there is no earlier state to return to — the response says so.
+
+In the path:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+
+The JSON body carries:
+
+- `generation` (whole number, required)
+
+#### `GET /api/v1/agents/{agent_id}/resources/{kind}/{name}/{verb}`
+
+The READ half of the four-verb contract, for every kind — `schema`, `observe` and `generations`.
+
+This used to be seventeen near-identical routes (six kinds x three verbs, minus config's missing schema). The paths are unchanged; what changed is that the per-kind differences now come from `services/resources`' registry instead of from copies: which schema method a kind has, whether it needs a reachable host, whether its observe carries a schema, whether its history has a scope. See docs/logik-audit.md area 7 for why the duplication was the actual defect.
+
+`config` is addressed by a filesystem path rather than a name segment, so it has its own route below.
+
+In the path:
+
+- `agent_id` (string, required)
+- `kind` (string, required)
+- `name` (string, required)
+- `verb` (string, required)
+
+Query parameters:
+
+- `namespace` (string, optional, default `"default"`)
+- `cluster` (string, optional) — k8s only: the Kubernetes cluster id
+- `api_version` (string, optional) — k8s only: the object's apiVersion, e.g. apps/v1
+- `object_kind` (string, optional) — k8s only: the object's kind, e.g. Deployment
+
+#### `GET /api/v1/resource-kinds`
+
+What kinds exist and how each one behaves — the registry as plain data.
+
+The UI used to hard-code this and got it wrong: it built a `/schema` URL for every kind including `config`, which has no such endpoint (docs/logik-audit.md area 7). Deriving the capabilities from here means the client cannot disagree with the server about what a kind can do — there is one source of truth, and it is the one the routes themselves use.
 
 ---
 
@@ -1689,374 +2227,292 @@ The JSON body carries:
 
 ---
 
-## resources
+## kubernetes
 
-Declared state: what a host is supposed to look like, and the plan/apply that gets it there.
+Kubernetes clusters, reached through an access host: registration, the inventory cache, objects, events, logs. Objects are written through the `k8s` Resource kind.
 
-**These endpoints change a host or this server.** Where a module or a resource is
-involved, `dry_run: true` returns the plan instead of applying it — use it first.
+#### `GET /api/v1/kubernetes/clusters`
 
-#### `POST /api/v1/agents/{agent_id}/resources/config/apply`
+Every registered Kubernetes cluster with its access host and last observed facts.
 
-Write the declared keys to the file — by merge, so foreign keys survive.
+`reachability` is a named state (reachable | unreachable | never) with `unreachable_reason`, so a cluster whose API server is down is listed as such — never silently as empty.
 
-**`dry_run` defaults to `true`.** With `dry_run: false`, the agent parses the file, overlays exactly the keys in `values`, and serialises it back: keys nobody declared are left as they were, including comments where the codec preserves them. That is the whole point of the merge path — a whole-file render would silently destroy anything it did not know about.
+#### `POST /api/v1/kubernetes/clusters`
 
-A key set to `null` is *removed* rather than written empty, which is a different statement about the file and is why the value model allows it.
+Register a cluster by naming its access host (the enrolled agent that holds kubectl + kubeconfig).
+
+Bossman stores no credential: the kubeconfig stays on that host. Registration probes the cluster once right away, so the answer already says whether it is reachable and which version it runs — or why not.
+
+The JSON body carries:
+
+- `agent_id` (string, required)
+- `name` (string, required)
+- `context` (string, optional)
+- `description` (string, optional)
+- `kubeconfig_path` (string, optional)
+
+#### `DELETE /api/v1/kubernetes/clusters/{cluster_id}`
+
+Forget the cluster. Nothing on the cluster or the access host is touched — this removes Bossman's registration and inventory cache only; the Resource generations of its objects stay in resource_generation.
 
 In the path:
 
+- `cluster_id` (string, required)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}`
+
+One cluster's registration and last observed facts. Send `version` back as If-Match on PUT.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+#### `PUT /api/v1/kubernetes/clusters/{cluster_id}`
+
+Change the name, access host, context or kubeconfig path. Honours If-Match (412 when stale). Changing the access host resets the observed facts to `never` — they belonged to the old path.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+The JSON body carries:
+
 - `agent_id` (string, required)
+- `name` (string, required)
+- `context` (string, optional)
+- `description` (string, optional)
+- `kubeconfig_path` (string, optional)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/actions`
+
+Which actions apply to this object RIGHT NOW, each with the reason when it does not (so the UI greys the button out with the reason instead of letting the click fail). Includes the Resource-backed ones (scale, pause, resume) and the rollout history for workloads.
+
+In the path:
+
+- `cluster_id` (string, required)
 
 Query parameters:
 
-- `path` (string, required)
+- `kind` (string, required)
+- `name` (string, optional)
+- `namespace` (string, optional)
+
+#### `POST /api/v1/kubernetes/clusters/{cluster_id}/actions`
+
+Run one operator action. `scale`, `pause` and `resume` change the desired spec and therefore go through the k8s Resource: a server-side apply recorded as a generation, behind the approval gate (a proposal outside YOLO mode). The imperative verbs (restart, undo, cordon, uncordon, drain, delete_pod, suspend_job, resume_job) run kubectl on the access host and are recorded in the agent's operation log and Bossman's audit trail; an unavailable action is refused with the reason, never attempted.
+
+In the path:
+
+- `cluster_id` (string, required)
 
 The JSON body carries:
 
-- `dry_run` (true or false, optional, default `true`)
-- `format` (string, optional)
-- `separator` (string, optional)
-- `values` (object, optional, default `{}`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/config/plan`
-
-What would change in this configuration file, key by key.
-
-The file is addressed by `path` in the query string, not by a name segment — a filesystem path cannot ride in a URL segment unescaped. The body's `values` are the keys you want to declare; the plan shows them against what the host's file holds now.
-
-Which of the two write paths applies is decided by the file's **codec**, not by the caller: a file this system can parse is written by merge, one it cannot is written by whole-file render from a template. Ask `GET /api/v1/config-fields?path=…` to find out which, along with the fields this file actually has.
-
-In the path:
-
-- `agent_id` (string, required)
-
-Query parameters:
-
-- `path` (string, required)
-
-The JSON body carries:
-
-- `format` (string, optional)
-- `separator` (string, optional)
-- `values` (object, optional, default `{}`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/config/rollback`
-
-Restore this file to an earlier generation of declared values.
-
-`generation` comes from `GET .../generations?path=…`. What is restored is the declaration, then re-merged — so keys the host gained from elsewhere in the meantime are still not touched.
-
-Two limits worth knowing. **Only the newest 30 generations are kept** per resource, the same cap the docker desired-state model uses, pruned in the same transaction as the insert. A rollback to a generation that has been dropped says so — "pruned, the oldest still held is N" rather than "no such generation", because a trimmed history and a typo are different problems. And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
-
-In the path:
-
-- `agent_id` (string, required)
-
-Query parameters:
-
-- `path` (string, required)
-
-The JSON body carries:
-
-- `generation` (whole number, required)
-
-#### `GET /api/v1/agents/{agent_id}/resources/config/{verb}`
-
-`config`'s read verbs. Separate only because its instance is a filesystem path, which cannot ride in a URL segment unescaped — the reason is declared as `addressed_by='path'` in the registry rather than implied by this route existing.
-
-In the path:
-
-- `agent_id` (string, required)
-- `verb` (string, required)
-
-Query parameters:
-
-- `path` (string, required)
-
-#### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/apply`
-
-Bring the container to the spec in the body — and note the default.
-
-**`dry_run` defaults to `true`.** A caller that omits it gets the plan and no change, which is the safe direction for a default to fail in, but it also means a naive "apply" reports success while having done nothing. Send `dry_run: false` when you mean it.
-
-A successful non-dry apply records a **generation**: the spec that was applied, with the optional `note`. That is what `rollback` reverts to and what `GET .../generations` lists — the container is recreated from the spec rather than patched, so anything not in the spec is not preserved.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `dry_run` (true or false, optional, default `true`)
-- `env` (object, optional, default `{}`)
-- `image` (string, optional, default `""`)
-- `note` (string, optional)
-- `ports` (list of object, optional, default `[]`)
-- `restart` (string, optional, default `"unless-stopped"`)
-- `volumes` (list of string, optional, default `[]`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/plan`
-
-What would change about this container, without touching it.
-
-Returns the diff between the container as it runs now and the spec in the body: image, published ports, environment, volumes, restart policy. Nothing is written, so this is safe to call on anything at any time — and it is the call to make before `apply`, because a plan is reviewable and an apply is not.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `env` (object, optional, default `{}`)
-- `image` (string, optional, default `""`)
-- `ports` (list of object, optional, default `[]`)
-- `restart` (string, optional, default `"unless-stopped"`)
-- `volumes` (list of string, optional, default `[]`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/rollback`
-
-Recreate the container from an earlier generation's spec.
-
-`generation` is a number from `GET .../generations`. This is a real revert, not a forward-converge: the stored spec is applied as it was. What it cannot restore is anything that was never part of the spec — data in an anonymous volume, or a manual `docker exec` change — because a generation records the declaration, not the container's contents.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `generation` (whole number, required)
-
-#### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/apply`
-
-Install or upgrade the release to the chart and values in the body.
-
-**`dry_run` defaults to `true`** here too — see `docker_apply` for why that matters. A non-dry apply records a generation (chart + values + note), which is what `rollback` targets. Helm keeps its own revision history as well; the generation recorded here is Bossman's, and the two are not the same numbering.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-Query parameters:
-
-- `namespace` (string, optional, default `"default"`)
-
-The JSON body carries:
-
-- `chart` (string, optional, default `""`)
-- `dry_run` (true or false, optional, default `true`)
-- `note` (string, optional)
-- `values` (object, optional, default `{}`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/plan`
-
-What this release would become: the chart and values in the body against the release as installed. Reads only. `namespace` defaults to `default`.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-Query parameters:
-
-- `namespace` (string, optional, default `"default"`)
-
-The JSON body carries:
-
-- `chart` (string, optional, default `""`)
-- `values` (object, optional, default `{}`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/rollback`
-
-Re-apply an earlier generation's chart and values. `generation` comes from `GET .../generations` — it is Bossman's number, not Helm's revision.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-Query parameters:
-
-- `namespace` (string, optional, default `"default"`)
-
-The JSON body carries:
-
-- `generation` (whole number, required)
-
-#### `POST /api/v1/agents/{agent_id}/resources/package/{name}/apply`
-
-Install, remove or upgrade the package. **`dry_run` defaults to `true`.**
-
-Reaches the host's own package manager through the `package` module, so it is idempotent for `present` and `absent`: applying twice equals applying once, and the response says `changed: false` when nothing had to happen. A generation is recorded so `rollback` can restore the previous declared state — that restores the *declaration* (`present`/`absent`/version), not the exact binary contents of a repository that has moved on.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `dry_run` (true or false, optional, default `true`)
-- `note` (string, optional)
-- `state` (string, optional, default `"present"`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/package/{name}/plan`
-
-What installing, removing or upgrading this package would do on this host.
-
-`state` is `present`, `absent` or `latest`. `latest` is not idempotent in the way the other two are — it means "whatever the repository currently offers", so it can change on a host that nobody touched, and a plan for it is only true for as long as the repository stays put.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `state` (string, optional, default `"present"`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/package/{name}/rollback`
-
-Re-apply this package's previous declared state from `GET .../generations`. Restores the declaration, not a snapshot: if the repository now offers a different version, `present` will install that one.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `generation` (whole number, required)
-
-#### `POST /api/v1/agents/{agent_id}/resources/role/{name}/apply`
-
-Bind this role to the host — desired state, not an immediate run.
-
-A role is an OrchestrationPlan of type `role`; binding it means the host is *supposed* to have it, and the binding converges when the host next checks in. That is why this works on a host with no address at all, including a bare-metal machine that has not booted yet: the binding is database state.
-
-Two defaults to know. **`dry_run` defaults to `true`**, so an apply that omits it changes nothing. And **`require_approval` defaults to `true`**: the binding is created `pending_approval` and does nothing until someone approves it, unless approval is waived here or global YOLO mode is on. The gate is deliberate — see the remediation guardrails for the same pattern.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `dry_run` (true or false, optional, default `true`)
-- `note` (string, optional)
-- `parameters` (object, optional, default `{}`)
-- `require_approval` (true or false, optional, default `true`)
-
-#### `DELETE /api/v1/agents/{agent_id}/resources/role/{name}/binding`
-
-Remove this host's direct binding of the role (the counterpart of apply) and recompile the host's desired state. Inherited bindings (OU/group) are untouched — unbind those at their own scope.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-#### `POST /api/v1/agents/{agent_id}/resources/role/{name}/plan`
-
-Check-mode run: the steps that WOULD change (no writes).
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `parameters` (object, optional, default `{}`)
-
-#### `POST /api/v1/agents/{agent_id}/resources/role/{name}/rollback`
-
-Re-run the role with an earlier parameter set (forward-converge; only truly reverts if the role's steps are idempotent — the response says so).
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `generation` (whole number, required)
-
-#### `POST /api/v1/agents/{agent_id}/resources/service/{name}/apply`
-
-Set the service's boot-enablement and/or run state. **`dry_run` defaults to `true`.**
-
-`enabled` and `state` are separate declarations and either may be omitted: a unit can legitimately be enabled and stopped, or running and disabled, and this endpoint will not quietly make them agree. Note that `restarted` and `reloaded` are *actions*, not states — they are never idempotent, and the response reports `changed: true` every time because that is what happened.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `dry_run` (true or false, optional, default `true`)
-- `enabled` (true or false, optional)
-- `note` (string, optional)
-- `state` (string, optional)
-
-#### `POST /api/v1/agents/{agent_id}/resources/service/{name}/plan`
-
-What would change about this service unit: whether it is enabled at boot (`enabled`) and whether it is running (`state`: started, stopped, restarted, reloaded). Only the fields you send are considered — the two are independent, and a plan that assumed the missing one would be inventing a declaration.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `enabled` (true or false, optional)
-- `state` (string, optional)
-
-#### `POST /api/v1/agents/{agent_id}/resources/service/{name}/rollback`
-
-Re-apply this unit's previous declared enablement and run state from `GET .../generations`. A rollback of `restarted` re-runs the restart, since there is no earlier state to return to — the response says so.
-
-In the path:
-
-- `agent_id` (string, required)
-- `name` (string, required)
-
-The JSON body carries:
-
-- `generation` (whole number, required)
-
-#### `GET /api/v1/agents/{agent_id}/resources/{kind}/{name}/{verb}`
-
-The READ half of the four-verb contract, for every kind — `schema`, `observe` and `generations`.
-
-This used to be seventeen near-identical routes (six kinds x three verbs, minus config's missing schema). The paths are unchanged; what changed is that the per-kind differences now come from `services/resources`' registry instead of from copies: which schema method a kind has, whether it needs a reachable host, whether its observe carries a schema, whether its history has a scope. See docs/logik-audit.md area 7 for why the duplication was the actual defect.
-
-`config` is addressed by a filesystem path rather than a name segment, so it has its own route below.
-
-In the path:
-
-- `agent_id` (string, required)
+- `action` (string, required)
 - `kind` (string, required)
 - `name` (string, required)
-- `verb` (string, required)
+- `force` (true or false, optional, default `false`)
+- `grace_period` (whole number, optional)
+- `namespace` (string, optional)
+- `note` (string, optional)
+- `replicas` (whole number, optional)
+- `require_approval` (true or false, optional, default `true`)
+- `revision` (whole number, optional)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/api-resources`
+
+Every object kind the API server serves, live (`kubectl api-resources`), including CRDs — the list behind the explorer's "All object kinds" node, so nothing the cluster knows is hidden from the console.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+#### `POST /api/v1/kubernetes/clusters/{cluster_id}/applications/apply`
+
+Apply the application: every object in order (namespace → claims → service → workload → ingress → autoscaler/budget), each a server-side apply recorded as a generation. **`dry_run` defaults to true** and then answers like /plan. Pre-flight ERRORS refuse with 422 before anything is sent. Outside global YOLO mode and without `require_approval: false` the whole set is filed as ONE change proposal and nothing is applied; approving it applies the set in the same order.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+The JSON body carries:
+
+- `form` (object, required) — AppForm
+- `dry_run` (true or false, optional, default `true`)
+- `note` (string, optional)
+- `require_approval` (true or false, optional, default `true`)
+
+#### `POST /api/v1/kubernetes/clusters/{cluster_id}/applications/plan`
+
+render + the server's verdict per object: `apply --dry-run=server` and the diff, through the same k8s Resource a single object uses. Nothing is written. A refusal carries the API server's reason.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+The JSON body carries:
+
+- `name` (string, required)
+- `annotations` (object, optional, default `{}`)
+- `component` (string, optional, default `""`)
+- `containers` (list of object, optional)
+- `create_namespace` (true or false, optional, default `false`)
+- `data_mode` (one of `none`, `shared`, `per_instance`, optional, default `"none"`)
+- `description` (string, optional, default `""`)
+- `empty_dirs` (list of object, optional, default `[]`)
+- `expose` (object, optional) — ExposeSpec
+- `hpa` (object, optional) — HpaSpec
+- `ingress` (object, optional) — IngressSpec
+- `labels` (object, optional, default `{}`)
+- `namespace` (string, optional, default `"default"`)
+- `part_of` (string, optional, default `""`)
+- `pdb` (object, optional) — PdbSpec
+- `placement` (object, optional) — PlacementSpec
+- `replicas` (whole number, optional, default `1`)
+- `rollout` (object, optional) — RolloutSpec
+- `run_mode` (one of `replicated`, `every_node`, `once`, `scheduled`, optional, default `"replicated"`)
+- `schedule` (object, optional) — ScheduleSpec
+- `security` (object, optional) — SecuritySpec
+- `selector` (object, optional, default `{}`)
+- `volumes` (list of object, optional, default `[]`)
+
+#### `POST /api/v1/kubernetes/clusters/{cluster_id}/applications/render`
+
+The Application form rendered to manifests — pure, nothing sent to the cluster. Returns the derived kind and WHY, the objects in apply order, and the pre-flight issues (errors block, warnings explain) checked against the cluster's inventory (namespaces, Pod Security levels, storage classes, quotas).
+
+In the path:
+
+- `cluster_id` (string, required)
+
+The JSON body carries:
+
+- `name` (string, required)
+- `annotations` (object, optional, default `{}`)
+- `component` (string, optional, default `""`)
+- `containers` (list of object, optional)
+- `create_namespace` (true or false, optional, default `false`)
+- `data_mode` (one of `none`, `shared`, `per_instance`, optional, default `"none"`)
+- `description` (string, optional, default `""`)
+- `empty_dirs` (list of object, optional, default `[]`)
+- `expose` (object, optional) — ExposeSpec
+- `hpa` (object, optional) — HpaSpec
+- `ingress` (object, optional) — IngressSpec
+- `labels` (object, optional, default `{}`)
+- `namespace` (string, optional, default `"default"`)
+- `part_of` (string, optional, default `""`)
+- `pdb` (object, optional) — PdbSpec
+- `placement` (object, optional) — PlacementSpec
+- `replicas` (whole number, optional, default `1`)
+- `rollout` (object, optional) — RolloutSpec
+- `run_mode` (one of `replicated`, `every_node`, `once`, `scheduled`, optional, default `"replicated"`)
+- `schedule` (object, optional) — ScheduleSpec
+- `security` (object, optional) — SecuritySpec
+- `selector` (object, optional, default `{}`)
+- `volumes` (list of object, optional, default `[]`)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/applications/{namespace}/{name}`
+
+An existing application as the form (Portainer's Edit): the workload of that name (Deployment, StatefulSet, DaemonSet, CronJob or Job) plus its Service, Ingress, autoscaler and budget of the same name, mapped back best-effort. Fields the form does not model are left on the object by server-side apply. 404 when no workload of that name exists.
+
+In the path:
+
+- `cluster_id` (string, required)
+- `namespace` (string, required)
+- `name` (string, required)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/events`
+
+Events — the "why" behind a state — for a namespace or one object (`name` + `kind`), Warnings first, newest first, each Warning with the reason's explanation. Events are best-effort and short-lived on the cluster; an empty list means none are retained, not that nothing happened.
+
+In the path:
+
+- `cluster_id` (string, required)
 
 Query parameters:
 
-- `namespace` (string, optional, default `"default"`)
+- `namespace` (string, optional)
+- `name` (string, optional)
+- `kind` (string, optional)
+- `all_namespaces` (true or false, optional, default `false`)
 
-#### `GET /api/v1/resource-kinds`
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/inventory`
 
-What kinds exist and how each one behaves — the registry as plain data.
+The explorer's opening document: nodes, namespaces, api-resources, a per-namespace workload summary and the latest Warning events — served from Bossman's cache (poller-refreshed every 15 min).
 
-The UI used to hard-code this and got it wrong: it built a `/schema` URL for every kind including `config`, which has no such endpoint (docs/logik-audit.md area 7). Deriving the capabilities from here means the client cannot disagree with the server about what a kind can do — there is one source of truth, and it is the one the routes themselves use.
+`?refresh=true` fetches live and updates the cache. If the live fetch fails and a cache exists, the cache is returned with `stale: true` and the reason; with no cache the answer is 502 with the reason. The cache's age is always in the answer (`observed_at`), so the reader knows what they are looking at.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+Query parameters:
+
+- `refresh` (true or false, optional, default `false`)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/logs`
+
+A container's last `tail` log lines (timestamped). `previous=true` reads the crashed predecessor — the first thing to open on CrashLoopBackOff. A pod/container kubectl cannot read returns `error`.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+Query parameters:
+
+- `namespace` (string, required)
+- `pod` (string, required)
+- `container` (string, optional)
+- `tail` (whole number, optional, default `200`)
+- `previous` (true or false, optional, default `false`)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/objects`
+
+List objects of one kind as table rows: name, namespace, age, labels, the per-kind summary columns, and the exhaustive `state` (healthy | progressing | degraded | failed | completed | suspended | pending | terminating | unknown | static) with the Kubernetes reason and its explanation. Live, not cached.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+Query parameters:
+
+- `kind` (string, required) — kubectl resource name or kind, e.g. deployments, pods, svc
+- `namespace` (string, optional)
+- `all_namespaces` (true or false, optional, default `false`)
+- `selector` (string, optional)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/objects/{kind}/{name}`
+
+One object, with spec (desired) and status (observed) separated, its versions (resourceVersion, generation vs observedGeneration), the field managers that own parts of it, and the etcd key it is stored under — shown to explain where the state lives, never used to touch etcd.
+
+In the path:
+
+- `cluster_id` (string, required)
+- `kind` (string, required)
+- `name` (string, required)
+
+Query parameters:
+
+- `namespace` (string, optional)
+
+#### `GET /api/v1/kubernetes/clusters/{cluster_id}/pods`
+
+The pods a workload's selector matches — the Pods tab: what IS running for this Deployment, each with its state and the reason it is not healthy.
+
+In the path:
+
+- `cluster_id` (string, required)
+
+Query parameters:
+
+- `namespace` (string, required)
+- `selector` (string, required)
+
+#### `POST /api/v1/kubernetes/clusters/{cluster_id}/probe`
+
+Measure reachability now (`kubectl version` on the access host) and record it. Returns the named state and, when unreachable, the reason kubectl gave — the observation point for "is it my kubeconfig?".
+
+In the path:
+
+- `cluster_id` (string, required)
 
 ---
 
@@ -2223,6 +2679,8 @@ Sets the link `active` and **immediately recompiles every affected host**, so th
 
 **409 when the link is not `pending_approval`.** Approving an already-active link is not a harmless no-op question — it means the caller believes something is waiting that is not, and answering "fine" would confirm a wrong belief.
 
+**Four-eyes**, the same rule as a role deployment: only an administrator approves (403), and never the one who asked for the binding (409) — an approval by the requester is a second click, not a second pair of eyes.
+
 In the path:
 
 - `plan_id` (string, required)
@@ -2234,7 +2692,7 @@ Reject a pending link: it stays as a `rejected` row and applies to nothing.
 
 Rejected rather than deleted, on purpose — "someone decided against this" is a fact worth keeping, and a link that vanished would leave the next person to propose the same thing with no idea it had already been refused.
 
-409 when the link is not `pending_approval`, for the same reason as approve.
+409 when the link is not `pending_approval`, for the same reason as approve. An administrator rejects; the requester may also withdraw their own request (403 for anyone else) — four-eyes guards the yes, not the no.
 
 In the path:
 
@@ -2847,161 +3305,6 @@ In the path:
 
 ---
 
-## blueprints
-
-A reusable bundle of declared state that can be applied to a new host.
-
-**These endpoints change a host or this server.** Where a module or a resource is
-involved, `dry_run: true` returns the plan instead of applying it — use it first.
-
-#### `GET /api/v1/blueprints`
-
-Blueprints: a reusable bundle of declared state, ready to apply to a new host.
-
-Where a template bundles *check rules*, a blueprint bundles what a host should **be** — packages, services, configuration, roles — so a new machine can be brought to a known shape in one act. It compiles to a playbook; it is not itself a running thing.
-
-#### `POST /api/v1/blueprints`
-
-Create a blueprint. Applying it is a separate act — this only writes the definition.
-
-The JSON body carries:
-
-- `name` (string, required)
-- `description` (string, optional, default `""`)
-- `path` (string, optional, default `""`)
-- `services` (list of string, optional, default `[]`)
-- `status` (string, optional, default `"draft"`)
-
-#### `POST /api/v1/blueprints/plausibility`
-
-Validate an in-flight draft (not yet saved): every requirement resolved (in-blueprint or a fleet host), every connection field supplied.
-
-The JSON body carries:
-
-- `services` (list of string, optional, default `[]`)
-
-#### `POST /api/v1/blueprints/provision`
-
-Out-of-band credential provisioning (step 4 of the designer, secret-safe): create the DB+user on the provider via the agent `command` module, then store the password for the consumer as a vault handle in its host_vars. No plaintext is persisted and no agent module is required.
-
-The JSON body carries:
-
-- `admin_password` (string, required)
-- `admin_user` (string, required)
-- `consumer_agent_id` (string, required)
-- `db_name` (string, required)
-- `db_user` (string, required)
-- `provider_agent_id` (string, required)
-- `backend` (string, optional, default `"mysql"`)
-- `container` (string, optional)
-- `exec` (string, optional, default `"local"`)
-- `existing_agent_id` (string, optional)
-- `existing_host_group_id` (string, optional)
-- `existing_key` (string, optional)
-- `existing_ou_id` (string, optional)
-- `existing_scope_type` (string, optional)
-- `password` (string, optional, default `""`)
-- `password_mode` (string, optional, default `"generate"`)
-- `targets` (object, optional, default `{}`)
-
-#### `POST /api/v1/blueprints/seed-drafts`
-
-Install the sample blueprint drafts (idempotent).
-
-#### `POST /api/v1/blueprints/suggest-providers`
-
-For an in-flight draft, per open requirement: matching fleet hosts + candidate roles a new server would need. Drives step 2 of the designer live.
-
-The JSON body carries:
-
-- `services` (list of string, optional, default `[]`)
-
-#### `DELETE /api/v1/blueprints/{bp_id}`
-
-Delete a blueprint. Hosts built from it keep everything it gave them — they exist independently of the definition, which is the whole point of compiling it once.
-
-In the path:
-
-- `bp_id` (string, required)
-
-#### `GET /api/v1/blueprints/{bp_id}`
-
-One blueprint with its declared state. 404 for an unknown id.
-
-In the path:
-
-- `bp_id` (string, required)
-
-#### `PUT /api/v1/blueprints/{bp_id}`
-
-Replace a blueprint's definition.
-
-Hosts already built from it are **not** revisited: a blueprint is the paper a machine was built from, and editing the paper does not rebuild the machine. Re-apply it deliberately if that is what you want.
-
-In the path:
-
-- `bp_id` (string, required)
-
-The JSON body carries:
-
-- `name` (string, required)
-- `description` (string, optional, default `""`)
-- `path` (string, optional, default `""`)
-- `services` (list of string, optional, default `[]`)
-- `status` (string, optional, default `"draft"`)
-
-#### `POST /api/v1/blueprints/{bp_id}/bind-to-scope`
-
-Compile the blueprint and bind it to an OU / Site / host-group / host as a `deployment` orchestration plan. The desired-state compiler then folds the stack into every host in that scope — so a freshly PXE-provisioned host that lands in the OU/Site comes up running the blueprint automatically, with no per-host step. Idempotent on the plan name: re-binding adds a new plan version. Honours the L2 approval gate (starts pending_approval unless YOLO / auto_apply).
-
-In the path:
-
-- `bp_id` (string, required)
-
-The JSON body carries:
-
-- `target_type` (string, required)
-- `agent_id` (string, optional)
-- `auto_apply` (true or false, optional, default `false`)
-- `host_group_id` (string, optional)
-- `ou_id` (string, optional)
-- `require_approval` (true or false, optional, default `true`)
-- `site_id` (string, optional)
-
-#### `GET /api/v1/blueprints/{bp_id}/compile`
-
-Compile the blueprint into a typed playbook + wiring/order report. Resolves requirements against the fleet too, and MASKS secret values in this preview.
-
-In the path:
-
-- `bp_id` (string, required)
-
-#### `GET /api/v1/blueprints/{bp_id}/plausibility`
-
-Design-time validation: does every requirement resolve (in-blueprint or on a real fleet host), and is every connection field supplied? Returns {ok, problems[], wiring, unresolved, order}.
-
-In the path:
-
-- `bp_id` (string, required)
-
-#### `POST /api/v1/blueprints/{bp_id}/save-as-runbook`
-
-Compile the blueprint and persist the typed playbook as a Runbook, so the stack can be run (run-runbook), bound to a scope (orchestration link), or delivered as a PXE target_runbook at boot. Idempotent on the runbook name.
-
-In the path:
-
-- `bp_id` (string, required)
-
-#### `GET /api/v1/blueprints/{bp_id}/suggest-providers`
-
-For each requirement that no in-blueprint service satisfies, propose how to fill it: existing fleet hosts that provide it, plus the catalog roles a NEW server would need. Drives step 2 of the designer ("find a matching provider").
-
-In the path:
-
-- `bp_id` (string, required)
-
----
-
 ## checks
 
 The check catalogue: what can be measured, and which hosts a check is assigned to.
@@ -3244,7 +3547,7 @@ The JSON body carries:
 
 #### `POST /api/v1/runbooks/role/compile`
 
-Compile a role into an OrchestrationPlan create-payload (name/display_name/plan_type/version with steps + generated_monitoring + notifications) — POST it to /api/v1/orchestration/plans to store it.
+Publish a role as an immutable OrchestrationPlan version and return its normalized payload.
 
 A role is Ansible task syntax under a `role:` key, plus `monitoring.checks` / `notifications.routes`.
 
@@ -3274,7 +3577,7 @@ In the path:
 
 Replace a runbook's document, linted as on create.
 
-Anything already running keeps the version it started with; a role compiled from this runbook is not recompiled by this call. Editing the source of something that has been used is not the same as changing what was done.
+Anything already running keeps the version it started with. Updating a role publishes a new, immutable orchestration version, but existing deployments stay pinned to their selected version; editing the source is therefore not the same as changing what was deployed.
 
 In the path:
 
@@ -3838,6 +4141,104 @@ One dashboard's widgets. The same answer as `GET /api/v1/dashboard-widgets?dashb
 In the path:
 
 - `dashboard_id` (string, required)
+
+---
+
+## role-deployments
+
+#### `GET /api/v1/role-artifacts`
+
+List Artifacts. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+#### `GET /api/v1/role-deployments`
+
+List Deployments. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+#### `POST /api/v1/role-deployments`
+
+Create. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+The JSON body carries:
+
+- `items` (list of object, required)
+- `name` (string, required)
+- `preview_hash` (string, required)
+- `target` (object, required) — TargetIn
+- `pilot_enabled` (true or false, optional)
+- `require_approval` (true or false, optional)
+
+#### `POST /api/v1/role-deployments/preview`
+
+Preview. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+The JSON body carries:
+
+- `items` (list of object, required)
+- `target` (object, required) — TargetIn
+- `pilot_enabled` (true or false, optional)
+
+#### `GET /api/v1/role-deployments/{deployment_id}`
+
+Get Deployment. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+In the path:
+
+- `deployment_id` (string, required)
+
+#### `POST /api/v1/role-deployments/{deployment_id}/approve`
+
+Approve. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+In the path:
+
+- `deployment_id` (string, required)
+
+#### `POST /api/v1/role-deployments/{deployment_id}/reconcile`
+
+Reconcile Now. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+In the path:
+
+- `deployment_id` (string, required)
+
+#### `POST /api/v1/role-deployments/{deployment_id}/remediate`
+
+Remediate. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+In the path:
+
+- `deployment_id` (string, required)
+
+The JSON body carries:
+
+- `target_ids` (list of string, optional)
+
+#### `POST /api/v1/role-deployments/{deployment_id}/retire`
+
+Retire. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+
+In the path:
+
+- `deployment_id` (string, required)
+
+The JSON body carries:
+
+- `behavior` (string, optional, default `"unmanage"`)
+
+#### `POST /api/v1/role-deployments/{deployment_id}/targets/{target_id}/remove`
+
+Stop managing one role/feature on one host, optionally uninstall it.
+
+Uninstall is deliberately explicit and catalog-backed. Config files are not deleted implicitly; package-manager policy decides whether to retain them, and the deployment simply stops enforcing them.
+
+In the path:
+
+- `deployment_id` (string, required)
+- `target_id` (string, required)
+
+The JSON body carries:
+
+- `behavior` (string, optional, default `"unmanage"`)
 
 ---
 
@@ -4823,7 +5224,7 @@ A job is a runbook plus a cron schedule plus a scope (host, group, OU). The sche
 
 Schedule a runbook. Nothing runs on creation.
 
-The scope is resolved **at fire time**, not now — a host that joins the group later is included, which is usually the point of a recurring job and occasionally a surprise. Use `.../run` to fire it once by hand without touching the schedule.
+The scope is resolved **at fire time**, not now — a host that joins the group later is included, which is usually the point of a recurring job and occasionally a surprise. Use `.../run-now` to fire it once by hand without touching the schedule.
 
 The JSON body carries:
 
@@ -4891,6 +5292,7 @@ The JSON body carries:
 
 - `agent_ids` (list of string, required)
 - `dry_run` (true or false, optional, default `true`)
+- `kbs` (list of string, optional, default `[]`)
 - `security_only` (true or false, optional, default `true`)
 
 #### `GET /api/v1/security/cves`
@@ -5033,6 +5435,59 @@ In the path:
 
 ---
 
+## vm
+
+Virtual machine lifecycle on a hypervisor.
+
+**These endpoints change a host or this server.** Where a module or a resource is
+involved, `dry_run: true` returns the plan instead of applying it — use it first.
+
+#### `GET /api/v1/vm`
+
+Lab VMs and their state. 503 when the lab is not configured.
+
+#### `POST /api/v1/vm/install`
+
+Install a disk template from an ISO in the nested-virt lab.
+
+Drives QEMU inside the pxe container; the UI attaches a noVNC console to watch it. **503 when the lab is not configured** (`BOSSMAN_PXE_CONTAINER` empty) rather than 500 — a deployment without the pxe profile degrades cleanly instead of looking broken.
+
+The JSON body carries:
+
+- `disk` (string, required) — Template disk filename to create/attach
+- `iso` (string, required) — Installer ISO filename in the lab's ISO dir
+- `name` (string, required) — VM name (also the disk/console handle)
+- `disk_gib` (whole number, optional, default `40`)
+
+#### `POST /api/v1/vm/pxe-test`
+
+Boot a lab VM against the real PXE path, end to end.
+
+This is the rehearsal for bare-metal provisioning: same boot chain, same profile lookup, same imaging steps, on a machine nobody minds. 503 when the lab is not configured.
+
+The JSON body carries:
+
+- `disk` (string, required) — Blank target disk to receive the restore
+- `mac` (string, required) — NIC MAC the DHCP/PXE flow keys on
+- `name` (string, required)
+- `disk_gib` (whole number, optional, default `60`)
+
+#### `GET /api/v1/vm/status`
+
+Whether the lab can be used at all, and if not, why — always 200.
+
+The lab is optional and its pxe container may be stopped; that is a STATE of this deployment, not an error of the request, so the UI asks here first and shows the reason instead of polling `GET /api/v1/vm` into a stream of 503s. Probes with the same `vm-control list` the listing uses.
+
+#### `POST /api/v1/vm/{name}/stop`
+
+Stop a lab VM. Stopping one that is already stopped is not an error — the end state is what was asked for. 503 when the lab is not configured.
+
+In the path:
+
+- `name` (string, required)
+
+---
+
 ## change-proposals
 
 Changes waiting for a human decision, with the reasoning that produced them.
@@ -5056,7 +5511,7 @@ In the path:
 
 #### `POST /api/v1/change-proposals/{proposal_id}/approve`
 
-Approve → apply the change for real, recording the outcome + who approved.
+Approve → apply the change for real, recording the outcome + who approved. A diagnosis remedy (kind "remedy") is approved but NOT executed: four-eyes, then the artifacts are attached for a person or pipeline.
 
 In the path:
 
@@ -5162,53 +5617,6 @@ In the path:
 The JSON body carries:
 
 - `mappings` (object, required)
-- `name` (string, required)
-
----
-
-## vm
-
-Virtual machine lifecycle on a hypervisor.
-
-**These endpoints change a host or this server.** Where a module or a resource is
-involved, `dry_run: true` returns the plan instead of applying it — use it first.
-
-#### `GET /api/v1/vm`
-
-Lab VMs and their state. 503 when the lab is not configured.
-
-#### `POST /api/v1/vm/install`
-
-Install a disk template from an ISO in the nested-virt lab.
-
-Drives QEMU inside the pxe container; the UI attaches a noVNC console to watch it. **503 when the lab is not configured** (`BOSSMAN_PXE_CONTAINER` empty) rather than 500 — a deployment without the pxe profile degrades cleanly instead of looking broken.
-
-The JSON body carries:
-
-- `disk` (string, required) — Template disk filename to create/attach
-- `iso` (string, required) — Installer ISO filename in the lab's ISO dir
-- `name` (string, required) — VM name (also the disk/console handle)
-- `disk_gib` (whole number, optional, default `40`)
-
-#### `POST /api/v1/vm/pxe-test`
-
-Boot a lab VM against the real PXE path, end to end.
-
-This is the rehearsal for bare-metal provisioning: same boot chain, same profile lookup, same imaging steps, on a machine nobody minds. 503 when the lab is not configured.
-
-The JSON body carries:
-
-- `disk` (string, required) — Blank target disk to receive the restore
-- `mac` (string, required) — NIC MAC the DHCP/PXE flow keys on
-- `name` (string, required)
-- `disk_gib` (whole number, optional, default `60`)
-
-#### `POST /api/v1/vm/{name}/stop`
-
-Stop a lab VM. Stopping one that is already stopped is not an error — the end state is what was asked for. 503 when the lab is not configured.
-
-In the path:
-
 - `name` (string, required)
 
 ---
@@ -6015,6 +6423,74 @@ In the path:
 Query parameters:
 
 - `refresh` (true or false, optional, default `false`)
+
+---
+
+## patch-rings
+
+Rolling Windows updates out in ordered waves with a health gate — a staged rollout whose action is the update.
+
+**These endpoints change a host or this server.** Where a module or a resource is
+involved, `dry_run: true` returns the plan instead of applying it — use it first.
+
+#### `POST /api/v1/patch-rings`
+
+Plan a Windows patch ring. **Nothing installs until `/api/v1/rollouts/{id}/start`.**
+
+The scope is expanded now and frozen into waves (a host added to a group later is not pulled into a running ring). Only Windows hosts are kept; every other host in the scope is returned in `skipped` with its reason, never silently dropped. 422 when no Windows host matched.
+
+The JSON body carries:
+
+- `name` (string, required)
+- `scope_type` (string, required)
+- `accept_list` (list of string, optional, default `[]`)
+- `agent_id` (string, optional)
+- `by_ou` (true or false, optional, default `false`)
+- `canary` (true or false, optional, default `true`)
+- `category_names` (list of string, optional, default `[]`)
+- `dry_run` (true or false, optional, default `true`)
+- `host_group_id` (string, optional)
+- `max_fail_pct` (number, optional, default `0.0`)
+- `one_at_a_time` (true or false, optional, default `false`)
+- `ou_id` (string, optional)
+- `reboot` (string, optional, default `"never"`)
+- `reject_list` (list of string, optional, default `[]`)
+- `state` (string, optional, default `"installed"`)
+- `strategy` (list of string, optional, default `[1, "25%", "rest"]`)
+- `wait_seconds` (whole number, optional, default `300`)
+
+---
+
+## provisioning
+
+Minting a database credential for a host: create the DB+user on a provider, store it for the consumer as a vault handle.
+
+**These endpoints change a host or this server.** Where a module or a resource is
+involved, `dry_run: true` returns the plan instead of applying it — use it first.
+
+#### `POST /api/v1/provision/database`
+
+Out-of-band credential provisioning (secret-safe): create the DB+user on the provider via the agent `command` module, then store the password for the consumer as a vault handle in its host_vars. No plaintext is persisted and no agent module is required.
+
+The JSON body carries:
+
+- `admin_password` (string, required)
+- `admin_user` (string, required)
+- `consumer_agent_id` (string, required)
+- `db_name` (string, required)
+- `db_user` (string, required)
+- `provider_agent_id` (string, required)
+- `backend` (string, optional, default `"mysql"`)
+- `container` (string, optional)
+- `exec` (string, optional, default `"local"`)
+- `existing_agent_id` (string, optional)
+- `existing_host_group_id` (string, optional)
+- `existing_key` (string, optional)
+- `existing_ou_id` (string, optional)
+- `existing_scope_type` (string, optional)
+- `password` (string, optional, default `""`)
+- `password_mode` (string, optional, default `"generate"`)
+- `targets` (object, optional, default `{}`)
 
 ---
 

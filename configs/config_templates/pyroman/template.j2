@@ -1,107 +1,52 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          firewall
-# Required-Start:    $local_fs $remote_fs
-# Required-Stop:
-# Default-Start:     S
-# Default-Stop:
-# Short-Description: Initialize iptables firewall via pyroman
-# Description: Initialize iptables firewall via pyroman
-### END INIT INFO
+# Pyroman: iptables Built-in Chain Definitions
+# This block defines the default policies for standard iptables chains (filter, nat, mangle tables).
+# Each line calls `add_chain` to register the chain with the specified default policy.
+# Variable names match schema fields exactly. Defaults are applied via Jinja2 `default` filter.
 
-# Author: Erich Schubert <erich@debian.org>
+# Default policy for the INPUT chain (filter table).
+# Controls packets destined for the local system.
+add_chain("INPUT",                     default="{{ input_policy | default('DROP') }}")
 
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
+# Default policy for the OUTPUT chain (filter table).
+# Controls packets originating from the local system.
+add_chain("OUTPUT",                    default="{{ output_policy | default('DROP') }}")
 
-# Description of the service.
-DESC="{{ desc | default('Pyroman firewall') }}"
+# Default policy for the FORWARD chain (filter table).
+# Controls packets passing through the local system (routing).
+add_chain("FORWARD",                   default="{{ forward_policy | default('DROP') }}")
 
-# Name of the package/daemon.
-NAME={{ name | default('pyroman') }}
+# --- NAT Table Chains ---
 
-DAEMON=/usr/sbin/$NAME
+# Default policy for the OUTPUT chain in the nat table.
+# Controls NAT for locally generated packets.
+add_chain("OUTPUT",      id="natOUT",  default="{{ nat_output_policy | default('ACCEPT') }}", table="nat")
 
-# Arguments passed to the daemon.
-DAEMON_ARGS="{{ daemon_args | default('--init') }}"
+# Default policy for the PREROUTING chain in the nat table.
+# Controls NAT for incoming packets before routing decision.
+add_chain("PREROUTING",  id="natPRE",  default="{{ nat_prerouting_policy | default('ACCEPT') }}", table="nat")
 
-SCRIPTNAME=/etc/init.d/$NAME
+# Default policy for the POSTROUTING chain in the nat table.
+# Controls NAT for outgoing packets after routing decision.
+add_chain("POSTROUTING", id="natPOST", default="{{ nat_postrouting_policy | default('ACCEPT') }}", table="nat")
 
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
+# --- Mangle Table Chains ---
 
-#
-# Function that starts the daemon/service
-#
-do_start()
-{
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	$DAEMON $DAEMON_ARGS || return 2
-	return 0
-}
+# Default policy for the INPUT chain in the mangle table.
+# Controls packet modification before routing decision for incoming traffic.
+add_chain("INPUT",       id="manIN",   default="{{ mangle_input_policy | default('ACCEPT') }}", table="mangle")
 
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
+# Default policy for the OUTPUT chain in the mangle table.
+# Controls packet modification for locally generated traffic.
+add_chain("OUTPUT",      id="manOUT",  default="{{ mangle_output_policy | default('ACCEPT') }}", table="mangle")
 
-	# there is no "stop" defined, this is not a daemon
-	return 1
-}
+# Default policy for the FORWARD chain in the mangle table.
+# Controls packet modification for routed traffic.
+add_chain("FORWARD",     id="manFWD",  default="{{ mangle_forward_policy | default('ACCEPT') }}", table="mangle")
 
-. /lib/lsb/init-functions
+# Default policy for the PREROUTING chain in the mangle table.
+# Controls packet modification before routing decision for incoming traffic.
+add_chain("PREROUTING",  id="manPRE",  default="{{ mangle_prerouting_policy | default('ACCEPT') }}", table="mangle")
 
-case "$1" in
-  start)
-	log_daemon_msg "Starting $DESC"
-	do_start
-	case "$?" in
-		0|1) log_end_msg 0 ;;
-		2) log_end_msg 1 ;;
-	esac
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) log_end_msg 0 ;;
-		2) log_end_msg 1 ;;
-	esac
-	;;
-  restart|force-reload)
-	#
-	# If the "reload" option is implemented then remove the
-	# 'force-reload' alias
-	#
-	log_daemon_msg "Restarting $DESC"
-	do_stop
-	case "$?" in
-	  0|1)
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-	  	# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
-	exit 3
-	;;
-esac
-
-:
+# Default policy for the POSTROUTING chain in the mangle table.
+# Controls packet modification for outgoing traffic.
+add_chain("POSTROUTING", id="manPOST", default="{{ mangle_postrouting_policy | default('ACCEPT') }}", table="mangle")

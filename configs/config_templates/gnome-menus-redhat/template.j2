@@ -1,0 +1,238 @@
+{#
+  gnome-menus-redhat: FreeDesktop Menu Specification (menu-spec)
+  This template generates the main Applications menu configuration file
+  for GNOME-based desktops on Red Hat derivatives.
+
+  The configuration defines submenus (Accessories, System, Utilities, etc.)
+  and applies inclusion/exclusion rules based on desktop file names.
+#}
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+
+<Menu>
+
+  <Name>Applications</Name>
+  <Directory>X-GNOME-Menu-Applications.directory</Directory>
+
+  <!-- Read standard .directory and .desktop file locations -->
+  <DefaultAppDirs/>
+  <DefaultDirectoryDirs/>
+
+  <!-- Read in overrides and child menus from applications-merged/ -->
+  <DefaultMergeDirs/>
+
+  <!-- Accessories submenu -->
+  <Menu>
+    <Name>Accessories</Name>
+    <Directory>Utility.directory</Directory>
+    <Include>
+      <And>
+        <Category>Utility</Category>
+        <!-- Accessibility spec must have either the Utility or Settings
+             category, and we display an accessibility submenu already for
+             the ones that do not have Settings, so don't display accessibility
+             applications here -->
+        <Not><Category>Accessibility</Category></Not>
+        <Not><Category>System</Category></Not>
+        <Not><Category>X-GNOME-Utilities</Category></Not>
+      </And>
+      <Filename>org.gnome.Tour.desktop</Filename>
+    </Include>
+    <Exclude>
+      <!-- Exclude everything we put in the X-GNOME-Utilities whitelist.
+
+           Please keep the list alphabetically sorted! -->
+      {# exclusions_accessories: List of filenames to exclude from the Accessories menu. #}
+      {% for filename in (exclusions_accessories | default(['gucharmap.desktop', 'org.gnome.Calculator.desktop', 'org.gnome.DejaDup.desktop', 'org.gnome.Dictionary.desktop', 'org.gnome.DiskUtility.desktop', 'org.gnome.eog.desktop', 'org.gnome.Evince.desktop', 'org.gnome.Extensions.desktop', 'org.gnome.FileRoller.desktop', 'org.gnome.font-viewer.desktop', 'org.gnome.Screenshot.desktop', 'org.gnome.seahorse.Application.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.tweaks.desktop', 'org.gnome.Usage.desktop', 'simple-scan.desktop', 'vinagre.desktop', 'yelp.desktop'])) %}
+      <Filename>{{ filename }}</Filename>
+      {% endfor %}
+    </Exclude>
+  </Menu> <!-- End Accessories -->
+
+
+  <!-- Accessibility submenu -->
+  <Menu>
+    <Name>Universal Access</Name>
+    <Directory>Utility-Accessibility.directory</Directory>
+    <Include>
+      <And>
+        <Category>Accessibility</Category>
+        <Not><Category>Settings</Category></Not>
+      </And>
+    </Include>
+  </Menu> <!-- End Accessibility -->
+
+  <!-- Development Tools -->
+  <Menu>
+    <Name>Development</Name>
+    <Directory>Development.directory</Directory>
+    <Include>
+      <And>
+        <Category>Development</Category>
+      </And>
+      <Filename>emacs.desktop</Filename>
+    </Include>
+  </Menu> <!-- End Development Tools -->
+
+  <!-- Education -->
+  <Menu>
+    <Name>Education</Name>
+    <Directory>Education.directory</Directory>
+    <Include>
+      <And>
+        <Category>Education</Category>
+      </And>
+    </Include>
+  </Menu> <!-- End Education -->
+
+  <!-- Games -->
+  <Menu>
+    <Name>Games</Name>
+    <Directory>Game.directory</Directory>
+    <Include>
+      <And>
+        <Category>Game</Category>
+      </And>
+    </Include>
+  </Menu> <!-- End Games -->
+
+  <!-- Graphics -->
+  <Menu>
+    <Name>Graphics</Name>
+    <Directory>Graphics.directory</Directory>
+    <Include>
+      <And>
+        <Category>Graphics</Category>
+        <Not><Filename>org.gnome.eog.desktop</Filename></Not>
+        <Not><Filename>org.gnome.Evince.desktop</Filename></Not>
+        <Not><Filename>simple-scan.desktop</Filename></Not>
+      </And>
+    </Include>
+  </Menu> <!-- End Graphics -->
+
+  <!-- Internet -->
+  <Menu>
+    <Name>Internet</Name>
+    <Directory>Network.directory</Directory>
+    <Include>
+      <And>
+        <Category>Network</Category>
+        <Not><Category>X-GNOME-WebApplication</Category></Not>
+      </And>
+    </Include>
+
+    <Exclude>
+      <!-- Utilities exclusions -->
+      <Filename>vinagre.desktop</Filename>
+    </Exclude>
+  </Menu>   <!-- End Internet -->
+
+  <!-- FIXME: BROKEN: Web Applications -->
+  <Menu>
+    <Name>Web Applications</Name>
+    <Directory>X-GNOME-WebApplications.directory</Directory>
+    <Include>
+      <And>
+        <Category>Network</Category>
+        <Category>X-GNOME-WebApplication</Category>
+      </And>
+    </Include>
+  </Menu>
+
+  <!-- Multimedia -->
+  <Menu>
+    <Name>Multimedia</Name>
+    <Directory>AudioVideo.directory</Directory>
+    <Include>
+      <And>
+        <Category>AudioVideo</Category>
+      </And>
+    </Include>
+  </Menu>   <!-- End Multimedia -->
+
+  <!-- Office -->
+  <Menu>
+    <Name>Office</Name>
+    <Directory>Office.directory</Directory>
+    <Include>
+      <And>
+        <Category>Office</Category>
+        <Not><Filename>org.gnome.Dictionary.desktop</Filename></Not>
+        <Not><Filename>org.gnome.Evince.desktop</Filename></Not>
+      </And>
+    </Include>
+  </Menu> <!-- End Office -->
+
+  <!-- System Tools-->
+  <Menu>
+    <Name>System</Name>
+    <Directory>System-Tools.directory</Directory>
+    <Include>
+      <And>
+        <Category>System</Category>
+        <Not><Category>Settings</Category></Not>
+        <Not><Category>X-GNOME-Utilities</Category></Not>
+      </And>
+      {# inclusions_system: List of filenames to include in the System menu. #}
+      {% for filename in (inclusions_system | default(['gnome-system-monitor.desktop', 'org.gnome.baobab.desktop', 'org.gnome.DiskUtility.desktop', 'org.gnome.Software.desktop', 'org.gnome.Usage.desktop'])) %}
+      <Filename>{{ filename }}</Filename>
+      {% endfor %}
+    </Include>
+
+    <Exclude>
+      <!-- Utilities exclusions -->
+      {# exclusions_system: List of filenames to exclude from the System menu. #}
+      {% for filename in (exclusions_system | default(['gnome-abrt.desktop', 'gnome-system-log.desktop', 'org.gnome.Terminal.desktop'])) %}
+      <Filename>{{ filename }}</Filename>
+      {% endfor %}
+    </Exclude>
+  </Menu>   <!-- End System Tools -->
+
+  <!-- System Settings -->
+  <Menu>
+    <Name>System Settings</Name>
+    <Directory>X-GNOME-SystemSettings.directory</Directory>
+    <Include>
+      <Category>X-GNOME-Settings-Panel</Category>
+    </Include>
+  </Menu>
+
+  <!-- Utilities submenu -->
+  <Menu>
+    <Name>Utilities</Name>
+    <Directory>X-GNOME-Utilities.directory</Directory>
+    <Include>
+      {# inclusions_utilities: List of filenames to include in the Utilities menu. #}
+      {% for filename in (inclusions_utilities | default(['gnome-abrt.desktop', 'gnome-control-center.desktop', 'gnome-system-log.desktop', 'gucharmap.desktop', 'nm-connection-editor.desktop', 'org.gnome.Calculator.desktop', 'org.gnome.DejaDup.desktop', 'org.gnome.Dictionary.desktop', 'org.gnome.eog.desktop', 'org.gnome.Evince.desktop', 'org.gnome.Extensions.desktop', 'org.gnome.FileRoller.desktop', 'org.gnome.fonts.desktop', 'org.gnome.Screenshot.desktop', 'org.gnome.seahorse.Application.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.tweaks.desktop', 'simple-scan.desktop', 'vinagre.desktop', 'yelp.desktop'])) %}
+      <Filename>{{ filename }}</Filename>
+      {% endfor %}
+    </Include>
+    <Exclude>
+      {# exclusions_utilities: List of filenames to exclude from the Utilities menu. #}
+      {% for filename in (exclusions_utilities | default(['org.gnome.baobab.desktop', 'org.gnome.DiskUtility.desktop', 'org.gnome.Usage.desktop'])) %}
+      <Filename>{{ filename }}</Filename>
+      {% endfor %}
+    </Exclude>
+  </Menu>
+
+  <!-- Other -->
+  <Menu>
+    <Name>Other</Name>
+    <Directory>X-GNOME-Other.directory</Directory>
+    <OnlyUnallocated/>
+    <Include>
+      <And>
+        <Not><Category>Core</Category></Not>
+        <Not><Category>Screensaver</Category></Not>
+
+      </And>
+    </Include>
+  </Menu> <!-- End Other -->
+
+   <Layout>
+     <Merge type="menus" />
+     <Menuname>Other</Menuname>
+     <Merge type="files" />
+   </Layout>
+
+</Menu> <!-- End Applications -->

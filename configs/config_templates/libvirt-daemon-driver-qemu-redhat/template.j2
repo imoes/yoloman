@@ -1,0 +1,107 @@
+# ==============================================================================
+# libvirt-daemon-driver-qemu: Disk Locking Configuration
+# ==============================================================================
+# This section configures how libvirt handles file and block device locking for
+# virtual machine disks. It is critical for environments with shared storage
+# (SAN, NFS, iSCSI) to prevent data corruption from concurrent access.
+#
+# Reference: libvirt locking documentation
+# ==============================================================================
+
+# ---------------------------------------------------------------------------
+# auto_disk_leases
+# ---------------------------------------------------------------------------
+# Description:
+#   Disable direct lock acquisition against disk files/block devices.
+#   - 0 (disabled): libvirt uses standard file locks (fcntl/flock).
+#   - 1 (enabled):  libvirt uses lease-based locking (F_SETLKW with leases).
+#   This is generally required for shared storage solutions that do not
+#   support standard file locking across multiple hosts.
+#
+# Default: 0 (disabled)
+# ---------------------------------------------------------------------------
+# If auto_disk_leases is explicitly set, use that value; otherwise default to 0.
+{% if auto_disk_leases is defined and auto_disk_leases is not none and (auto_disk_leases is number or auto_disk_leases is boolean or auto_disk_leases | length > 0) %}auto_disk_leases = {{ auto_disk_leases | default('0') }}{% else %}#auto_disk_leases = 0{% endif %}
+
+# ---------------------------------------------------------------------------
+# require_lease_for_disks
+# ---------------------------------------------------------------------------
+# Description:
+#   Require <lease> elements in guest XML configuration if auto_disk_leases is
+#   disabled.
+#   - 0 (disabled): Guests without <lease> tags can start (unsafe on some shared
+#                   storage if auto_disk_leases is also off).
+#   - 1 (enabled):  Guests MUST have a <lease> element in their XML config.
+#
+# Logic:
+#   If 'auto_disk_leases' is disabled (0), this setting effectively defaults
+#   to enabled (1) in upstream logic to enforce safety, but here we allow
+#   explicit override.
+#
+# Default: 1 (enabled)
+# ---------------------------------------------------------------------------
+# If require_lease_for_disks is explicitly set, use that value; otherwise default to 1.
+{% if require_lease_for_disks is defined and require_lease_for_disks is not none and (require_lease_for_disks is number or require_lease_for_disks is boolean or require_lease_for_disks | length > 0) %}require_lease_for_disks = {{ require_lease_for_disks | default('1') }}{% else %}#require_lease_for_disks = 1{% endif %}
+
+# ---------------------------------------------------------------------------
+# file_lockspace_dir
+# ---------------------------------------------------------------------------
+# Description:
+#   Directory for indirect lockspace using hashed file paths for shared storage.
+#
+#   When set, libvirt creates a hash of the disk's file path and acquires
+#   locks on files within this directory instead of the actual device files.
+#   This is useful if the underlying filesystem does not support fcntl() locks
+#   or if paths refer to block devices shared across multiple hosts where
+#   /dev fcntl() locks don't propagate.
+#
+#   Typically located on a shared filesystem visible to all hosts.
+#
+# Default: /var/lib/libvirt/lockd/files
+# ---------------------------------------------------------------------------
+{% if file_lockspace_dir is defined and file_lockspace_dir is not none and file_lockspace_dir != '' %}
+{% if file_lockspace_dir is defined and file_lockspace_dir is not none and (file_lockspace_dir is number or file_lockspace_dir is boolean or file_lockspace_dir | length > 0) %}file_lockspace_dir = "{{ file_lockspace_dir }}"{% else %}#file_lockspace_dir = "/var/lib/libvirt/lockd/files"{% endif %}
+{% else %}
+#file_lockspace_dir = "/var/lib/libvirt/lockd/files"
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# lvm_lockspace_dir
+# ---------------------------------------------------------------------------
+# Description:
+#   Directory for UUID-based locking for LVM volumes on shared storage.
+#
+#   When using LVM volumes visible across multiple hosts, path-based locking
+#   is unreliable because device names (/dev/mapper/...) can change.
+#   Setting this path causes libvirt to use the LVM UUID for locking,
+#   creating lock files in this directory hashed by UUID.
+#
+#   Typically located on a shared filesystem visible to all hosts.
+#
+# Default: /var/lib/libvirt/lockd/lvmvolumes
+# ---------------------------------------------------------------------------
+{% if lvm_lockspace_dir is defined and lvm_lockspace_dir is not none and lvm_lockspace_dir != '' %}
+{% if lvm_lockspace_dir is defined and lvm_lockspace_dir is not none and (lvm_lockspace_dir is number or lvm_lockspace_dir is boolean or lvm_lockspace_dir | length > 0) %}lvm_lockspace_dir = "{{ lvm_lockspace_dir }}"{% else %}#lvm_lockspace_dir = "/var/lib/libvirt/lockd/lvmvolumes"{% endif %}
+{% else %}
+#lvm_lockspace_dir = "/var/lib/libvirt/lockd/lvmvolumes"
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# scsi_lockspace_dir
+# ---------------------------------------------------------------------------
+# Description:
+#   Directory for UUID-based locking for SCSI volumes on shared storage.
+#
+#   Similar to lvm_lockspace_dir, this enables UUID-based locking for raw
+#   SCSI devices (e.g., /dev/sdX) that are shared across multiple hosts.
+#   This prevents lock conflicts when device names vary between nodes.
+#
+#   Typically located on a shared filesystem visible to all hosts.
+#
+# Default: /var/lib/libvirt/lockd/scsivolumes
+# ---------------------------------------------------------------------------
+{% if scsi_lockspace_dir is defined and scsi_lockspace_dir is not none and scsi_lockspace_dir != '' %}
+{% if scsi_lockspace_dir is defined and scsi_lockspace_dir is not none and (scsi_lockspace_dir is number or scsi_lockspace_dir is boolean or scsi_lockspace_dir | length > 0) %}scsi_lockspace_dir = "{{ scsi_lockspace_dir }}"{% else %}#scsi_lockspace_dir = "/var/lib/libvirt/lockd/scsivolumes"{% endif %}
+{% else %}
+#scsi_lockspace_dir = "/var/lib/libvirt/lockd/scsivolumes"
+{% endif %}

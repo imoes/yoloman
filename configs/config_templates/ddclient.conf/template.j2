@@ -23,11 +23,11 @@ daemon = {{ daemon_interval | default(300) | int }}
 
 # Protocol to use for dynamic DNS updates
 # Schema: protocol (string, default='dyndns2'). Examples: dyndns2, namesilo, cloudflare.
-protocol = {{ protocol | default('dyndns2') }}
+{% if protocol is defined and protocol is not none and protocol != '' %}protocol = {{ protocol }}{% else %}#protocol=dyndns2				# default protocol{% endif %}
 
 # Default server to connect to (can be overridden per account)
 # Schema: default_server (string, default='dynupdate.no-ip.com')
-server = {{ default_server | default('dynupdate.no-ip.com') }}
+{% if default_server is defined and default_server is not none and default_server != '' %}server = {{ default_server }}{% else %}#server=members.dyndns.org			# default server{% endif %}
 
 # Use SSL/TLS for connections (if supported by protocol)
 # Schema: use_ssl (bool, default=True)
@@ -36,8 +36,8 @@ use_ssl = {{ use_ssl | default(True) | lower }}
 # Login and password for default account (if no per-host credentials defined)
 # Schema: default_login (string, default='')
 # Schema: default_password (string, default='')
-login = {{ default_login | default('') }}
-password = {{ default_password | default('') }}
+{% if default_login is defined and default_login is not none and default_login != '' %}login = {{ default_login }}{% else %}#login=your-login				# default login{% endif %}
+{% if default_password is defined and default_password is not none and default_password != '' %}password = {{ default_password }}{% else %}#password=test					# default password{% endif %}
 
 # List of hosts to update
 # Schema: hosts (list, default=[]). Each item is a mapping with optional keys:

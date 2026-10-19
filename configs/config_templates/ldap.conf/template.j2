@@ -6,20 +6,22 @@
 
 # Default base DN for LDAP searches (e.g., 'dc=myorg,dc=local')
 # Used by client tools as the starting point for directory lookups.
-BASE {{ base_dn | default('dc=example,dc=com') }}
+{% if base_dn is defined and base_dn is not none and (base_dn is number or base_dn is boolean or base_dn | length > 0) %}BASE {{ base_dn | default('dc=example,dc=com') }}{% else %}#BASE	dc=example,dc=com{% endif %}
 
 # Maximum number of entries to return from a search; 0 means unlimited.
 # Prevents accidental retrieval of massive result sets that could degrade performance.
-# SIZELIMIT {{ sizelimit | default(1000) }}
-
+{% if sizelimit is defined and sizelimit is not none and (sizelimit is number or sizelimit is boolean or sizelimit | length > 0) %}SIZELIMIT {{ sizelimit | default(1000) }}
+{% else %}#SIZELIMIT	12
+{% endif %}
 # Maximum time (seconds) to wait for a server connection and response.
 # 0 means unlimited, which may cause client hangs on unresponsive servers.
-# TIMELIMIT {{ timelimit | default(10) }}
-
+{% if timelimit is defined and timelimit is not none and (timelimit is number or timelimit is boolean or timelimit | length > 0) %}TIMELIMIT {{ timelimit | default(10) }}
+{% else %}#TIMELIMIT	15
+{% endif %}
 # LDAP server URI(s) — space-separated for failover.
 # Supports ldap://, ldaps://, and ldapi:// schemes.
 # Order determines priority; clients typically try URIs in sequence.
-URI {{ uri | default('ldap://127.0.0.1/') }}
+{% if uri is defined and uri is not none and (uri is number or uri is boolean or uri | length > 0) %}URI {{ uri | default('ldap://127.0.0.1/') }}{% else %}#URI	ldap://ldap.example.com ldap://ldap-provider.example.com:666{% endif %}
 
 # LDAP protocol version to use (1, 2, or 3).
 # Version 3 is the modern standard with better security and functionality.

@@ -1,20 +1,29 @@
 #
-# Multi-Category Security translation table for SELinux
+# Multi-Category Security (MLS) translation table for SELinux.
 #
-# This file defines how SELinux maps internal MLS (Multi-Level Security)
-# category labels to human-readable descriptions. It is consumed by the
-# SELinux policy libraries to present meaningful labels to administrators.
+# This file defines how SELinux internal MLS range identifiers (e.g., s0:c0.c1023)
+# are translated into human-readable labels for logging and administration.
 #
-# Format: one entry per line: <mls_label>=<human_readable_label>
+# Each line follows the format:
+#   <range>=<label>
 #
-# Example entries:
-# s0:c0=CompanyConfidential
-# s0:c1=PatientRecord
-# s0:c2=Unclassified
-# s0:c3=TopSecret
-# s0:c1,c3=CompanyConfidentialRedHat
+# To disable translation, uncomment the line below:
+# disable=1
 #
+# Objects can be categorized with 0-1023 categories defined by the admin.
+# Objects can belong to multiple categories simultaneously.
+# Categories are stored in the system as c0 through c1023.
+#
+# Examples of valid translations:
+#   s0:c0=CompanyConfidential
+#   s0:c1=PatientRecord
+#   s0:c2=Unclassified
+#   s0:c3=TopSecret
+#   s0:c0,c3=CompanyConfidentialRedHat
 
-{% for translation in mls_translations | default(['s0=SystemLow', 's0-s0:c0.c1023=SystemLow-SystemHigh', 's0:c0.c1023=SystemHigh']) %}
+# List of Multi-Level Security (MLS) translation rules for SELinux.
+# Each entry maps an MLS range (e.g., 's0:c0.c1023') to a human-readable label.
+# The variable mls_translations is a list of strings.
+{% for translation in (mls_translations | default(['s0=SystemLow', 's0-s0:c0.c1023=SystemLow-SystemHigh', 's0:c0.c1023=SystemHigh'])) %}
 {{ translation }}
 {% endfor %}

@@ -1,773 +1,1078 @@
-#!/bin/bash
-# BEGIN_ICS_COPYRIGHT8 ****************************************
-# 
-# Copyright (c) 2015, Intel Corporation
-# 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-# 
-#     * Redistributions of source code must retain the above copyright notice,
-#       this list of conditions and the following disclaimer.
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#     * Neither the name of Intel Corporation nor the names of its contributors
-#       may be used to endorse or promote products derived from this software
-#       without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
-# END_ICS_COPYRIGHT8   ****************************************
+<?xml version="1.0" encoding="utf-8"?>
+<Config>
 
-### BEGIN INIT INFO
-# Provides:       opafm
-# Required-Start: $remote_fs $syslog
-# Required-Stop:  $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start OPA Fabric Manager
-# Description:    Start the IFS (Omni-Path) InfiniBand Fabric Manager
-### END INIT INFO
+<!-- Common FM configuration, applies to all FM instances/subnets -->
+<Common>
+  <!-- Various sets of Applications which may be used in Virtual Fabrics -->
+  <!-- Applications defined here are available for use in all FM instances. -->
+  <!-- Additional Applications may be defined here or per FM instance. -->
+  <!-- Applications specified per FM instance will add to -->
+  <!-- instead of replace these Application definitions. -->
+  <Applications>
+    <!-- Each Application can have one or more ServiceIDs and/or MGIDs. -->
+    <!-- These will be matched against PathRecord and Multicast SA queries -->
+    <!-- so that the returned SLID/DLID, PKey, SL, etc are appropriate for -->
+    <!-- the Virtual Fabric(VF) which contains the application(s). -->
 
-. /lib/lsb/init-functions
+    <!-- Every Application must have a unique <Name> -->
+    <!-- The name must be unique among all Application names within an -->
+    <!-- FM instance. -->
+    <!-- When defined at Common level must be unique within all instances. -->
+    <!-- The name is limited to 64 characters and is case sensitive. -->
 
-my_rc_status_v()
-{
-	res=$?
-	if [ $res -eq 0 ]
-	then
-		log_success_msg
-	else
-		log_failure_msg
-	fi
-	echo
-	my_rc_status_all=$(($my_rc_status_all || $res))
-}
+    <!-- ServiceIDs are 64 bit values which identify applications within the -->
+    <!-- PathRecord query and are typically used within the InfiniBand -->
+    <!-- Communication Manager (CM) protocol to identify the application for -->
+    <!-- a connection request. -->
+    <!-- In many ways ServiceIDs are IBs equivalent of TCP "socket ports". -->
+    <!-- ServiceIDs can be specified in the following ways in the -->
+    <!-- Application section: -->
+    <!-- a single ServiceID: <ServiceID>0x1234567812345678</ServiceID> -->
+    <!-- a range of ServiceIDs: -->
+    <!---       <ServiceIDRange>0-0xffffffffffffffff</ServiceIDRange> -->
+    <!-- a masked compare of ServiceID: -->
+    <!---       <ServiceIDMasked>0x120003567*0xff000ffff</ServiceIDMasked> -->
+    <!--        Matches ServiceIDs which when ANDed with 2nd value (the -->
+    <!--        mask) match the 1st value -->
+    <!-- all others not in any VF: <Select>UnmatchedServiceID</Select> -->
+    <!--        UnmatchedServiceID matches all applications' ServiceIDs -->
+    <!--        which match none of the Virtual Fabrics after filtering -->
+    <!--        by src/dest/requester. -->
+    <!--        Can be used as an easy catch-all. -->
+    <!-- MGIDs (IB Multicast GIDs) are 128 bit values which identify -->
+    <!-- multicast groups for Unreliable Datagram applications such as IPoIB -->
+    <!-- MGIDs are represented as two 64 bit values separated by a colon (:) -->
+    <!-- This way of representing 128 bit values is the same as used in  -->
+    <!-- other FastFabric Tools such as opasaquery, opashowmc, etc. -->
+    <!-- MGIDs can be specified in the following ways in the Application -->
+    <!-- section: -->
+    <!-- a single MGID: <MGID>0xabc:0x123567</MGID> -->
+    <!-- a range of MGIDs: -->
+    <!--        <MGIDRange>0:0-0xffffffffffffffff:0xffffffffffffffff</MGIDRange> -->
+    <!-- a masked compare of MGID: -->
+    <!--        <MGIDMasked>0xabc:0x120003567*0xfff:0xff000ffff</MGIDMasked> -->
+    <!--        Matches MGIDs which when ANDed with 2nd value (the -->
+    <!--        mask) match the 1st value. -->
+    <!-- all others not in any VF: <Select>UnmatchedMGID</Select> -->
+    <!--        UnmatchedMGID matches all applications' MGIDs which match -->
+    <!--        none of the Virtual Fabrics after filtering by -->
+    <!--        src/dest/requester. -->
+    <!--        Can be used as an easy catch-all -->
 
-my_rc_status_all=0
-my_rc_exit()     { exit $my_rc_status_all; }
-my_rc_status()   { my_rc_status_all=$(($my_rc_status_all || $?)); }
+    <!-- A special case is SA queries.  This special "application" allows -->
+    <!-- SA query operations to be assigned to an appropriate VF.  -->
+    <!-- SA queries must use the default Partition Key (0x7fff or 0xffff). -->
+    <!-- However other aspects of SA access can be controlled (SL, etc). -->
+    <!-- This syntax allows an Application to be specified which includes -->
+    <!-- SA queries: <Select>SA</Select> -->
 
-temp=$(mktemp "/tmp/ifsfmXXXXX")
+    <!-- In addition, an Application can include another Application via: -->
+    <!-- <IncludeApplication>myapplication</IncludeApplication> -->
+    <!-- This will include all the ServiceIDs and MGIDs in the given -->
+    <!-- Application. -->
+    <!-- Loops (including the parent Application) are not allowed. -->
+    <!-- There is a nesting limit of 32. -->
 
-trap "rm -f $temp; exit 1" 1 2 3 9
-trap "rm -f $temp" EXIT
+    <!-- Some predefined Applications follow.  These are also a good set -->
+    <!-- of examples to cut/paste to make other site specific applications: -->
 
-CONFIG_DIR={{ config_dir }}
-CONFIG_FILE=$CONFIG_DIR/opa-fm/opafm.xml	# opafm.info can override
-MAX_INSTANCE={{ max_instance }}	# largest instance number, for when config file bad
+    <!-- All Applications, can be used when per Application VFs not needed -->
+    <Application>
+      <Name>All</Name>
+      <!-- Selects all service ID's -->
+      <ServiceIDRange>0-0xffffffffffffffff</ServiceIDRange>
+      <!-- selects all MGID's -->
+      <MGIDRange>0:0-0xffffffffffffffff:0xffffffffffffffff</MGIDRange>
+      <!-- these are redundant in this case, but don't hurt -->
+      <Select>UnmatchedServiceID</Select>
+      <Select>UnmatchedMGID</Select>
+    </Application>
 
-cmd=$1
-force=n	# flag to force start even if running
-quiet=n	# don't show per manager messages on stop, used by install
-[ "$cmd" = "quietstop" ] && quiet=y	# special case for install
-shift
+    <!-- An application just consisting of SA queries -->
+    <Application>
+      <Name>SA</Name>
+      <Select>SA</Select>
+    </Application>
 
-Usage()
-{
-	echo "Usage: $0 [start|stop|restart|reload|sweep|status]" >&2
-	echo "               [-i instance] [-f] [component|compname|insname] ..." >&2
-	echo " start       - start the selected instances/managers" >&2
-	echo " stop        - stop the selected instances/managers" >&2
-	echo " restart     - restart (eg. stop then start) the selected instances/managers" >&2
-	echo " reload      - reload configuration for the selected instances/managers" >&2
-	echo " sweep       - force a fabric resweep for the selected instances/managers" >&2
-	echo " status      - show status (running/not runing/disabled) for the selected">&2
-    echo "               instances/managers" >&2
-	echo >&2
-	echo " -i instance - an instance to start components for" >&2
-	echo "               specified by number (0 to n) or Name" >&2
-	echo " -f          - force startup even if appears already started" >&2
-	echo " component   - component (sm, or fe) to start for all selected instances" >&2
-	echo " compname    - a specific component specified by Name_sm or Name_fe" >&2
-	echo " insname     - a specific instance by Name" >&2
-	echo >&2
-	echo " reload presently only supports changes to Start parameters" >&2
-	echo " When -i is used, only the specified components in the instance are started">&2
-	echo " -i may be specified more than once to select multiple instances" >&2
-	echo " When a compname is specified, that component is started (regardless of -i)" >&2
-	echo " When a insname is specified, all components of that instance are started" >&2
-	echo " If components are specified, then all components in selected instances are">&2
-    echo " started">&2
-	echo " If no arguments are specified, all instances are acted on" >&2
-	echo " start, restart and sweep will only act on instances and managers enabled" >&2
-	echo " in config file" >&2
-	echo " Examples:" >&2
-	echo " $0 start -i 0 sm fe" >&2
-	echo "     just start sm and fe for instance 0" >&2
-	echo " $0 start -i 0 sm" >&2
-	echo "     just start sm for instance 0" >&2
-	echo " $0 start -i 0 -i 1 sm fe" >&2
-	echo "     just start sm and fe for instance 0,1" >&2
-	echo " $0 start -i 0 -i 1 sm" >&2
-	echo "     just start sm for instance 0,1" >&2
-	echo " $0 start -i 0 -i fm1" >&2
-	echo "     start all for instance 0,1" >&2
-	echo " $0 start -i 0 fm1_sm" >&2
-	echo "     start all for instance 0, just sm for instance 1" >&2
-	echo " $0 start -i 1 fm0 sm" >&2
-	echo "     start sm for instance 1, all for fm0" >&2
-	exit 2
-}
+    <!-- An application just consisting of PA queries -->
+    <Application>
+      <Name>PA</Name>
+      <ServiceID>0x1100d03c34845555</ServiceID>
+    </Application>
 
-init_config()
-{
-	local i
+    <!-- An application just consisting of PM sweep traffic -->
+    <Application>
+      <Name>PM</Name>
+      <Select>PM</Select>
+    </Application>
 
-	# set up some default instances to facilitate stop
-	i=0
-	while [ $i -le $MAX_INSTANCE ]
-	do
-		INSTANCES_NAME[$i]="fm$i"
-		INSTANCES_EXIST[$i]=0
-		INSTANCES_SM[$i]=0
-		INSTANCES_FE[$i]=0
-		i=$(($i + 1))
-	done
-}
+    <!-- IPv4 over IB (IETF UD mode) for all partitions -->
+    <Application>
+      <Name>IPv4</Name>
+      <!-- MGID = 0xffFS401bPPPP0000:00000000GGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00401b00000000:0*0xff00ffff0000ffff:0xffffffff00000000</MGIDMasked>
+    </Application>
 
-invalid_config()
-{
-	local i
+    <!-- Sample of IPv4 over IB (IETF UD mode) for PKey 0x8002/0x0002 -->
+    <Application>
+      <Name>IPv4_0002</Name>
+      <!-- MGID = 0xffFS401bPPPP0000:00000000GGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00401b80020000:0*0xff00ffffffffffff:0xffffffff00000000</MGIDMasked>
+    </Application>
 
-	VALID_CONFIG=n
-	# set up some default instances to facilitate stop
-	init_config
-}
+    <!-- IPv6 over IB (IETF UD mode) for all partitions -->
+    <Application>
+      <Name>IPv6</Name>
+      <!-- MGID = 0xffFS601bPPPPGGGG:GGGGGGGGGGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00601b00000000:0*0xff00ffff00000000:0</MGIDMasked>
+    </Application>
 
-test_start()
-{
-	# $1=parameter name
-	# $2=value, must be 0 or 1
-	# test value is a valid start value (0 or 1)
-	if [ "$2" -eq 0 -o "$2" -eq 1 ]
-	then
-		return 0
-	else
-		[ "$quiet" != y ] && echo "Error: $CONFIG_FILE Invalid $1 value: $2" >&2
-		invalid_config
-		return 1
-	fi
-}
+    <!-- Sample of IPv6 over IB (IETF UD mode) for PKey 0x8002/0x0002 -->
+    <Application>
+      <Name>IPv6_0002</Name>
+      <!-- MGID = 0xffFS601bPPPPGGGG:GGGGGGGGGGGGGGGG -->
+      <!-- where F=flags, S=scope, P=PKey and G=IP Multicast Group -->
+      <MGIDMasked>0xff00601b80020000:0*0xff00ffffffff0000:0</MGIDMasked>
+    </Application>
 
-# examine config file for Start tags
-# build arrays of instance names and SM/FE start values
-# outputs arrays indicating final enabled/disabled Start status for
-# each manager in each instance:
-# INSTANCES_NAME, INSTANCES_SM, INSTANCES_FE
-get_config()
-{
-	local COMMON_SM_START COMMON_FE_START
-	local INSTANCES_START
-	local i IFS EXTRACT_CMD
+    <!-- IPoIB Connected Mode (IPv4 and IPv6) -->
+    <Application>
+      <Name>IPoIBCM</Name>
+      <!-- Unlike UD mode the ServiceID does not include PKey -->
+      <!-- ServiceID = 0x1000000000XXXXXX where XXXXXX is QPN -->
+      <ServiceIDMasked>0x1000000000000000*0xffffffffff000000</ServiceIDMasked>
+    </Application>
 
-	VALID_CONFIG=y
+    <!-- Reliable Datagram Service (RDS) (for Oracle) -->
+    <Application>
+      <Name>RDS</Name>
+      <!-- ServiceID = 0x000000000106XXXX where XXXX is socket "port number" -->
+      <ServiceIDRange>0x0000000001060000-0x000000000106ffff</ServiceIDRange>
+    </Application>
 
-	# start values from <Common> section
-	COMMON_SM_START=1	# Common.Sm.Start
-	COMMON_FE_START=1	# Common.Fe.Start
+    <!-- Unfortunately, none of the OFA Verbs MPIs use the SA nor CM. -->
+    <!-- Hence to put an MPI job in its own Virtual Fabric, the PKey/SL of -->
+    <!-- the desired Virtual fabric must be manually provided to the MPI run -->
+    <Application>
+      <Name>VerbsMPI</Name>
+      <!-- <ServiceID>TBD</ServiceID> -->
+    </Application>
 
-	INSTANCES_START=	# Fm.Shared.Start
+    <!-- HPC Libraries (MPI, SHMEM, etc) which use PSM can query the SA and -->
+    <!-- hence can use service IDs to select the desired Virtual Fabric. -->
 
-	# these arrays are the final output of this function
-	# arrays of information about each instance from <Fm> section
-	INSTANCES_NAME=		# Fm.Shared.Name
-	INSTANCES_EXIST=	# was instance found in config file
-	INSTANCES_SM=		# final Start enable for Sm in instance
-	INSTANCES_FE=		# final Start enable for Fe in instance
-	# manager start requires Fm.Shared.Start
-	# Common.x.Start is overall setting, then Fm.X.Start can override
+    <!-- when separating PSM Control from Data Traffic: -->
+    <!-- 1st Service ID in range is used for Control traffic. -->
+    <!-- This will be the service ID used on the command line. -->
+    <Application>
+      <Name>PSM_Control</Name>
+      <ServiceIDRange>0x1000117500000000-0x1000117500000007</ServiceIDRange>
+      <!-- for simplicity, when serviceId is needed on mpirun command line -->
+      <!-- we also allow serviceId 0x1 to 0x7. -->
+      <ServiceIDRange>0x1-0x7</ServiceIDRange>
+    </Application>
 
-	init_config
-	IFS_FM_BASE={{ ifs_fm_base }}
+    <!-- when separating PSM Control from Data Traffic: -->
+    <!-- Control Service ID +8 is used for Eager/Bulk traffic. -->
+    <!-- Do NOT use this service ID on the command line. -->
+    <Application>
+      <Name>PSM_Data</Name>
+      <ServiceIDRange>0x1000117500000008-0x100011750000000f</ServiceIDRange>
+      <!-- for simplicity, when serviceId is needed on mpirun command line -->
+      <!-- we also allow serviceId 0x9 to 0xf. -->
+      <ServiceIDRange>0x9-0xf</ServiceIDRange>
+    </Application>
 
-	if [ "$CONFIG_FILE" != $CONFIG_DIR/opafm.xml ]
-	then
-		Xopt="-X $CONFIG_FILE"
-	fi
+    <!-- When not separating PSM Control from Data Traffic, map all -->
+    <!-- PSM Service IDs as one application -->
+    <Application>
+      <Name>PSM</Name>
+      <ServiceIDRange>0x1000117500000000-0x100011750000000f</ServiceIDRange>
+      <!-- for simplicity, when serviceId is needed on mpirun command line -->
+      <!-- we also allow serviceId 0x1 to 0xf -->
+      <ServiceIDRange>0x1-0xf</ServiceIDRange>
+    </Application>
 
-	$IFS_FM_BASE/bin/config_check -c $CONFIG_FILE
-	if [ $? != 0 ]
-	then
-		[ "$quiet" != y ] && echo "Error: $CONFIG_FILE Invalid" >&2
-		invalid_config
-		return
-	fi
+    <Application>
+      <Name>ibacm</Name>
+      <!-- MGID = 0xff154001PPPP00RR:MM00000000000000 -->
+      <!-- where  P=PKey, R=Rate and M=MTU -->
+      <!-- Rate: 9 (75gb), 12 (50gb), 15 (25gb), 16 (100gb) -->
+      <!-- MTU: 4 (2K), 5 (4K) -->
+      <MGIDMasked>0xff15400100000000:0*0xffffffff0000ff00:0x00ffffffffffffff</MGIDMasked>
+    </Application>
 
-	i=-1
-	export IFS=\;
-	EXTRACT_CMD="$IFS_FM_BASE/bin/opaxmlextract -H -e Common.Sm.Start -e Common.Fe.Start -e Fm.Shared.Name -e Fm.Shared.Start -e Fm.Sm.Start -e Fm.Fe.Start"
-	if [ "$quiet" != y ]
-	then
-		eval $EXTRACT_CMD < $CONFIG_FILE > $temp
-	else
-		eval $EXTRACT_CMD < $CONFIG_FILE > $temp 2>/dev/null
-	fi
-	if [ $? != 0 ]
-	then
-		[ "$quiet" != y ] && echo "Error: $CONFIG_FILE Invalid" >&2
-		invalid_config
-		return
-	fi
-	#cat $temp
-	while read com_sm_start com_fe_start ins_name ins_start sm_start fe_start
-	do
-		if [ ! -z "$com_sm_start" ]
-		then
-			# Common.Sm section in XML
-			if ! test_start Common.Sm.Start "$com_sm_start"; then return; fi
-			COMMON_SM_START="$com_sm_start"
-		elif [ ! -z "$com_fe_start" ]
-		then
-			# Common.Fe section in XML
-			if ! test_start Common.Fe.Start "$com_fe_start"; then return; fi
-			COMMON_FE_START="$com_fe_start"
-		elif [ ! -z "$ins_name" ]
-		then
-			i=$(($i + 1))
-			# Fm.Shared section in XML
-			INSTANCES_NAME[$i]="$ins_name"
-			INSTANCES_EXIST[$i]=1
-			if [ -z "$ins_start" ]
-			then
-				ins_start=0
-			fi
-			if ! test_start "$ins_name Start" "$ins_start"; then return; fi
-			INSTANCES_START[$i]=$ins_start
-			INSTANCES_SM[$i]=$((${INSTANCES_START[$i]} && $COMMON_SM_START))
-			INSTANCES_FE[$i]=$((${INSTANCES_START[$i]} && $COMMON_FE_START))
-		elif [ ! -z "$sm_start" ]
-		then
-			if ! test_start "$ins_name Sm.Start" "$sm_start"; then return; fi
-			INSTANCES_SM[$i]=$((${INSTANCES_START[$i]} && $sm_start))
-		elif [ ! -z "$fe_start" ]
-		then
-			if ! test_start "$ins_name Fe.Start" "$fe_start"; then return; fi
-			INSTANCES_FE[$i]=$((${INSTANCES_START[$i]} && $fe_start))
-		else
-			# unexpected case
-			[ "$quiet" != y ] && echo "unexpected"
-		fi
-	done < $temp
-	rm -f $temp
-	i=$(($i + 1))
-	while [ $i -le $MAX_INSTANCE ]
-	do
-		INSTANCES_NAME[$i]="fm$i"
-		INSTANCES_EXIST[$i]=0
-		INSTANCES_SM[$i]=0
-		INSTANCES_FE[$i]=0
-		i=$(($i + 1))
-	done
-}
+    <Application>
+      <Name>iSER</Name>
+      <!-- ServiceID = 0x000000000106XXXX where XXXX is socket "port number" -->
+      <!-- <ServiceIDRange>0x0000000001060000-0x000000000106FFFF</ServiceIDRange> -->
+      <!-- Default port 3260 = 0x0CBC -->
+      <ServiceID>0x0000000001060CBC</ServiceID>
+    </Application>
 
-# -i options processed into a temp
-# matches to instance name or instance_process added immediately to startup
-# sm, fe added to targets list
-# after processing all args, add to startup list all targets for all -i instances
-# [-i instance_num] [-i instance_name] process_name ...
-# start -i 0 sm fe
-#	 just start sm and fe for instance 0
-# start -i 0 -i 1 sm
-# 	just start sm for instance 0,1
-# start -i 0 -i 1
-# 	start all for instance 0,1
-# start -i 0 fm1_sm
-# 	start all for instance 0, just sm for instance 1
-# start -i 1 fm0 sm
-#	start sm for instance 1, all for fm0
-# outputs arrays indicating which managers are selected:
-#	SEL_SM, SEL_FE
-parse_args()
-{
-	local SM_SEL FE_SEL INSTANCES_SEL
-	local ALL_SEL ALL_INSTANCES i param found list
+    <Application>
+      <Name>Lustre</Name>
+      <!-- ServiceID = 0x000000000106XXXX where XXXX is socket "port number" -->
+      <!-- <ServiceIDRange>0x0000000001060000-0x000000000106FFFF</ServiceIDRange> -->
+      <!-- Default port 987 = 0x03DB -->
+      <ServiceID>0x00000000010603DB</ServiceID>
+    </Application>
 
-	ALL_INSTANCES=y	# are all instances selected
-	INSTANCES_SEL=	# instances selected via -i or name
+    <Application>
+      <Name>RDMA_Apps</Name>
+      <ServiceIDRange>0x0000000001000000-0x0000000001FFFFFF</ServiceIDRange>
+    </Application>
 
-	ALL_SEL=y		# are all managers selected
-	SM_SEL=n		# sm manager explicitly selected
-	FE_SEL=n		# fe manager explicitly selected
+    <!-- all the common networking protocols/applications -->
+    <Application>
+      <Name>Networking</Name>
+      <IncludeApplication>IPv4</IncludeApplication>
+      <IncludeApplication>IPv6</IncludeApplication>
+      <IncludeApplication>IPoIBCM</IncludeApplication>
+      <IncludeApplication>RDS</IncludeApplication>
+    </Application>
 
-	# these arrays are the final output of this function
-	SEL_SM=			# array of which Sm instances are selected
-	SEL_FE=			# array of which Fe instances are selected
+    <!-- all the common storage protocols/applications -->
+    <Application>
+      <Name>Storage</Name>
+      <IncludeApplication>iSER</IncludeApplication>
+      <IncludeApplication>Lustre</IncludeApplication>
+    </Application>
 
-	OPTIND=1
-	while getopts fi: param
-	do
-		case $param in
-		f)	force=y;;
-		i)
-			ALL_INSTANCES=n
-			if [ $OPTARG -ge 0 ] 2>/dev/null
-			then
-				INSTANCES_SEL=(${INSTANCES_SEL[@]} $OPTARG)
-			else
-				i=0
-				found=0
-				while [ $i -lt ${#INSTANCES_NAME[@]} ] #}
-				do
-					if [ "$OPTARG" = "${INSTANCES_NAME[$i]}" ]
-					then
-						INSTANCES_SEL=(${INSTANCES_SEL[@]} $i)
-						found=1
-					fi
-					i=$(($i + 1))
-				done
-				if [ $found != 1 ]
-				then
-					echo "Ignoring unknown instance/target: $OPTARG" >&2
-				fi
-			fi
-			;;
-		?) Usage;;
-		esac
-	done
-	shift $(($OPTIND - 1))
-	while [ ! -z "$1" ]
-	do
-		if [ "$1" = "sm" ]
-		then
-			SM_SEL=y
-			ALL_SEL=n
-		elif [ "$1" = "fe" ]
-		then
-			FE_SEL=y
-			ALL_SEL=n
-		else
-			i=0
-			found=0
-			while [ $i -lt ${#INSTANCES_NAME[@]} ]
-			do
-				if [ "$1" = "${INSTANCES_NAME[$i]}" ]
-				then
-					INSTANCES_SEL=(${INSTANCES_SEL[@]} $i)
-					SEL_SM[$i]=1
-					SEL_FE[$i]=1
-					found=1
-				elif [ "$1" = "${INSTANCES_NAME[$i]}"_sm ]
-				then
-					SEL_SM[$i]=1
-					found=1
-				elif [ "$1" = "${INSTANCES_NAME[$i]}"_fe ]
-				then
-					SEL_FE[$i]=1
-					found=1
-				fi
-				i=$(($i + 1))
-			done
-			if [ $found != 1 ]
-			then
-				echo "Ignoring unknown instance/target: $1" >&2
-			else
-				ALL_INSTANCES=n
-			fi
-		fi
-		shift
-	done
+    <!-- all the common compute protocols/applications -->
+    <Application>
+      <Name>Compute</Name>
+      <IncludeApplication>VerbsMPI</IncludeApplication>
+      <IncludeApplication>PSM</IncludeApplication>
+    </Application>
 
-	# now combine -i and other args
-	if [ "$VALID_CONFIG" != "y" ]
-	then
-		# so stop can work even if invalid config
-		list="$(seq 0 $MAX_INSTANCE)"
-	elif [ "$ALL_INSTANCES" = y ]
-	then
-		#$("All Instances"
-		list="$(seq 0 $(( ${#INSTANCES_NAME[@]} -1)) )"
-	else
-		list="${INSTANCES_SEL[*]}"
-		#$("Just Instances: $list"
-	fi
-	set -- $list
-	for i in "$@"
-	do
-		#$("setup $i"
-		#set -x
-		if [ "$VALID_CONFIG" != "y" ]
-		then
-			# assume it exists and is enabled
-			INSTANCES_EXIST[$i]=1
-			INSTANCES_SM[$i]=1
-			INSTANCES_FE[$i]=1
-		fi
-		[ "$SM_SEL" = y -o "$ALL_SEL" = y ] && SEL_SM[$i]=1
-		[ "$FE_SEL" = y -o "$ALL_SEL" = y ] && SEL_FE[$i]=1
-		#set +x
-	done
-}
+    <!-- This is a catchall which can be used to identify all applications  -->
+    <!-- which are not part of some other vFabric.  -->
+    <Application>
+      <Name>AllOthers</Name>
+      <Select>UnmatchedServiceID</Select>
+      <Select>UnmatchedMGID</Select>
+    </Application>
+  </Applications>
 
-# for debug
-show()
-{
-	local i
+  <!-- Various Groups of Ports/Nodes which may be used in Virtual Fabrics    -->
+  <!-- DeviceGroups defined here are available for use in all FM instances.  -->
+  <!-- Additional DeviceGroups may be defined here or per FM instance.       -->
+  <!-- DeviceGroups specified per FM instance will add to                    -->
+  <!-- instead of replace these DeviceGroup definitions.                     -->
+  <DeviceGroups>
+    <!-- Each DeviceGroup can have one or more Nodes/Ports (e.g. Devices).   -->
+    <!-- These will be matched against PathRecord and Multicast SA queries   -->
+    <!-- so that the returned SLID/DLID, PKey, SL, etc are appropriate for   -->
+    <!-- the Virtual Fabric(VF) which contains the Device(s).                -->
+    <!-- Devices in a DeviceGroup but not found in the fabric are ignored.   -->
 
-	i=0
-	while [ $i -lt ${#INSTANCES_NAME[@]} ]
-	do
-		if [ ${INSTANCES_EXIST[$i]} = 1 ]
-		then
-			echo "Instance $i: ${INSTANCES_NAME[$i]}: "
-			echo "   SM Enable: ${INSTANCES_SM[$i]}   SM Select: ${SEL_SM[$i]}"
-			echo "   FE Enable: ${INSTANCES_FE[$i]}   FE Select: ${SEL_FE[$i]}"
-		fi
-		i=$(($i + 1))
-	done
-}
+    <!-- Every DeviceGroup must have a unique <Name>                         -->
+    <!-- The name must be unique among all DeviceGroup names within an       -->
+    <!-- FM instance.                                                        -->
+    <!-- When defined at Common level must be unique within all instances.   -->
+    <!-- The name is limited to 64 characters and is case sensitive.         -->
 
-must_be_valid_config()
-{
-	if [ "$VALID_CONFIG" != "y" ]
-	then
-		echo "ERROR: Missing or Invalid config file"
-		exit 1
-	fi
-}
+    <!-- Devices can be explicitly specified in the following ways in the    -->
+    <!-- DeviceGroup section:                                                -->
+    <!-- A SystemImageGUID: <SystemImageGUID>0x123567</SystemImageGUID>      -->
+    <!--        selects all nodes and ports in the system                    -->
+    <!-- A NodeGUID: <NodeGUID>0x123567</NodeGUID>                           -->
+    <!--        selects all ports in the node (a FI or SW is a single node)  -->
+    <!-- A PortGUID: <PortGUID>0x123567</PortGUID>                           -->
+    <!--        selects a specific port                                      -->
+    <!-- A NodeDesc: <NodeDesc>Some Name</NodeDesc>                          -->
+    <!--        selects all nodes exactly matching given name                -->
+    <!--        typically will match exactly one, but multiple nodes with    -->
+    <!--        same NodeDesc is possible.                                   -->
+    <!-- Wild card rules that can be used in NodeDesc specification:         -->
+    <!--        * Wild card is 0 or more of any combination of:              -->
+    <!--             (A-Z)(a-z)(0-9) "-" "," "=" "." "_"                     -->
+    <!--        ? Wild card is 0 or 1 of any combination of:                 -->
+    <!--             (A-Z)(a-z)(0-9) "-" "," "=" "." "_"                     -->
+    <!--        [##-##] can be used to specify a range of numbers            -->
+    <!--             (ie: node[1-4] matches nodes named node1, node2,        -->
+    <!--             node3, node4)                                           -->
+    <!--             leading zeros may be specified and must match           -->
+    <!--             (ie: node[06-10] matches nodes named node06, node07,    -->
+    <!--             node08, node09, node10, but does not match node6)       -->
+    <!--             more than one range can be specified                    -->
+    <!--             (ie: rack[1-2]node[01-02] matches nodes named           -->
+    <!--             rack1node01, rack1node02, rack2node01, rack2node02      -->
+    <!--        :[##-##] can be used to specify a range of ports             -->
+    <!--             (ie: switch:[2-4] would match node name "switch",       -->
+    <!--             ports 2,3, and 4                                        -->
+    <!-- Wild card Examples:                                                 -->
+    <!--        <NodeDesc>SWITCH*</NodeDesc>                                 -->
+    <!--        <NodeDesc>HFI?</NodeDesc>                                    -->
+    <!--        <NodeDesc>HFI[1-4]</NodeDesc>                                -->
+    <!--        <NodeDesc>?SWITCH[0-1]</NodeDesc>                            -->
+    <!--        <NodeDesc>?SWITCH[0-1]:[2-3]</NodeDesc>                      -->
+    <!--        <NodeDesc>SWITCH</NodeDesc>                                  -->
 
-allow_invalid_config()
-{
-	if [ "$VALID_CONFIG" != "y" ]
-	then
-		echo "Will proceed assuming no more than $(($MAX_INSTANCE+1)) fm instances"
-	fi
-}
+    <!-- Devices can be generically specified in the following ways in the   -->
+    <!-- DeviceGroup section:                                                -->
+    <!-- All FIs: <NodeType>FI</NodeType>                                    -->
+    <!-- All Switches: <NodeType>SW</NodeType>                               -->
+    <!-- The values above are case insensitive: FI, SW                       -->
+    <!-- Each of the above selects all ports on the selected nodes.          -->
+    <!-- The above can be combined as desired in the same DeviceGroup.       -->
 
-running_manager()
-# $1 = instance number
-# $2 = manager name in lowercase
-{
-	pgrep -f "$2 -D -e ${2}_$1" > /dev/null 2>&1
-}
+    <!-- Some special types of Devices can be generically specified in       -->
+    <!-- the following ways in the DeviceGroup section:                      -->
+    <!-- All Devices: <Select>All</Select>                                   -->
+    <!-- This FM Instance's Port: <Select>Self</Select>                      -->
+    <!-- All HFIs directly connected: <Select>HFIDirectConnect</Select>      -->
+    <!--        Both HFI ports which are directly connected to each other    -->
+    <!--        with no switch. A typical back to back configuration         -->
+    <!-- All TFIs: <Select>TFIs</Select>                                     -->
+    <!--        A TFI is a passive device e.g. storage unit or gateway       -->
+    <!--        which reports a Device Management Agent capability           -->
+    <!--        This DeviceGroup will select all ports on all TFI devices    -->
+    <!-- All Switch Enhanced Port 0s: <Select>SWE0</Select>                  -->
+    <!--        All Switch Port 0 with Enhanced Port 0 in Capability Mask.   -->
+    <!--        By definition will also include all Embedded SMs.            -->
+    <!-- The values above are case insensitive:                              -->
+    <!--      All, Self, SWE0, HFIDirectConnect, TFIs                -->
+    <!-- The above can be combined as desired in the same DeviceGroup.       -->
 
-# start a specific manager instance
-start_manager()
-# $1 = instance number
-# $2 = manager name in lowercase
-{
-	local upcase pid res
+    <!-- In addition, a DeviceGroup can include another DeviceGroup via:     -->
+    <!-- <IncludeGroup>mygroup</IncludeGroup>                                -->
+    <!-- This will include all the Devices in the given DeviceGroup.         -->
+    <!-- It is valid to have more than 1 specification match the same device -->
+    <!-- in which case the device is only included in the DeviceGroup once.  -->
 
-	upcase=$(echo $2|tr a-z A-Z)
-	echo -n "Starting $upcase $1: ${INSTANCES_NAME[$1]}_$2: "
-	if running_manager $1 $2 && [ "$force" = "n" ]
-	then
-		# already running
-		echo "Already running"
-		res=1; false
-		my_rc_status
-	else
- 		$IFS_FM_BASE/runtime/$2 -D -e ${2}_$1 $Xopt &
-		res=$?; pid=$!
-		[ $res -eq 0 ] || false
-		my_rc_status_v
-	fi
-	if [ $res -eq 0 ]
-	then
-		touch /var/lock/subsys/opafm
-	fi
-	return $res
-}
+    <!-- Some predefined DeviceGroups follow.  These are also a good set     -->
+    <!-- of examples to cut/paste to make other site specific DeviceGroups:  -->
 
-# stop a specific manager instance
-stop_manager()
-# $1 = instance number
-# $2 = manager name in lowercase
-# $3 = is manager start enabled
-{
-	local upcase res i was_running exists
+    <!-- All Nodes/Ports, can be used when Device specific VFs not needed    -->
+    <DeviceGroup>
+      <Name>All</Name>
+      <Select>All</Select>
+    </DeviceGroup>
 
-	upcase=$(echo $2|tr a-z A-Z)
-	exists=${INSTANCES_EXIST[$1]}
-	was_running=0
-	running_manager $1 $2 && was_running=1
-	if [ $was_running = 1 ]
-	then
-		if [ "$quiet" != y ]
-		then
-			echo -n "Stopping $upcase $1: ${INSTANCES_NAME[$1]}_$2: "
-		fi
-		#killproc "$2 -D -e ${2}_$1"
-		res=0
-		pkill -f "$2 -D -e ${2}_$1"
-		# give it up to a minute to exit
-		i=0
-		while [ $i -lt 60 ]
-		do
-			if ! running_manager $1 $2
-			then
-				break
-			fi
-			sleep 1
-			i=$(($i + 1))
-		done
-		if [ $i -ge 60 ]
-		then
-			# still running, kill it hard
-			pkill -9 -f "$2 -D -e ${2}_$1"
-			sleep 1
-		fi
-		res=0; running_manager $1 $2 && res=1
-		if [ "$quiet" != y ]
-		then
-			[ $res -eq 0 ] || false
-			my_rc_status_v
-		else
-			[ $res -eq 0 ] || false
-			my_rc_status
-		fi
-	else
-		if [ "$exists" = 1 -a "$3" = 1  -a "$quiet" != y ]
-		then
-			echo -n "Stopping $upcase $1: ${INSTANCES_NAME[$1]}_$2: "
-			echo "Not Running"
-			res=0
-			#my_rc_status_v
-			my_rc_status
-		else
-			res=0
-			my_rc_status
-		fi
-	fi
-	return $res
-}
+    <!-- All Fabric Interfaces, includes HFIs and TFIs -->
+    <DeviceGroup>
+      <Name>AllFIs</Name>
+      <NodeType>FI</NodeType>
+    </DeviceGroup>
 
-# force resweep of a specific manager instance
-# should only be called for managers which are enabled and support sweep
-sweep_manager()
-# $1 = instance number
-# $2 = manager name in lowercase
-{
-	local upcase pid res
+    <DeviceGroup>
+      <Name>AllTFIs</Name>
+      <Select>TFIs</Select>
+    </DeviceGroup>
 
-	upcase=$(echo $2|tr a-z A-Z)
-	echo -n "Force Sweep $upcase $1: ${INSTANCES_NAME[$1]}_$2: "
-	if running_manager $1 $2
-	then
- 		$IFS_FM_BASE/bin/fm_cmd -i $1 ${2}ForceSweep >/dev/null
-		res=$?
-		[ $res -eq 0 ] || false
-		my_rc_status_v
-	else
-		echo "Not Running"
-		res=1; false
-		my_rc_status
-	fi
-	return $res
-}
+    <!-- All ports on all Switches -->
+    <DeviceGroup>
+      <Name>AllSWs</Name>
+      <NodeType>SW</NodeType>
+    </DeviceGroup>
 
-# used to report error when exclusively FE resweep requested
-sweep_na()
-# $1 = instance number
-# $2 = manager name in lowercase
-{
-	local upcase
+    <!-- All Enhanced Port 0 ports on all Switches -->
+    <DeviceGroup>
+      <Name>AllSWE0s</Name>
+      <Select>SWE0</Select>
+    </DeviceGroup>
 
-	upcase=$(echo $2|tr a-z A-Z)
-	echo -n "Force Sweep $upcase $1: ${INSTANCES_NAME[$1]}_$2: "
-	echo "NA for $upcase"; false
-	#my_rc_status_v
-	my_rc_status
-	return 1
-}
+    <!-- All End-Nodes including Enhanced Port 0 ports on all Switches -->
+    <DeviceGroup>
+      <Name>AllEndNodes</Name>
+      <IncludeGroup>AllFIs</IncludeGroup>
+      <IncludeGroup>AllSWE0s</IncludeGroup>
+    </DeviceGroup>
 
-# check a specific manager instance
-status_manager()
-# $1 = instance number
-# $2 = manager name in lowercase
-# $3 = is manager start enabled
-{
-	local upcase res
+    <!-- Both ports in an HFI connected to HFI configuration -->
+    <DeviceGroup>
+      <Name>HFIDirectConnect</Name>
+      <Select>HFIDirectConnect</Select>
+    </DeviceGroup>
 
-	upcase=$(echo $2|tr a-z A-Z)
-	if [ ${INSTANCES_EXIST[$1]} = 1 ]
-	then
-		echo -n "Checking $upcase $1: ${INSTANCES_NAME[$1]}_$2: "
-		if running_manager $1 $2
-		then
-			echo "Running"
-			res=0
-		elif [ "$3" = 1 ]
-		then
-			echo "Not Running"
-			res=1; false
-		else
-			echo "Disabled"
-			res=0
-		fi
-	fi
-	my_rc_status
-	return $res
-}
+    <!-- All nodes which have MgmtAllowed set -->
+    <DeviceGroup>
+      <Name>AllMgmtAllowed</Name>
+      <Select>AllMgmtAllowed</Select>
+    </DeviceGroup>
 
-# start all processes which are enabled and selected via command line
-start()
-{
-	local ret i
+    <!-- Just the port running this FM Instance -->
+    <DeviceGroup>
+      <Name>Self</Name>
+      <Select>Self</Select>
+    </DeviceGroup>
 
-	echo "Starting IFS Fabric Manager"
+    <!-- Example using specific device selection -->
+    <DeviceGroup>
+      <Name>Example</Name>
+      <SystemImageGUID>0x123567812345678</SystemImageGUID>
+      <NodeGUID>0x123567812345678</NodeGUID>
+      <PortGUID>0x123567812345678</PortGUID>
+      <NodeDesc>Some Name</NodeDesc>
+      <IncludeGroup>AllSWE0s</IncludeGroup>
+    </DeviceGroup>
 
-	modprobe ib_uverbs
+    <!-- Group for all nodes matching wild carded NodeDesc -->
+    <DeviceGroup>
+      <Name>Rack1DG</Name>
+      <NodeDesc>*Rack1*</NodeDesc>
+    </DeviceGroup>
 
-	ret=0
-	i=0
-	while [ $i -lt ${#INSTANCES_NAME[@]} ]
-	do
-		if [ 1 = "${INSTANCES_SM[$i]}" -a 1 = "${SEL_SM[$i]}" ]
-		then
-			start_manager $i sm
-			ret=$(($ret || $?))
-			sleep 1
-		fi
-		if [ 1 = "${INSTANCES_FE[$i]}" -a 1 = "${SEL_FE[$i]}" ]
-		then
-			start_manager $i fe
-			ret=$(($ret || $?))
-			sleep 1
-		fi
-		i=$(($i + 1))
-	done
-	return $ret
-}
 
-# stop all processes which are selected via command line
-stop()
-{
-	local ret i
+  </DeviceGroups>
 
-	if [ "$quiet" = y ]
-	then
-		echo "Stopping all instances of IFS Fabric Manager"
-	else
-		echo "Stopping IFS Fabric Manager"
-	fi
-	ret=0
-	i=0
-	while [ $i -lt ${#INSTANCES_NAME[@]} ]
-	do
-		if [ 1 = "${SEL_FE[$i]}" ]
-		then
-			stop_manager $i fe "${INSTANCES_FE[$i]}"
-			ret=$(($ret || $?))
-		fi
-		if [ 1 = "${SEL_SM[$i]}" ]
-		then
-			stop_manager $i sm "${INSTANCES_SM[$i]}"
-			ret=$(($ret || $?))
-		fi
-		i=$(($i + 1))
-	done
-	if ! pgrep -f "sm -D -e sm_" > /dev/null 2>&1 \
-		&& ! pgrep -f "fe -D -e fe_" > /dev/null 2>&1
-	then
-		rm -f /var/lock/subsys/opafm
-	fi
-	return $ret
-}
+  <!-- Quality of Service Configuration                                      -->
+  <!-- QOSGroups defined here are available for use in all FM instances      -->
+  <!-- If any QOSGroup is Enabled, all Enabled VirtualFabrics must           -->
+  <!-- specify a <QOSGroup>.                                                 -->
+  <!-- Additional QOSGroups may be defined here or per FM instance.          -->
+  <QOSGroups>
+    <!-- Every QOSGroup must have a unique <Name>                            -->
+    <!-- The name must be unique among all QOSGroup names within an          -->
+    <!-- FM instance.                                                        -->
+    <!-- When defined at Common level, must be unique within all instances.  -->
+    <!-- The name is limited to 64 characters and is case sensitive.         -->
+    <!-- Enable: <Enable>0</Enable>                                          -->
+    <!--        To access a QOSGroup within a VirtualFabric, the QOSGroup    -->
+    <!--        Must be enabled. QOSGroups default to Disabled.              -->
+    <!-- The following QOS parameters are supported. See VirtualFabrics for  -->
+    <!-- more information.                                                   -->
+    <!-- High Priority: <HighPriority>0</HighPriority>                       -->
+    <!-- Bandwidth Allocation: <Bandwidth>100%</Bandwidth>                   -->
+    <!-- Packet Lifetime Multiplier: <PktLifeTimeMult>2</PktLifeTimeMult>    -->
+    <!-- Base Service Level: <BaseSL>0</BaseSL>                              -->
+    <!-- Multicast Service Level: <MulticastSL>1</MulticastSL>               -->
+    <!-- FlowControlDisable: <FlowControlDisable>0</FlowControlDisable>      -->
+    <!-- Preemption Rank: <PreemptRank>0</PreemptRank>                       -->
+    <!-- HoqLife: <HoqLife>8ms</HoqLife>                                     -->
+  </QOSGroups>
 
-# reload config for all processes which are enabled and selected via command line
-reload()
-{
-	echo "Sending signal to dynamically reconfigure IFS Fabric Manager"
-	pkill -SIGHUP sm
-	res=$?
-	[ $res -eq 0 ] || false
-	my_rc_status_v
-}
+  <!-- Virtual Fabric Configuration                                          -->
+  <!-- VirtualFabrics defined here are available for use in all FM instances -->
+  <!-- Additional VirtualFabrics may be defined here or per FM instance.     -->
+  <!-- VirtualFabrics specified per FM instance will add to                  -->
+  <!-- instead of replace these VirtualFabric definitions.                   -->
+  <VirtualFabrics>
+    <!-- Each VirtualFabric (VF) is comprised of:                            -->
+    <!-- 1. one or more Groups of devices                                    -->
+    <!-- 2. AND one or more sets of Applications                             -->
+    <!-- 3. AND administrator policies                                       -->
 
-# force sweep for all managers which are enabled and selected via command line
-sweep()
-{
-	local ret i swept
+    <!-- The Virtual Fabric will control the configuration of Security for   -->
+    <!-- the given set of Devices and Applications in the overall Fabric.    -->
+    <!-- Default for Security is 0(Off).                                     -->
 
-	echo "Forcing IFS Fabric Manager Sweep"
+    <!-- The Applications and DeviceGroups are matched against PathRecord and-->
+    <!-- Multicast SA queries so that the returned SLID/DLID, PKey, SL, etc  -->
+    <!-- are consistent with the policies established for the VirtualFabric. -->
+    <!-- Devices in a DeviceGroup but not found in the fabric are ignored.   -->
 
-	ret=0
-	i=0
-	while [ $i -lt ${#INSTANCES_NAME[@]} ]
-	do
-		swept=0
-		if [ 1 = "${INSTANCES_SM[$i]}" -a 1 = "${SEL_SM[$i]}" ]
-		then
-			sweep_manager $i sm
-			ret=$(($ret || $?))
-			swept=1
-		fi
-		if [ 1 = "${INSTANCES_FE[$i]}" -a 1 = "${SEL_FE[$i]}" ]
-		then
-			#sweep_manager $i fe # resweep NA for FE
-			#ret=$(($ret || $?))
-			[ $swept = 0 ] && sweep_na $i fe
-		fi
-		i=$(($i + 1))
-	done
-	return $ret
-}
+    <!-- Every VirtualFabric must have a unique <Name>                       -->
+    <!-- The name must be unique among all VirtualFabric names within an     -->
+    <!-- FM instance.                                                        -->
+    <!-- When defined at Common level must be unique within all instances.   -->
+    <!-- The name is limited to 64 characters and is case sensitive.         -->
 
-# check all processes which are enabled and selected via command line
-status()
-{
-	local ret i
+    <!-- Devices are specified by DeviceGroup Name in the following ways in  -->
+    <!-- the VirtualFabric section:                                          -->
+    <!-- As Full Members: <Member>group_name</Member>                        -->
+    <!--        such devices may talk to any other Member or LimitedMember   -->
+    <!-- As Limited Members: <LimitedMember>group_name</LimitedMember>       -->
+    <!--        When Security is 1 (On), LimitedMembers are not permitted    -->
+    <!--        to talk to other LimitedMembers.                             -->
+    <!--        However LimitedMembers can always talk to Members.           -->
+    <!--        If Security is 0 (Off) LimitedMembers are treated the same   -->
+    <!--        as Members                                                   -->
+    <!--        This allows the user to easily turn off Security for a       -->
+    <!--        Virtual Fabric without changing the rest of the definition.  -->
+    <!--        When Security is on, LimitedMembers will not be able to      -->
+    <!--        join multicast groups in the VirtualFabric.                  -->
+    <!-- Member and LimitedMember can each be specified more than once per   -->
+    <!-- VirtualFabric if desired.                                           -->
+    <!-- If a Device is in both the Members and LimitedMembers DeviceGroups, -->
+    <!-- they will be treated as Members.                                    -->
+    <!-- This allows All to be specified as a LimitedMember, then selected   -->
+    <!-- Members can be specified.  Hence insuring the VirtualFabric         -->
+    <!-- includes All devices while allowing a limited set of Members.       -->
 
-	echo "Checking IFS Fabric Manager"
-	ret=0
-	i=0
-	while [ $i -lt ${#INSTANCES_NAME[@]} ]
-	do
-		if [ 1 = "${SEL_SM[$i]}" ]
-		then
-			status_manager $i sm "${INSTANCES_SM[$i]}"
-			ret=$(($ret || $?))
-		fi
-		if [ 1 = "${SEL_FE[$i]}" ]
-		then
-			status_manager $i fe "${INSTANCES_FE[$i]}"
-			ret=$(($ret || $?))
-		fi
-		i=$(($i + 1))
-	done
-	return $ret
-}
+    <!-- Applications are specified by Application Name via:                 -->
+    <!-- <Application>application_name</Application>                         -->
+    <!-- Application can be specified more than once per VirtualFabric if    -->
+    <!-- desired.                                                            -->
 
-get_config
-#$("INSTANCES_NAME=${INSTANCES_NAME[@]}"
-#$("INSTANCES_SM=${INSTANCES_SM[@]}"
-#$("INSTANCES_FE=${INSTANCES_FE[@]}"
+    <!-- The following Administrator Policies and Controls can be specified: -->
+    <!-- Enable/Disable: <Enable>1</Enable>                                  -->
+    <!--        When Disabled (0) the VirtualFabric is ignored.              -->
+    <!--        This allows the user to easily disable a VirtualFabric       -->
+    <!--        without deleting it's definition.                            -->
+    <!-- Security: <Security>1</Security>                                    -->
+    <!--        When On (1) the FM will provide security within this VF      -->
+    <!--        and between other VFs.                                       -->
+    <!--        When On, LimitedMembers cannot talk to each other in the VF. -->
+    <!--        When Off (0) the FM is free to manage Routes and PKeys as    -->
+    <!--        it chooses and there are no guarantees.                      -->
+    <!--        When Off (0) LimitedMembers can talk to each other in the VF.-->
+    <!-- Partition Key: <PKey>0x1234</PKey>                                  -->
+    <!--        By default the FM will pick an available PKey.               -->
+    <!--        However if desired a user selected PKey can be specified.    -->
+    <!--        Specification may be necessary such that it is known apriori -->
+    <!--        for applications which do not use SA PathRecord queries,     -->
+    <!--        such as MPIs which use non-OFA compliant mechanisms for job  -->
+    <!--        startup.                                                     -->
+    <!--        The PKey is a 15 bit value, ranging from 0x1 to 0x7fff.      -->
+    <!--        The FM will use the appropriate high bit based on the        -->
+    <!--        Security and Member/LimitedMember status per device.         -->
+    <!-- Max MTU: <MaxMTU>2048</MaxMTU>                                      -->
+    <!--        Maximum MTU for SM to return in any PathRecord or            -->
+    <!--        Multicast group for the VirtualFabric.                       -->
+    <!--        Actual values may be further reduced by Hardware             -->
+    <!--        capabilities or if the PathRecord or Multicast group is      -->
+    <!--        requested to have a smaller MTU.                             -->
+    <!--        However, SM will consider it an error to create a Multicast  -->
+    <!--        group with MTU larger than that of the VirtualFabric.        -->
+    <!--        Value should be one of 2048, 4096, 8192, 10240, or Unlimited -->
+    <!--        If not specified the default MaxMTU will be Unlimited.       -->
+    <!-- Max Rate: <MaxRate>100g</MaxRate>                                   -->
+    <!--        Maximum static rate for SM to return in any PathRecord or    -->
+    <!--        Multicast group for the VirtualFabric.                       -->
+    <!--        Similar behaviors to MaxMTU.                                 -->
+    <!--        Value should be one of 25g, 50g, 75g, 100g, or Unlimited.    -->
+    <!--        If not specified the default MaxRate will be Unlimited.      -->
+    <!-- Active/Standby: <Standby>0</Standby>                                -->
+    <!--        A Virtual Fabric in Standby cannot pass traffic.             -->
+    <!--        The active/standby state of a Virtual Fabric can be          -->
+    <!--        changed dynamically (without restarting the FM).             -->
+    <!--        Defaults to active (0).                                      -->
 
-parse_args "$@"
+    <!-- QOS settings                                                        -->
+    <!-- QOS Enable: <QOS>0</QOS>                                            -->
+    <!--        0=disable, 1=enable, if 0 the QOS settings are ignored       -->
+    <!-- High Priority: <HighPriority>0</HighPriority>                       -->
+    <!--        If set to one, this indicates high priority traffic which    -->
+    <!--        does not require any bandwidth limiting. This would          -->
+    <!--        typically include management or control traffic which is low -->
+    <!--        bandwidth, but critical to process in a timely manner.       -->
+    <!--        An example is PM traffic where there is no reason to         -->
+    <!--        restrict bandwidth since it is low volume, but it needs to   -->
+    <!--        be serviced at a high priority.                              -->
+    <!--        When priority is set to High, any bandwidth allocation is    -->
+    <!--        ignored for this Virtual Fabric.                             -->
+    <!-- Bandwidth Allocation: <Bandwidth>100%</Bandwidth>                   -->
+    <!--        0-100%   This is the minimum percentage of bandwidth which   -->
+    <!--        should be given to this Virtual Fabric relative to other low -->
+    <!--        priority Virtual Fabrics.  When there is no contention, this -->
+    <!--        Virtual Fabric could get more than this amount.              -->
+    <!--        If unspecified, the SM evenly distributes remaining          -->
+    <!--        bandwidth among all the Virtual Fabrics with unspecified     -->
+    <!--        Bandwidth.                                                   -->
+    <!--        Total Bandwidth cannot exceed 95% for enabled Virtual        -->
+    <!--        Fabrics with QoS enabled when there is at least 1            -->
+    <!--        enabled VF with QoS disabled.                                -->
+    <!--        Total Bandwidth cannot exceed 100% for enabled Virtual       -->
+    <!--        Fabrics.  VFs with QoS disabled share at least 5% BW and     -->
+    <!--        all QoS enabled VFs require at least 1% BW.                  -->
+    <!--        If HighPriority is specified, this field is ignored.         -->
+    <!-- Packet Lifetime Multiplier: <PktLifeTimeMult>2</PktLifeTimeMult>    -->
+    <!--        Amount to multiply PktLifeTime by when reported by SM for    -->
+    <!--        this Virtual Fabric.                                         -->
+    <!--        This can permit PktLifeTime in PathRecords (and hence end to -->
+    <!--        end timeouts) to account for delays in Low Priority Virtual  -->
+    <!--        Fabrics which are given low bandwidth allocations.           -->
+    <!--        Value will be rounded up to the next power of 2.             -->
+    <!--        0 is invalid, default is 1                                   -->
+    <!-- Service Levels:                                                     -->
+    <!--        Up to 2 service levels can be specified per VF: BaseSL,      -->
+    <!--        and MulticastSL. If the configuration does not include       -->
+    <!--        either of these service levels, the SM will allocate         -->
+    <!--        unique SLs from the unused SLs. The SM will only allocate    -->
+    <!--        SLs required by the VF. If QoS is disabled on the VF, any    -->
+    <!--        configured SLs will be ignored. All QoS disabled VFs share   -->
+    <!--        the same SLs.                                                -->
+    <!-- Base Service Level: <BaseSL>0</BaseSL>                              -->
+    <!--        Used for unicast traffic, and multicast traffic              -->
+    <!--        (if MulticastSL is not specified).                           -->
+    <!--        Valid values: 0-15                                           -->
+    <!-- Multicast Service Level: <MulticastSL>1</MulticastSL>               -->
+    <!--        Used to isolate Multicast traffic from other traffic. Some   -->
+    <!--        routing algorithms may require a separate MulticastSL for    -->
+    <!--        VFs with multicast groups. Any SL used to isolate Multicast  -->
+    <!--        cannot be used as a BaseSL in any VF.                        -->
+    <!--        Valid values: 0-15                                           -->
+    <!-- FlowControlDisable: <FlowControlDisable>0</FlowControlDisable>      -->
+    <!--        By default, the fabric uses link level flow control.         -->
+    <!--        When link layer flow control has been disabled, packets will -->
+    <!--        be discarded by that VL when there are insufficient credits. -->
+    <!--        Disabling flow control for a vFabric can affect traffic on   -->
+    <!--        VLs shared with other vFabrics, so the user is generally     -->
+    <!--        advised not to disable flow control without care.            -->
+    <!-- Preemption Rank: <PreemptRank>0</PreemptRank>                       -->
+    <!--        See SM Common / Instance - Fabric Programming for detailed   -->
+    <!--        description of preemption configuration.                     -->
+    <!--        Preemption capability can be configured per Virtual Fabric   -->
+    <!--        in terms of a rank, which is a value ranging from 0 to 127.  -->
+    <!--        Rank 0 indicates that this VF cannot preempt nor be          -->
+    <!--        preempted.  Ranks of a higher value can preempt ranks of     -->
+    <!--        a lower value (except ranks of 0)                            -->
+    <!--        If QOS is disabled then preemption is disabled and the rank  -->
+    <!--        is 0.                                                        -->
+    <!-- HoqLife:                                                            -->
+    <!--        This timeout is specified per SM instance and may be         -->
+    <!--        overridden per Virtual Fabric.  See SM instance              -->
+    <!--        representation for detailed configuration options. If not    -->
+    <!--        specified per Virtual Fabric, default to the SM instance     -->
+    <!--        values                                                       -->
 
-#show
+    <!-- Alternatively, a VirtualFabric can specify a QOSGroup instead of    -->
+    <!-- individual QOS parameters.                                          -->
+    <!-- QOSGroup: <QOSGroup>LowPriority</QOSGroup>                          -->
+    <!--        Specifies the name of the QOSGroup used by this VF.          -->
+    <!--        If any QOSGroup is enabled, all VirtualFabrics must          -->
+    <!--        specify a QOSGroup and no VirtualFabric may specify          -->
+    <!--        any other QOS parameter.                                     -->
+    <!--        If a VirtualFabric specifies a QOSGroup, it must             -->
+    <!--        also specify a PKey.                                         -->
 
-case "$cmd" in
-	start)
-		must_be_valid_config
-		start;;
-	quietstop|stop)
-		allow_invalid_config
-		stop;;
-	restart)
-		must_be_valid_config
-		stop; start;;
-	reload | force-reload)
-		must_be_valid_config
-		reload;;
-	sweep)
-		must_be_valid_config
-		sweep;;
-	status)
-		allow_invalid_config
-		status;;
-	*)
-		Usage;;
-esac
+    <!-- OPA requires a "Admin" partition.                                   -->
+    <!-- To meet this requirement there must be an enabled VirtualFabric:    -->
+    <!-- *  with a PKey of 0x7fff (or 0xffff)                                -->
+    <!-- *  it must include the SA Application                               -->
+    <!-- *  it must be the only enabled VF which includes the SA Application -->
+    <!-- *  it must have All as a Member or LimitedMember                    -->
+    <!-- *  as desired it may have additional Applications                   -->
+    <!-- *  as desired it may have additional DeviceGroups as Member         -->
+    <!-- *  all other VF policies (Security, MTU ...) may be set as desired  -->
 
-my_rc_exit
+    <!-- Some predefined VirtualFabrics follow.  These are also a good set   -->
+    <!-- of examples to cut/paste to make other site specific VFs:           -->
+
+    <!-- An example networking VF.  When IPoIB runs, it will use the         -->
+    <!-- 1st PKey on the given Port for the default (ib0 ...) network device -->
+    <!-- Hence its best to place the Networking/IPoIB VF 1st.                -->
+    <!-- For additional IPoIB subnets which a node participates in, the PKey -->
+    <!-- needs to be manually specified to IPoIB as a "ipoib vlan"           -->
+    <VirtualFabric>
+      <Name>Networking</Name>
+      <Enable>0</Enable>
+      <PKey>0x0002</PKey>
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <Bandwidth>10%</Bandwidth>
+      <FlowControlDisable>0</FlowControlDisable>
+      <Member>All</Member>   <!-- can use a smaller DeviceGroup if desired -->
+      <!-- Since IPoIB uses Multicast, LimitedMembers wouldn't make sense -->
+      <Application>Networking</Application>
+    </VirtualFabric>
+ 
+    <!-- A default VF with all Devices and Applications -->
+    <!-- This is the default Virtual Fabric config -->
+    <VirtualFabric>
+      <Name>Default</Name>
+      <Enable>1</Enable>
+      <PKey>0x0001</PKey>
+      <Security>0</Security>
+      <QOS>0</QOS>
+      <Member>All</Member>
+      <Application>AllOthers</Application>
+      <MaxMTU>Unlimited</MaxMTU>
+      <MaxRate>Unlimited</MaxRate>
+    </VirtualFabric>
+
+    <!-- The Admin partition -->
+    <!-- This gives non-SMs limited privileges -->
+    <VirtualFabric>
+      <Name>Admin</Name>
+      <Enable>1</Enable>
+      <PKey>0x7fff</PKey> <!-- must be OPA Management PKey -->
+      <Security>1</Security>
+      <QOS>0</QOS>
+      <!-- <HighPriority>1</HighPriority> can make admin High priority -->
+      <Member>HFIDirectConnect</Member> <!-- Both HFIs directly connected -->
+      <Member>AllMgmtAllowed</Member>
+      <Member>AllSWE0s</Member> <!-- so chassis CMU can access leafs & spines-->
+      <!-- <Member>AdminNodes</Member> add more FF/admin nodes if desired -->
+      <LimitedMember>All</LimitedMember>
+      <Application>SA</Application>
+      <Application>PA</Application>
+      <Application>PM</Application>
+      <!-- add other applications if desired -->
+      <!-- <MaxMTU>2048</MaxMTU> can reduce MTU, SA only uses MADs -->
+    </VirtualFabric>
+
+
+    <!-- This vFabric can be used as a simple catchall.  When none of the -->
+    <!-- other enabled vFabrics include the "All" Application, this will -->
+    <!-- pick up the remaining applications.  This is also very useful when -->
+    <!-- uncertain about how to identify applications of interest such as -->
+    <!-- storage devices or file systems with undocumented Service IDs -->
+    <VirtualFabric>
+      <Name>AllOthers</Name>
+      <Enable>0</Enable>
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <Bandwidth>20%</Bandwidth>
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>AllOthers</Application>
+    </VirtualFabric>
+ 
+    <!-- a template for a storage Virtual Fabric -->
+    <!-- This vFabric can be used for Lustre traffic.  The PKey field should -->
+    <!-- be specified to map Lustre traffic.  The CMA in OFA currently -->
+    <!-- specifies the PKey and ServiceID in the path record query.  The CMA -->
+    <!-- requires that the PKey match the PKey for networking traffic -->
+    <!-- (IPoIB). When setting up this vFabric the PKey should be configured -->
+    <!-- to be identical to the PKey used for IPoIB.  For example if the -->
+    <!-- Default VF is used for IPoIB, the PKey of the Default VF and the -->
+    <!-- PKey of the Storage VF should match. In addition, either the -->
+    <!-- <Security> should be disabled OR the VF should be changed from -->
+    <!-- <LimitedMember> to <Member>. -->
+    <VirtualFabric>
+      <Name>Storage</Name>
+      <Enable>0</Enable>
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <Bandwidth>20%</Bandwidth>
+      <!-- <Member>group_with_storage_targets</Member> -->
+      <LimitedMember>All</LimitedMember>
+      <Application>Storage</Application>
+      <!-- <PreemptRank>1</PreemptRank> others can preempt this vf -->
+    </VirtualFabric>
+ 
+    <!-- a template for a compute Virtual Fabric -->
+    <!-- QOS is configured for utilization of 70% of the bandwidth for MPI -->
+    <VirtualFabric>
+      <Name>Compute</Name>
+      <Enable>0</Enable>
+      <PKey>0x0003</PKey> <!-- manually specify so can supply to MPI -->
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <Bandwidth>70%</Bandwidth>
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <!-- if using the PSM vFabric examples below, use VerbsMPI not Compute -->
+      <Application>Compute</Application>
+      <!-- <Application>VerbsMPI</Application> -->
+      <!-- <PreemptRank>127</PreemptRank> can preempt all others -->
+      <!-- <HoqLife>8ms</HoqLife> Override SM instance value -->
+    </VirtualFabric>
+ 
+    <!-- when using Intel OmniPath Fabric HFIs with PSM technology,-->
+    <!-- there is no need to configure PKey nor SL. FM can freely select -->
+    <!-- since PSM will query the SA using the PSM ServiceIds when -->
+    <!-- PSM_PATH_REC="opp" -->
+    <VirtualFabric>
+      <Name>PSM_Compute</Name>
+      <Enable>0</Enable>
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <Bandwidth>70%</Bandwidth>
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>PSM</Application>
+    </VirtualFabric>
+ 
+    <!-- when using PSM, Control and Data traffic can be separated into -->
+    <!-- different vFabrics. -->
+    <!-- To do this, PSM must be run with PSM_PATH_REC="opp" -->
+    <!-- Then enable these two VFs instead of the MPI Compute ones above -->
+    <VirtualFabric>
+      <Name>PSM_Compute_Control</Name>
+      <Enable>0</Enable>
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <HighPriority>1</HighPriority> <!-- admin traffic is High priority -->
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>PSM_Control</Application>
+    </VirtualFabric>
+ 
+    <VirtualFabric>
+      <Name>PSM_Compute_Data</Name>
+      <Enable>0</Enable>
+      <Security>1</Security>
+      <QOS>1</QOS>
+      <Bandwidth>70%</Bandwidth>
+      <!-- <Member>compute_nodes</Member> -->
+      <Member>All</Member>    <!-- can be reduced in scope if desired -->
+      <Application>PSM_Data</Application>
+    </VirtualFabric>
+  </VirtualFabrics>
+
+  <!-- PM Port Group Configuration -->
+  <!-- PM Port Groups allow the PM to gather and consolidate statistics for -->
+  <!-- the specified set of devices.  In addition, the PM will always have -->
+  <!-- the All, HFIs and SWs groups. -->
+  <!-- PM Port Groups defined here are available for use in all FM instances -->
+  <!-- Additional PmPortGroups may be defined here or per FM instance. -->
+  <!-- PmPortGroups specified per FM instance will add to -->
+  <!-- instead of replace these PmPortGroup definitions. -->
+  <PmPortGroups>
+    <!-- Each PMPortGroup is comprised of: -->
+    <!-- 1. a name -->
+    <!-- 2. AND one or more sets of DeviceGroups to be monitored -->
+    <!-- 3. AND an enable/disable flag -->
+
+    <!-- All ports providing a Device Management Agent, typically IO devices -->
+    <PmPortGroup>
+      <Name>TFIs</Name>
+      <Monitor>AllTFIs</Monitor>
+      <Enable>0</Enable>
+    </PmPortGroup>
+
+    <!-- All ports on Fabric Interfaces, includes HFIs and TFIs -->
+    <PmPortGroup>
+      <Name>AllFIs</Name>
+      <Monitor>AllFIs</Monitor>
+      <Enable>0</Enable>
+    </PmPortGroup>
+
+    <!-- All ports in rack 1 as per DG -->
+    <PmPortGroup>
+      <Name>Rack1PG</Name>
+      <Monitor>Rack1DG</Monitor>
+      <Enable>0</Enable>
+    </PmPortGroup>
+  </PmPortGroups>
+
+  <!-- Shared Common config, applies to all components: SM, PM and FE -->
+  <!-- Most of the parameters below can also be set per component if needed -->
+  <Shared>
+    <!-- Configure maximum number of times an FM component can be restarted -->
+    <!-- after running less then StartupStableWait minutes before terminating the opafm service. -->
+    <StartupRetries>5</StartupRetries>
+    <!-- Amount of time in minutes before an instance is considered -->
+    <!-- successfully started and stable. -->
+    <StartupStableWait>10</StartupStableWait>
+    <!-- Max FI Ports, estimates switches assuming optimal Fat Tree. -->
+    <!-- Increase if non-optimal Fat Tree. -->
+    <!-- For ESM this will be automatically adjusted to ESM maximum -->
+    <SubnetSize>9216</SubnetSize>
+
+    <!-- Core file generation options to aid debug of Host FM crashes -->
+    <!-- Max core size in bytes or unlimited,  Suffix of K, M or G should -->
+    <!-- be used to define larger limits. -->
+    <!-- values less than 8192 are treated as Megabytes -->
+    <!-- This sets the linux core dump soft ulimit for the FM.  Hard ulimit -->
+    <!-- for root user on system must be appropriately set to permit this. -->
+    <!-- Default CoreDumpLimit is 10 GB -->
+    <CoreDumpLimit>10G</CoreDumpLimit>
+    <!-- Directory for Host FM core files -->
+    <!-- Actual core filenames will be controlled by linux kernel config. -->
+    <!-- The parent directory (/var/crash in default) must be pre-created. -->
+    <CoreDumpDir>/var/crash/opafm</CoreDumpDir>
+
+    <!-- Priority and Elevated Priority control failover for SM, PM. -->
+    <!-- Priority is used during initial negotiation, higher Priority wins. -->
+    <!-- ElevatedPriority is assumed by winning master, this can prevent -->
+    <!-- fallback when previous master comes back on line.  -->
+    <Priority>0</Priority> <!-- 0 to 15, higher wins -->
+    <ElevatedPriority>0</ElevatedPriority> <!-- 0 to 15, higher wins -->
+
+    <!-- Sets log level option for SM, PM and FE -->
+    <!-- 0 = disable vast majority of logging output -->
+    <!-- 1 = fatal, error, warn (syslog CRIT, ERR, WARN)-->
+    <!-- 2 = +notice, progress (syslog NOTICE, INFO) -->
+    <!-- 3 = +INFO (syslog DEBUG) -->
+    <!-- 4 = +VERBOSE and some packet data (syslog DEBUG) -->
+    <!-- 5 = debug1 and debug2 trace info (syslog DEBUG) -->
+    <!-- 6 = debug3 and debug4 trace info (syslog DEBUG) -->
+    <!-- 7 = +function trace info (syslog DEBUG) -->
+    <!-- For ESM corresponding Chassis Logging must also be enabled -->
+    <!-- and Sm config applies to all managers. -->
+    <LogLevel>2</LogLevel>
+
+    <!-- Sets log output location for SM, PM and FE -->
+    <!-- By default log output is done via syslog.  However if a LogFile -->
+    <!-- is specified, logging will be done to the given file. -->
+    <!-- LogMode further controls logging -->
+    <!-- ESM does not support LogFile -->
+    <!-- <LogFile>/var/log/fm.log</LogFile> --> <!-- log for all instances -->
+
+    <!-- Controls mode for logging by SM, PM and FE -->
+    <!-- low 2 bits control logging as follows: -->
+    <!-- Low Bit (0/1): -->
+    <!--    0 - use normal logging levels -->
+    <!--    1 - logging is quieted by downgrading the majority of -->
+    <!--        fatal, error, warn and progress log messages to level -->
+    <!--        3 (INFO) and only outputting user actionable events when -->
+    <!--        LogLevel is 1 or 2. -->
+    <!-- Next Bit (0/2) (only affects logging when LogFile specified): -->
+    <!--    0 - user actionable events go to syslog and LogFile -->
+    <!--    2 - when LogFile specified, nothing goes to syslog -->
+    <!-- ESM does not support LogMode -->
+    <LogMode>0</LogMode>
+
+    <!-- Controls the Syslog Facility for SM, PM and FE -->
+    <!-- Can be: auth, authpriv, cron, daemon, ftp, kern, local0-local7, -->
+    <!-- lpr, mail, news, syslog, user, or uucp -->
+    <!-- ESM does not support SyslogFacility, select via chassis Logging -->
+    <SyslogFacility>local6</SyslogFacility>
+
+
+    <!-- OpenSSL FE network security parameters  -->
+    <SslSecurityEnable>1</SslSecurityEnable>
+    <SslSecurityDir>/usr/local/ssl/opafm</SslSecurityDir>
+    <SslSecurityFmCertificate>fm_cert.pem</SslSecurityFmCertificate>
+    <SslSecurityFmPrivateKey>fm_key.pem</SslSecurityFmPrivateKey>
+    <SslSecurityFmCaCertificate>fm_ca_cert.pem</SslSecurityFmCaCertificate>
+    <SslSecurityFmCertChainDepth>1</SslSecurityFmCertChainDepth>
+    <SslSecurityFmDHParameters>fm_dh_parms.pem</SslSecurityFmDHParameters>
+    <SslSecurityFmCaCRLEnable>0</SslSecurityFmCaCRLEnable>
+    <SslSecurityFmCaCRL>fm_ca_crl.pem</SslSecurityFmCaCRL>
+
+    <!-- Additional parameters for debug/development use -->
+    <Debug>0</Debug> <!-- debug mode for SM, PM and FE -->
+    <RmppDebug>0</RmppDebug> <!-- RMPP debug messages for SA, PM and FE -->
+
+    <!-- Alternative to use of LogLevel.  Use of LogLevel recommended. -->
+    <!-- For each subsystem there can be a LogMask.  The mask selects -->
+    <!-- severities of log messages to enable: --> 
+    <!-- 0x1=fatal, 0x2=actionable error, 0x4=actionable warning, -->
+    <!-- 0x8=actionable notice, 0x10=actionable info, 0x20=error, 0x40=warn, -->
+    <!-- 0x80=notice, 0x100=progress, 0x200=info, 0x400=verbose, 0x800=data, -->
+    <!-- 0x1000=debug1, 0x2000=debug2, 0x4000=debug3, 0x8000=debug4 -->
+    <!-- 0x10000=func call, 0x20000=func args, 0x40000=func exit, -->
+    <!-- For Host SM, the Linux syslog service will need to have an -->
+    <!-- appropriate level of logging enabled. -->
+    <!-- For ESM corresponding Chassis Logging must also be enabled -->
+    <!-- and Sm config applies to all managers. -->
+    <!-- <CS_LogMask>0x00000000</CS_LogMask> -->
+    <!-- <MAI_LogMask>0x000001ff</MAI_LogMask> -->
+    <!-- <CAL_LogMask>0x000001ff</CAL_LogMask> -->
+    <!-- <DVR_LogMask>0x000001ff</DVR_LogMask> -->
+    <!-- <IF3_LogMask>0x000001ff</IF3_LogMask> -->
+    <!-- <SM_LogMask>0x000001ff</SM_LogMask> -->
+    <!-- <SA_LogMask>0x000001ff</SA_LogMask> -->
+    <!-- <PM_LogMask>0x000001ff</PM_LogMask> -->
+    <!-- <PA_LogMask>0x000001ff</PA_LogMask> -->
+    <!-- <FE_LogMask>0x000001ff</FE_LogMask> -->
+    <!-- <APP_LogMask>0x000001ff</APP_LogMask> -->
+    
+    <!-- Controls the Configuration Consistency Check for SM, and PM -->
+    <!-- Setting can be completely disabled, or can be set to take action -->
+    <!-- by deactivating Standby SM or PM if configuration does not -->
+    <!-- pass the consistency check criteria. The default level is 2 -->
+    <!-- 1 = enable Configuration Consistency Checking without taking action -->
+    <!--     only logs a message when a consistency mismatch is detected  -->
+    <!--     this is a debug option not recommended for typical use -->
+    <!-- 2 = enable Configuration Consistency Checking and take action -->
+    <!--      (log message and move standby to inactive state) -->
+    <!-- This parameter cannot be overridden in the SM or PM section. -->
+    <!-- <ConfigConsistencyCheckLevel>2</ConfigConsistencyCheckLevel> -->
+        
+  </Shared>
+
+  <!-- Common SM (Subnet Manager) attributes -->
+  <Sm>
+    <!-- ESM does not support Start via XML configuration. Use CLI commands -->
+    <Start>1</Start> <!-- default SM startup for all instances -->
+    <!-- SM restart parameters can be configured separately; overrides Common.Shared settings -->
+    <!-- <StartupRetries>5</StartupRetries> -->
+    <!-- <StartupStableWait>10</StartupStableWait> -->
+    <!-- *************** SM Redundancy **************************** -->
+    <!-- MasterPingInterval is the interval secondary SM pings master. -->
+    <!-- Ping must fail MasterPingMaxFail times before secondary takes over. -->
+    <!-- Secondary SMs will synchronize their fabric database with the -->
+    <!-- master at DbSyncInterval -->
+    <MasterPingInterval>5</MasterPingInterval> <!-- in seconds -->
+    <MasterPingMaxFail>3</MasterPingMaxFail>
+    <DbSyncInterval>15</DbSyncInterval> <!-- in minutes, 0-> off -->
+
+    <!-- ********************* Fabric Routing **************************** -->
+    <!-- The following Routing Algorithms are supported                    -->
+    <!-- shortestpath - pick shortest path and balance lids on ISLs        -->
+    <!-- fattree -  A variation of shortestpath with better balancing      -->
+    <!--            and improved SM performance on fat tree-like fabrics.  -->
+    <!--            See section <FatTreeTopology> below.                   -->
+    <!-- dgshortestpath - A variation of shortestpath that uses the        -->
+    <!--            RoutingOrder parameter to control the order in which   -->
+    <!--            switch egress ports are assigned to LIDs being routed  -->
+    <!--            through the fabric. This can provide a better balance  -->
+    <!--            of traffic through fabrics with multiple types of end  -->
+    <!--            nodes.                                                 -->
+    <!--            See the <DGShortestPathTopology> section, below, for   -->
+    <!--            more information.                                      -->
+    <!-- dor -      Dimension ordered routing for use with mesh and torus  -->
+    <!--            topologies cabled in port-to-dimension order.          -->
+    <!--            See the <MeshTorusTopology> section below for more     -->
+    <!--            information. (Intel Technical Preview)                 -->
+    <!-- hypercube - A variation of dg shortest path for enhanced          -->
+    <!--            hypercube and mesh topologies.  See section            -->
+    <!--            <HypercubeTopology> below. (Supported via 3rd parties) -->
+    <RoutingAlgorithm>shortestpath</RoutingAlgorithm>
+
+    <!-- SpineFirstRouting - An option to avoid credit loops in complex    -->
+    <!--            fabrics using Intel Switches.                          -->
+    <!--            Given equal length routes, this option routes through  -->
+    <!--            director class switches spine first. This avoids       -->
+    <!--            credit loops caused by routing via edge/leaf switches  -->
+    <!--            instead of spines.                                     -->
+    <SpineFirstRouting>1</SpineFirstRouting>
+
+    <!-- LID Mask Control: The LMC parameter provides a method for assigning multiple -->
+    <!-- LIDs to a single physical port, allowing the SM to configure the fabric with -->
+    <!-- multiple routes between each end node port, it further helps applications to -->
+    <!-- load balance traffic. This permits selected applications (such as MPIs using -->
+    <!-- Intel(R) PSM) to optimize performance and/or resiliency by using dispersive  -->
+    <!-- routing. Default 0 assigns 1 LID per HFI. LMC is used for Failover/Redundant -->
+    <!-- Routing and for Dispersive Routing. -->
+    <Lmc>0</Lmc>  <!-- assign 2^lmc LIDs to all FIs (Lmc can be 0-7) -->
+    <!-- LID Mask Control for Switch Port 0: Lmc for LID assignment to Switches with  -->
+    <!-- an Enhanced Port 0 capability. LmcE0 and Lmc can be used for Failover/Redundant -->
+    <!-- Routing especially when in-band ULPs (such as IPoIB) are run on enhanced port 0 -->
+    <!-- of switch. LmcE0 cannot be used to enable/control Dispersive Routing, as its -->
+    <!-- applicable only to hosts -->
+    <LmcE0>0</LmcE0>  <!-- assign 2^lmce0 LIDs to all Enhanced SW port 0 -->
+
+    <ForceRebalance>0</ForceRebalance>
+    <!-- Toggle to force rebalancing routing every change -->
+
+    <!-- ******************** Fat Tree Topology **************************** -->
+    <!-- When the RoutingAlgorithm is set to fattree, the following section  -->
+    <!-- is used to configure fat tree parameters.                           -->
+    <!-- FatTreeTopology:                                                    -->
+    <!--    To properly handle routing decisions, the SM needs to understand -->
+    <!--    some fabric topology information.  Specifically, how many tiers  -->
+    <!--    are in the fat tree and which tier a switch belongs to.  This is -->
+    <!--    used to balance the tree and determine which links are up/down   -->
+    <!--    for deadlock avoidance.                                          -->
+    <!--    If all FIs are on the same tier, the SM can easily determine the -->
+    <!--    fat tree topology and tier a given switch resides in. If they    -->
+    <!--    are not, a list of CoreSwitches will be used to identify the     -->
+    <!--    topology.  It is a good practice to specify the CoreSwitches     -->
+    <!--    group explicitly and disable the FIsOnSameTier config, this will -->
+    <!--    determine the proper layout of the fabric in the event that some -->
+    <!--    of the HFIs are offline.                                         -->
+    <FatTreeTopology>
+      <!-- The number of tiers in the fat tree.                              -->
+      <TierCount>3</TierCount>
+      <!-- Fabric topology will be discovered using information that all     -->
+      <!-- HFIs are on the same tier in the fat tree.                        -->
+      <FIsOnSameTier>1</FIsOnSameTier>
+      <!-- Fabric topology will be discovered based on the location of the   -->
+      <!-- core/root switches.  The following must be setup if the HFIs are  -->
+      <!-- not on the same tier.  It's also a good practice to use the core  -->
+      <!-- switches group to discover the fabric topology (in the event      -->
+      <!-- that HFIs are offline).  Note, FIsOnSameTier should be set to     -->
+      <!-- zero when using the CoreSwitches discovery method.                -->
+      <!-- <CoreSwitches>core_device_group</CoreSwitches>                    -->
+      <!-- Nodes may be specified for exclusion from initial round-robin     -->
+      <!-- to give better route balancing of remaining nodes.                -->
+      <!-- This may be useful in asymmetric fat trees or to initially        -->
+      <!-- balance across compute nodes in the tree.                         -->
+      <!-- <RouteLast>hfi_device_group</RouteLast>                           -->
+      <!-- The following can be enabled to setup routing with a simple       -->
+      <!-- round robin.  Paths are selected without offsetting the start     -->
+      <!-- such that the first HFI on a switch is routed through the first   -->
+      <!-- ISL on the same tier, the second HFI on the second ISL, etc. in   -->
+      <!-- a pass through type assignment.                                   -->
+      <PassThrough>0</PassThrough>
+      <!-- For 3-tier fat trees, converge routes at core to get optimal      -->
+      <!-- balance when down routing.                                        -->
+      <Converge>0</Converge>
+    </FatTreeTopology>
+
+    <!-- **************** DG ShortestPath Topology ************************* -->
+    <!-- When the routing algorithm is set to "dgshortestpath" the following -->
+    <!-- section is used to configure the algorithm.                         -->
+    <!-- Overall, "dgshortestpath" routing is a form of "Min Hop" or         -->
+    <!-- "Shortestpath" routing

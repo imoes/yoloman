@@ -1,88 +1,73 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          npd6
-# Required-Start:    $remote_fs $syslog $network
-# Required-Stop:     $remote_fs $syslog $network
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Description: {{ desc | default('npd6 - Neighbor proxy Daemon IPv6') }}
-# Short-Description: Provides the npd6 daemon.
-### END INIT INFO
+// npd6 config file
+// Configuration for npd6: a proxy NDP/NDP6 daemon.
+// See `man npd6` for full documentation of all options.
 
-# Author: Sean Groarke, sgroarke@gmail.com
-# $HeadURL$
-# $Id$
+//***************************************************
+// Core Routing Configuration
+//***************************************************
 
-# Do NOT "set -e"
+// The IPv6 prefix portion that npd6 will match on for neighbor solicitations.
+// Format: A standard IPv6 prefix (e.g., 2001:db8::/32).
+// Supports unlimited prefix/interface pairs in this file.
+prefix = {{ prefix | default('2222:1111:2222:3333:') }}
 
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+// The network interface to monitor and use for the neighbor proxy.
+// Must be an active interface on the host.
+interface = {{ interface | default('eth0') }}
 
-# Description of the npd6 daemon displayed in logs.
-DESC="{{ desc | default('npd6 - Neighbor proxy Daemon IPv6') }}"
+//***************************************************
+// Router Advertisement (RA) Handling
+//***************************************************
 
-# Name of the npd6 service/daemon.
-NAME={{ name | default('npd6') }}
+// Enable Router Advertisement logging.
+// 'on': logs prefix info at INFO level.
+// 'off': minimal logging (default).
+ralogging = {{ ralogging | default('off') }}
 
-DAEMON=/usr/bin/$NAME
+//***************************************************
+// Neighbor Solicitation (NS) Filtering (Black/White Lists)
+//***************************************************
 
-# Command line arguments passed to the npd6 daemon (e.g., --debug -l /var/log/npd6.log).
-DAEMON_ARGS="{{ daemon_args | default('') }}"
+// List type for filtering NS requests.
+// 'none': Accept all NS matching the prefix (default).
+// 'black': Accept all NS EXCEPT those in the address list.
+// 'white': Accept ONLY NS present in the address list.
+listtype = {{ listtype | default('none') }}
 
-PIDFILE=/var/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/$NAME
+// Enable logging of list matches when using black or white lists.
+// If 'on', matches against the allow/deny lists are logged.
+// Note: Debug mode logs these regardless of this setting.
+listlogging = {{ listlogging | default('off') }}
 
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
-# Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
+//***************************************************
+// Advanced Options
+// NOTE: These options are typically left at defaults unless
+// specific troubleshooting or advanced tuning is required.
+//***************************************************
 
-do_reload() {
-	#
-	# If the daemon can reload its configuration without
-	# restarting (for example, when it is sent a SIGHUP),
-	# then implement that here.
-	#
-	log_daemon_msg "Doing a daemon reload - USR1"
-	start-stop-daemon --stop --signal USR1 --quiet --pidfile $PIDFILE --name $NAME
-	return 0
-}
+// Number of targets to collect target data for.
+// 0 to disable data collection entirely.
+// Data can be dumped via USR2 signal.
+collectTargets = {{ collectTargets | default('100') }}
 
-case "$1" in
-  start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-	#do_start
-	start-stop-daemon --start --exec $DAEMON -- $DAEMON_ARGS
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	#do_stop
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --name $NAME
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  status)
-       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-       ;;
-  restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-        start-stop-daemon --stop --retry=TERM/30/KILL/5 --exec $DAEMON
-        start-stop-daemon --start --exec $DAEMON -- $DAEMON_ARGS
-	;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
-	exit 3
-	;;
-esac
+// Set to true to enable target link-layer option on replies
+// to unicasted Neighbor Solicitations.
+linkOption = {{ linkOption | default('false') }}
 
-:
+// If true, ignore NS for the local interface addresses and let
+// the kernel reply directly.
+ignoreLocal = {{ ignoreLocal | default('true') }}
+
+// If true, set the ROUTER flag in outbound Neighbor Advertisements.
+routerNA = {{ routerNA | default('true') }}
+
+// Maximum number of hops for Neighbor Advertisements.
+// Should usually remain 255 to ensure propagation.
+maxHops = {{ maxHops | default('255') }}
+
+// Number of consecutive poll errors before terminating the process.
+// Useful for detecting permanent interface failures.
+pollErrorLimit = {{ pollErrorLimit | default('20') }}
+
+// End of configuration.
+// $Id: npd6.conf $

@@ -22,6 +22,7 @@ import {
 } from '../../core/models/access.model';
 import { Agent } from '../../core/models/agent.model';
 import { HostGroup } from '../../core/models/host-group.model';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 /** Block M — Users & Access (admin-only). Manage human users and their
  * role, machine API tokens, and the per-host/group access grants that
@@ -32,7 +33,7 @@ import { HostGroup } from '../../core/models/host-group.model';
 @Component({
   selector: 'app-users-access',
   standalone: true,
-  imports: [
+  imports: [BlockedReasonDirective,
     DatePipe,
     FormsModule,
     MatCardModule,
@@ -76,9 +77,9 @@ import { HostGroup } from '../../core/models/host-group.model';
                 <mat-option value="admin">admin</mat-option>
               </mat-select>
             </mat-form-field>
-            <button mat-raised-button color="primary" (click)="addUser()" [disabled]="!nuName().trim() || !nuPass()">
+            <span class="bm-why"><button mat-raised-button color="primary" (click)="addUser()" [bmBlocked]="addUserBlocked()">
               <mat-icon>person_add</mat-icon> Add user
-            </button>
+            </button></span>
           </div>
 
           @if (users().length) {
@@ -89,14 +90,15 @@ import { HostGroup } from '../../core/models/host-group.model';
                   <tr>
                     <td class="bm-mono">{{ u.username }}</td>
                     <td>
-                      <mat-select class="bm-role-select" [ngModel]="u.role" (ngModelChange)="setRole(u, $event)">
+                      <mat-select class="bm-role-select" [aria-label]="'Role of ' + u.username" [ngModel]="u.role" (ngModelChange)="setRole(u, $event)">
                         <mat-option value="operator">operator</mat-option>
                         <mat-option value="admin">admin</mat-option>
                       </mat-select>
                     </td>
                     <td class="bm-dim">{{ u.created_at ? (u.created_at | date: 'short') : '—' }}</td>
                     <td class="bm-actions">
-                      <button mat-button (click)="removeUser(u)" [disabled]="u.username === me()">Delete</button>
+                      <span class="bm-why"><button
+                        mat-button (click)="removeUser(u)" [bmBlocked]="u.username === me() ? 'You cannot delete the account you are signed in with' : ''" bmBlockedMode="tip">Delete</button></span>
                     </td>
                   </tr>
                 }
@@ -117,9 +119,9 @@ import { HostGroup } from '../../core/models/host-group.model';
               <mat-label>Token name</mat-label>
               <input matInput [(ngModel)]="ntName" autocomplete="off" />
             </mat-form-field>
-            <button mat-raised-button color="primary" (click)="addToken()" [disabled]="!ntName().trim()">
+            <span class="bm-why"><button mat-raised-button color="primary" (click)="addToken()" [bmBlocked]="!ntName().trim() ? 'Name the token first' : ''">
               <mat-icon>vpn_key</mat-icon> Create token
-            </button>
+            </button></span>
           </div>
 
           @if (newTokenSecret()) {
@@ -143,7 +145,7 @@ import { HostGroup } from '../../core/models/host-group.model';
                     <td class="bm-dim">{{ t.created_at ? (t.created_at | date: 'short') : '—' }}</td>
                     <td>{{ t.revoked ? 'revoked' : 'active' }}</td>
                     <td class="bm-actions">
-                      <button mat-button (click)="revoke(t)" [disabled]="t.revoked">Revoke</button>
+                      <span class="bm-why"><button mat-button (click)="revoke(t)" [bmBlocked]="t.revoked ? 'Already revoked' : ''" bmBlockedMode="tip">Revoke</button></span>
                     </td>
                   </tr>
                 }
@@ -213,9 +215,9 @@ import { HostGroup } from '../../core/models/host-group.model';
                 </mat-select>
               </mat-form-field>
             }
-            <button mat-raised-button color="primary" (click)="addGrant()" [disabled]="!grantValid()">
+            <span class="bm-why"><button mat-raised-button color="primary" (click)="addGrant()" [bmBlocked]="grantBlocked()">
               <mat-icon>add_moderator</mat-icon> Grant
-            </button>
+            </button></span>
           </div>
 
           @if (grants().length) {
@@ -314,11 +316,16 @@ export class UsersAccessComponent implements OnInit {
   ngAgentId = signal<string>('');
   ngGroupId = signal<string>('');
 
-  grantValid = computed(() => {
-    if (!this.ngRef()) return false;
-    if (this.ngScope() === 'host') return !!this.ngAgentId();
-    if (this.ngScope() === 'host_group') return !!this.ngGroupId();
-    return true;
+  // Why a form's button is refused ('' = allowed) — [disabled] and the tooltip read the same answer.
+  addUserBlocked = computed(() => {
+    if (!this.nuName().trim()) return 'Enter a username first';
+    return this.nuPass() ? '' : 'Set a password first';
+  });
+  grantBlocked = computed(() => {
+    if (!this.ngRef()) return `Select the ${this.ngKind() === 'user' ? 'user' : 'API token'} to grant to`;
+    if (this.ngScope() === 'host' && !this.ngAgentId()) return 'Select a host';
+    if (this.ngScope() === 'host_group' && !this.ngGroupId()) return 'Select a host group';
+    return '';
   });
 
   ngOnInit(): void {

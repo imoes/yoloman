@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2005-2010 Thierry FOURNIER
-# $Id: arpalert.conf.in 690 2008-03-31 18:36:43Z $
+# $Id: arpalert.conf.in 690 2008-03-31 18:36:43Z  $
 # 
 # Default config file
 # 
@@ -36,7 +36,7 @@ dump packet = {{ dump_packet | default(False) | lower }}
 daemon = {{ daemon | default(False) | lower }}
 
 # Number of seconds between ARP table scans (matches 'dump inter' in config).
-dump inter = {{ scan_interval | default(30) }}
+dump inter = {{ scan_interval | default(5) }}
 
 # Configure the network for catch only arp request.
 # The detection type "new_mac" is desactived.
@@ -47,8 +47,9 @@ catch only arp = true
 # Comma separated interfaces to lesson.
 # if not precised, the soft select the first interface.
 # by default select the first interface encontered
-#interface = {{ interfaces | default(['eth0']) | join(", ") }}
-
+{% if interfaces is defined and interfaces is not none and (interfaces is number or interfaces is boolean or interfaces | length > 0) %}interface = {{ interfaces | default(['eth0']) | join(", ") }}
+{% else %}#interface = eth0
+{% endif %}
 # Command to execute when an alert occurs.
 # Supports %ip%, %mac%, %mac% vendor, %device%, %type% placeholders.
 # type of alert:

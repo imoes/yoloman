@@ -2,6 +2,7 @@ import { Component, inject, input, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 interface CronJob { name: string; schedule: string; job: string; managed: boolean; }
 interface Timer { unit: string; next: string; left: string; activates: string; }
@@ -17,7 +18,7 @@ const MARKER = '#Ansible: ';
 @Component({
   selector: 'app-cron',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [BlockedReasonDirective, MatIconModule, MatButtonModule],
   template: `
     <div class="bm-cron">
       @if (loading()) { <p class="bm-dim">Loading…</p> }
@@ -53,7 +54,7 @@ const MARKER = '#Ansible: ';
             <input class="bm-in-name" placeholder="name" [value]="nName()" (input)="nName.set($any($event.target).value)" />
             <input class="bm-in-sched" placeholder="*/5 * * * *" [value]="nSched()" (input)="nSched.set($any($event.target).value)" />
             <input class="bm-in-job" placeholder="/usr/local/bin/backup.sh" [value]="nJob()" (input)="nJob.set($any($event.target).value)" />
-            <button mat-stroked-button (click)="addJob()" [disabled]="busy() || !nName().trim() || !nJob().trim()"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
+            <button mat-stroked-button (click)="addJob()" [disabled]="busy()" [bmBlocked]="!nName().trim() || !nJob().trim() ? 'Enter a name and a command' : ''"><mat-icon>add</mat-icon> {{ dryRun() ? 'Preview' : 'Add' }}</button>
           </div>
           <p class="bm-hint">
             Schedule = five space-separated fields <code>minute&nbsp;hour&nbsp;day-of-month&nbsp;month&nbsp;day-of-week</code>.
@@ -83,7 +84,7 @@ const MARKER = '#Ansible: ';
             <input class="bm-in-name" placeholder="name" [value]="tName()" (input)="tName.set($any($event.target).value)" />
             <input class="bm-in-sched" placeholder="OnCalendar e.g. daily / *-*-* 02:00" [value]="tCal()" (input)="tCal.set($any($event.target).value)" />
             <input class="bm-in-job" placeholder="ExecStart e.g. /usr/local/bin/job.sh" [value]="tExec()" (input)="tExec.set($any($event.target).value)" />
-            <button mat-stroked-button (click)="createTimer()" [disabled]="busy() || !tName().trim() || !tCal().trim() || !tExec().trim()"><mat-icon>add</mat-icon> Create timer</button>
+            <button mat-stroked-button (click)="createTimer()" [disabled]="busy()" [bmBlocked]="!tName().trim() || !tCal().trim() || !tExec().trim() ? 'Enter name, calendar and ExecStart' : ''"><mat-icon>add</mat-icon> Create timer</button>
           </div>
           <p class="bm-hint">
             <code>OnCalendar</code> uses systemd's calendar syntax <code>DOW YYYY-MM-DD HH:MM:SS</code> (unset parts = every).
@@ -105,8 +106,8 @@ const MARKER = '#Ansible: ';
     .bm-card > header, .bm-cardhead { padding: 9px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); display: flex; align-items: center; justify-content: space-between; }
     .bm-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
     .bm-t { width: 100%; border-collapse: collapse; }
-    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: 5px 8px; }
-    .bm-t td { padding: 4px 8px; border-top: 1px solid var(--mat-sys-outline-variant); font-size: 13px; }
+    .bm-t th { text-align: left; font-size: 12px; opacity: 0.7; padding: var(--bm-cell-py) var(--bm-cell-px); }
+    .bm-t td { padding: var(--bm-cell-py) var(--bm-cell-px); border-top: 1px solid var(--mat-sys-outline-variant); font-size: var(--bm-font-table); }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-tag { font-size: 10px; opacity: 0.6; margin-left: 6px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 1px 6px; }
     .bm-add { display: flex; gap: 8px; padding: 10px 14px; flex-wrap: wrap; align-items: center; }

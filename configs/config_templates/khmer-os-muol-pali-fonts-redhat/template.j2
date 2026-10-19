@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig configuration for Khmer OS Muol Pali fonts.
+  This template registers the font family and sets up locale-specific
+  fallback aliases for the Khmer language.
+-->
+<fontconfig>
+  <!--
+    Generic name aliasing.
+    Maps the specified generic font family to the specific Khmer font.
+  -->
+  <alias>
+    <!-- The name of the Khmer font family to be registered. -->
+    <family>{{ family_name | default('Khmer OS Muol Pali') }}</family>
+    <!-- The generic font family alias to which the Khmer font is mapped. -->
+    <default>
+      <family>{{ default_family | default('monospace') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Locale-specific override.
+    Ensures that when the system language is Khmer, the specified generic
+    font family is replaced by the Khmer font family.
+  -->
+  <match>
+    <!-- Test if the current font request's language matches the target locale. -->
+    <test name="lang" compare="contains">
+      <!-- The ISO 639 language code for which the font override applies. -->
+      <string>{{ locale_code | default('km') }}</string>
+    </test>
+    <!-- Test if the requested font family matches the generic alias. -->
+    <test name="family">
+      <string>{{ default_family | default('monospace') }}</string>
+    </test>
+    <!-- Edit the family name to prepend the specific Khmer font. -->
+    <edit name="family" mode="prepend">
+      <string>{{ family_name | default('Khmer OS Muol Pali') }}</string>
+    </edit>
+  </match>
+</fontconfig>

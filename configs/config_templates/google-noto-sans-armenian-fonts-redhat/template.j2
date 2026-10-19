@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Google Noto Sans Armenian Font Substitution Configuration
+
+    This XML configuration file for Fontconfig performs two main actions:
+    1. Substitution: When an application requests a font for the Armenian language (`lang`)
+       and the requested generic family matches `target_family`, insert `font_family_name`.
+    2. Alias: Create a permanent alias so that requests for `font_family_name` are resolved
+       to `target_family` (allowing the alias to be overridden later or used as a fallback target).
+  -->
+
+  <!-- Match block: Intercepts font requests based on language and generic family -->
+  <match>
+    <!-- Test if the language code of the requested text matches the specified Armenian locale -->
+    <test name="lang" compare="contains">
+      <!-- The language code to match for font substitution (e.g., hy for Armenian). -->
+      <string>{{ language_code | default('hy') }}</string>
+    </test>
+
+    <!-- Test if the target generic font family matches (e.g., sans-serif) -->
+    <test name="family">
+      <!-- The generic font family to substitute when the language matches. -->
+      <string>{{ target_family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Action: Prepend the specific Noto font to the list of available fonts -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name to insert or alias. -->
+      <string>{{ font_family_name | default('Noto Sans Armenian') }}</string>
+    </edit>
+
+    <!-- Action: Configure font hinting preferences for this match -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hinting (false disables it). -->
+      <!-- Note: In Fontconfig XML, 'false'/'true' strings are parsed as booleans. -->
+      <bool>{{ enable_hinting | default(false) }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias block: Maps the specific font name to a generic family -->
+  <alias>
+    <!-- The specific font family name that users/applications might request directly -->
+    <family>{{ font_family_name | default('Noto Sans Armenian') }}</family>
+    <default>
+      <!-- The generic font family that acts as the fallback/alias target -->
+      <family>{{ target_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

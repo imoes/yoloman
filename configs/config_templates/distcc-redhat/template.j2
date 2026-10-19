@@ -1,0 +1,23 @@
+# Configuration for distcc (Distributed Compilation Service) on Red Hat systems.
+#
+# This template manages the DISTCC_HOSTS variable, which instructs the distcc client
+# where to send compilation jobs. The format allows for local hosts, SSH-based
+# remote hosts, and TCP-based remote hosts, with optional limits and compression.
+
+# DISTCC_HOSTS
+# Defines the available distcc hosts and their options.
+#
+# Grammar summary:
+#   DISTCC_HOSTS = {HOSTSPEC} ...
+#   HOSTSPEC types:
+#  LOCAL_HOST = localhost[/LIMIT]
+#  SSH_HOST = [USER]@HOSTID[/LIMIT][:COMMAND][OPTIONS]
+#  TCP_HOST = HOSTID[:PORT][/LIMIT][OPTIONS]
+#     OLDSTYLE   = HOSTID[/LIMIT][:PORT][OPTIONS]
+#   OPTIONS may include 'lzo' for compression.
+#
+# Default is a placeholder 'HOSTSPEC ...'. In practice, this should be replaced
+# with a list of actual hosts, e.g., "localhost/2 cc@build-server/lzo".
+# If left as the default string 'HOSTSPEC ...', distcc will likely fail to find
+# valid hosts unless overridden by the environment at runtime.
+{% if distcc_hosts is defined and distcc_hosts is not none and (distcc_hosts is number or distcc_hosts is boolean or distcc_hosts | length > 0) %}DISTCC_HOSTS="{{ distcc_hosts | default('HOSTSPEC ...') }}"{% else %}#  DISTCC_HOSTS = HOSTSPEC ...{% endif %}

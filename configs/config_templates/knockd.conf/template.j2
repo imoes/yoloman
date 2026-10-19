@@ -1,19 +1,72 @@
+# ==============================================================================
+# Knockd Configuration Template
+# ==============================================================================
+# This template configures 'knockd', a port-knock server that opens and closes
+# ports for SSH and HTTPS access based on predefined sequences of connection attempts.
+# ==============================================================================
+
 [options]
-# Enable verbose logging
-UseSyslog = {{ options.use_syslog | lower }}
-# Network interface to monitor
-Interface = {{ options.interface }}
-# TCP timeout for open/close sequence (seconds)
-TCPTimeout = {{ options.tcp_timeout }}
+# Log knock events and status to syslog instead of stdout. A bare keyword in knockd.conf(5): `UseSyslog` — not
+# `use_syslog = True`, which knockd refused ("config: line 10: syntax error").
+{% if use_syslog | default(true) | bool %}	UseSyslog
+{% endif %}
 
-[openSequence]
-# Sequence of knock ports/commands to open access
-{% for item in sequences.open %}
-{{ item.port }} = {{ item.command }}
-{% endfor %}
+# --------------------------------------------------------------------------
+# OpenSSH Knock Sequence
+# --------------------------------------------------------------------------
+# This section defines the sequence of TCP packets required to OPEN port 22 (SSH).
+[openSSH]
+# Comma-separated list of TCP ports that constitute the 'open' knock sequence.
+# Type: string
+sequence = {{ openSSH_sequence | default('7000,8000,9000') }}
 
-[closeSequence]
-# Sequence of knock ports/commands to close access
-{% for item in sequences.close %}
-{{ item.port }} = {{ item.command }}
-{% endfor %}
+# Time in seconds to wait for the entire openSSH sequence.
+# Type: integer (seconds)
+seq_timeout = {{ openSSH_seq_timeout | default('5') }}
+
+# Command to execute when openSSH sequence is matched.
+# Type: string (shell command)
+command = {{ openSSH_command | default('/sbin/iptables -A INPUT -s %IP% -p tcp --dport 22 -j ACCEPT') }}
+
+# TCP flags that must be set in the knocking packets.
+tcpflags = syn
+
+# --------------------------------------------------------------------------
+# CloseSSH Knock Sequence
+# --------------------------------------------------------------------------
+# This section defines the reverse sequence required to CLOSE the SSH access.
+[closeSSH]
+# Comma-separated list of ports for the closeSSH knock sequence.
+# Type: string
+sequence = {{ closeSSH_sequence | default('9000,8000,7000') }}
+
+# Time in seconds to wait for the entire closeSSH sequence.
+# Type: integer (seconds)
+seq_timeout = {{ closeSSH_seq_timeout | default('5') }}
+
+# Command to execute when closeSSH sequence is matched.
+# Type: string (shell command)
+command = {{ closeSSH_command | default('/sbin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT') }}
+
+# TCP flags for the close sequence packets.
+tcpflags = syn
+
+# --------------------------------------------------------------------------
+# OpenHTTPS Knock Sequence
+# --------------------------------------------------------------------------
+# This section defines the sequence to OPEN HTTPS access (port 443).
+[openHTTPS]
+# Comma-separated list of ports for the openHTTPS knock sequence.
+# Type: string
+sequence = {{ openHTTPS_sequence | default('12345,54321,24680,13579') }}
+
+# Time in seconds to wait for the entire openHTTPS sequence.
+# Type: integer (seconds)
+seq_timeout = {{ openHTTPS_seq_timeout | default('5') }}
+
+# Command to execute when openHTTPS sequence is matched.
+# Type: string (shell command)
+command = {{ openHTTPS_command | default('/usr/local/sbin/knock_add -i -c INPUT -p tcp -d 443 -f %IP%') }}
+
+# TCP flags for the HTTPS sequence packets.
+tcpflags = syn

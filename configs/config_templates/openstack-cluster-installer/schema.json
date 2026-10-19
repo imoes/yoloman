@@ -13,5 +13,740 @@
     "type": "string",
     "default": "/var/lib/openstack-cluster-installer",
     "description": "The data directory for the openstack-cluster-installer web application, served under the alias /openstack-cluster-installer."
+  },
+  "openstack_cluster_network": {
+    "type": "string",
+    "default": "192.168.100.0/24",
+    "description": "Address of your OpenStack cluster, CIDR notation"
+  },
+  "pxe_nic_name": {
+    "type": "string",
+    "default": "osinstallnic0",
+    "description": "Name of the NIC that will serve DHCP + PXE for installing Debian"
+  },
+  "pxe_vm_nic_user": {
+    "type": "string",
+    "default": "zigo",
+    "description": "User holding the NIC"
+  },
+  "pxe_vm_virtap_name": {
+    "type": "string",
+    "default": "osinstalltap",
+    "description": "name of the tap interface"
+  },
+  "pxe_bridge_name": {
+    "type": "string",
+    "default": "osinstallbr",
+    "description": "bridge name"
+  },
+  "qemu_vm_mac": {
+    "type": "string",
+    "default": "08:00:27:06:CC:DF",
+    "description": "qemu VM MAC"
+  },
+  "debian_mirror": {
+    "type": "string",
+    "default": "http://deb.debian.org/debian",
+    "description": "URL of your debian proxy/mirror"
+  },
+  "debian_security_mirror": {
+    "type": "string",
+    "default": "http://security.debian.org/debian-security",
+    "description": "URL of your debian security proxy/mirror"
+  },
+  "debian_keyring_package": {
+    "type": "string",
+    "default": "",
+    "description": "Package containing keyring used to sign packages in above repositories"
+  },
+  "debian_keyring_file": {
+    "type": "string",
+    "default": "",
+    "description": "Filename of keyring installed by above package."
+  },
+  "install_debian_keyring_package": {
+    "type": "string",
+    "default": "no",
+    "description": "Whether to install the keyring package specified above on OpenStack nodes",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "install_debian_keyring_file": {
+    "type": "string",
+    "default": "no",
+    "description": "Whether to copy above keyring file to OpenStack nodes.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "debian_incoming_buildd": {
+    "type": "string",
+    "default": "http://incoming.debian.org/debian-buildd",
+    "description": "URL of the incoming buildd repo"
+  },
+  "debian_mirror_ceph": {
+    "type": "string",
+    "default": "http://download.ceph.com/debian-luminous",
+    "description": "Ceph repository, needed for Stretch, as we need Luminous from upstream."
+  },
+  "use_http_proxy": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we set http_proxy",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "http_proxy_addr": {
+    "type": "string",
+    "default": "example.com:3128",
+    "description": "http_proxy value to use when doing wget in the oci-poc-provision-cloud script."
+  },
+  "oci_ip": {
+    "type": "string",
+    "default": "192.168.100.2",
+    "description": "Address of the OCI web server that the hardware discovery agent will contact"
+  },
+  "trusted_networks": {
+    "type": "string",
+    "default": "192.168.100.0/24,10.54.240.0/24,10.52.240.0/24",
+    "description": "These are the networks allowed to query the OCI web site without authentication"
+  },
+  "use_radius": {
+    "type": "string",
+    "default": "no",
+    "description": "Should the auth system use radius?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "radius_server_hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Address of your Radius authentication server."
+  },
+  "radius_shared_secret": {
+    "type": "string",
+    "default": "changeme",
+    "description": "Shared secret to contact your Radius server."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://oci:43FAnaQHKizfIrBMksqITw@localhost:3306/oci",
+    "description": "Database connection string"
+  },
+  "target_install_dell_ipmi": {
+    "type": "string",
+    "default": "no",
+    "description": "If the chassis vendor is Dell, should the Dell iDRAC utilities be installed on the target?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_dell_ipmi": {
+    "type": "string",
+    "default": "no",
+    "description": "Should the Dell iDRAC IPMI utilities be installed on the Live image?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "dell_ipmi_repo": {
+    "type": "string",
+    "default": "https://linux.dell.com/repo/community/openmanage/910/stretch",
+    "description": "Address of the Dell IPMI utilities."
+  },
+  "target_install_hpe": {
+    "type": "string",
+    "default": "no",
+    "description": "If the chassis vendor is HPE, should the HPE utilities be installed on the target?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_hpe": {
+    "type": "string",
+    "default": "no",
+    "description": "Should the HPE hponcfg, etc. tools be installed on the Live image?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "hpe_repo": {
+    "type": "string",
+    "default": "http://downloads.linux.hpe.com/SDR/repo/mcp/debian",
+    "description": "Address of the HPE utilities."
+  },
+  "hpe_force_debian_suite": {
+    "type": "string",
+    "default": "yes",
+    "description": "Override distro suite by something custom.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "hpe_debian_suite": {
+    "type": "string",
+    "default": "buster",
+    "description": "What distro suite to use if using hpe_force_debian_suite set to yes."
+  },
+  "hpe_ilo_install_license": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we automatically install iLo license with ilorest?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "target_install_perccli": {
+    "type": "string",
+    "default": "no",
+    "description": "If the chassis vendor is using perccli, should we install it on the target?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_perccli": {
+    "type": "string",
+    "default": "no",
+    "description": "Should perccli be installed on the Live image?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "perccli_repo": {
+    "type": "string",
+    "default": "http://apt.infomaniak.ch/infomaniak",
+    "description": "Address of the perccli repository."
+  },
+  "perccli_force_debian_suite": {
+    "type": "string",
+    "default": "yes",
+    "description": "Override distro suite by something custom.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "perccli_debian_suite": {
+    "type": "string",
+    "default": "bullseye",
+    "description": "What distro suite to use if perccli_force_debian_suite set to yes."
+  },
+  "target_install_megacli": {
+    "type": "string",
+    "default": "no",
+    "description": "If your vendor is using an LSI card, then you probably want to have megacli installed.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_megacli": {
+    "type": "string",
+    "default": "no",
+    "description": "Should megacli be also installed in the live image?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "megacli_repo": {
+    "type": "string",
+    "default": "http://hwraid.le-vert.net/debian",
+    "description": "Address of the megacli repository."
+  },
+  "megacli_force_debian_suite": {
+    "type": "string",
+    "default": "no",
+    "description": "Force a given suite name rather than the one defined as debian_release=",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "megacli_debian_suite": {
+    "type": "string",
+    "default": "sid",
+    "description": "What suite to use if force_debian_suite is set to yes?"
+  },
+  "megacli_auto_clear": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we automatically clear the MegaCli configuration after N run of the hardware discovery?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "megacli_auto_clear_num_of_discovery": {
+    "type": "number",
+    "default": 3,
+    "description": "After how many hardware discovery run should we run MegaCli auto-clear?"
+  },
+  "megacli_auto_apply": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we automatically apply the MegaCli profile after N run of the hardware discovery?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "megacli_auto_apply_num_of_discovery": {
+    "type": "number",
+    "default": 7,
+    "description": "After how many hardware discovery should we run MegaCli auto-apply?"
+  },
+  "target_install_onecli": {
+    "type": "string",
+    "default": "no",
+    "description": "Install onecli in production systems?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_onecli": {
+    "type": "string",
+    "default": "no",
+    "description": "Install onecli in the live image?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "onecli_repo": {
+    "type": "string",
+    "default": "http://apt.infomaniak.ch/infomaniak",
+    "description": "Address of the onecli repo."
+  },
+  "onecli_force_debian_suite": {
+    "type": "string",
+    "default": "yes",
+    "description": "Force a given suite name rather than the one defined as debian_release=",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "onecli_debian_suite": {
+    "type": "string",
+    "default": "bullseye",
+    "description": "What suite to use if force_debian_suite is set to yes?"
+  },
+  "remove_drivers_from_initrd": {
+    "type": "string",
+    "default": "no",
+    "description": "In our configuration, the 10 Gbits/s cards are detected first...",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "remove_drivers_from_initrd_list": {
+    "type": "string",
+    "default": "\"broadcom/bnx2.ko broadcom/bnx2x/bnx2x.ko intel/ixgbe/ixgbe.ko\"",
+    "description": "List of drivers to remove when building the live image"
+  },
+  "force_syslinux_text_menu": {
+    "type": "string",
+    "default": "yes",
+    "description": "Syslinux has 2 modes: one which is graphical and displays a nice splash screen, and one which is serial console compatible",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_setup_backports_repo": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we install stable-backports in the Live image?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_setup_nonfree_repo": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we install the contrib and non-free repositories?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_nonfree_firmware_from_backports": {
+    "type": "string",
+    "default": "yes",
+    "description": "Should we install non-free firmware shipped in the Debian non-free repository?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "live_image_install_firmware_from_backports_list": {
+    "type": "string",
+    "default": "\"firmware-linux-nonfree firmware-bnx2 firmware-bnx2x firmware-qlogic\"",
+    "description": "List of non-free firmware to install from backports."
+  },
+  "live_image_install_kernel_from_backports": {
+    "type": "string",
+    "default": "yes",
+    "description": "Should we install the Linux kernel from backports?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "image_builder_hosts": {
+    "type": "string",
+    "default": "",
+    "description": "List here all the image builder hosts. OCI will ssh them to build images of foreign arch, like arm64."
+  },
+  "production_system_setup_backports_repo": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we install stable-backports in the production systems?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "production_system_setup_nonfree_repo": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we install the contrib and non-free repositories?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "production_system_install_nonfree_firmware_from_backports": {
+    "type": "string",
+    "default": "yes",
+    "description": "Should we install non-free firmware shipped in the Debian non-free repository?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "production_system_install_firmware_from_backports_list": {
+    "type": "string",
+    "default": "\"firmware-linux-nonfree firmware-bnx2 firmware-bnx2x firmware-qlogic\"",
+    "description": "List of non-free firmware to install from backports."
+  },
+  "openstack_release": {
+    "type": "string",
+    "default": "epoxy",
+    "description": "Name of the OpenStack release when building the image"
+  },
+  "debian_release": {
+    "type": "string",
+    "default": "trixie",
+    "description": "Name of the Debian release when building the image"
+  },
+  "use_debian_dot_net_backport": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we use a Debian stable unofficial repository?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "use_debian_official_backports": {
+    "type": "string",
+    "default": "no",
+    "description": "Install official Debian backport repository?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "ceph_use_osbpo": {
+    "type": "string",
+    "default": "no",
+    "description": "Install osbpo Ceph backport repo?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "ceph_osbpo_release": {
+    "type": "string",
+    "default": "ceph-reef",
+    "description": "Ceph release name in osbpo."
+  },
+  "pin_ceph_from_stable_backports": {
+    "type": "string",
+    "default": "no",
+    "description": "Pin Ceph from Debian official backports or osbpo?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "install_buildd_incoming": {
+    "type": "string",
+    "default": "no",
+    "description": "This is useful for development, when you want fast update of the package in the Sid Debian repository.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "install_ceph_upstream_repo": {
+    "type": "string",
+    "default": "no",
+    "description": "This option is not advised, because the upstream Ceph Debian repositories are not well enough supported",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "use_php_ssh2": {
+    "type": "string",
+    "default": "no",
+    "description": "If set to yes, will use the PHP extension otherwise, use PHP exec.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "automatic_ipmi_numbering": {
+    "type": "string",
+    "default": "no",
+    "description": "Set this to yes if you want OCI to automatically assign IPMI addresses to your machines during the hardware recovery process.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "automatic_ipmi_username": {
+    "type": "string",
+    "default": "oci",
+    "description": "Set this to the default IPMI username you wish to see automatically provisionned."
+  },
+  "external_network_name": {
+    "type": "string",
+    "default": "ext-net1",
+    "description": "Name of the external network."
+  },
+  "floating_network_name": {
+    "type": "string",
+    "default": "ext-floating1",
+    "description": "Name of the floating network."
+  },
+  "public_network_name": {
+    "type": "string",
+    "default": "ext-provider1",
+    "description": "Name of the public network."
+  },
+  "flavor_name": {
+    "type": "string",
+    "default": "cpu1-ram2-disk5",
+    "description": "Name of the flavor used to run the tests"
+  },
+  "flavor_alt_name": {
+    "type": "string",
+    "default": "cpu2-ram6-disk20",
+    "description": "Alternative name of the flavor used to run the tests"
+  },
+  "glance_image_path": {
+    "type": "string",
+    "default": "/root",
+    "description": "This image can be used to setup the image automatically in the cluster at setup time."
+  },
+  "glance_image_name": {
+    "type": "string",
+    "default": "debian-12-generic-amd64.qcow2",
+    "description": "Name of the image."
+  },
+  "glance_image_ssh_user": {
+    "type": "string",
+    "default": "debian",
+    "description": "SSH user for the glance image."
+  },
+  "call_dns_shell_script": {
+    "type": "string",
+    "default": "no",
+    "description": "Should OCI call a script to update DNS information for a host?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "dns_create_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-dns-create-host",
+    "description": "Path to the script to update DNS information for a host."
+  },
+  "dns_delete_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-dns-delete-host",
+    "description": "Path to the script to delete DNS information for a host."
+  },
+  "call_root_password_change": {
+    "type": "string",
+    "default": "no",
+    "description": "Should OCI call a script to save the root password when it is changed on a server?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "root_password_create_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-root-password-create-host",
+    "description": "Path to the root password plugin script."
+  },
+  "root_password_delete_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-root-password-delete-host",
+    "description": "Path to the root password delete script."
+  },
+  "call_ipmi_password_change": {
+    "type": "string",
+    "default": "no",
+    "description": "Should OCI call a script to save the IPMI passwords?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "ipmi_password_create_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-ipmi-password-create-host",
+    "description": "Path to the IPMI password create script."
+  },
+  "ipmi_password_delete_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-ipmi-password-delete-host",
+    "description": "Path to the IPMI password delete script."
+  },
+  "call_monitoring_plugin": {
+    "type": "string",
+    "default": "no",
+    "description": "Should OCI call a script to update the monitoring information when a host is set into production?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "monitoring_create_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-monitoring-create-host",
+    "description": "Path to the script to update the monitoring information."
+  },
+  "monitoring_delete_script_path": {
+    "type": "string",
+    "default": "/usr/local/bin/oci-monitoring-delete-host",
+    "description": "Path to the script to delete the monitoring information."
+  },
+  "auto_add_machines_to_cluster": {
+    "type": "string",
+    "default": "no",
+    "description": "Should we auto-add a machine to a cluster?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "auto_add_machines_cluster_name": {
+    "type": "string",
+    "default": "",
+    "description": "When a machine is automatically added, to which cluster should it belong?"
+  },
+  "auto_add_machines_num_of_discovery": {
+    "type": "number",
+    "default": 9,
+    "description": "After how many discovery run should we auto-add machines to the cluster?"
+  },
+  "auto_rack_machines_info": {
+    "type": "string",
+    "default": "yes",
+    "description": "Should we automatically guess racking information based on the switch name and what is in auto-racking.json?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "auto_rack_machines_num_of_discovery": {
+    "type": "number",
+    "default": 7,
+    "description": "How many runs of hardware discovery before auto-racking?"
+  },
+  "auto_install_machines_os": {
+    "type": "string",
+    "default": "no",
+    "description": "Should machines install the OS automatically?",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "auto_install_machines_num_of_discovery": {
+    "type": "number",
+    "default": 15,
+    "description": "After how many runs of the hardware discovery should the servers be installed?"
+  },
+  "filebeat_repo": {
+    "type": "string",
+    "default": "https://artifacts.elastic.co/packages/7.x/apt",
+    "description": "Repository URL for Filebeat."
+  },
+  "elastic_repo_url": {
+    "type": "string",
+    "default": "https://artifacts.elastic.co/packages",
+    "description": "Repository URL for Elastic search."
+  },
+  "elastic_version": {
+    "type": "string",
+    "default": "7",
+    "description": "Version use for Elastic"
+  },
+  "elastic_key_url": {
+    "type": "string",
+    "default": "https://artifacts.elastic.co/GPG-KEY-elasticsearch",
+    "description": "Elastic repo GPG key"
+  },
+  "elastic_key_id": {
+    "type": "string",
+    "default": "46095ACC8548582C1A2699A9D27D666CD88E42B4",
+    "description": "Key ID for the repo"
+  },
+  "foreman_url": {
+    "type": "string",
+    "default": "https://poc-katello.infomaniak.ch/api/v2",
+    "description": "URL of the foreman API"
+  },
+  "foreman_username": {
+    "type": "string",
+    "default": "admin",
+    "description": "Username for the foreman API."
+  },
+  "foreman_password": {
+    "type": "string",
+    "default": "mypassword",
+    "description": "Password for the foreman API."
+  },
+  "foreman_insecure": {
+    "type": "string",
+    "default": "-k",
+    "description": "Should we use -k with curl to query foreman."
   }
 }

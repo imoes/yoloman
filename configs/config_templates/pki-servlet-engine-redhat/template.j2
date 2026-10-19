@@ -1,0 +1,327 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// ============================================================================
+// catalina.policy - Security Policy Permissions for Tomcat
+//
+// This file contains a default set of security policies to be enforced (by the
+// JVM) when Catalina is executed with the "-security" option.  In addition
+// to the permissions granted here, the following additional permissions are
+// granted to each web application:
+//
+// * Read access to the web application's document root directory
+// * Read, write and delete access to the web application's working directory
+// ============================================================================
+
+// {#
+//   Schema Field: catalina_home
+//   Description: The directory where Apache Tomcat is installed (CATALINA_HOME).
+// #}
+{% set catalina_home = (catalina_home | default('/usr/share/tomcat')) %}
+
+// {#
+//   Schema Field: catalina_base
+//   Description: The directory where per-instance configuration and runtime data live (CATALINA_BASE).
+// #}
+{% set catalina_base = (catalina_base | default(catalina_home)) %}
+
+// {#
+//   Schema Field: java_home
+//   Description: The JAVA_HOME directory for the JVM running Tomcat.
+// #}
+{% set java_home = (java_home | default('/usr/lib/jvm/java-11-openjdk')) %}
+
+// {#
+//   Schema Field: enable_security_manager
+//   Description: Boolean flag to enable or disable the Tomcat security manager.
+//                 When false, the detailed permissions below are effectively ignored as the manager is not loaded.
+//                 When true, these permissions restrict what code Tomcat can execute.
+// #}
+{% set enable_security_manager = enable_security_manager | default(false) %}
+
+// {#
+//   Schema Field: tomcat_users
+//   Description: Map of Tomcat users to their roles for authentication/authorization.
+//                 Keys are usernames, values are lists of roles.
+// #}
+{% set tomcat_users = (tomcat_users | default({})) %}
+
+// {#
+//   Schema Field: allowed_hosts
+//   Description: List of hostnames or IP addresses allowed to access the Manager/Host-Manager applications.
+//                 Empty list means no restriction or use default localhost.
+// #}
+{% set allowed_hosts = (allowed_hosts | default(['localhost'])) %}
+
+// ========== SYSTEM CODE PERMISSIONS =========================================
+
+// {#
+//   Permission: Java System Library Access
+//   Grants all permissions to the core Java library files.
+//   Required for the JVM to function correctly.
+// #}
+grant codeBase "file:${java.home}/lib/-" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: Java System Extension Access
+//   Grants all permissions to shared system extensions.
+// #}
+grant codeBase "file:${java.home}/jre/lib/ext/-" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: Java Home Symlink Fallback
+//   Handles cases where ${java.home} points to $JAVA_HOME/jre.
+// #}
+grant codeBase "file:${java.home}/../lib/-" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: Java Home Ext Symlink Fallback
+//   Handles cases where ${java.home} points to $JAVA_HOME/jre for ext libs.
+// #}
+grant codeBase "file:${java.home}/lib/ext/-" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: JDK Compiler Access (Java 9+)
+//   Required when using javac to compile JSPs on Java 9 onwards.
+// #}
+grant codeBase "jrt:/jdk.compiler" {
+        permission java.security.AllPermission;
+};
+
+// ========== RHEL SPECIFIC CODE PERMISSIONS =======================================
+
+// {#
+//   Permission: RHEL Tomcat API JARs
+//   Allows specific Tomcat API JARs installed via RPM to function.
+//   This is stricter than granting /usr/share/java/- to avoid security risks.
+// #}
+grant codeBase "file:/usr/share/java/tomcat-servlet-4.0-api.jar" {
+        permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/tomcat-jsp-2.3-api.jar" {
+        permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/tomcat-el-3.0-api.jar" {
+        permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/ant.jar" {
+        permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/ant-launcher.jar" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: Java Tools JAR
+//   Grants permissions to the JVM tools library.
+//   Note: Path is specific to RHEL/CentOS OpenJDK layout.
+// #}
+grant codeBase "file:/usr/lib/jvm/java/lib/tools.jar" {
+        permission java.security.AllPermission;
+};
+
+
+// ========== CATALINA CODE PERMISSIONS =======================================
+
+// {#
+//   Permission: Commons Daemon
+//   Grants all permissions to the daemon wrapper JAR.
+// #}
+grant codeBase "file:${catalina.home}/bin/commons-daemon.jar" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: Logging API
+//   Grants specific file and runtime permissions required for Tomcat's logging subsystem (java.util.logging).
+// #}
+grant codeBase "file:${catalina.home}/bin/tomcat-juli.jar" {
+        permission java.io.FilePermission
+         "${java.home}${file.separator}lib${file.separator}logging.properties", "read";
+
+        permission java.io.FilePermission
+         "${catalina.base}${file.separator}conf${file.separator}logging.properties", "read";
+        permission java.io.FilePermission
+         "${catalina.base}${file.separator}logs", "read, write";
+        permission java.io.FilePermission
+         "${catalina.base}${file.separator}logs${file.separator}*", "read, write, delete";
+
+        permission java.lang.RuntimePermission "shutdownHooks";
+        permission java.lang.RuntimePermission "getClassLoader";
+        permission java.lang.RuntimePermission "setContextClassLoader";
+
+        permission java.lang.management.ManagementPermission "monitor";
+
+        permission java.util.logging.LoggingPermission "control";
+
+        permission java.util.PropertyPermission "java.util.logging.config.class", "read";
+        permission java.util.PropertyPermission "java.util.logging.config.file", "read";
+        permission java.util.PropertyPermission "org.apache.juli.AsyncLoggerPollInterval", "read";
+        permission java.util.PropertyPermission "org.apache.juli.AsyncMaxRecordCount", "read";
+        permission java.util.PropertyPermission "org.apache.juli.AsyncOverflowDropType", "read";
+        permission java.util.PropertyPermission "org.apache.juli.ClassLoaderLogManager.debug", "read";
+        permission java.util.PropertyPermission "catalina.base", "read";
+};
+
+// {#
+//   Permission: Bootstrap JAR
+//   Grants all permissions to the main Tomcat bootstrap JAR.
+// #}
+grant codeBase "file:${catalina.home}/bin/bootstrap.jar" {
+        permission java.security.AllPermission;
+};
+
+// {#
+//   Permission: Shared Library Directory
+//   Grants all permissions to classes in the shared lib directory.
+// #}
+grant codeBase "file:${catalina.home}/lib/-" {
+        permission java.security.AllPermission;
+};
+
+
+// ========== WEB APPLICATION PERMISSIONS =====================================
+
+// {#
+//   Permission: General Web Application Permissions
+//   These permissions are granted by default to all web applications.
+//   Allows read access to essential system properties and JVM internals.
+// #}
+grant {
+    // Required for JNDI lookup of named JDBC DataSource's and
+    // javamail named MimePart DataSource used to send mail
+    permission java.util.PropertyPermission "java.home", "read";
+    permission java.util.PropertyPermission "java.naming.*", "read";
+    permission java.util.PropertyPermission "javax.sql.*", "read";
+
+    // OS Specific properties to allow read access
+    permission java.util.PropertyPermission "os.name", "read";
+    permission java.util.PropertyPermission "os.version", "read";
+    permission java.util.PropertyPermission "os.arch", "read";
+    permission java.util.PropertyPermission "file.separator", "read";
+    permission java.util.PropertyPermission "path.separator", "read";
+    permission java.util.PropertyPermission "line.separator", "read";
+
+    // JVM properties to allow read access
+    permission java.util.PropertyPermission "java.version", "read";
+    permission java.util.PropertyPermission "java.vendor", "read";
+    permission java.util.PropertyPermission "java.vendor.url", "read";
+    permission java.util.PropertyPermission "java.class.version", "read";
+    permission java.util.PropertyPermission "java.specification.version", "read";
+    permission java.util.PropertyPermission "java.specification.vendor", "read";
+    permission java.util.PropertyPermission "java.specification.name", "read";
+
+    permission java.util.PropertyPermission "java.vm.specification.version", "read";
+    permission java.util.PropertyPermission "java.vm.specification.vendor", "read";
+    permission java.util.PropertyPermission "java.vm.specification.name", "read";
+    permission java.util.PropertyPermission "java.vm.version", "read";
+    permission java.util.PropertyPermission "java.vm.vendor", "read";
+    permission java.util.PropertyPermission "java.vm.name", "read";
+
+    // Required for OpenJMX
+    permission java.lang.RuntimePermission "getAttribute";
+
+    // Allow read of JAXP compliant XML parser debug
+    permission java.util.PropertyPermission "jaxp.debug", "read";
+
+    // All JSPs need to be able to read this package
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.tomcat";
+
+    // Precompiled JSPs need access to these packages.
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.jasper.el";
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.jasper.runtime";
+    permission java.lang.RuntimePermission
+     "accessClassInPackage.org.apache.jasper.runtime.*";
+
+    // Applications using WebSocket need to be able to access these packages
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.tomcat.websocket";
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.tomcat.websocket.server";
+};
+
+// {#
+//   Macro: Generate Manager Application Grant Block
+//   Generates the specific grant block for the Manager webapp.
+//   Parameters:
+//     - code_base: The file path codebase (e.g., file:${catalina.base}/webapps/manager/-)
+// #}
+{% macro generate_manager_grant(code_base) %}
+grant codeBase "{{ code_base }}" {
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.catalina";
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.catalina.ha.session";
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.catalina.manager";
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.catalina.manager.util";
+    permission java.lang.RuntimePermission "accessClassInPackage.org.apache.catalina.util";
+    permission org.apache.catalina.security.DeployXmlPermission "manager";
+};
+{% endmacro %}
+
+// {#
+//   Permission: Manager Application Access
+//   Grants specific permissions to the Tomcat Manager web application.
+//   Supports both CATALINA_BASE and CATALINA_HOME installations.
+// #}
+{% if enable_security_manager is sameas true %}
+{{ generate_manager_grant('file:${catalina.base}/webapps/manager/-') }}
+{% if catalina_base != catalina_home %}
+{{ generate_manager_grant('file:${catalina.home}/webapps/manager/-') }}
+{% endif %}
+{% endif %}
+
+// {#
+//   Macro: Generate Host Manager Application Grant Block
+//   Generates the specific grant block for the Host-Manager webapp.
+// #}
+{% macro generate_host_manager_grant(code_base) %}
+grant codeBase "{{ code_base }}" {
+    permission org.apache.catalina.security.DeployXmlPermission "host-manager";
+};
+{% endmacro %}
+
+// {#
+//   Permission: Host Manager Application Access
+//   Grants specific permissions to the Tomcat Host-Manager web application.
+// #}
+{% if enable_security_manager is sameas true %}
+{% if catalina_base != catalina_home %}
+{{ generate_host_manager_grant('file:${catalina.home}/webapps/host-manager/-') }}
+{% endif %}
+{{ generate_host_manager_grant('file:${catalina.base}/webapps/host-manager/-') }}
+{% endif %}
+
+// {#
+//   Dynamic Permissions: Additional Web Applications
+//   Allows dynamic injection of permissions for other web apps if defined in schema.
+//   Expected structure in schema: `webapp_permissions` (list of objects with `code_base` and `permissions`)
+// #}
+{% if webapp_permissions is defined and webapp_permissions is iterable %}
+{% for app in webapp_permissions %}
+// Permissions for {{ app.name | default('unknown app') }}
+{% if app.code_base is defined %}
+grant codeBase "{{ app.code_base }}" {
+{% for perm in app.permissions | default([]) %}
+    permission {{ perm.type | default('java.security.AllPermission') }};
+{% endfor %}
+};
+{% endif %}
+{% endfor %}
+{% endif %}

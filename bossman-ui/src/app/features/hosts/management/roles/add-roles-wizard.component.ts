@@ -14,6 +14,7 @@ import { CheckService } from '../../../../core/services/check.service';
 import { AgentService } from '../../../../core/services/agent.service';
 import { ObservedResource } from '../../../../core/models/agent.model';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 // Category column ordering + display for the role browser (Miller column 1).
 const CAT_ORDER = ['web', 'database', 'services', 'network', 'security', 'storage', 'virtualization', 'logging', 'time', 'system', 'other'];
@@ -26,7 +27,7 @@ export interface AddRolesWizardData {
   preselect?: string; // jump straight to configuring one already-installed package
 }
 
-interface RunState { pkg: string; result?: RunbookRunResult; error?: string; running?: boolean; }
+interface RunState { pkg: string; result?: RunbookRunResult; error?: string; running?: boolean; pending?: boolean; }
 
 /** "Add Roles and Features" — guided role install wizard.
  * Before You Begin → Select Roles → Configure each → Confirmation → Results.
@@ -35,7 +36,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
 @Component({
   selector: 'app-add-roles-wizard',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, ParamFormComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, ParamFormComponent],
   template: `
     <div class="bm-wz">
       <div class="bm-wz-title">Add Roles and Features <span class="bm-wz-host">{{ data.hostName }}</span></div>
@@ -119,7 +120,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                 <p class="bm-wz-prefill"><mat-icon>download_done</mat-icon> Current settings read from {{ data.hostName }} and pre-filled below — edit to change.</p>
               }
               @if (rb(cfgPkg()); as r) {
-                <app-param-form [params]="r.parameters" [initial]="initialFor(cfgPkg())" (valuesChange)="setValues(cfgPkg(), $event)" />
+                <app-param-form [params]="r.parameters" [initial]="initialFor(cfgPkg())" [unavailable]="unavailableFor(cfgPkg())" (valuesChange)="setValues(cfgPkg(), $event)" />
               } @else {
                 <p class="bm-wz-dim">Loading configuration form…</p>
               }
@@ -148,10 +149,10 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                 </div>
               }
 
-              <label class="bm-wz-mon">
-                <mat-checkbox [ngModel]="setupMonitoring()" (ngModelChange)="setupMonitoring.set($event)"></mat-checkbox>
-                <span>Set up a monitoring check for each role <span class="bm-wz-dim">— a service-health check configured from the role's service</span></span>
-              </label>
+              <p class="bm-wz-mon"><mat-icon>verified</mat-icon>
+                Roles and features are kept as desired state and reported in Compliance.
+                Roles also activate their declared monitoring after a successful install.
+              </p>
 
               <!-- Wizard = runbook: the composed runbook (role calls + your
                    variables), copyable, and savable as a reusable template
@@ -172,7 +173,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
               @for (rs of runStates(); track rs.pkg) {
                 <div class="bm-wz-result">
                   <div class="bm-wz-result-h">
-                    @if (rs.running) { <mat-spinner diameter="16" /> } @else if (rs.error || rs.result?.aborted || rs.result?.ok === false) { <mat-icon class="bm-err">error</mat-icon> } @else { <mat-icon class="bm-ok">check_circle</mat-icon> }
+                    @if (rs.running) { <mat-spinner diameter="16" /> } @else if (rs.pending) { <mat-icon>schedule</mat-icon> } @else if (rs.error || rs.result?.aborted || rs.result?.ok === false) { <mat-icon class="bm-err">error</mat-icon> } @else { <mat-icon class="bm-ok">check_circle</mat-icon> }
                     {{ catLabel(rs.pkg) }}
                   </div>
                   @if (rs.error) { <div class="bm-wz-err">{{ rs.error }}</div> }
@@ -195,12 +196,12 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
         <button mat-button (click)="close()">{{ finished() ? 'Close' : 'Cancel' }}</button>
         <span class="bm-wz-spacer"></span>
         @if (!finished()) {
-          <button mat-stroked-button [disabled]="step() === 0 || busy()" (click)="prev()">Previous</button>
+          <span class="bm-why"><button mat-stroked-button [disabled]="busy()" [bmBlocked]="step() === 0 ? 'This is the first step' : ''" bmBlockedMode="tip" (click)="prev()">Previous</button></span>
           @if (stepKind() === 'confirm') {
-            <button mat-stroked-button [disabled]="busy()" (click)="preview()">{{ busy() ? 'Validating…' : 'Validate (dry run)' }}</button>
-            <button mat-flat-button color="primary" [disabled]="busy()" (click)="install()">Install</button>
+            <span class="bm-why"><button mat-stroked-button [disabled]="busy()" [bmBlocked]="missingRequired().length ? requiredReason() : ''" bmBlockedMode="tip" (click)="preview()">{{ busy() ? 'Validating…' : 'Validate (dry run)' }}</button></span>
+            <span class="bm-why"><button mat-flat-button color="primary" [disabled]="busy()" [bmBlocked]="missingRequired().length ? requiredReason() : ''" (click)="install()">Install</button></span>
           } @else {
-            <button mat-flat-button color="primary" [disabled]="!canNext() || busy()" (click)="next()">Next</button>
+            <span class="bm-why"><button mat-flat-button color="primary" [disabled]="busy()" [bmBlocked]="!canNext() ? 'Pick at least one role to install' : ''" (click)="next()">Next</button></span>
           }
         }
       </div>
@@ -288,7 +289,6 @@ export class AddRolesWizardComponent {
   private checkService = inject(CheckService);
   private agents = inject(AgentService);
   private dialogRef = inject(MatDialogRef<AddRolesWizardComponent>);
-  setupMonitoring = signal(true);
   activeCat = signal<string>('');
   /** Host's current on-host config (per file) — for pre-filling installed roles. */
   private observed = signal<ObservedResource[]>([]);
@@ -451,6 +451,53 @@ export class AddRolesWizardComponent {
   }
   prev(): void { this.step.update((i) => Math.max(0, i - 1)); }
 
+  /**
+   * Required settings still empty, one entry per role ("iodined: password, topdomain"). A required setting is a
+   * value only the site has (a tunnel address, a realm, a passphrase); the server refuses the dry run and the install
+   * without it, so both are greyed out here with the same reason instead of failing after the click.
+   */
+  missingRequired = computed(() => {
+    const out: string[] = [];
+    for (const p of this.cfgPkgs()) {
+      const rb = this.runbooks()[p];
+      if (!rb) continue;
+      const vals: Record<string, unknown> = { ...(this.initialFor(p) || {}), ...(this.values()[p] || {}) };
+      const miss = Object.entries(rb.parameters || {})
+        .filter(([k, spec]) => spec?.required && !spec?.hidden && (vals[k] === undefined || vals[k] === null || vals[k] === ''
+          || (Array.isArray(vals[k]) && (vals[k] as unknown[]).length === 0)))
+        .map(([k]) => k);
+      if (miss.length) out.push(`${this.catLabel(p)}: ${miss.join(', ')}`);
+    }
+    return out;
+  });
+  requiredReason = computed(() => `Required settings are empty — ${this.missingRequired().join('; ')}`);
+
+  /**
+   * Form fields this host cannot take: its family renders its OWN template for the role's file, and a field that
+   * template lacks would be refused on apply (squid on AlmaLinux has 3 directives where Debian documents 207).
+   * Greyed out with that reason instead of collected for nothing.
+   */
+  unavailableFor(pkg: string): Record<string, string> {
+    const res = this.data.context.catalog_resolved[pkg];
+    const rb = this.runbooks()[pkg];
+    if (!res || !rb) return {};
+    const family = this.data.context.family;
+    const have = Array.isArray(res.family_fields) ? new Set(res.family_fields) : null;
+    const why = `Not in this host's ${family} file (${res.config_path}) — a value here would be refused`;
+    const out: Record<string, string> = {};
+    for (const [k, spec] of Object.entries(rb.parameters || {})) {
+      if (spec?.hidden || k.startsWith('_')) continue;
+      // A field only another family's file has (the form is the union of the role's family templates).
+      const fams = (spec as { families?: string[] })?.families;
+      if (Array.isArray(fams) && fams.length && !fams.includes(family)) {
+        out[k] = `Only in the ${fams.join('/')} file — this host is ${family}; a value here would be refused`;
+      } else if (have && !have.has(k)) {
+        out[k] = why;
+      }
+    }
+    return out;
+  }
+
   /** Merge form values + family runtime vars for a package's run. */
   private varsFor(pkg: string): Record<string, unknown> {
     const res = this.data.context.catalog_resolved[pkg] || {};
@@ -514,7 +561,7 @@ export class AddRolesWizardComponent {
    * per host via the Service checks snap-in. */
   private assignMonitoring(states: RunState[]): void {
     for (const rs of states) {
-      if (rs.error || rs.result?.ok === false || rs.result?.aborted) continue;
+      if (rs.pending || rs.error || rs.result?.ok === false || rs.result?.aborted) continue;
       // A FEATURE is installed, configured and started like a role, but is auxiliary — it is not the host's
       // monitored purpose, so it gets no service-health check (see docs/roles-and-features.md). Only roles do.
       if (this.data.catalog[rs.pkg]?.kind === 'feature') continue;
@@ -529,7 +576,68 @@ export class AddRolesWizardComponent {
   }
 
   preview(): void { this.execute(true); }
-  install(): void { this.step.set(this.stepLabels().length - 1); this.execute(false); }
+  install(): void { this.step.set(this.stepLabels().length - 1); this.deployDesiredState(); }
+
+  /** The apply half no longer performs an ad-hoc host run. It creates the same
+   * durable, version-pinned deployment used by the central deployment flow;
+   * the backend then converges and verifies it on this host. */
+  private deployDesiredState(): void {
+    const pkgs = this.toInstall();
+    this.busy.set(true);
+    this.runStates.set(pkgs.map((p) => ({ pkg: p, running: true })));
+    const items = pkgs.map((p) => ({
+      catalog_name: p,
+      parameters: Object.fromEntries(
+        Object.entries(this.varsFor(p)).filter(([key, value]) => !key.startsWith('_') && value !== undefined && value !== ''),
+      ),
+    }));
+    this.wizard.deployCatalog(this.data.agentId, this.data.hostName, items).subscribe({
+      next: (deployment) => {
+        const states = pkgs.map((pkg): RunState => {
+          const item = deployment.items.find((x) => x.name === `catalog__${pkg}`);
+          const target = item ? deployment.targets.find((x) => x.item_id === item.id) : undefined;
+          if (deployment.status === 'pending_approval') {
+            return {
+              pkg, pending: true,
+              result: { ok: true, changed: false, aborted: false, steps: [{
+                name: 'Deployment created — pending approval before the host is changed.',
+                module: 'role_deployment', status: 'pending',
+              }] },
+            };
+          }
+          const ok = target?.state === 'compliant';
+          return {
+            pkg,
+            result: {
+              ok,
+              changed: ok,
+              aborted: false,
+              steps: [{
+                name: ok ? 'Desired state applied and verified' : 'Desired-state compliance',
+                module: 'role_deployment',
+                status: ok ? 'ok' : (target?.state || 'pending'),
+                error: target?.last_error ?? undefined,
+              }],
+            },
+            error: !ok && target?.state !== 'pending' ? (target?.last_error || `Compliance: ${target?.state || 'unknown'}`) : undefined,
+          };
+        });
+        this.runStates.set(states);
+        // Keep the existing host-level service-health assignment (including
+        // its resolved unit name) while the deployment link contributes the
+        // role's generic monitoring declaration to desired state.
+        this.assignMonitoring(states);
+        this.busy.set(false);
+        this.finished.set(true);
+      },
+      error: (e: { error?: { detail?: string } }) => {
+        const message = e?.error?.detail || 'deployment failed';
+        this.runStates.set(pkgs.map((pkg) => ({ pkg, error: message })));
+        this.busy.set(false);
+        this.finished.set(true);
+      },
+    });
+  }
 
   private execute(dry: boolean): void {
     const pkgs = this.toInstall();
@@ -558,7 +666,7 @@ export class AddRolesWizardComponent {
       else {
         this.runStates.set(states);
         this.finished.set(true);
-        if (this.setupMonitoring()) this.assignMonitoring(states);
+        this.assignMonitoring(states);
       }
     });
   }

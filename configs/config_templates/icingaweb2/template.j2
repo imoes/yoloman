@@ -1,23 +1,52 @@
+# Icinga Web 2 Apache Configuration Template
+# This template generates the Apache VirtualHost or Directory configuration for Icinga Web 2.
+# It ensures the web server points to the correct document root and application configuration directory.
+
+# Define URL path prefix under which Icinga Web 2 is accessible.
+# Default: '/icingaweb2'
+{% set base_path = base_path | default('/icingaweb2') %}
+
+# Define the filesystem path to the Icinga Web 2 public directory.
+# Default: '/usr/share/icingaweb2/public'
+{% set document_root = document_root | default('/usr/share/icingaweb2/public') %}
+
+# Define the filesystem path to the Icinga Web 2 configuration directory.
+# Default: '/etc/icingaweb2'
+{% set config_dir = config_dir | default('/etc/icingaweb2') %}
+
+# Set up an Alias so that requests to the base_path are served from the document_root.
 Alias {{ base_path }} "{{ document_root }}"
 
+# Configure access and behavior for the document root directory.
 <Directory "{{ document_root }}">
+    # Enable symbolic links only if the owner matches, preventing symlink attacks.
     Options SymLinksIfOwnerMatch
+
+    # Disable .htaccess overrides for security and performance.
     AllowOverride None
 
+    # Environment variable ICINGAWEB_CONFIGDIR tells the PHP application where its config files reside.
     SetEnv ICINGAWEB_CONFIGDIR "{{ config_dir }}"
 
+    # Disable sendfile optimization to avoid issues with PHP scripts on some systems.
     EnableSendfile Off
 
+    # Handle URL rewriting for clean URLs (e.g., /icingaweb2/dashboard).
     <IfModule mod_rewrite.c>
         RewriteEngine on
-        RewriteBase {{ base_path }}/=
+        RewriteBase {{ base_path }}/ 
+
+        # If the requested file exists, is non-empty, is a symlink, or is a directory, serve it directly.
         RewriteCond %{REQUEST_FILENAME} -s [OR]
         RewriteCond %{REQUEST_FILENAME} -l [OR]
         RewriteCond %{REQUEST_FILENAME} -d
         RewriteRule ^.*$ - [NC,L]
+
+        # Otherwise, route all other requests to the PHP entry point (index.php).
         RewriteRule ^.*$ index.php [NC,L]
     </IfModule>
 
+    # Fallback if mod_rewrite is not available: show a specific error page for 404s.
     <IfModule !mod_rewrite.c>
         DirectoryIndex error_norewrite.html
         ErrorDocument 404 /error_norewrite.html

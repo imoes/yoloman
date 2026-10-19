@@ -1,28 +1,44 @@
-;; -*-emacs-lisp-*-
+;; -*-emacs-lisp---
 ;;
-;; Emacs startup file for the Debian GNU/Linux {{ package_name | default('mdk') }} package
+;; ==============================================================================
+;; Self-documenting configuration for the {{ package_name | default('mdk') }} package
+;; ==============================================================================
+;; This file serves as an Emacs startup script for the Debian GNU/Linux
+;; {{ package_name | default('mdk') }} package. It adheres to the Debian
+;; 'emacsen' policy, which ensures that Emacs Lisp (.el) files are
+;; byte-compiled for every installed Emacs 'flavor' (e.g., emacs24, emacs25,
+;; xemacs21, etc.). The compiled code is placed in a subdirectory of the
+;; respective site-lisp directory.
 ;;
+;; Schema Fields:
+;; - package_name: The name of the package being configured. Used to
+;;   dynamically generate paths and comments. If undefined or empty, defaults
+;;   to 'mdk'.
+
 ;; Originally contributed by Nils Naumann <naumann@unileoben.ac.at>
 ;; Modified by Dirk Eddelbuettel <edd@debian.org>
 ;; Adapted for dh-make by Jim Van Zandt <jrv@vanzandt.mv.com>
-;;
-;; Self-documenting template: generated to configure the Emacs load-path
-;; and autoloads for the {{ package_name | default('mdk') }} package.
 
-;; The {{ package_name | default('mdk') }} package follows the Debian GNU/Linux 'emacsen' policy and
-;; byte-compiles its elisp files for each 'emacs flavor' (emacs19,
-;; xemacs19, emacs20, xemacs20...).  The compiled code is then
+;; The {{ package_name | default('mdk') }} package follows the Debian GNU/Linux
+;; 'emacsen' policy and byte-compiles its elisp files for each 'emacs flavor'
+;; (emacs19, xemacs19, emacs20, xemacs20...). The compiled code is then
 ;; installed in a subdirectory of the respective site-lisp directory.
-;; We have to add this to the load-path:
-;; The variable 'flavor' is expected to be passed by the caller (e.g., from an Ansible role context).
-;; If 'flavor' is not defined, it defaults to 'emacs'.
-(setq load-path (cons (concat "/usr/share/"
-                              (symbol-name (flavor | default('emacs'))))
-                              "/site-lisp/{{ package_name | default('mdk') }}")) load-path))
 
-;; Autoload definition for the main entry point of the package.
-;; 'mixvm' is the function name.
-;; "mdk/mixvm" is the file path relative to the load-path entries.
-;; "Runs mixvm inside Emacs" is the docstring shown in help.
-;; 't' indicates it is interactive.
-(autoload 'mixvm "mdk/mixvm" "Runs mixvm inside Emacs" t)
+;; We have to add this to the load-path so Emacs can find the package's
+;; Lisp files regardless of the specific Emacs installation prefix.
+;; The 'flavor' variable is expected to be bound by the emacsen-install
+;; mechanism (e.g., 'emacs' or 'xemacs').
+
+(setq load-path (cons (concat "/usr/share/"
+                              (symbol-name flavor)
+			      "/site-lisp/{{ package_name | default('mdk') }}") load-path))
+
+;; Register an autoload for the 'mixvm' function.
+;; This tells Emacs to load the {{ package_name | default('mdk') }}/mixvm.el
+;; file only when the user explicitly invokes 'mixvm'.
+;; Arguments:
+;;   1. Function name: 'mixvm'
+;;   2. Feature file: "{{ package_name | default('mdk') }}/mixvm"
+;;   3. Documentation string: "Runs mixvm inside Emacs"
+;;   4. Interactive: t (the function can be called interactively via M-x)
+(autoload 'mixvm "{{ package_name | default('mdk') }}/mixvm" "Runs mixvm inside Emacs" t)

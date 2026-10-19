@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Observable, switchMap } from 'rxjs';
 import { catalogCategory, CatalogPackage, PackageCatalogService } from '../../../../core/services/package-catalog.service';
-import { WizardContext, WizardService } from '../../../../core/services/wizard.service';
+import { RoleDeploymentDetail, WizardContext, WizardService } from '../../../../core/services/wizard.service';
 import { AgentService } from '../../../../core/services/agent.service';
 import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.component';
+import { BlockedReasonDirective } from '../../../../shared/blocked-reason/blocked-reason.directive';
 
 /** Roles & Features snap-in (MMC): lists the catalog's configurable server
  * packages with their install status; "Add roles and features" opens the
@@ -15,28 +16,32 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
 @Component({
   selector: 'app-roles-features',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, FormsModule, MatButtonModule, MatIconModule],
   template: `
     <div class="bm-rf-head">
       <div>
         <h3>Roles &amp; Features</h3>
         <p class="bm-dim">Install and configure server roles on this host.</p>
       </div>
-      <button mat-flat-button color="primary" (click)="openWizard()" [disabled]="!ready()">
+      <span class="bm-why"><button mat-flat-button color="primary" (click)="openWizard()" [bmBlocked]="ready() ? '' : (loadError() ? 'The catalog could not be read — see the message below' : 'Loading the catalog and the OS family of this host…')">
         <mat-icon>add</mat-icon> Add roles and features
-      </button>
+      </button></span>
     </div>
 
     @if (msg()) { <div class="bm-rf-msg" [class.err]="msgErr()">{{ msg() }}</div> }
 
-    @if (!ready()) {
+    @if (loadError(); as err) {
+      <!-- NOT "Loading…" forever: a failed read is a named state, with its reason and a way to try again. -->
+      <div class="bm-rf-msg err">The catalog or this host's inventory could not be read: {{ err }}
+        <button mat-button (click)="reload(true)"><mat-icon>refresh</mat-icon> Try again</button></div>
+    } @else if (!ready()) {
       <p class="bm-dim">Loading catalog…</p>
     } @else if (!hasInstalled()) {
       <p class="bm-dim">No configurable roles are installed yet. Use <strong>Add roles and features</strong> to install one.</p>
     } @else {
       <input class="bm-rf-search" placeholder="Search installed roles…" [ngModel]="query()" (ngModelChange)="query.set($event)" />
       <table class="bm-rf-tbl">
-        <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Version</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Version</th><th>Compliance</th><th></th></tr></thead>
         <tbody>
           @for (r of rows(); track r.name) {
             <tr>
@@ -44,14 +49,27 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
               <td><span class="bm-rf-kind" [class.role]="r.kind === 'role'">{{ r.kind === 'role' ? 'Role' : 'Feature' }}</span></td>
               <td class="bm-dim">{{ r.category }}</td>
               <td class="bm-mono">{{ r.version || '—' }}</td>
+              <td><span class="bm-rf-kind" [class.bm-rf-on]="r.compliance === 'compliant'">
+                {{ complianceLabel(r.compliance) }}
+              </span></td>
               <td class="bm-rf-actions">
                 @if (confirming() === r.name) {
-                  <span class="bm-rf-confirm">Uninstall {{ r.label }}?</span>
-                  <button mat-flat-button color="warn" (click)="doRemove(r.name)" [disabled]="removing() === r.name">
-                    @if (removing() === r.name) { Removing… } @else { Remove }
+                  <span class="bm-rf-confirm">Remove {{ r.label }}:</span>
+                  @if (r.compliance !== 'unmanaged') {
+                    <button mat-stroked-button (click)="doRemove(r.name, false)" [disabled]="removing() === r.name">
+                      Stop managing
+                    </button>
+                  }
+                  <button mat-flat-button color="warn" (click)="doRemove(r.name, true)" [disabled]="removing() === r.name">
+                    @if (removing() === r.name) { Removing… } @else { Uninstall }
                   </button>
                   <button mat-stroked-button (click)="confirming.set(null)" [disabled]="removing() === r.name">Cancel</button>
                 } @else {
+                  @if (r.compliance === 'noncompliant' || r.compliance === 'error' || r.compliance === 'blocked') {
+                    <button mat-flat-button color="primary" (click)="correct(r.name)" [disabled]="correcting() === r.name">
+                      <mat-icon>build</mat-icon> {{ correcting() === r.name ? 'Correcting…' : 'Correct drift' }}
+                    </button>
+                  }
                   @if (r.template) {
                     <button mat-stroked-button (click)="configure(r.name)"><mat-icon>tune</mat-icon> Configure</button>
                   }
@@ -97,6 +115,7 @@ export class RolesFeaturesComponent implements OnInit {
 
   private catalog = signal<Record<string, CatalogPackage>>({});
   private context = signal<WizardContext | null>(null);
+  private deployments = signal<RoleDeploymentDetail[]>([]);
   ready = computed(() => Object.keys(this.catalog()).length > 0 && this.context() !== null);
   hasInstalled = computed(() => {
     const inst = this.context()?.installed ?? {};
@@ -108,6 +127,7 @@ export class RolesFeaturesComponent implements OnInit {
   // host, and the standalone interceptor rewrites it to the agent's own tool.
   confirming = signal<string | null>(null);
   removing = signal<string | null>(null);
+  correcting = signal<string | null>(null);
   msg = signal('');
   msgErr = signal(false);
 
@@ -123,6 +143,7 @@ export class RolesFeaturesComponent implements OnInit {
         kind: e.kind === 'role' ? 'role' : 'feature',   // installed catalog entries are role or feature; config lives elsewhere
         installed: !!ctx && name in ctx.installed,
         version: ctx?.installed[name] ?? '',
+        compliance: this.complianceFor(name),
       }))
       .filter((r) => r.installed)
       .filter((r) => !q || r.name.toLowerCase().includes(q) || r.label.toLowerCase().includes(q) || r.category.toLowerCase().includes(q))
@@ -131,11 +152,43 @@ export class RolesFeaturesComponent implements OnInit {
 
   ngOnInit(): void { this.reload(); }
 
+  /** Why the last load failed, or null. Cleared when a load starts. */
+  loadError = signal<string | null>(null);
+
   reload(refresh = false): void {
-    forkJoin({ cat: this.catalogSvc.catalog(), ctx: this.wizard.context(this.agentId(), refresh) }).subscribe({
-      next: ({ cat, ctx }) => { this.catalog.set(cat.packages); this.context.set(ctx); },
-      error: () => {},
+    this.loadError.set(null);
+    forkJoin({
+      cat: this.catalogSvc.catalog(),
+      ctx: this.wizard.context(this.agentId(), refresh),
+      deployments: this.wizard.listRoleDeployments(),
+    }).subscribe({
+      next: ({ cat, ctx, deployments }) => {
+        this.catalog.set(cat.packages);
+        this.context.set(ctx);
+        this.deployments.set(deployments.deployments || []);
+      },
+      error: (e: { error?: { error?: string; detail?: string }; message?: string; status?: number }) => {
+        const detail = e?.error?.detail || e?.error?.error || e?.message || 'request failed';
+        this.loadError.set(e?.status ? `HTTP ${e.status}: ${detail}` : String(detail));
+      },
     });
+  }
+
+  private complianceFor(name: string): string {
+    const technical = `catalog__${name}`;
+    for (const deployment of this.deployments()) {
+      const item = deployment.items.find((x) => x.name === technical);
+      if (!item) continue;
+      const target = deployment.targets.find((x) => x.item_id === item.id && x.agent_id === this.agentId());
+      if (target && target.state !== 'unmanaged') return target.state;
+    }
+    return 'unmanaged';
+  }
+
+  complianceLabel(state: string): string {
+    return ({ compliant: 'Compliant', noncompliant: 'Drift', pending: 'Pending', installing: 'Installing',
+      blocked: 'Blocked', error: 'Error', not_applicable: 'Not applicable', unknown: 'Unknown',
+      unmanaged: 'Installed, unmanaged' } as Record<string, string>)[state] || state;
   }
 
   private open(preselect?: string): void {
@@ -154,12 +207,12 @@ export class RolesFeaturesComponent implements OnInit {
   /** Uninstall an installed role: resolve its family-specific packages from the
    * wizard context and call the `package` tool with state:absent. apt/dnf's own
    * maintainer scripts stop+disable the service on removal. */
-  doRemove(name: string): void {
+  doRemove(name: string, uninstall: boolean): void {
     const ctx = this.context();
     const resolved = ctx?.catalog_resolved?.[name];
     const pkgs = resolved?.packages ?? [];
     const label = this.catalog()[name]?.label || name;
-    if (!pkgs.length) {
+    if (uninstall && !pkgs.length) {
       this.msg.set(`No packages are resolved for "${label}" on this host — nothing to remove.`);
       this.msgErr.set(true);
       this.confirming.set(null);
@@ -167,19 +220,59 @@ export class RolesFeaturesComponent implements OnInit {
     }
     this.removing.set(name);
     this.msg.set('');
-    this.agents.callTool(this.agentId(), 'package', { name: pkgs, state: 'absent' }).subscribe({
+    const managed = this.managedTargetFor(name);
+    const action: Observable<unknown> = managed
+      ? this.wizard.removeRoleTarget(managed.deploymentId, managed.targetId, uninstall ? 'uninstall' : 'unmanage')
+      : this.agents.callTool(this.agentId(), 'package', { name: pkgs, state: 'absent' });
+    action.subscribe({
       next: () => {
         this.removing.set(null);
         this.confirming.set(null);
         this.msgErr.set(false);
-        this.msg.set(`${label} removed (${pkgs.join(', ')}).`);
+        this.msg.set(uninstall
+          ? `${label} uninstalled${pkgs.length ? ` (${pkgs.join(', ')})` : ''}.`
+          : `${label} is no longer managed; the installed software was left unchanged.`);
         this.reload(true);
       },
-      error: (e) => {
+      error: (e: { error?: { error?: string; detail?: string }; message?: string }) => {
         this.removing.set(null);
         this.msgErr.set(true);
         this.msg.set(`Removing ${label} failed: ${e?.error?.error || e?.error?.detail || e?.message || 'request error'}`);
       },
     });
+  }
+
+  correct(name: string): void {
+    const managed = this.managedTargetFor(name);
+    if (!managed || !window.confirm('Apply the desired role configuration again to correct this host?')) return;
+    const label = this.catalog()[name]?.label || name;
+    this.correcting.set(name);
+    this.msg.set('');
+    this.wizard.remediateRoleTargets(managed.deploymentId, [managed.targetId]).pipe(
+      switchMap(() => this.wizard.reconcileRoleDeployment(managed.deploymentId)),
+    ).subscribe({
+      next: () => {
+        this.correcting.set(null);
+        this.msgErr.set(false);
+        this.msg.set(`${label} was reconciled with its desired state.`);
+        this.reload(true);
+      },
+      error: (e: { error?: { error?: string; detail?: string }; message?: string }) => {
+        this.correcting.set(null);
+        this.msgErr.set(true);
+        this.msg.set(`Correcting ${label} failed: ${e?.error?.error || e?.error?.detail || e?.message || 'request error'}`);
+      },
+    });
+  }
+
+  private managedTargetFor(name: string): { deploymentId: string; targetId: string } | null {
+    const technical = `catalog__${name}`;
+    for (const deployment of this.deployments()) {
+      const item = deployment.items.find((x) => x.name === technical);
+      if (!item) continue;
+      const target = deployment.targets.find((x) => x.item_id === item.id && x.agent_id === this.agentId() && x.state !== 'unmanaged');
+      if (target) return { deploymentId: deployment.id, targetId: target.id };
+    }
+    return null;
   }
 }

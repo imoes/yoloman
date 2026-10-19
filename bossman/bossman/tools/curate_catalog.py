@@ -180,7 +180,8 @@ CORRECTIONS: dict[str, dict] = {
     "prometheus-node-exporter": {"packages": ["golang-github-prometheus-node-exporter"],
                                  "service": "node_exporter"},
     # Same package name, but the unit or user differs, so the branch still carries information.
-    "clamav":                   {"packages": ["clamav"], "service": "clamd@scan"},
+    # clamd@.service is in the clamd package (EPEL), not clamav — without it the unit does not exist (exit 5).
+    "clamav":                   {"packages": ["clamav", "clamd"], "service": "clamd@scan"},
     "openvpn":                  {"packages": ["openvpn"], "service": "openvpn-server@server"},
     "nftables":                 {"packages": ["nftables"], "service": "nftables"},
     "spamassassin":             {"packages": ["spamassassin"], "service": "spamassassin"},
@@ -251,6 +252,43 @@ USERS: dict[str, dict[str, str]] = {
 #: and a -core/-common package that carries the configuration, and the obvious name is the wrong one.
 REDHAT_FIXES: dict[str, dict] = {
     # --- the package exists but a DIFFERENT one ships the file (EL splits runtime from -core/-common) ---
+    # A config file and no unit: the role wrote the file and restarted nothing. Each unit is the one the RPM ships
+    # (rpm_source.fetch, usr/lib/systemd/system — measured 2026-10-11).
+    "dovecot":    {"service": "dovecot", "why": "dovecot ships dovecot.service."},
+    "keepalived": {"service": "keepalived", "why": "keepalived ships keepalived.service."},
+    "ntpsec":     {"service": "ntpd", "why": "EL's ntpsec ships ntpd.service (Debian's: ntpsec.service)."},
+    "prometheus": {"service": "prometheus", "why": "prometheus ships prometheus.service."},
+    # Config file and unit as the RPM ships them (rpm_source.fetch, 2026-10-11); the family templates
+    # squid-redhat, opendkim.conf-redhat and opendmarc.conf-redhat are made from the same files
+    # (tools/template_from_shipped.py), field names = directive names, so the role's form fits both families.
+    "squid":      {"config_path": "/etc/squid/squid.conf", "service": "squid", "why": "squid ships both."},
+    # G3 (2026-10-11): installed-only on EL until now; file and unit as the RPM ships them, the family templates
+    # rsyslog-redhat / mysql-server-redhat built from those files with the role's field names.
+    "kea":        {"config_path": "/etc/kea/kea-dhcp4.conf", "service": "kea-dhcp4",
+                   "why": "EL's kea ships /etc/kea/kea-dhcp4.conf and kea-dhcp4.service; family template kea-redhat "
+                          "(same fields, the RPM's comments and log output)."},
+    "rsyslog":    {"config_path": "/etc/rsyslog.conf", "service": "rsyslog", "why": "rsyslog ships /etc/rsyslog.conf "
+                   "and rsyslog.service."},
+    "mysql-server": {"config_path": "/etc/my.cnf.d/mysql-server.cnf", "service": "mysqld",
+                     "why": "mysql-server (AppStream MySQL 8.0) ships /etc/my.cnf.d/mysql-server.cnf and mysqld.service."},
+    "opendkim":   {"config_path": "/etc/opendkim.conf", "service": "opendkim",
+                   "packages": ["opendkim", "opendkim-tools"],
+                   "init": "test -e /etc/opendkim/keys/default.private || { opendkim-genkey -D /etc/opendkim/keys "
+                           "-s default && chown opendkim:opendkim /etc/opendkim/keys/default.*; }",
+                   "why": "opendkim ships both. EL's shipped config signs with /etc/opendkim/keys/default.private, which "
+                          "no step creates (\"open(): No such file\"). opendkim-default-keygen SKIPS the key on a host "
+                          "without a domain name (\"Cannot determine host's domain name\", rc 0 — measured), so the key "
+                          "is made with opendkim-genkey (opendkim-tools) directly: the domain only names the DNS record "
+                          "the operator publishes, the signing domain is configured separately."},
+    "opendmarc":  {"config_path": "/etc/opendmarc.conf", "service": "opendmarc", "why": "opendmarc ships both."},
+    "sshd":       {"init": "ssh-keygen -A",
+                   "why": "EL creates the host keys when sshd first STARTS (sshd-keygen@.service); the role validates with "
+                          "`sshd -t` before that and got \"no hostkeys available\". `ssh-keygen -A` creates exactly the "
+                          "missing ones (idempotent) — what Debian's postinst does."},
+    "isc-dhcp-server": {"config_path": "/etc/dhcp/dhcpd.conf",
+                 "why": "EL9 ships /etc/dhcp/dhcpd.conf as a stub; the role had no file and started dhcpd without a "
+                        "subnet. Now the family template isc-dhcp-server-redhat, `subnets` required — the same role as "
+                        "on Debian."},
     "apache2":  {"packages": ["httpd", "httpd-core"],
                  "why": "/etc/httpd/conf/httpd.conf is shipped by httpd-core, not httpd (measured, EL9)."},
     "nginx":    {"packages": ["nginx", "nginx-core"],
@@ -275,27 +313,252 @@ REDHAT_FIXES: dict[str, dict] = {
     "exim4":        {"config_path": "/etc/exim/exim.conf",
                      "why": "The claim was /etc/exim4 — a DIRECTORY, and a Debian one at that. EL ships "
                             "/etc/exim/exim.conf."},
-    "frr":          {"config_path": "/etc/frr/daemons",
+    "frr":          {"config_path": "/etc/frr/daemons", "service": "frr",
                      "why": "EL ships /etc/frr/daemons (which daemons run); frr.conf is written by the "
                             "operator or by vtysh, so nothing ships it."},
 
     # --- deliberately shipped by nothing; recording that is the point ---
-    "openvpn":      {"config_path": "",
+    "openvpn":      {"config_path": "", "service": "",
                      "why": "openvpn declares NO %config at all and ships only /etc/openvpn/{client,server} "
                             "as directories — the admin writes the .conf. An empty path is the honest "
-                            "answer; the claim was /etc/openvpn/crls, a directory."},
+                            "answer; the claim was /etc/openvpn/crls, a directory. And no unit is started: "
+                            "openvpn-server@server without that .conf and its keys failed on every host — "
+                            "installed, not configured, as on Debian."},
+    "clamav":       {"config_path": "/etc/clamd.d/scan.conf", "packages": ["clamav", "clamd", "clamav-freshclam"],
+                     "init": "test -e /var/lib/clamav/main.cvd || test -e /var/lib/clamav/main.cld || freshclam",
+                     "why": "clamd@scan reads /etc/clamd.d/scan.conf (shipped by clamav-filesystem with no socket "
+                            "defined — the daemon refused to start); the clamd-scan-redhat template defines one. A "
+                            "clamd without signatures cannot start either: freshclam fetches them once."},
+    "freeradius":   {"init": "test -e /etc/raddb/certs/server.pem || "
+                             "{ cd /etc/raddb/certs && ./bootstrap && chgrp -R radiusd /etc/raddb/certs; }",
+                     "why": "EL does not create the EAP TLS certificates (Debian's postinst does): radiusd -C failed "
+                            "\"Failed parsing configuration item private_key_file\" and the unit never started. "
+                            "/etc/raddb/certs/bootstrap creates them once; radiusd -C then exits 0 (measured)."},
+    "fail2ban":     {"config_path": "/etc/fail2ban/jail.local",
+                     "why": "jail.local is the operator's override file on both families — shipped by neither, "
+                            "written by the role (Debian's branch names the same file). The path had been cleared "
+                            "by REDHAT_NOT_PACKAGED, which wrongly listed fail2ban: EPEL 9 ships it."},
     "postgresql":   {"config_path": "",
+                     "init": "test -f /var/lib/pgsql/data/PG_VERSION || postgresql-setup --initdb",
                      "why": "postgresql.conf is created by initdb inside the data directory, so no RPM "
                             "ships it. /var/lib/pgsql/data/postgresql.conf was the right FILE and the "
-                            "wrong claim: nothing to fetch, nothing to template."},
+                            "wrong claim: nothing to fetch, nothing to template. EL's postinst does not run "
+                            "initdb (Debian's does): without `init` the unit refused to start on every fresh "
+                            "host (Bossman-path baseline, cause needs-init)."},
 }
 
 #: RedHat roles whose package is in NEITHER base/appstream NOR EPEL — they need a vendor repo (Docker's
 #: own, Traefik's) or are simply not packaged for EL. Recorded so the catalog stops implying a path that
 #: no repository can supply: adminer, docker-ce, fail2ban, tftp-server, traefik.
-REDHAT_NOT_PACKAGED = ("adminer", "docker-daemon", "fail2ban", "tftpd-hpa", "traefik")
+#: Re-measured 2026-10-10 with `dnf repoquery` in the AlmaLinux 9 fetch container (BaseOS, AppStream, CRB, EPEL):
+#: fail2ban (EPEL) and tftp-server (AppStream) ARE packaged — they were listed here and their path cleared while
+#: the Bossman-path e2e installed and ran both. The rest are in no enabled repository, and the RedHat branch is now
+#: marked unavailable WITH the reason (the wizard greys the role out) instead of only losing its path — adminer and
+#: traefik were still offered and failed at `dnf install` with exit status 1.
+REDHAT_NOT_PACKAGED: dict[str, str] = {
+    "adminer": "adminer is not packaged for Enterprise Linux 9 (not in BaseOS, AppStream, CRB or EPEL).",
+    "docker-daemon": "docker-ce comes from Docker's own repository, which is not enabled; EL9 ships podman instead.",
+    "traefik": "Traefik is not packaged for Enterprise Linux 9; it ships as a binary or container image upstream.",
+    "etcd": "etcd is not packaged for Enterprise Linux 9 (not in BaseOS, AppStream, CRB or EPEL).",
+    "rabbitmq-server": "rabbitmq-server is not in the EL9 repositories; it comes from the RabbitMQ/PackageCloud repository.",
+    "pacemaker": "pacemaker, corosync and pcs live in the EL9 HighAvailability repository, which is not enabled.",
+    "prometheus-node-exporter": "node_exporter is not packaged for Enterprise Linux 9 (not in EPEL 9).",
+}
 
 DEBIAN_FIXES: dict[str, dict] = {
+    # PACKAGE NAMES THAT DO NOT EXIST IN DEBIAN 13. Measured 2026-10-09 against trixie's own Packages index:
+    # 11 roles named a package apt cannot find, and the Bossman-path e2e ended each with "apt-get install -y …:
+    # exit status 100". Renamed upstream or provided under another name:
+    "dovecot":      {"packages": ["dovecot-core", "dovecot-imapd"],
+                     "why": "Debian splits dovecot; dovecot-core ships /etc/dovecot, imapd the IMAP service."},
+    "ntp":          {"packages": ["ntpsec"],
+                     "why": "trixie replaced the ntp package with ntpsec (same ntpd role, /etc/ntpsec/ntp.conf)."},
+    "etcd":         {"packages": ["etcd-server"], "why": "trixie ships the daemon as etcd-server."},
+    "proftpd":      {"packages": ["proftpd-core"], "why": "proftpd-basic became proftpd-core in trixie."},
+    "mysql-server": {"packages": ["default-mysql-server"],
+                     "why": "trixie has no mysql-server; default-mysql-server is Debian's MySQL-compatible server."},
+    "conky-all":    {"packages": ["conky-all"], "why": "the package is conky-all; there is no plain conky."},
+    "docker-daemon": {"packages": ["docker.io"],
+                      "why": "docker-ce is Docker Inc.'s repository, not Debian; docker.io is Debian's dockerd."},
+    # UNIT NAMES that no package of the role ships (checked against trixie's Contents index; exit status 5 —
+    # "unit not found" — in the Bossman-path e2e):
+    "exim4":        {"config_path": "/etc/exim4/update-exim4.conf.conf", "service": "exim4",
+                     "why": "the template renders Debian's DC_* macro file; /etc/exim4 is the directory. The unit is "
+                            "shipped by exim4-daemon-light, which exim4 pulls in."},
+    "dlt.conf":     {"service": "dlt", "why": "dlt-daemon ships dlt.service, not dlt-daemon.service."},
+    "php-fpm":      {"service": "php8.4-fpm", "config_path": "/etc/php/8.4/fpm/pool.d/www.conf", "why": "php-fpm is a metapackage; the unit is php8.4-fpm in trixie."},
+    "cloud.cfg":    {"service": "", "why": "cloud-init reads cloud.cfg at boot; restarting a unit applies nothing."},
+    "adminer":      {"packages": ["adminer", "apache2", "libapache2-mod-php"], "service": "apache2",
+                     "init": "a2enconf adminer",
+                     "why": "adminer is a PHP page; its configuration is an Apache snippet in conf-available, which does "
+                            "nothing until it is enabled (a2enconf) and Apache reloads. The role therefore installs Apache "
+                            "with PHP, enables the snippet and restarts apache2 — the earlier `service: \"\"` wrote a file "
+                            "nothing read."},
+    # G2 (2026-10-12): site values that are whole FILES, written by the role's `copy` step (wizard_seed._with_files).
+    "ctdb.conf":    {"files": [{"path": "/etc/ctdb/nodes", "field": "ctdb_nodes", "mode": "0644",
+                                "description": "The cluster's node addresses, one per line (ctdb refuses to start "
+                                               "without them: ConditionFileNotEmpty=/etc/ctdb/nodes)"}],
+                     "why": "ctdb.service has ConditionFileNotEmpty=/etc/ctdb/nodes — a list only the site has."},
+    "prometheus-mysqld-exporter": {
+                     "files": [{"path": "/var/lib/prometheus/.my.cnf", "field": "mysqld_exporter_my_cnf",
+                                "mode": "0600", "owner": "prometheus", "group": "prometheus", "secret": True,
+                                "description": "The [client] section the exporter connects with (user, password, "
+                                               "host). Point the exporter at it with args "
+                                               "`--config.my-cnf /var/lib/prometheus/.my.cnf` — its built-in default "
+                                               "is a RELATIVE `.my.cnf`, which the unit (no WorkingDirectory) never "
+                                               "finds (measured)"}],
+                     "why": "the exporter logs \"Error parsing host config … no configuration found\" without "
+                            "~prometheus/.my.cnf (credentials only the site has)."},
+    "kea":          {"packages": ["kea-dhcp4-server"], "config_path": "/etc/kea/kea-dhcp4.conf",
+                     "service": "kea-dhcp4-server",
+                     "why": "Kea is configured and run per daemon; this role is the DHCPv4 server (G1, 2026-10-11): "
+                            "kea-dhcp4-server ships /etc/kea/kea-dhcp4.conf and kea-dhcp4-server.service. The template "
+                            "`kea` is the shipped file with subnet4 (required — a value only the site has, as for "
+                            "isc-dhcp-server), interfaces and the lease timers as fields; the rest verbatim. "
+                            "kea-dhcp4 -t verified against the shipped file."},
+    "postgresql":   {"config_path": "/etc/postgresql/17/main/postgresql.conf",
+                     "why": "trixie's postgresql depends on postgresql-17; the catalog's /etc/postgresql/*/main/... "
+                            "was a pattern, which the engine now refuses (a literal '*' directory was written)."},
+    "clamav":       {"packages": ["clamav", "clamav-daemon", "clamav-freshclam"], "service": "clamav-daemon",
+                     "init": "test -e /var/lib/clamav/main.cvd || test -e /var/lib/clamav/main.cld || "
+                             "{ systemctl stop clamav-freshclam; freshclam; rc=$?; systemctl start clamav-freshclam; exit $rc; }",
+                     "why": "the role configures /etc/clamav/clamd.conf — the DAEMON's file — but installed only the "
+                            "scanner and ran nothing, while the RedHat branch ran clamd: one role, two meanings. Both "
+                            "families now run the daemon, with signatures fetched once (clamav-daemon's unit is skipped "
+                            "until a database exists)."},
+    "dnscache":     {"enable": False, "config_path": "",
+                     "why": "dnscache's SysV script declares no runlevels (djbdns runs under daemontools/runit): "
+                            "`systemctl enable` fails, `restart` works — the role starts it, not at boot. Its "
+                            "'config' was /etc/init.d/dnscache, the init SCRIPT; djbdns is configured through one "
+                            "file per variable in its env/ directory, which no template models — installed, not "
+                            "configured, said."},
+    "nsd":          {"config_path": "/etc/nsd/nsd.conf",
+                     "why": "the index promoted /etc/init.d/nsd (the init script); nsd's configuration is nsd.conf, "
+                            "which the nsd template renders."},
+    "rbootd":       {"config_path": "/etc/default/rbootd",
+                     "init": "mkdir -p /var/lib/rbootd",
+                     "why": "the template renders the unit's EnvironmentFile (/etc/default/rbootd, IFACE=…); recorded "
+                            "as /etc/rbootd.conf it wrote environment syntax into the file rbootd parses. The package "
+                            "does not create /var/lib/rbootd, the boot-file directory rbootd(8) names, and the daemon "
+                            "exits on `chdir` — created once. Measured: with it, rbootd stops one step later at \"no "
+                            "boot files\" — the boot images a site supplies, which no package ships."},
+    "isc-dhcp-server": {"service": "isc-dhcp-server",
+                     "init": "grep -q '^INTERFACESv4=\"\"' /etc/default/isc-dhcp-server && sed -i \"s/^INTERFACESv4=\\\"\\\"/"
+                             "INTERFACESv4=\\\"$(ls /sys/class/net | grep -vx lo | tr '\\n' ' ' | sed 's/ $//')\\\"/\" "
+                             "/etc/default/isc-dhcp-server || true",
+                     "why": "the role configured dhcpd.conf but named no unit, so on Debian it never started dhcpd and read "
+                            "compliant without a running server — while on AlmaLinux the same role started dhcpd. One role, "
+                            "one meaning: both start it, both require `subnets` (dhcpd refuses without one). Debian's init "
+                            "script also starts a DHCPv6 server while INTERFACESv4 and INTERFACESv6 are both empty, and that "
+                            "one always fails (\"No subnet6 declaration\"); the role configures DHCPv4 only, so INTERFACESv4 is "
+                            "set once to every interface but lo — what dhcpd does with an empty list anyway (it serves the "
+                            "interfaces whose network is declared and ignores the rest)."},
+    "gnunet.conf":  {"init": "touch /var/log/gnunet.log && chown gnunet:gnunet /var/log/gnunet.log && "
+                             "A=$(ls /usr/lib/*/gnunet/libexec/gnunet-service-arm | head -1) && "
+                             "mkdir -p /etc/systemd/system/gnunet.service.d && "
+                             "printf '[Service]\\nType=simple\\nExecStart=\\nExecStart=%s -c /etc/gnunet.conf\\nExecStop=\\n' "
+                             "\"$A\" > /etc/systemd/system/gnunet.service.d/foreground.conf && systemctl daemon-reload",
+                     "why": "Two causes, both measured. (1) gnunet-arm runs as gnunet and logs to /var/log/gnunet.log, "
+                            "which nobody creates for it: \"`open' failed on file `/var/log/gnunet.log' … Permission "
+                            "denied\", then an assertion, and ARM exits right after the fork. (2) The shipped unit is "
+                            "Type=forking around `gnunet-arm -s` with no PIDFile: systemd guesses the main process (often "
+                            "none, MainPID=0) and about one restart in five ends \"Deactivated successfully\" with every "
+                            "gnunet process gone — compliant in one run, noncompliant in the next. Running ARM itself in "
+                            "the foreground (Type=simple; its libexec path is per-architecture, hence resolved here) made "
+                            "20 restarts in a row active, and a stop leaves no gnunet process behind."},
+    "bip":          {"init": "[ -n \"$(systemctl show -p PIDFile --value bip)\" ] || { mkdir -p /etc/systemd/system/bip."
+                             "service.d && printf '[Service]\\nPIDFile=/var/lib/bip/bip.pid\\n' > "
+                             "/etc/systemd/system/bip.service.d/pidfile.conf && systemctl daemon-reload; }",
+                     "why": "bip.service is Type=forking without a PIDFile, so systemd GUESSES the main process; when it "
+                            "guesses the parent that exits, it reports the unit \"Deactivated successfully\" while bip "
+                            "keeps running (KillMode=process) — compliant in one run, noncompliant in the next. bip writes "
+                            "its pid to the -s directory (/var/lib/bip/bip.pid); a drop-in names it, only while the "
+                            "packaged unit names none."},
+    "biboumi":      {"init": "install -d -o _biboumi -g _biboumi /var/lib/biboumi/.config/biboumi",
+                     "why": "biboumi keeps its SQLite database under its home's XDG config dir, which the package does not "
+                            "create (\"Failed to open database file /var/lib/biboumi/.config/biboumi/biboumi.sqlite\") — "
+                            "created once, owned by _biboumi. hostname and password are required site values."},
+    "iodined":      {"config_path": "/etc/default/iodine",
+                     "why": "the index picked /etc/logcheck/ignore.d.server/iodined (a logcheck rule file) for an invented "
+                            "template. iodined.service reads /etc/default/iodine (IODINED_ARGS, IODINED_PASSWORD), written "
+                            "by the postinst; tunnel_ip, topdomain and password are required site values, so the preview "
+                            "names them instead of deploying a daemon that cannot start."},
+    "autossh":      {"config_path": "", "why": "the package ships no system configuration file — only a logcheck rule file, which the index picked and which its template does not even describe (autossh is configured per tunnel, on the command line)."},
+    "gpg-agent":    {"config_path": "", "why": "the package ships no system configuration file — only a logcheck rule file, which the index picked and which its template does not even describe (gpg-agent.conf is per user, in ~/.gnupg)."},
+    "talkd":        {"config_path": "", "why": "the package ships no system configuration file — only a logcheck rule file, which the index picked and which its template does not even describe (talkd is enabled through inetd)."},
+    # The unit is named differently from the role and its package (configs/debian_package_units.json shows it):
+    "collectd":     {"service": "collectd", "why": "the unit is shipped by collectd-core, which collectd pulls in."},
+    "pdns-server":  {"service": "pdns", "why": "pdns-server ships pdns.service."},
+    "sssd":         {"service": "sssd",
+                     "init": "test -e /etc/sssd/sssd.conf || install -m 0600 -o root -g root /dev/null /etc/sssd/sssd.conf",
+                     "why": "the unit is shipped by sssd-common, which sssd pulls in. sssd refuses a sssd.conf that is not "
+                            "0600 root (\"File ownership and permissions check failed\"); no package ships the file and "
+                            "template_render creates new files 0644 — so it is created empty with 0600 first, and the "
+                            "render keeps an existing file's mode."},
+    "openvpn":      {"config_path": "",
+                     "why": "the index recorded /etc/openvpn/crls — a directory. OpenVPN is configured per instance "
+                            "(/etc/openvpn/server/<name>.conf + keys), which no template models: installed, not "
+                            "configured, said."},
+    "bacula-director": {"config_path": "",
+                     "why": "the postinst generates /etc/bacula/bacula-dir.conf with random passwords paired with the "
+                            "storage and file daemons' configurations; the template replacing it was invented (bacula: "
+                            "\"Keyword Port not permitted in this resource\") and would break those pairings even if valid. "
+                            "Clients, jobs and pools are site decisions no template models — installed, not configured."},
+    "ssmtp":        {"config_path": "/etc/ssmtp/ssmtp.conf",
+                     "why": "the index recorded /etc/logcheck/ignore.d.server/ssmtp (a logcheck rule file) for a template of "
+                            "ssmtp.conf; ssmtp.conf is written by the postinst, its keys are those of ssmtp.conf(5)."},
+    "syslog-ng-core": {"config_path": "/etc/default/syslog-ng", "service": "syslog-ng.service",
+                     "why": "the template is /etc/default/syslog-ng (CONSOLE_LOG_LEVEL, SYSLOGNG_OPTS), the unit's "
+                            "EnvironmentFile — recorded as syslog-ng.conf it would have written shell variables into the "
+                            "daemon's configuration language. A change applies on restart, so the role names the unit."},
+    "openiked":     {"config_path": "",
+                     "why": "iked.conf ships as a commented example of one IKEv2 policy (local/peer addresses, PSK); every "
+                            "field of its template sat inside that comment and changed nothing. A policy is site-specific and "
+                            "no template models it — installed, not configured, said."},
+    "epic4":        {"config_path": "",
+                     "why": "/etc/epic4/epic4.irc is the client's global startup SCRIPT; its template's three fields were "
+                            "words inside prose comments. Nothing to configure for a host — installed, not configured, said."},
+    "dns-flood-detector": {
+                     "init": "test -x /usr/sbin/dns-flood-detector || { mkdir -p /etc/systemd/system/dns-flood-detector."
+                             "service.d && printf '[Service]\\nType=forking\\nExecStart=\\nExecStart=/usr/bin/"
+                             "dns-flood-detector $DAEMON_OPTS\\n' > /etc/systemd/system/dns-flood-detector.service.d/"
+                             "unit-fix.conf && systemctl daemon-reload; }",
+                     "why": "two defects in the shipped unit: it starts /usr/sbin/dns-flood-detector while the package "
+                            "installs /usr/bin/ (\"Failed at step EXEC\"), and it is Type=notify while the shipped "
+                            "DAEMON_OPTS run the daemon with -d, which forks and never reports ready (\"did not take the "
+                            "steps required by its unit configuration\"). A drop-in sets the binary's path and "
+                            "Type=forking, and retires itself (`test -x`) once the package's path is right. Measured on "
+                            "a fresh host: NotifyAccess=all does not help, -b (foreground) never sends READY, "
+                            "Type=forking with -d runs."},
+    "osmo-hlr":     {"init": "getent passwd osmocom >/dev/null || adduser --system --group --no-create-home osmocom",
+                     "why": "the unit runs as User=osmocom, which no trixie package creates (\"Failed at step USER spawning …: No such process\", 217/USER). The role creates the system user once, as an administrator would."},
+    "osmo-stp":     {"init": "getent passwd osmocom >/dev/null || adduser --system --group --no-create-home osmocom",
+                     "why": "the unit runs as User=osmocom, which no trixie package creates (\"Failed at step USER spawning …: No such process\", 217/USER). The role creates the system user once, as an administrator would."},
+    "mandos":       {"init": "systemctl enable --now avahi-daemon",
+                     "why": "mandos.service has Requisite=avahi-daemon.service: avahi must ALREADY run, and installing it "
+                            "does not start it (\"Dependency failed for mandos.service\"). Measured on a fresh host: "
+                            "with avahi active, mandos starts and stays up."},
+    "rsync":        {"config_path": "/etc/rsyncd.conf",
+                     "why": "rsync.service starts only when /etc/rsyncd.conf exists (ConditionPathExists) and no package "
+                            "ships it; the role wrote /etc/default/rsync, \"only used for init.d based systems\". The "
+                            "rsyncd.conf template is the package's example (/usr/share/doc/rsync/examples), modules a list."},
+    "radicale":     {"config_path": "/etc/radicale/config",
+                     "init": "chown radicale:radicale /var/lib/radicale/collections",
+                     "why": "radicale reads /etc/radicale/config; its unit has no EnvironmentFile, so /etc/default/radicale "
+                            "changed nothing. The package leaves /var/lib/radicale/collections root-owned while the daemon "
+                            "runs as radicale (\"Permission denied: …/collection-root\") — handed over once."},
+    "miredo":       {"config_path": "/etc/miredo.conf",
+                     "why": "the unit reads only /etc/miredo/miredo.conf (`miredo-checkconf -f`, then `miredo -f`), a "
+                            "symlink to /etc/miredo.conf; the role wrote /etc/default/miredo, which no unit reads."},
+    "anacrontab":   {"service": "anacron.timer", "why": "anacron.service runs the due jobs and exits (Type=simple, "
+                                                         "triggered by anacron.timer); \"running\" is the timer being "
+                                                         "active — the service is inactive between runs by design."},
+    "linuxptp":     {"service": "", "why": "ptp4l.conf is read by ptp4l@<interface>.service, which needs an interface "
+                                           "name; timemaster (the unit the index promoted) reads timemaster.conf and "
+                                           "spawns chronyd — restarting it applies nothing of ptp4l.conf."},
+    "apt.conf":     {"packages": ["apt"], "config_path": "/etc/apt/apt.conf",
+                     "why": "aptdaemon/ubuntu-pro-client/update-notifier-common are Ubuntu packages, 01-vendor-ubuntu an Ubuntu file; "
+                            "apt reads /etc/apt/apt.conf when present."},
     "libvirtd": {
         "packages": ["libvirt-daemon-system", "libvirt-daemon", "qemu-system-x86"],
         "why": "libvirt-daemon-system and qemu-system-x86 ship NOTHING under /etc (measured). The "
@@ -322,6 +585,35 @@ DEBIAN_FIXES: dict[str, dict] = {
 #: survivor and why — a dedup heuristic would be guessing, and merging catalog entries silently is
 #: exactly the kind of thing that should be readable.
 DUPLICATES: dict[str, dict[str, str]] = {
+    "mariadb-server": {
+        "keep": "mariadb",
+        "why": "Same daemon, same file (/etc/mysql/mariadb.conf.d/50-server.cnf) twice: the curated `mariadb` "
+               "(compliant) and the classified `mariadb-server`, whose invented template made mariadb abort once the "
+               "role restarted it. One service, one role.",
+    },
+    "openssh-server": {
+        "keep": "sshd",
+        "why": "Same daemon twice: the feature `openssh-server` rendered an invented sshd_config whose defaults were empty "
+               "values (`Port `, `PermitRootLogin ` — sshd refused it: \"line 11: unsupported option\"; on a real host "
+               "that is a lockout), next to the curated role `sshd`. sshd survives with sshd_config / "
+               "sshd_config-redhat, built from each family's shipped file and checked with `sshd -t`.",
+    },
+    "ntp": {
+        "keep": "ntpsec",
+        "why": "Same daemon twice on Debian: `ntp` and `ntpsec` both configured /etc/ntpsec/ntp.conf for ntpsec.service. "
+               "ntpsec — the package and the daemon — survives, with the Debian-faithful ntp.conf template (and the "
+               "template it already used on AlmaLinux as ntp.conf-redhat).",
+    },
+    "redis-server": {
+        "keep": "redis",
+        "why": "Same daemon, same template, same file twice: `redis` (curated, restarts redis-server) and `redis-server` "
+               "(classified, restarted nothing on Debian). One service, one role.",
+    },
+    "mpd": {
+        "keep": "mpd.conf",
+        "why": "Same daemon twice: `mpd` configured /etc/default/mpd (one field, inside a comment) and `mpd.conf` the "
+               "daemon's own /etc/mpd.conf (audio outputs, verified with mpd). One service, one role.",
+    },
     "nfs-kernel-server": {
         "keep": "nfs.conf",
         "why": "Same thing twice: both resolve to /etc/nfs.conf and to nfs-kernel-server (deb) / "
@@ -330,6 +622,44 @@ DUPLICATES: dict[str, dict[str, str]] = {
                "— and it has the real schema (20 fields vs 1). Exports keep their own snap-in.",
     },
 }
+
+
+#: Templates WITHDRAWN by decision, with the reason the wizard shows — measured defects no regeneration can fix
+#: because the package ships no file to parametrize. The role still installs; it does not pretend to configure.
+TEMPLATE_WITHDRAWN: dict[str, str] = {
+    "openvpn": "The template reads 13 `server.*` values its schema does not declare, and Debian ships no server.conf "
+               "to rebuild it from (the role's path /etc/openvpn/crls is a directory). Configure OpenVPN per "
+               "instance (/etc/openvpn/server/<name>.conf) until a template exists.",
+}
+
+
+#: Positively "not packaged in Debian 13" — named, so the wizard greys the role out with the reason instead of an
+#: install that fails with exit status 100 (measured, as above).
+DEBIAN_UNAVAILABLE: dict[str, str] = {
+    "mongodb": "MongoDB is not packaged in Debian (licence); install it from MongoDB's own repository.",
+    "traefik": "Traefik is not packaged in Debian 13; it ships as a binary or container image upstream.",
+    "bind9-redhat": "This entry is the RedHat build of BIND; on Debian use the bind9 role.",
+    "mysql-server": "Debian's MySQL server is MariaDB (default-mysql-server); use the mariadb role. This entry wrote "
+                    "/etc/mysql/mysql.conf.d/mysqld.cnf, which MariaDB never reads.",
+}
+
+
+#: The index-promoted description: "Configure /etc/default/rsync (shipped by rsync)."
+AUTO_DESCRIPTION = re.compile(r"^Configure (\S+) \((?:shipped|provided) by [^)]*\)\.$")
+
+
+#: Units a package ships that are NOT the daemon its configuration belongs to: restarting them applies nothing.
+NOT_A_SERVICE = {
+    "sudo": "sudo.service only cleans up stale timestamps at boot; sudoers is read on every invocation.",
+}
+
+
+def _load_units() -> dict[str, list[str]]:
+    try:
+        data = json.loads((configs_dir(__file__) / "debian_package_units.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def curate(catalog: dict, attested: set[str], core: set[str]) -> tuple[dict, dict]:
@@ -344,14 +674,48 @@ def curate(catalog: dict, attested: set[str], core: set[str]) -> tuple[dict, dic
             del catalog[name]
             report["merged"].append(f"{name} → {spec['keep']}")
 
+    for name, why in DEBIAN_UNAVAILABLE.items():
+        fams = (catalog.get(name) or {}).get("families")
+        if isinstance(fams, dict) and isinstance(fams.get("debian"), dict) and not fams["debian"].get("unavailable"):
+            fams["debian"] = {"unavailable": why, "source": "curated"}
+            report["debian_fixed"].append(f"{name}: unavailable")
+
     for name, fix in DEBIAN_FIXES.items():
         deb = ((catalog.get(name) or {}).get("families") or {}).get("debian")
         if not isinstance(deb, dict):
             continue
-        for field in ("packages", "config_path"):
+        for field in ("packages", "config_path", "service", "enable", "init", "files"):
             if field in fix and deb.get(field) != fix[field]:
                 deb[field] = fix[field]
                 report["debian_fixed"].append(f"{name}.{field}")
+        # The index writes "Configure <path> (shipped by …)." — after a path fix that sentence names the file the
+        # role no longer touches (rsync said /etc/default/rsync while configuring /etc/rsyncd.conf). One file, one name.
+        desc = catalog[name].get("description") or ""
+        m = AUTO_DESCRIPTION.match(desc)
+        if fix.get("config_path") and m and m.group(1) != fix["config_path"]:
+            catalog[name]["description"] = f"Configure {fix['config_path']}."
+
+    # AN EMPTY DEBIAN `service` IS NAMED FROM THE ARCHIVE. Roles the classify step promoted from tasksel/comps carried
+    # service "" on Debian, so the wizard wrote the file and restarted nothing (redis.conf changed, redis kept the old
+    # settings) — and the e2e, having no unit to look at, counted those roles compliant on the file alone. The unit is
+    # taken only where the package SHIPS one named exactly after the role or one of its packages
+    # (configs/debian_package_units.json, read from the Contents index by tools/debian_units.py); a decision recorded in
+    # DEBIAN_FIXES (a service, enable False, or config_path "") wins, and NOT_A_SERVICE names units that are not the
+    # daemon a configuration change should restart.
+    units = _load_units()
+    for name, entry in catalog.items():
+        deb = (entry.get("families") or {}).get("debian")
+        if entry.get("kind") not in ("role", "feature") or not isinstance(deb, dict) or deb.get("service") \
+                or deb.get("unavailable") or deb.get("enable") is False:
+            continue
+        fix = DEBIAN_FIXES.get(name) or {}
+        if "service" in fix or fix.get("config_path") == "" or name in NOT_A_SERVICE:
+            continue
+        shipped = {u for pkg in deb.get("packages") or [] for u in units.get(pkg, [])}
+        pick = next((u for u in [name, *(deb.get("packages") or [])] if u in shipped), None)
+        if pick:
+            deb["service"] = pick
+            report["debian_fixed"].append(f"{name}.service = {pick} (shipped unit)")
 
     # An EMPTY debian config_path is repaired from the grounded resolver, not from a hand table.
     #
@@ -369,6 +733,11 @@ def curate(catalog: dict, attested: set[str], core: set[str]) -> tuple[dict, dic
     for name, entry in catalog.items():
         deb = (entry.get("families") or {}).get("debian")
         if not isinstance(deb, dict) or deb.get("config_path"):
+            continue
+        # A path emptied BY DECISION (DEBIAN_FIXES config_path "": dnscache, openiked, epic4 — "installed, not
+        # configured, said") is not a gap to fill: the resolver found /etc/iked.conf again and undid it.
+        if (DEBIAN_FIXES.get(name) or {}).get("config_path") == "":
+            report["paths_still_empty"].append(f"{name} (decided)")
             continue
         pkgs = deb.get("packages") or [name]
         found = next((p for p in (main_config_path(pkg, codecs, seed_pkgs) for pkg in pkgs) if p), "")
@@ -389,7 +758,12 @@ def curate(catalog: dict, attested: set[str], core: set[str]) -> tuple[dict, dic
     # this is the same rule applied to a catalog the builder did not regenerate.
     for name, entry in catalog.items():
         alias = TEMPLATE_ALIAS.get(name)
+        # The alias directory must HAVE a template: a directory holding only meta.json (its target recorded so
+        # `qualify_packages --repair` may regenerate it) answers "unknown", and retargeting to it pointed ntp and
+        # opendmarc at nothing to render until the regeneration ran.
+        import bossman.tools.build_package_catalog as _B
         if (alias and entry.get("template") and entry["template"] != alias
+                and (_B.TEMPLATES_DIR / alias / "template.j2").is_file()
                 and _template_configures(alias) is not False):
             report["retargeted"].append(f"{name}: {entry['template']} → {alias}")
             entry["template"] = alias
@@ -412,6 +786,12 @@ def curate(catalog: dict, attested: set[str], core: set[str]) -> tuple[dict, dic
             # template directory of that name demonstrably configures its own file.
             entry["template"] = TEMPLATE_ALIAS.get(name, name)
             report["restored"].append(name)
+
+    for name, why in TEMPLATE_WITHDRAWN.items():
+        if name in catalog and catalog[name].get("template"):
+            catalog[name]["template"] = None
+            catalog[name]["template_withdrawn"] = why
+            report["no_template"].append(f"{name} (withdrawn: decision)")
 
     for name, entry in catalog.items():
         fams = entry.get("families")
@@ -489,18 +869,45 @@ def run(dry_run: bool = False) -> int:
         rh = ((catalog.get(name) or {}).get("families") or {}).get("redhat")
         if not isinstance(rh, dict):
             continue
-        for field in ("packages", "config_path"):
+        for field in ("packages", "config_path", "service", "init", "files"):
             if field in fix and rh.get(field) != fix[field]:
                 rh[field] = fix[field]
                 rh["source"] = "verified"
                 report["redhat_fixed"].append(f"{name}.{field}")
 
-    for name in REDHAT_NOT_PACKAGED:
-        rh = ((catalog.get(name) or {}).get("families") or {}).get("redhat")
-        if isinstance(rh, dict) and rh.get("config_path"):
-            # The path is not wrong so much as unreachable: no repo we can enable ships that package.
-            rh["config_path"] = ""
-            rh["source"] = "verified"
+    # AN EXECUTED SCRIPT IS NOT A CONFIGURATION FILE. The index promoted init scripts and cron jobs as a role's
+    # config_path (dnscache, nsd, rbldns: /etc/init.d/…; aptitude, awffull, check-dfsg-status: /etc/cron.*/…), so the
+    # wizard would have overwritten the script from a template. One rule with the worklist (package_e2e_worklist.SCRIPT):
+    # such a path is cleared — installed, not configured — unless a fix above named the real file.
+    from bossman.tools.package_e2e_worklist import SCRIPT as _SCRIPT
+    # DOCUMENTATION IS NOT CONFIGURATION, and an example is the template of the file the admin writes. apticron,
+    # comgt and netscript-ipfilter named a README as their config_path; btrbk and fcm named "*.example". A README
+    # path is cleared; an example path becomes the file without the suffix (same format, the file actually read).
+    import re as _re
+    report.setdefault("doc_paths", [])
+    for name, entry in catalog.items():
+        for fam, branch in ((entry or {}).get("families") or {}).items():
+            path = branch.get("config_path") if isinstance(branch, dict) else ""
+            if not path:
+                continue
+            if _re.search(r"/README[^/]*$", path):
+                report["doc_paths"].append(f"{name}.{fam}: {path} → (none)")
+                branch["config_path"] = ""
+            elif _re.search(r"\.(example|sample|dist)$", path):
+                real = _re.sub(r"\.(example|sample|dist)$", "", path)
+                report["doc_paths"].append(f"{name}.{fam}: {path} → {real}")
+                branch["config_path"] = real
+    report.setdefault("script_paths", [])
+    for name, entry in catalog.items():
+        for fam, branch in ((entry or {}).get("families") or {}).items():
+            if isinstance(branch, dict) and _SCRIPT.search(branch.get("config_path") or ""):
+                report["script_paths"].append(f"{name}.{fam}: {branch['config_path']}")
+                branch["config_path"] = ""
+
+    for name, why in REDHAT_NOT_PACKAGED.items():
+        fams = (catalog.get(name) or {}).get("families")
+        if isinstance(fams, dict) and isinstance(fams.get("redhat"), dict) and fams["redhat"].get("unavailable") != why:
+            fams["redhat"] = {"unavailable": why, "source": "verified"}
             report["redhat_unpackaged"].append(name)
 
     print(f"kept        {len(report['kept']):3d}  real translation, CORE decision, or attested in the RedHat universe")
@@ -511,9 +918,13 @@ def run(dry_run: bool = False) -> int:
     print(f"merged      {len(report['merged']):3d}  {', '.join(report['merged']) or '—'}")
     print(f"redhat fix  {len(report['redhat_fixed']):3d}  measured against the EL9 repos: "
           f"{', '.join(sorted(report['redhat_fixed'])) or '—'}")
-    print(f"redhat n/a  {len(report['redhat_unpackaged']):3d}  not packaged for EL, path cleared: "
+    print(f"redhat n/a  {len(report['redhat_unpackaged']):3d}  not packaged for EL, marked unavailable: "
           f"{', '.join(sorted(report['redhat_unpackaged'])) or '—'}")
     print(f"debian fix  {len(report['debian_fixed']):3d}  {', '.join(sorted(report['debian_fixed'])) or '—'}")
+    print(f"doc path    {len(report.get('doc_paths', [])):3d}  README cleared / example → the real file: "
+          f"{', '.join(sorted(report.get('doc_paths', []))) or '—'}")
+    print(f"script path {len(report.get('script_paths', [])):3d}  an executed script was the config_path — cleared: "
+          f"{', '.join(sorted(report.get('script_paths', []))) or '—'}")
     print(f"paths filled{len(report['paths_filled']):3d}  empty debian config_path resolved from the "
           f"codec registry + seed witness")
     for line in sorted(report["paths_filled"]):

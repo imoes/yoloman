@@ -75,11 +75,13 @@ IGNORE_FILE="{{ ignore_file }}"
 
 ## The chkrootkit(1) scanner that is run
 # what is actually run is: eval "$IONICE" "$CHKROOTKIT" "$RUN_DAILY_OPTS"
-#CHKROOTKIT={{ chkrootkit_binary }}
-
+{% if chkrootkit_binary is defined and chkrootkit_binary is not none and (chkrootkit_binary is number or chkrootkit_binary is boolean or chkrootkit_binary | length > 0) %}CHKROOTKIT={{ chkrootkit_binary }}
+{% else %}#CHKROOTKIT=/usr/sbin/chkrootkit
+{% endif %}
 ## Where output is saved
-#LOG_DIR={{ log_dir }}
-
+{% if log_dir is defined and log_dir is not none and (log_dir is number or log_dir is boolean or log_dir | length > 0) %}LOG_DIR={{ log_dir }}
+{% else %}#LOG_DIR=/var/log/chkrootkit
+{% endif %}
 ## 'Clean' output (after FILTER and IGNORE_FILE)
 #OUTPUT="$LOG_DIR/log.today"
 

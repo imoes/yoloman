@@ -1,0 +1,29 @@
+# Policycoreutils (SELinux Policy Management) Configuration
+# This template generates the file contexts configuration for policycoreutils.
+# It defines file context mappings that tell SELinux which security context
+# to assign to specific files and directories on the system.
+
+[files]
+# List of files to be managed or included in the file context database.
+# These are typically system-critical binaries and configuration files.
+# Default set of standard system files.
+{% set default_files = ['/etc/passwd', '/etc/shadow', '/bin/bash', '/bin/login', '/bin/sh', '/sbin/agetty', '/sbin/init', '/sbin/mingetty', '/usr/sbin/sshd', '/lib/libc.so.6', '/lib/ld-linux.so.2', '/lib/ld.so.1'] %}
+
+{% for file_path in default_files %}
+# Context: {{ file_path }}
+# Description: Standard system file entry for {{ file_path }}.
+# SELinux will enforce this path's context according to the loaded policy.
+{{ file_path }}
+{% endfor %}
+
+[process]
+# List of process files to be included in the file context database.
+# These entries help label running processes or their executable images.
+{% set default_processes = ['/sbin/mingetty', '/sbin/agetty', '/usr/sbin/sshd'] %}
+
+{% for process_path in default_processes %}
+# Process: {{ process_path }}
+# Description: Standard system process entry for {{ process_path }}.
+# SELinux uses this to label the process executable context.
+{{ process_path }}
+{% endfor %}

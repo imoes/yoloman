@@ -1,111 +1,71 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          webfs
-# Required-Start:    $local_fs $remote_fs $syslog $network
-# Required-Stop:    $local_fs $remote_fs $syslog $network
-# Default-Start:     2 3 4 5
-# Default-Stop:     0 1 6
-# Short-Description: Webfs simple HTTP server
-# Description:       Webfs is a very basic HTTP server
-### END INIT INFO
+# ==============================================================================
+# WebFS Configuration Template
+# Self-documenting: All variables map to schema fields. Defaults are inline.
+# WebFS is a simple, non-persistent, threaded HTTP server.
+# ==============================================================================
 
-NAME="webfsd"
+# web_root: The document root directory served by webfs.
+# Default: '' (Empty string, typically requires explicit setting)
+root {{ web_root | default('') }}
 
-DAEMON="/usr/bin/webfsd"
-CONFFILE="/etc/webfsd.conf"
+# web_host: The hostname or server name.
+# Default: ''
+host {{ web_host | default('') }}
 
-test -f $DAEMON	|| exit 0
-test -f $CONFFILE || exit 0
+# web_ip: The IP address to bind to.
+# Default: '' (Binds to all interfaces if empty)
+ip {{ web_ip | default('') }}
 
-# Fetch runtime environment.
-. /lib/init/vars.sh
+# web_port: The port number to listen on.
+# Default: '' (Standard web port 80 if empty, but explicit is safer)
+port {{ web_port | default('') }}
 
-# Include all LSB log_* functions.
-. /lib/lsb/init-functions
+# web_timeout: Connection timeout value.
+# Default: ''
+timeout {{ web_timeout | default('') }}
 
-# Allow location to be overridden.
-pidfile=/var/run/webfs/webfsd.pid
+# web_conn: Maximum number of connections.
+# Default: ''
+conn {{ web_conn | default('') }}
 
-# read + verify config
-. $CONFFILE
-test "$web_root" = ""		&& exit 0
+# web_dircache: Directory cache size.
+# Default: ''
+dircache {{ web_dircache | default('') }}
 
-# pidfile management
-pidfdir=`dirname $pidfile`
+# web_index: Index file name.
+# Default: ''
+index {{ web_index | default('') }}
 
-if test ! -d "$pidfdir" && test "$pidfdir" != '/'; then
-	mkdir -p "$pidfdir"
-	# chown pidfile directory to the user specified by web_user if set
-	test "$web_user"  != ""	&& chown {{ web_user | default('') }} "$pidfdir"
-	# chgrp pidfile directory to the group specified by web_group if set
-	test "$web_group" != ""	&& chgrp {{ web_group | default('') }} "$pidfdir"
-fi
+# web_accesslog: Path to the access log file.
+# Default: ''
+accesslog {{ web_accesslog | default('') }}
 
-# build command line
-ARGS="-k $pidfile -r {{ web_root | default('') }}"
-# -n: hostname/server name (web_host)
-test "{{ web_host | default('') }}"	!= ""	&& ARGS="$ARGS -n {{ web_host | default('') }}"
-# -i: IP address to bind to (web_ip)
-test "{{ web_ip | default('') }}"	!= ""	&& ARGS="$ARGS -i {{ web_ip | default('') }}"
-# -p: port number (web_port)
-test "{{ web_port | default('') }}"	!= ""	&& ARGS="$ARGS -p {{ web_port | default('') }}"
-# -t: connection timeout (web_timeout)
-test "{{ web_timeout | default('') }}"	!= ""	&& ARGS="$ARGS -t {{ web_timeout | default('') }}"
-# -c: maximum connections (web_conn)
-test "{{ web_conn | default('') }}"	!= ""	&& ARGS="$ARGS -c {{ web_conn | default('') }}"
-# -a: directory cache size (web_dircache)
-test "{{ web_dircache | default('') }}"	!= ""	&& ARGS="$ARGS -a {{ web_dircache | default('') }}"
-# -f: index file name (web_index)
-test "{{ web_index | default('') }}"	!= ""	&& ARGS="$ARGS -f {{ web_index | default('') }}"
-# -l/-L: access log path (web_accesslog) with optional buffering (web_logbuffering)
-#test "$web_accesslog"	!= ""	&& ARGS="$ARGS -l $web_accesslog"
-if test "{{ web_accesslog | default('') }}" != ""; then
-	if test "{{ web_logbuffering | default('true') }}" = "true"; then
-		ARGS="$ARGS -l {{ web_accesslog | default('') }}"
-	else
-		ARGS="$ARGS -L {{ web_accesslog | default('') }}"
-	fi
-fi
-# -s: enable syslog logging (web_syslog)
-test "{{ web_syslog | default('true') }}" = "true"	&& ARGS="$ARGS -s"
-# -v: enable virtual hosting (web_virtual)
-test "{{ web_virtual | default('true') }}" = "true"	&& ARGS="$ARGS -v"
-# -u: user to run as (web_user)
-test "{{ web_user | default('') }}"	!= ""	&& ARGS="$ARGS -u {{ web_user | default('') }}"
-# -g: group to run as (web_group)
-test "{{ web_group | default('') }}"	!= ""	&& ARGS="$ARGS -g {{ web_group | default('') }}"
-# -x: CGI scripts path (web_cgipath)
-test "{{ web_cgipath | default('') }}"	!= ""	&& ARGS="$ARGS -x {{ web_cgipath | default('') }}"
-# Additional command line arguments (web_extras)
-test "{{ web_extras | default('') }}"	!= ""	&& ARGS="$ARGS {{ web_extras | default('') }}"
-#echo "debug: webfsd $ARGS"
+# web_logbuffering: Enable log buffering (true/false).
+# Default: true
+logbuffering {{ web_logbuffering | default('true') }}
 
-case "$1" in
-start)
-	log_daemon_msg "Starting httpd daemon" "$NAME"
-	start-stop-daemon --start --quiet --oknodo \
-		--pidfile $pidfile --exec $DAEMON -- $ARGS
-	log_end_msg $?
-	;;
-stop)
-	log_daemon_msg "Stopping httpd daemon" "$NAME"
-	start-stop-daemon --stop --quiet --oknodo --user {{ web_user | default('') }} --pidfile $pidfile
-	log_end_msg $?
-	rm -f $pidfile || true
-	;;
-restart|force-reload)
-	log_daemon_msg "Re-starting httpd daemon" "$NAME"
-	start-stop-daemon --stop --quiet --oknodo --user {{ web_user | default('') }} --pidfile $pidfile
-	rm -f $pidfile || true
-	start-stop-daemon --start --quiet --pidfile $pidfile \
-		--exec $DAEMON -- $ARGS
-	log_end_msg $?
-	;;
-status)	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-	;;
-*)
-	echo "Usage: /etc/init.d/webfsd start|stop|restart|force-reload|status"
-	exit 1 
-	;;
-esac
-exit 0
+# web_syslog: Enable syslog logging (true/false).
+# Default: true
+syslog {{ web_syslog | default('true') }}
+
+# web_virtual: Enable virtual hosting (true/false).
+# Default: true
+virtual {{ web_virtual | default('true') }}
+
+# web_user: User to run the webfs daemon as.
+# Default: '' (Runs as current user if empty)
+user {{ web_user | default('') }}
+
+# web_group: Group to run the webfs daemon as.
+# Default: '' (Runs as current group if empty)
+group {{ web_group | default('') }}
+
+# web_cgipath: Path for CGI scripts.
+# Default: ''
+cgipath {{ web_cgipath | default('') }}
+
+# web_extras: Additional command line arguments.
+# Default: ''
+{% if web_extras | default('') %}
+{{ web_extras | default('') }}
+{% endif %}

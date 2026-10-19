@@ -1,0 +1,45 @@
+# ==============================================================================
+# PipeWire Real-Time Limits Configuration
+# ==============================================================================
+# This file configures POSIX resource limits for the PipeWire real-time module
+# (libpipewire-module-rt.so). It sets the maximum real-time priority, nice value,
+# and locked memory size for the specified group.
+#
+# IMPORTANT: You must manually create the system group named after {{ group_name | default('pipewire') }}
+# and add relevant users to it, OR use the default 'pipewire' group if no custom group is specified.
+# Without this group and user membership, PipeWire will fall back to RTKit DBus
+# if available, or fail to acquire real-time scheduling privileges.
+#
+# See: man 7 limits.conf, man 5 sysctl.conf (for context on rlimits)
+
+# ------------------------------------------------------------------------------
+# Group Real-Time Priority Limit
+# ------------------------------------------------------------------------------
+# Sets the maximum real-time priority (@rtprio) allowed for members of the group.
+# Valid range: 1-99 (Linux kernel limits). Higher values mean higher priority.
+# Default: 70
+#
+# If {{ group_name | default('pipewire') }} is not defined, this line applies to the 'pipewire' group.
+@{{ group_name | default('pipewire') }}   - rtprio  {{ rtprio_value | default(70) }}
+
+# ------------------------------------------------------------------------------
+# Group Nice Value Limit
+# ------------------------------------------------------------------------------
+# Sets the minimum nice value (@nice) allowed for members of the group.
+# In Linux, lower nice values indicate higher priority. Negative values usually
+# require root privileges or specific capabilities.
+# Default: -19
+#
+# If {{ group_name | default('pipewire') }} is not defined, this line applies to the 'pipewire' group.
+@{{ group_name | default('pipewire') }}   - nice    {{ nice_value | default(-19) }}
+
+# ------------------------------------------------------------------------------
+# Group Memory Lock Limit
+# ------------------------------------------------------------------------------
+# Sets the maximum amount of memory that can be locked into RAM (@memlock)
+# for members of the group. This prevents the OS from swapping PipeWire's
+# real-time audio buffers to disk, which causes glitches.
+# Default: 4194304 (4 MB in bytes)
+#
+# If {{ group_name | default('pipewire') }} is not defined, this line applies to the 'pipewire' group.
+@{{ group_name | default('pipewire') }}   - memlock {{ memlock_value | default(4194304) }}

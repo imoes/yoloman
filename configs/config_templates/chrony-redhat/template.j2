@@ -1,0 +1,58 @@
+# Use public servers from the pool.ntp.org project.
+# Please consider joining the pool (https://www.pool.ntp.org/join.html).
+pool {{ pool | default('2.almalinux.pool.ntp.org iburst') }}
+
+# Use NTP servers from DHCP.
+sourcedir {{ sourcedir | default('/run/chrony-dhcp') }}
+
+# Record the rate at which the system clock gains/losses time.
+driftfile {{ driftfile | default('/var/lib/chrony/drift') }}
+
+# Allow the system clock to be stepped in the first three updates
+# if its offset is larger than 1 second.
+makestep {{ makestep_threshold | default('1.0 3') }}
+
+# Enable kernel synchronization of the real-time clock (RTC).
+rtcsync
+
+# Enable hardware timestamping on all interfaces that support it.
+{% if hwtimestamp_interfaces is defined and hwtimestamp_interfaces is not none and (hwtimestamp_interfaces is number or hwtimestamp_interfaces is boolean or hwtimestamp_interfaces | length > 0) %}hwtimestamp {{ hwtimestamp_interfaces }}
+{% else %}#hwtimestamp *
+{% endif %}
+# Increase the minimum number of selectable sources required to adjust
+# the system clock.
+{% if minsources is defined and minsources is not none and (minsources is number or minsources is boolean or minsources | length > 0) %}minsources {{ minsources }}
+{% else %}#minsources 2
+{% endif %}
+# Allow NTP client access from local network.
+{% if allow is defined and allow is not none and (allow is number or allow is boolean or allow | length > 0) %}allow {{ allow }}
+{% else %}#allow 192.168.0.0/16
+{% endif %}
+# Serve time even if not synchronized to a time source.
+{% if local_stratum is defined and local_stratum is not none and (local_stratum is number or local_stratum is boolean or local_stratum | length > 0) %}local {{ local_stratum }}
+{% else %}#local stratum 10
+{% endif %}
+# Require authentication (nts or key option) for all NTP sources.
+{% if authselectmode is defined and authselectmode is not none and (authselectmode is number or authselectmode is boolean or authselectmode | length > 0) %}authselectmode {{ authselectmode }}
+{% else %}#authselectmode require
+{% endif %}
+# Specify file containing keys for NTP authentication.
+keyfile {{ keyfile | default('/etc/chrony.keys') }}
+
+# Save NTS keys and cookies.
+ntsdumpdir {{ ntsdumpdir | default('/var/lib/chrony') }}
+
+# Insert/delete leap seconds by slewing instead of stepping.
+{% if leapsec_mode is defined and leapsec_mode is not none and (leapsec_mode is number or leapsec_mode is boolean or leapsec_mode | length > 0) %}leapsecmode {{ leapsec_mode }}
+{% else %}#leapsecmode slew
+{% endif %}
+# Get TAI-UTC offset and leap seconds from the system tz database.
+leapsectz {{ leapsectz | default('right/UTC') }}
+
+# Specify directory for log files.
+logdir {{ logdir | default('/var/log/chrony') }}
+
+# Select which information is logged.
+{% if logging_destinations is defined and logging_destinations is not none and (logging_destinations is number or logging_destinations is boolean or logging_destinations | length > 0) %}log {{ logging_destinations }}
+{% else %}#log measurements statistics tracking
+{% endif %}

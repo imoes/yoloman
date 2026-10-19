@@ -17,7 +17,7 @@ from starlette.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, mmc as mmc_api, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
+from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, patch_rings as patch_rings_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, role_deployments as role_deployments_api, chunks, clusters as clusters_api, kubernetes as kubernetes_api, config_codecs, config_directives, config_fields, config_templates, console, mmc as mmc_api, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -40,6 +40,8 @@ from bossman.services.compliance import compliance_loop
 from bossman.services.audit import audit_middleware
 from bossman.services.business_service import business_service_loop
 from bossman.services.reconciler import ConvergeStats, ReconcileStats, converge_loop, reconciler_loop
+from bossman.services.role_catalog import seed_catalog_artifacts
+from bossman.services.role_deployment import deployment_loop
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +96,6 @@ async def lifespan(app: FastAPI):
             from bossman.services.remediation_seed import seed_remediation_runbooks
 
             await seed_remediation_runbooks(session)
-            from bossman.services.blueprint import seed_blueprint_drafts
-
-            await seed_blueprint_drafts(session)
             await session.commit()
 
     # Mark the co-located SNMP/SSH poller as a hidden proxy ("selecta") so it
@@ -147,6 +146,17 @@ async def lifespan(app: FastAPI):
         except Exception:  # noqa: BLE001 — never let wizard seeding break startup
             await session.rollback()
             logger.warning("wizard runbook seeding failed at startup", exc_info=True)
+
+    # Publish those generated runbooks as the canonical, immutable
+    # role/feature artifacts used by desired-state deployments.
+    async with app.state.session_factory() as session:
+        try:
+            n = await seed_catalog_artifacts(session, settings)
+            if n:
+                logger.info("seeded role/feature artifacts", extra={"changed": n})
+        except Exception:  # noqa: BLE001 — startup remains best-effort
+            await session.rollback()
+            logger.warning("role/feature artifact seeding failed at startup", exc_info=True)
 
     app.state.catalog_cache = CatalogCache(settings.plans_dir)
     app.state.embedding_client = embedding_client_for(settings)
@@ -213,6 +223,7 @@ async def lifespan(app: FastAPI):
     event_console_task = asyncio.create_task(event_console_loop(app.state.session_factory, settings, stop_event))
     # Software compliance (gap #9): required/forbidden packages per scope, alert on drift.
     compliance_task = asyncio.create_task(compliance_loop(app.state.session_factory, settings, stop_event))
+    role_deployment_task = asyncio.create_task(deployment_loop(app.state.session_factory, settings, stop_event))
     # Lego capability inventory: derive host_capabilities from installed roles x per-template contracts.
     capabilities_task = asyncio.create_task(capabilities_loop(app.state.session_factory, settings, stop_event))
     # Business/logical service aggregation (gap #4): roll up state from many services.
@@ -239,6 +250,7 @@ async def lifespan(app: FastAPI):
         scheduler_task.cancel()
         event_console_task.cancel()
         compliance_task.cancel()
+        role_deployment_task.cancel()
         capabilities_task.cancel()
         business_service_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
@@ -249,6 +261,8 @@ async def lifespan(app: FastAPI):
             await event_console_task
         with contextlib.suppress(asyncio.CancelledError):
             await compliance_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await role_deployment_task
         with contextlib.suppress(asyncio.CancelledError):
             await capabilities_task
         with contextlib.suppress(asyncio.CancelledError):
@@ -314,14 +328,17 @@ def create_app() -> FastAPI:
     app.include_router(help.router, tags=["help"])
     app.include_router(runbooks.router, tags=["runbooks"])
     app.include_router(deployments.router, tags=["deployments"])
+    app.include_router(role_deployments_api.router, tags=["role-deployments"])
     app.include_router(notifications.router, tags=["notifications"])
     app.include_router(time_periods_api.router, tags=["time-periods"])
     app.include_router(clusters_api.router, tags=["clusters"])
+    app.include_router(kubernetes_api.router, tags=["kubernetes"])
     app.include_router(images_api.router, tags=["images"])
     app.include_router(vm_api.router, tags=["vm"])
     app.include_router(scheduler_api.router, tags=["scheduler"])
     app.include_router(events_api.router, tags=["events"])
     app.include_router(rollouts_api.router, tags=["rollouts"])
+    app.include_router(patch_rings_api.router, tags=["patch-rings"])
     from bossman.api import remediation as remediation_api
     app.include_router(remediation_api.router, tags=["remediation"])
     # Event handlers: the reusable ACTION an event rule performs (runbook or script, managed by
@@ -329,8 +346,8 @@ def create_app() -> FastAPI:
     # not a second one beside it (docs/event-handling.md).
     from bossman.api import event_handlers as event_handlers_api
     app.include_router(event_handlers_api.router, tags=["remediation"])
-    from bossman.api import blueprints as blueprints_api
-    app.include_router(blueprints_api.router, tags=["blueprints"])
+    from bossman.api import db_provision as db_provision_api
+    app.include_router(db_provision_api.router, tags=["provisioning"])
     app.include_router(compliance_api.router, tags=["compliance"])
     app.include_router(audit_api.router, tags=["audit"])
     app.include_router(business_services_api.router, tags=["business-services"])
@@ -364,6 +381,10 @@ def create_app() -> FastAPI:
     app.include_router(system_settings.router, tags=["system-settings"])
     from bossman.api import activity as activity_api
     app.include_router(activity_api.router, tags=["activity"])
+    from bossman.api import provision_deploy as provision_deploy_api
+    app.include_router(provision_deploy_api.router, tags=["provisioning"])
+    from bossman.api import experiments as experiments_api
+    app.include_router(experiments_api.router, tags=["kernel-tuning"])
     from bossman.api import proposals as proposals_api
     app.include_router(proposals_api.router, tags=["change-proposals"])
     from bossman.api import agent_release as agent_release_api

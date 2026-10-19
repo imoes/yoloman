@@ -22,8 +22,9 @@ the markdown less readably while needing to be kept in step.
 
 | Page | What it answers | Generated from |
 |---|---|---|
+| [kubernetes-console.md](kubernetes-console.md) | The Kubernetes console: what it is, the decisions and why, where the code is, the lifecycle evidence, what is missing. | Hand-written. |
 | [developing.md](developing.md) | **Start here.** What the system is, where truth lives, the contracts, how to add things, the traps — and a final section addressed to a language model working here. | Hand-written. |
-| [api-reference.md](api-reference.md) | All 481 HTTP operations in 68 groups, in words. | A *running* server's `/openapi.json`. |
+| [api-reference.md](api-reference.md) | All 514 HTTP operations, in words. | A *running* server's `/openapi.json`. |
 | [modules-windows.md](modules-windows.md) · [modules-linux.md](modules-linux.md) | Every module an agent exposes right now. | The agents' `GET /api/v1/tools`. |
 | [frontend-presentation.html](frontend-presentation.html) | Every screen (54), described by its own source. | The UI source. |
 

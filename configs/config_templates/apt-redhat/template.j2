@@ -1,0 +1,34 @@
+// APT configuration file for RedHat/CentOS systems using APT compatibility layer or similar.
+// This template is self-documenting based on the provided schema.
+
+/* Global APT options block */
+APT 
+{
+    // Options for apt-get
+    Get 
+    {
+        // Value for APT::Get::Download-Only. Controls whether apt-get downloads packages without installing them.
+        Download-Only "{{ apt_get_download_only | default('false') }}";
+    };
+};
+
+// Options for the downloading routines
+Acquire
+{
+    // Number of retries for Acquire operations.
+    Retries "{{ acquire_retries | default('0') }}";
+};
+
+// Things that effect the APT dselect method
+DSelect 
+{
+    // Value for DSelect::Clean. Controls cleanup behavior for dselect method. Values: always, auto, prompt, never.
+    Clean "{{ dselect_clean | default('auto') }}";
+};
+
+DPkg 
+{
+    // Probably don't want to use force-downgrade..
+    // Default options passed to dpkg. Enclosed in quotes in the config.
+    Options {"{{ dpkg_options | default('--force-overwrite') }}"};
+}

@@ -1,0 +1,40 @@
+#
+# SysUsage Apache Configuration file
+#
+# This configuration sets up an alias for the SysUsage web application and defines
+# access control rules for the document root. It supports both Apache 2.2 (legacy)
+# and Apache 2.4 (modern) authorization modules.
+#
+
+# The document root directory where SysUsage is installed.
+Alias /sysusage {{ sysusage_document_root | default('/var/www/sysusage') }}
+
+# Directory block for the SysUsage document root.
+<Directory {{ sysusage_document_root | default('/var/www/sysusage') }}>
+    # Apache 2.4: Use the mod_authz_core module for access control.
+    <IfModule mod_authz_core.c>
+        # Restrict access to localhost by default.
+        Require local
+        
+        # Uncomment the line below to allow access from any client.
+        # Require all granted
+    </IfModule>
+
+    # Apache 2.2: Use the legacy mod_access module for access control.
+    <IfModule !mod_authz_core.c>
+        # Deny access to all clients by default.
+        Order Deny,Allow
+        Deny from All
+
+        # Allow access from the specified IPv4 address.
+        # Default: 127.0.0.1 (localhost)
+        Allow from {{ sysusage_allow_from_ipv4 | default('127.0.0.1') }}
+
+        # Allow access from the specified IPv6 address.
+        # Default: ::1 (localhost IPv6)
+        Allow from {{ sysusage_allow_from_ipv6 | default('::1') }}
+
+        # Uncomment the line below to allow access from any client.
+        # Allow from All
+    </IfModule>
+</Directory>

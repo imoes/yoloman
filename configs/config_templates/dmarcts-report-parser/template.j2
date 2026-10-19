@@ -1,7 +1,15 @@
-# CRON configuration for dmarcts-report-parser
-# This template generates a cron entry to run the DMARC report parser periodically.
-# The schedule and user are configurable via Ansible variables.
+# ==============================================================================
+# dmarcts-report-parser cron job configuration
+#
+# This template generates a crontab entry for the DMARCS Report Parser.
+# The parser runs periodically to fetch and process DMARC aggregate/forensic reports.
+#
+# Generated variables:
+#   - cron_minute: Minute of the hour (default: 1)
+#   - cron_user: System user to execute the job as (default: _dmarcts)
+# ==============================================================================
 
-# Cron schedule expression (minute hour day-of-month month day-of-week)
-# Default: Daily at 00:01
-0 1 * * * {{ dmarcts_cron_user | default('_dmarcts') }} [ -x /usr/libexec/dmarcts-report-parser.cronjob ] && /usr/libexec/dmarcts-report-parser.cronjob
+# Cron entry: Runs the dmarcts-report-parser cronjob script.
+# Syntax: <minute> <hour> <day_of_month> <month> <day_of_week> <user> <command>
+# The command checks if the script exists and is executable before running it.
+{{ cron_minute | default('1') | string }} * * * {{ cron_user | default('_dmarcts') }} [ -x /usr/libexec/dmarcts-report-parser.cronjob ] && /usr/libexec/dmarcts-report-parser.cronjob

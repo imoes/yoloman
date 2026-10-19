@@ -1,9 +1,25 @@
+# Desktop entry for the ibus-anthy GNOME Initial Setup wizard.
+# This file configures an autostart application that runs the initial
+# setup script for the Anthy input method engine in GNOME environments.
+
+[Desktop Entry]
 # Suffix appended to the desktop entry name and script filename for the initial setup wizard.
+# Default: 'GNOME Initial Setup'
 Name=ibus-anthy {{ initial_setup_name_suffix | default('GNOME Initial Setup') }}
+
+# The type of this desktop file.
 Type=Application
-# Path to the setup script, dynamically named using the same suffix.
-Exec=/usr/share/ibus-anthy/ibus-anthy-{{ initial_setup_name_suffix | default('GNOME Initial Setup') }}.sh
+
+# The command to execute. This runs the ibus-anthy setup script.
+Exec=/usr/share/ibus-anthy/ibus-anthy-gnome-initial-setup.sh
+
+# Only show this application in the GNOME desktop environment.
 OnlyShowIn=GNOME;
+
+# Do not display in the applications menu; this is a background setup helper.
 NoDisplay=true
-# Token used in the AutostartCondition to check if the initial setup has already been performed.
-AutostartCondition=unless-exists ibus-anthy-{{ autostart_token | default('gnome-initial-setup-done') }}
+
+# Condition for autostarting: run unless the token file/directory exists,
+# indicating the initial setup has already been performed.
+# Token: {{ autostart_token | default('ibus-anthy-gnome-initial-setup-done') }}
+AutostartCondition=unless-exists {{ autostart_token | default('ibus-anthy-gnome-initial-setup-done') }}

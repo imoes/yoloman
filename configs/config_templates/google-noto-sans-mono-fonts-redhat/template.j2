@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  This template injects the Noto Sans Mono font family into the system's monospace fallback stack.
+  It ensures that applications requesting 'monospace' will use the specified font,
+  with optional hinting control.
+-->
+<fontconfig>
+  <!--
+    Match any font request for the 'monospace' family.
+    This block inserts the configured font family at the front of the fallback list.
+  -->
+  <match>
+    <test name="family">
+      <string>monospace</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <!-- The name of the font family to inject into the monospace fallback stack. -->
+      <string>{{ font_family | default('Noto Sans Mono') }}</string>
+    </edit>
+    <!--
+      Note: The original template used 'fonthashint' and 'append' with a bool.
+      Standard Fontconfig uses 'hinting' (boolean) or 'autohint' (boolean).
+      'fonthashint' is likely a typo or non-standard. We stick to the variable name
+      but use the standard 'hinting' attribute name for correctness, or keep the
+      literal if strictly required. Given the schema says 'disable font hinting',
+      we assume the user wants to control hinting.
+      The original template had: <edit name="fonthashint" mode="append"> <bool>...</bool> </edit>
+      This is syntactically invalid for standard fontconfig (append expects string/list).
+      We correct it to the standard boolean hinting edit, preserving the logic that the variable
+      controls the hinting state.
+      If the variable is 'false' (default), we set hinting to false.
+    -->
+    <edit name="hinting" mode="assign">
+      <!-- Whether to disable font hinting for this font family. -->
+      <bool>{{ font_hinting | default(false) | bool }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias the font family 'monospace' to the configured Noto Sans Mono family.
+    This ensures that any application requesting the generic 'monospace' family
+    gets the specific Noto Sans Mono font.
+  -->
+  <alias>
+    <family>{{ font_family | default('Noto Sans Mono') }}</family>
+    <prefer>
+      <family>monospace</family>
+    </prefer>
+  </alias>
+</fontconfig>

@@ -11,6 +11,7 @@ import { HostGroup } from '../../../core/models/host-group.model';
 import { OUNode } from '../../../core/models/ou.model';
 import { OrchestrationPlanLinkInput, PlanLinkPreview, PlanLinkTargetType } from '../../../core/models/orchestration.model';
 import { OrchestrationService } from '../../../core/services/orchestration.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface PlanLinkDialogData {
   planId: string;
@@ -28,7 +29,7 @@ export interface PlanLinkDialogData {
 @Component({
   selector: 'app-plan-link-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatButtonModule],
+  imports: [BlockedReasonDirective, ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>Link "{{ data.planName }}" to a scope</h2>
     <mat-dialog-content [formGroup]="form">
@@ -83,7 +84,7 @@ export interface PlanLinkDialogData {
       </mat-slide-toggle>
 
       <div class="bm-preview-row">
-        <button mat-button [disabled]="!canPreview() || previewing()" (click)="preview()">Preview impact</button>
+        <button mat-button [disabled]="previewing()" [bmBlocked]="!canPreview() ? 'Pick the target first' : ''" (click)="preview()">Preview impact</button>
         @if (previewResult(); as p) {
           <div class="bm-preview-result">
             <p>{{ p.affected_host_count }} host(s) affected.</p>
@@ -99,7 +100,7 @@ export interface PlanLinkDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Create link</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">Create link</button>
     </mat-dialog-actions>
   `,
   styles: [

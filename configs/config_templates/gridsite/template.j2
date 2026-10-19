@@ -1,44 +1,56 @@
 <IfModule mod_gridsite.c>
 
-# Document root directory for GridSite content.
-# Default: /var/lib/gridsite/
-<Directory "{{ gridsite_document_root | default('/var/lib/gridsite/') }}">
-  # Enable SSL options: export certificate data and standard environment variables.
-  SSLOptions             +ExportCertData +StdEnvVars
+  # Directory directive for the GridSite document root.
+  # This block configures the specific directory where GridSite content is served.
+  <Directory "{{ gridsite_document_root | default('/var/lib/gridsite') }}/">
 
-  # Enable GACL (Grid Access Control List) authorization for this server.
-  GridSiteAuth           on
+    # Enable SSL options for certificate export and environment variables.
+    SSLOptions +ExportCertData +StdEnvVars
 
-  # Export various bits of info into CGI environment variables (needed for gridsite-admin.cgi).
-  GridSiteEnvs           on
+    # Enable GACL (Grid Access Control List) authorization for this server.
+    GridSiteAuth on
 
-  # Enable nice GridSite directory listings.
-  GridSiteIndexes        on
+    # Export various bits of information into CGI environment variables.
+    # This is required for gridsite-admin.cgi to function correctly.
+    GridSiteEnvs on
 
-  # Enable HTML formatting replacement using header/footer files.
-  # When on, GridSite looks for header and footer files to replace <body> and </body> tags.
-  GridSiteHtmlFormat     on
+    # Enable nice GridSite directory listings.
+    GridSiteIndexes on
 
-  # Filename (or absolute path) for the standard HTML header file.
-  # If not absolute, the directory of the HTML page and its parents are searched.
-  # Default: gridsitehead.txt
-  # Header files are inserted in place of HTML <body[ ...]> tags.
-  GridSiteHeadFile       "{{ gridsite_header_file | default('gridsitehead.txt') }}"
+    # Enable HTML formatting via header/footer insertion.
+    # When enabled, GridSite looks for standard header and footer files to
+    # replace <body> and </body> tags in .html files.
+    GridSiteHtmlFormat on
 
-  # Filename (or absolute path) for the standard HTML footer file.
-  # If not absolute, the directory of the HTML page and its parents are searched.
-  # Default: gridsitefoot.txt
-  # Footer files are inserted in place of </body> tags.
-  GridSiteFootFile       "{{ gridsite_footer_file | default('gridsitefoot.txt') }}"
+    # Configuration for standard HTML header file.
+    # If the filename begins with "/" it is treated as an absolute path.
+    # Otherwise, the directory of the HTML page is searched first, then parents.
+    # Header files are inserted in place of HTML <body[ ...]> tags.
+    # Default behavior is commented out if no custom header is specified.
+{% if gridsite_header_file | default(None) is not none %}  GridSiteHeadFile {{ gridsite_header_file | default(None) }}
+{% else %}  # GridSiteHeadFile gridsitehead.txt
+{% endif %}
 
-  # Maximum number of GSI proxies allowed in delegation chain.
-  # 0 disables proxy support. Full client certificates are always accepted.
-  # Default: 9
-  GridSiteGSIProxyLimit  {{ gridsite_gsi_proxy_limit | default(9) }}
+    # Configuration for standard HTML footer file.
+    # If the filename begins with "/" it is treated as an absolute path.
+    # Otherwise, the directory of the HTML page is searched first, then parents.
+    # Footer files are inserted in place of </body> tags.
+    # Default behavior is commented out if no custom footer is specified.
+{% if gridsite_footer_file | default(None) is not none %}  GridSiteFootFile {{ gridsite_footer_file | default(None) }}
+{% else %}  # GridSiteFootFile gridsitefoot.txt
+{% endif %}
 
-  # Allow authorized people to write/delete files from non-browser clients (e.g. with htcp(1)).
-  GridSiteMethods        GET PUT DELETE MOVE POST
+    # Maximum number of GSI proxies allowed in the delegation chain.
+    # Set to 0 to disable proxy support.
+    # Full client certificates (e.g. inside web browsers) are always accepted
+    # regardless of this setting.
+    GridSiteGSIProxyLimit {{ gridsite_gsi_proxy_limit | default('9') }}
 
-</Directory>
+    # Allowed HTTP methods for authorized file operations.
+    # This allows authorized people to write/delete files from non-browser clients
+    # (e.g. using htcp(1)).
+    GridSiteMethods GET PUT DELETE MOVE POST
+
+  </Directory>
 
 </IfModule>

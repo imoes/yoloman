@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- Match fonts for the Georgian language -->
+  <match>
+    <!-- Test if the language code matches the BCP 47 identifier for Georgian -->
+    <test name="lang" compare="contains">
+      <!-- lang_code: The BCP 47 language code to match for font substitution. -->
+      <string>{{ lang_code | default('ka') }}</string>
+    </test>
+    <!-- Test if the target font family is a generic sans-serif type -->
+    <test name="family">
+      <!-- default_family: The generic font family name to match and substitute. -->
+      <string>{{ default_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the specific Noto Sans Georgian family to the font list for this match -->
+    <edit name="family" mode="prepend">
+      <!-- target_font_family: The specific font family name to prepend or alias. -->
+      <string>{{ target_font_family | default('Noto Sans Georgian') }}</string>
+    </edit>
+    <!-- Enable or disable font hinting to improve rendering on low-res displays -->
+    <edit name="fonthashint" mode="append">
+      <!-- hinting_enabled: Whether to enable font hinting (true) or disable it (false). -->
+      <!-- Convert boolean-like string to actual boolean for XML bool element -->
+      <bool>{{ hinting_enabled | default(false) | bool }}</bool>
+    </edit>
+  </match>
+  <!-- Define an alias so the generic family resolves to Noto Sans Georgian -->
+  <alias>
+    <!-- The alias family name -->
+    <family>{{ target_font_family | default('Noto Sans Georgian') }}</family>
+    <default>
+      <!-- The fallback generic family -->
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Configuration for Google Noto Sans Malayalam UI fonts integration.
+    This file handles two things:
+    1. Substitution: When a document requests a generic 'sans-serif' family in Malayalam,
+       this font is prepended to the fallback list.
+    2. Alias: Global aliasing of the specific font name to the generic family.
+  -->
+
+  <!-- Block 1: Font Substitution Rule -->
+  <!-- Matches any text where the language code contains the value of lang_code (e.g., 'ml'). -->
+  <match>
+    <!-- Test if the current text language contains the target language code. -->
+    <test name="lang" compare="contains">
+      <!-- The language code to match for font substitution. Default: 'ml' for Malayalam. -->
+      <string>{{ lang_code | default('ml') }}</string>
+    </test>
+
+    <!-- Test if the requested generic font family matches family_name. -->
+    <test name="family">
+      <!-- The generic font family name to match (e.g., 'sans-serif'). Default: 'sans-serif'. -->
+      <string>{{ family_name | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Prepend the specific Noto Sans Malayalam UI font to the fallback list. -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font name to prepend. Default: 'Noto Sans Malayalam UI'. -->
+      <string>{{ font_name | default('Noto Sans Malayalam UI') }}</string>
+    </edit>
+
+    <!-- Append the boolean value to fonthashint to control hinting behavior. -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to append false to fonthashint (disabling hinting or modifying it). Default: 'false'. -->
+      <bool>{{ enable_hinting | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Block 2: Font Alias Definition -->
+  <!-- Defines an alias so that the specific font name maps to a generic family. -->
+  <alias>
+    <!-- The name of the font to alias (usually the specific family name). -->
+    <family>{{ font_name | default('Noto Sans Malayalam UI') }}</family>
+
+    <!-- The generic family this font should be treated as. -->
+    <default>
+      <family>{{ family_name | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

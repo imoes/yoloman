@@ -1,0 +1,177 @@
+# =============================================================================
+# PipeWire ALSA Configuration Template
+# =============================================================================
+# This template configures the ALSA compatibility layer for PipeWire.
+# It sets default values for the PCM and CTL plugins, allowing applications
+# using ALSA to route audio through PipeWire.
+#
+# See `man alsapcm-pipewire` and `man pipewire-alsa` for details.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Defaults for PipeWire ALSA Plugin
+# -----------------------------------------------------------------------------
+
+# [defaults.pipewire.server]
+# The name of the PipeWire server daemon to connect to.
+# Default: 'pipewire-0'
+defaults.pipewire.server "{{ pipewire_server | default('pipewire-0') }}"
+
+# [defaults.pipewire.node]
+# The node ID to use, -1 means auto-select.
+# Default: -1
+defaults.pipewire.node "{{ pipewire_node | default('-1') }}"
+
+# [defaults.pipewire.exclusive]
+# Whether to open the stream in exclusive mode.
+# Allowed values: true, false.
+# Default: false
+defaults.pipewire.exclusive {{ pipewire_exclusive | default('false') | lower }}
+
+# [defaults.pipewire.role]
+# The role of the stream (e.g., Audio/Production, Audio/Multimedia).
+# Default: '' (empty string means auto-detect)
+defaults.pipewire.role "{{ pipewire_role | default('') }}"
+
+# [defaults.pipewire.rate]
+# The sample rate, 0 means auto-detect.
+# Default: 0
+defaults.pipewire.rate {{ pipewire_rate | default('0') }}
+
+# [defaults.pipewire.format]
+# The sample format, empty string means auto-detect.
+# Default: '' (empty string means auto-detect)
+defaults.pipewire.format "{{ pipewire_format | default('') }}"
+
+# [defaults.pipewire.channels]
+# The number of channels, 0 means auto-detect.
+# Default: 0
+defaults.pipewire.channels {{ pipewire_channels | default('0') }}
+
+# [defaults.pipewire.period_bytes]
+# The period size in bytes, 0 means auto-detect.
+# Default: 0
+defaults.pipewire.period_bytes {{ pipewire_period_bytes | default('0') }}
+
+# [defaults.pipewire.buffer_bytes]
+# The buffer size in bytes, 0 means auto-detect.
+# Default: 0
+defaults.pipewire.buffer_bytes {{ pipewire_buffer_bytes | default('0') }}
+
+# -----------------------------------------------------------------------------
+# PCM Plugin Definition: pcm.pipewire
+# -----------------------------------------------------------------------------
+# Defines the "pipewire" PCM plugin for ALSA applications.
+# Parameters can be passed directly to the plugin or inherit from defaults.
+# -----------------------------------------------------------------------------
+pcm.pipewire {
+	@args [ SERVER NODE EXCLUSIVE ROLE RATE FORMAT CHANNELS PERIOD_BYTES BUFFER_BYTES ]
+
+	@args.SERVER {
+		type string
+		default {
+			@func refer
+			name defaults.pipewire.server
+		}
+	}
+
+	@args.NODE {
+		type string
+		default {
+			@func refer
+			name defaults.pipewire.node
+		}
+	}
+
+	@args.EXCLUSIVE {
+		type integer
+		default {
+			@func refer
+			name defaults.pipewire.exclusive
+		}
+	}
+
+	@args.ROLE {
+		type string
+		default {
+			@func refer
+			name defaults.pipewire.role
+		}
+	}
+
+	@args.RATE {
+		type integer
+		default {
+			@func refer
+			name defaults.pipewire.rate
+		}
+	}
+
+	@args.FORMAT {
+		type string
+		default {
+			@func refer
+			name defaults.pipewire.format
+		}
+	}
+
+	@args.CHANNELS {
+		type integer
+		default {
+			@func refer
+			name defaults.pipewire.channels
+		}
+	}
+
+	@args.PERIOD_BYTES {
+		type integer
+		default {
+			@func refer
+			name defaults.pipewire.period_bytes
+		}
+	}
+
+	@args.BUFFER_BYTES {
+		type integer
+		default {
+			@func refer
+			name defaults.pipewire.buffer_bytes
+		}
+	}
+
+	# Core plugin settings
+	type pipewire
+	server $SERVER
+	playback_node $NODE
+	capture_node $NODE
+	exclusive $EXCLUSIVE
+	role $ROLE
+	rate $RATE
+	format $FORMAT
+	channels $CHANNELS
+	period_bytes $PERIOD_BYTES
+	buffer_bytes $BUFFER_BYTES
+
+	hint {
+		show on
+		description "PipeWire Sound Server"
+	}
+}
+
+# -----------------------------------------------------------------------------
+# CTL Plugin Definition: ctl.pipewire
+# -----------------------------------------------------------------------------
+# Defines the "pipewire" CTL plugin for ALSA control interface.
+# -----------------------------------------------------------------------------
+ctl.pipewire {
+	@args.SERVER {
+		type string
+		default {
+			@func refer
+			name defaults.pipewire.server
+		}
+	}
+
+	type pipewire
+	server $SERVER
+}

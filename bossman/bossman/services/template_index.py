@@ -147,6 +147,13 @@ _NOT_A_SETTING = re.compile(
 _SOURCE_CODE = re.compile(r"\.pm$")
 
 
+#: Key material and trust anchors — a signing key, a CA bundle, a certificate. Measured 2026-10-15: 8 bindings, e.g.
+#: elrepo-release-redhat on /etc/pki/elrepo/SECURE-BOOT-KEY-elrepo.org.der (binary) and unbound-anchor on
+#: /etc/unbound/icannbundle.pem. A whole-file render would replace the key with text; certificates and keys come by
+#: reference from the password store, not as template values.
+_KEY_MATERIAL = re.compile(r"\.(?:der|gpg|asc|pem|crt|cer|key|p12|pfx|jks|keystore)$|/trusted\.gpg\.d/")
+
+
 def unsuitable_target(path: str) -> str | None:
     """Why this path must not be offered as an editable config file, or None when it may be.
 
@@ -159,6 +166,9 @@ def unsuitable_target(path: str) -> str | None:
     if _SOURCE_CODE.search(path):
         return ("this is program source code (a Perl module), not a config file — a whole-file render "
                 "would replace code the program imports")
+    if _KEY_MATERIAL.search(path):
+        return ("this is key material or a trust anchor (a key, certificate or CA bundle), not a setting — a "
+                "whole-file render would replace it with text; keys come by reference from the password store")
     if _RUN_PARTS_DIRS.search(path):
         return ("run-parts EXECUTES the files in this directory, so this is a program rather than a "
                 "setting — a whole-file render would replace a working script with a rendered one")
@@ -181,7 +191,9 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     tpl_root, cat_p, cod_p = Path(templates_dir), Path(catalog_path), Path(codecs_path)
     ver_p = Path(verdicts_path) if verdicts_path else cat_p.parent / "config_path_verdicts.json"
     key = (str(cat_p), str(cod_p), str(tpl_root), family, str(ver_p))
-    sig = _signature(cat_p, cod_p, tpl_root) + _signature(ver_p, ver_p, tpl_root)[:1]
+    wrong_p = ver_p.parent / "template_differs_reasons.json"
+    sig = (_signature(cat_p, cod_p, tpl_root) + _signature(ver_p, ver_p, tpl_root)[:1]
+           + _signature(wrong_p, wrong_p, tpl_root)[:1])
     hit = _CACHE.get(key)
     if hit and hit[1] == sig and time.monotonic() - hit[0] < _TTL_SECONDS:
         return hit[2]
@@ -194,6 +206,7 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     # text over the live config. False is refused; None (cannot be judged) is kept, because withholding
     # every unjudgeable editor would remove working ones, and that asymmetry is the gate's own.
     ok = {name: template_configures(tpl_root, name) is not False for name in dirs}
+    refused_by_gate = sorted(name for name in dirs if not ok[name])
     dirs = {name for name in dirs if ok[name]}
 
     def _load(path: str | Path) -> dict:
@@ -218,6 +231,15 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         if isinstance(data, dict):
             metas[name] = data
 
+    # Which files each catalog role's template renders, on any family (patterns are not files).
+    catalog_claims: dict[str, set[str]] = {}
+    for _role, _entry in _load(catalog_path).items():
+        if isinstance(_entry, dict) and _entry.get("template"):
+            for _fe in (_entry.get("families") or {}).values():
+                _cfg = (_fe or {}).get("config_path") if isinstance(_fe, dict) else None
+                if isinstance(_cfg, str) and _cfg and not any(ch in _cfg for ch in "*?["):
+                    catalog_claims.setdefault(_entry["template"], set()).add(_cfg)
+
     def renders(name: str, path: str) -> bool:
         """Would binding `name` to `path` contradict what that template says about itself?
 
@@ -234,7 +256,26 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         unrecorded would empty the index.
         """
         own = metas.get(name, {}).get("target_path")
-        return not isinstance(own, str) or own == path
+        if isinstance(own, str):
+            return own == path
+        # THE CATALOG IS A RECORD TOO. A role's template is the renderer of the file the catalog names for it, on
+        # whichever family — even where a family template has since taken that path over. Measured on the
+        # recorded index: 23 codec bindings handed a role template a file that merely shares its NAME —
+        # `cron` (crontab) on /etc/pam.d/cron and /etc/default/cron, `haproxy` (haproxy.cfg) on
+        # /etc/sysconfig/haproxy and /etc/logrotate.d/haproxy, `redis` on /etc/raddb/mods-available/redis.
+        # The cross-source sweep below did not catch them: on RedHat the catalog path belongs to the -redhat
+        # template, so what was left of `haproxy` were two paths of ONE basename. The same file in another
+        # location (same basename as a catalog path) stays allowed.
+        claimed = catalog_claims.get(name)
+        if claimed:
+            return path in claimed or path.rsplit("/", 1)[-1] in {c.rsplit("/", 1)[-1] for c in claimed}
+        return True
+
+    def record_of(name: str) -> str:
+        own = metas.get(name, {}).get("target_path")
+        if isinstance(own, str):
+            return own
+        return " / ".join(sorted(catalog_claims.get(name) or [])) + " (its catalog role)"
 
     # Precomputed ONCE: plausible_target asks "is this a directory", which is membership in the set of
     # ancestors of every known path. Asked as a linear scan per candidate it cost this endpoint 4.1 s after the
@@ -255,7 +296,7 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
             conflicts.append({"path": cfg, "chosen": None, "chosen_source": "catalog",
                               "also": tname, "also_source": "catalog",
                               "reason": "refused: template {} records target {}".format(
-                                  tname, metas[tname]["target_path"])})
+                                  tname, record_of(tname))})
             continue
         paths.setdefault(cfg, {"template": tname, "source": "catalog", "role": role})
 
@@ -310,7 +351,7 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
                 conflicts.append({"path": p, "chosen": None, "chosen_source": "codec",
                                   "also": tname, "also_source": "codec",
                                   "reason": "refused: template {} records target {}".format(
-                                      tname, metas[tname]["target_path"])})
+                                      tname, record_of(tname))})
                 continue
             have = paths.get(p)
             if have is None:
@@ -334,6 +375,16 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     for name, meta in sorted(metas.items()):
         p = meta.get("target_path")
         if not isinstance(p, str) or not plausible_target(p, known):
+            continue
+        # A template recorded for ANOTHER family is that family's file. Building the index for a known family, it
+        # is not offered: measured, the debian block bound 297 `-redhat` templates (grep-redhat on
+        # /etc/GREP_COLORS, alsa-utils-redhat on /etc/alsa/alsactl.conf) — Configure on a Debian host would have
+        # written the RPM's file. Named, not dropped. Without a family (base) it stays as before.
+        if family and meta.get("family") and meta["family"] != family:
+            withdrawn.append({"path": p, "template": name, "source": "template-meta", "verdict": "other-family",
+                              "package": None,
+                              "reason": "template {} renders the {} file; this index is for {} hosts".format(
+                                  name, meta["family"], family)})
             continue
         have = paths.get(p)
         if have is None:
@@ -359,7 +410,11 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
             # A record that declares a FAMILY is not used to override without one being asked for: that is
             # the /etc/caddy/Caddyfile case, where overriding blind would hand a Debian host EL's file.
             witnessed = meta.get("witness") in ("deb", "rpm", "corpus-text")
-            incumbent_recorded = isinstance(metas.get(have["template"], {}).get("target_path"), str)
+            # The catalog counts as a record of its role template's file (see renders()): /etc/samba/smb.conf
+            # went from the catalog's `samba` to the `smb.conf` directory when the latter gained a witnessed
+            # target, although the catalog had chosen `samba` for exactly that path.
+            incumbent_recorded = (isinstance(metas.get(have["template"], {}).get("target_path"), str)
+                                  or p in catalog_claims.get(have["template"], set()))
             if witnessed and not incumbent_recorded and (not mine or mine == family):
                 conflicts.append({"path": p, "chosen": name, "chosen_source": "template-meta",
                                   "also": have["template"], "also_source": have["source"],
@@ -428,6 +483,31 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         withdrawn.append({"path": path, "template": entry.get("template"),
                           "source": entry.get("source"), "verdict": "not-configuration",
                           "package": None, "reason": why})
+
+    # THE TEMPLATE RENDERS ANOTHER FILE — measured, not guessed. Stage 5 renders every reachable binding with its
+    # defaults and compares it with the file the package ships at that path (tools/template_shipped_fidelity);
+    # tools/explain_differs records `wrong-file` where not ONE setting the template writes occurs in that file,
+    # active or commented. Measured 2026-10-14: 375 of 1209 differing units — `config.ini` of one application on
+    # every config.ini, the `mdadm` template on /etc/logcheck/ignore.d.server/mdadm, ssh_config in
+    # /etc/default/ssh. The binding is withdrawn for the family it was measured on (the base index: on any), the
+    # catalog's own bindings excepted — a curated binding that renders the wrong file is a catalog defect to fix,
+    # not to hide.
+    wrong: dict[tuple[str, str], set[str]] = {}
+    for unit in (_load(wrong_p).get("units") or {}).values():
+        if isinstance(unit, dict) and unit.get("category") == "wrong-file":
+            wrong.setdefault((unit.get("template"), unit.get("path")), set()).add(unit.get("family"))
+    for path in sorted(paths):
+        entry = paths[path]
+        fams = wrong.get((entry.get("template"), path))
+        if not fams or entry.get("source") == "catalog" or (family and family not in fams):
+            continue
+        paths.pop(path)
+        withdrawn.append({"path": path, "template": entry.get("template"), "source": entry.get("source"),
+                          "verdict": "wrong-file", "package": None,
+                          "reason": "rendered with its defaults, this template writes no setting the file at this "
+                                    "path has (measured against the shipped file on {}); Configure writes the "
+                                    "WHOLE file, so it would replace this file with another one".format(
+                                        ", ".join(sorted(f for f in fams if f)))})
 
     for path in sorted(paths):
         seen = verdicts.get(path)
@@ -521,6 +601,22 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
                 "reason": "this template renders {} — the file it is named for and the one the catalog "
                           "records; {} merely shares that name, and Configure writes the WHOLE file"
                           .format(chosen, bound_path)})
+
+    # NAMED, NOT DROPPED: a template the gate refuses never reached the sources above, so a template that records its
+    # own target simply was not there — 65 EL family templates (profile.d scripts, `.sample` files, bodies without a
+    # placed field) vanished from the redhat index without a word. Listed with the gate's meaning, for its family.
+    for name in refused_by_gate:
+        try:
+            meta = json.loads((tpl_root / name / "meta.json").read_text())
+        except (OSError, ValueError):
+            continue
+        target = meta.get("target_path") if isinstance(meta, dict) else None
+        if not isinstance(target, str) or (family and meta.get("family") and meta["family"] != family):
+            continue
+        withdrawn.append({"path": target, "template": name, "source": "template-meta", "verdict": "not-configurable",
+                          "package": None,
+                          "reason": "the template gate refuses it — an empty body, a script, a body that cannot render "
+                                    "its own sample, or one that places no field: Configure would write a fixed text"})
 
     result = {"paths": paths, "conflicts": conflicts, "snapins": snapins, "withdrawn": withdrawn}
     _CACHE[key] = (time.monotonic(), sig, result)

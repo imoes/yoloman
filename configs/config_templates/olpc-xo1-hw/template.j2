@@ -1,14 +1,29 @@
 #!/bin/sh
 
+# ==============================================================================
+# OLPC XO-1 Hardware Initialization Script (initramfs hook)
 #
-# List the soft prerequisites here.  This is a space separated list of
-# names, of scripts that are in the same directory as this one, that
-# must be run before this one can be.
+# This script is used during the initramfs boot process to load specific kernel
+# modules required for the OLPC XO-1 hardware, particularly for flash storage
+# (MTD subsystems) and video frame buffer drivers.
 #
-# Schema field: prereqs (list of strings, space-separated in output)
-# Default: [] (empty list)
-#
-PREREQ="{{ prereqs | default([]) | join(' ') }}"
+# Self-documenting configuration:
+# - prereqs: Space-separated list of prerequisite script names that must run
+#            before this one. Defaults to an empty list.
+# - mtd_modules: Space-separated list of MTD-related kernel modules to include.
+#                Defaults to ['cafe_nand', 'redboot', 'jffs2', 'ubifs', 'lzo',
+#                'zlib', 'zlib_deflate', 'deflate'].
+# - video_drivers: Space-separated list of video frame buffer drivers to include.
+#                  Defaults to ['lxfb', 'gxfb', 'fbcon'].
+# ==============================================================================
+
+# Prerequisite scripts that must run before this script.
+# These are expected to be in the same directory as this script.
+{% if prereqs is defined and prereqs is iterable %}
+PREREQ="{{ prereqs | join(' ') }}"
+{% else %}
+PREREQ=""
+{% endif %}
 
 prereqs()
 {
@@ -25,20 +40,28 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
-#
-# Ensure the mtd (Memory Technology Device) kernel modules are included.
-# Schema field: mtd_modules (list of strings, space-separated in output)
-# Default: ['cafe_nand', 'redboot', 'jffs2', 'ubifs', 'lzo', 'zlib', 'zlib_deflate', 'deflate']
-#
-{% for mod in mtd_modules | default(['cafe_nand', 'redboot', 'jffs2', 'ubifs', 'lzo', 'zlib', 'zlib_deflate', 'deflate']) %}
-manual_add_modules "{{ mod }}"
+# --------------------------------------------------------------------------
+# MTD (Memory Technology Device) Modules
+# Description: Ensures the MTD subsystem and related compression/filesystem
+#              modules are loaded. These are critical for reading the OLPC
+#              XO-1's flash storage (Cafe NAND) and bootloaders (RedBoot).
+# Default modules: cafe_nand, redboot, jffs2, ubifs, lzo, zlib, zlib_deflate, deflate
+# --------------------------------------------------------------------------
+{% if mtd_modules is defined and mtd_modules is iterable %}
+{% for module in mtd_modules %}
+manual_add_modules "{{ module }}"
 {% endfor %}
+{% endif %}
 
-#
-# Video drivers are important, too, as we don't have VGA support.
-# Schema field: video_drivers (list of strings, space-separated in output)
-# Default: ['lxfb', 'gxfb', 'fbcon']
-#
-{% for drv in video_drivers | default(['lxfb', 'gxfb', 'fbcon']) %}
-manual_add_modules "{{ drv }}"
+# --------------------------------------------------------------------------
+# Video Frame Buffer Drivers
+# Description: Loads video drivers necessary for console output. The OLPC
+#              XO-1 does not have standard VGA support, so specific framebuffer
+#              drivers are required to display boot messages and the console.
+# Default drivers: lxfb, gxfb, fbcon
+# --------------------------------------------------------------------------
+{% if video_drivers is defined and video_drivers is iterable %}
+{% for driver in video_drivers %}
+manual_add_modules "{{ driver }}"
 {% endfor %}
+{% endif %}

@@ -1,8 +1,13 @@
 [Time]
-#NTP={{ ntp_servers | join(' ') }}
-#FallbackNTP={{ fallback_ntp_servers | join(' ') }}
-#RootDistanceMaxSec={{ root_distance_max_sec }}
-#PollIntervalMinSec={{ poll_interval_min_sec }}
-#PollIntervalMaxSec={{ poll_interval_max_sec }}
-#ConnectionRetrySec=30
+{% if ntp_servers is defined and ntp_servers is not none and (ntp_servers is number or ntp_servers is boolean or ntp_servers | length > 0) %}NTP={{ ntp_servers | join(' ') }}
+{% else %}#NTP=
+{% endif %}{% if fallback_ntp_servers is defined and fallback_ntp_servers is not none and (fallback_ntp_servers is number or fallback_ntp_servers is boolean or fallback_ntp_servers | length > 0) %}FallbackNTP={{ fallback_ntp_servers | join(' ') }}
+{% else %}#FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+{% endif %}{% if root_distance_max_sec is defined and root_distance_max_sec is not none and (root_distance_max_sec is number or root_distance_max_sec is boolean or root_distance_max_sec | length > 0) %}RootDistanceMaxSec={{ root_distance_max_sec }}
+{% else %}#RootDistanceMaxSec=5
+{% endif %}{% if poll_interval_min_sec is defined and poll_interval_min_sec is not none and (poll_interval_min_sec is number or poll_interval_min_sec is boolean or poll_interval_min_sec | length > 0) %}PollIntervalMinSec={{ poll_interval_min_sec }}
+{% else %}#PollIntervalMinSec=32
+{% endif %}{% if poll_interval_max_sec is defined and poll_interval_max_sec is not none and (poll_interval_max_sec is number or poll_interval_max_sec is boolean or poll_interval_max_sec | length > 0) %}PollIntervalMaxSec={{ poll_interval_max_sec }}
+{% else %}#PollIntervalMaxSec=2048
+{% endif %}#ConnectionRetrySec=30
 #SaveIntervalSec=60

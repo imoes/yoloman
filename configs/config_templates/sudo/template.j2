@@ -53,22 +53,20 @@ root	ALL=(ALL:ALL) ALL
 
 {% for group in sudo_groups %}
 {% if group.name != "wheel" %}
-# Allow members of group {{ group.name }} to execute any command
-%{{ group.name }}	ALL=(ALL:ALL) ALL
-{% endif %}
-{% endfor %}
+{% if group is defined and group is not none and (group is number or group is boolean or group | length > 0) %}Allow members of group {{ group.name }} to execute any command
+{% else %}# Allow members of group sudo to execute any command
+{% endif %}%{{ group.name }}	ALL=(ALL:ALL) ALL
+{% endif %}{% endfor %}
 
 {% if enable_logging %}
 Defaults	logfile="/var/log/sudo.log"
 Defaults	log_input, log_output
 {% endif %}
-
 {% if enable_passwd_prompt %}
 Defaults	passwd_tries=5
 {% else %}
 Defaults	nopasswd
 {% endif %}
-
 {% if include_sudoers_d %}
 @includedir /etc/sudoers.d
 {% endif %}

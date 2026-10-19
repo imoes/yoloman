@@ -1,0 +1,110 @@
+# ============================================================================
+# Lorax Build Tree Configuration
+# ============================================================================
+# This file configures the Lorax tree builder, which generates installation
+# media trees (ISO/USB) for RHEL-family distributions.
+#
+# The configuration is split into four sections:
+#   [main]     - Global build identifiers and metadata
+#   [output]   - Directories for source templates and destination trees
+#   [composes] - Metadata written into the compose identity files
+#   [images]   - Root filesystem image creation parameters
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# [main] Global Build Configuration
+# ----------------------------------------------------------------------------
+
+[main]
+
+# Unique identifier for the build tree. Used to distinguish this specific
+# compose from others. Leave empty to auto-generate or omit if not required.
+treeid = {{ treeid | default('') }}
+
+# Version number of the OS being composed.
+version = {{ version | default('0') }}
+
+# Release version string (e.g., '8' for RHEL 8, '9' for RHEL 9).
+# Used by yum/dnf repositories to identify the release stream.
+releasever = {{ releasever | default('0') }}
+
+# Package name that provides the distribution version information.
+# Lorax uses this to detect the installed version of the distro.
+distroverpkg = {{ distroverpkg | default('redhat-release') }}
+
+# Target architecture for the build tree (e.g., x86_64, aarch64).
+arch = {{ arch | default('x86_64') }}
+
+# Full product name as displayed in installers and metadata.
+product = {{ product | default('Red Hat Enterprise Linux') }}
+
+# Short product name used in filenames and internal identifiers.
+product_short = {{ product_short | default('RHEL') }}
+
+# Product name used specifically in compose metadata files (repodata).
+product_name = {{ product_name | default('RHEL') }}
+
+# Variant of the installation (e.g., Server, Workstation, ComputeNode).
+# Determines which group of packages is included by default.
+variant = {{ variant | default('Server') }}
+
+# Label for the variant used in repo IDs and internal tagging.
+variant_label = {{ variant_label | default('Server') }}
+
+# Human-readable name of the variant shown in the Anaconda installer UI.
+variant_name = {{ variant_name | default('Server') }}
+
+# Timestamp of the build. If empty, Lorax usually defaults to current time
+# during the compose process, but this field allows explicit control.
+timestamp = {{ timestamp | default('') }}
+
+# ----------------------------------------------------------------------------
+# [output] Directory Configuration
+# ----------------------------------------------------------------------------
+
+[output]
+
+# Target directory where the final installation tree will be created.
+# Lorax will create subdirectories here (images, repodata, etc.).
+targetdir = {{ targetdir | default('/tmp/installtree') }}
+
+# Directory containing Lorax templates used to generate install tree
+# contents (e.g., isolinux configs, bootloader configs).
+templatedir = {{ templatedir | default('/usr/share/lorax') }}
+
+# ----------------------------------------------------------------------------
+# [composes] Compose Metadata
+# ----------------------------------------------------------------------------
+
+[composes]
+
+# Release version string written into compose metadata (must match [main]).
+releasever = {{ releasever | default('0') }}
+
+# Product name written into compose metadata (must match [main]).
+product = {{ product | default('Red Hat Enterprise Linux') }}
+
+# Name field in compose metadata.
+name = {{ product_name | default('RHEL') }}
+
+# Version field in compose metadata (must match [main]).
+version = {{ version | default('0') }}
+
+# Architecture field in compose metadata (must match [main]).
+arch = {{ arch | default('x86_64') }}
+
+# Variant field in compose metadata (must match [main]).
+variant = {{ variant | default('Server') }}
+
+# ----------------------------------------------------------------------------
+# [images] Root Filesystem Configuration
+# ----------------------------------------------------------------------------
+
+[images]
+
+# Filesystem type for the root partition image (e.g., ext4, xfs).
+rootfs_type = {{ rootfs_type | default('ext4') }}
+
+# Additional options passed to the filesystem creation tool (e.g., mkfs.ext4).
+# Examples: '-F' to force overwrite, '-L' for label, etc.
+rootfs_opts = {{ rootfs_opts | default('') }}

@@ -18,61 +18,93 @@
 # Free Software Foundation, Inc.,
 # 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
-# -----------------------------------------------------------------------------
-# Self-documenting configuration for X2Go Thin Client Environment (TCE)
-# management scripts.
-#
-# Variables defined here are consumed by the x2gothinclient-management
-# build/maintenance scripts to construct a chroot-based thin client image.
-# -----------------------------------------------------------------------------
+# =============================================================================
+# X2Go Thin Client Environment (TCE) Configuration Template
+# =============================================================================
+# This file defines the build-time and runtime parameters for the X2Go
+# Thin Client Environment. It is consumed by the x2gothinclient-management
+# scripts to debootstrap and configure the chroot environment.
+# =============================================================================
 
 # Name of this instance of the X2Go TCE (appears during thinclient boot process)
+# @param tc_pretty_name (string) Human-readable identifier for this TCE instance.
 TC_PRETTY_NAME="{{ tc_pretty_name | default('X2Go TCE') }}"
 
-# Adapt to your system!!! This path fits for Debian systems. Or provide the version manually.
-# The version is dynamically extracted from the installed package metadata.
-TC_VERSION=`cat /usr/share/x2go/versions/VERSION.x2gothinclient-management`
+# Version string detection
+# The actual version is read dynamically at runtime from the installed package metadata.
+TC_VERSION=`cat /usr/share/x2go/versions/VERSION.x2gothinclient-management 2>/dev/null || echo 'unknown'`
 
 # Select the TCE flavour (classical: "displaymanager", minimal MATE desktop shell: "minidesktop")
+# @param tc_flavour (string) The desktop environment profile to install.
 TC_FLAVOUR="{{ tc_flavour | default('displaymanager') }}"
 
 # Base path for X2Go thin client files
+# All related directories (chroot, config, etc.) are derived from this path.
+# @param tc_base (string) Absolute filesystem path for the TCE installation.
 TC_BASE="{{ tc_base | default('/opt/x2gothinclient') }}"
 
-# Path to X2Go thin client chroot (derived from base path)
+# Path to X2Go thin client chroot
+# Derived variable; points to the rootfs of the thin client environment.
 TC_CHROOT="$TC_BASE/chroot"
 
-# Path to the X2Go thin client configuration (derived from base path)
+# Path to the X2Go thin client configuration
+# Derived variable; points to the configuration files within the chroot.
 TC_CONFIG="$TC_BASE/etc"
 
 # Shell to use when maintaining X2Go thin client chroot manually
+# Used by administrators for debugging or manual chroot maintenance.
+# @param tc_shell (string) Absolute path to the shell binary.
 TC_SHELL="{{ tc_shell | default('bash') }}"
 
-# Debian package mirror to use for debootstrap and package installation
+# Debian package mirror to use
+# Base URL for the debootstrap process to fetch system packages.
+# @param tc_debmirror_url (string) HTTP/FTP URL of the Debian repository.
 TC_DEBMIRROR_URL="{{ tc_debmirror_url | default('http://ftp.debian.org/debian') }}"
 
-# Distro codename to use for the chroot environment
+# Distro codename to use
+# Target Debian release (e.g., bookworm, bullseye).
+# @param tc_distro_codename (string) Debian release codename.
 TC_DISTRO_CODENAME="{{ tc_distro_codename | default('bookworm') }}"
 
-# Default architecture for the chroot environment
+# Default architecture
+# Target CPU architecture for the thin client build.
+# @param tc_arch (string) Architecture identifier (amd64 or i386).
 TC_ARCH="{{ tc_arch | default('amd64') }}"
 
-# Retrieve X2Go packages from this URL (derived from codename)
+# Retrieve X2Go packages from this URL
+# Specific repository for X2Go components, constructed dynamically.
+# NOTE: This line uses shell variables ($TC_DISTRO_CODENAME) for runtime substitution.
 TC_X2GO_DEBURL="deb http://packages.x2go.org/debian $TC_DISTRO_CODENAME extras main"
 
 # Use a http/ftp proxy during debootstrap (leave empty if direct connections to http/ftp are allowed)
+# Proxies are optional. If empty, debootstrap connects directly.
+# @param tc_http_proxy (string) HTTP proxy URL (empty for none).
 TC_HTTP_PROXY="{{ tc_http_proxy | default('') }}"
+
+# @param tc_https_proxy (string) HTTPS proxy URL (empty for none).
 TC_HTTPS_PROXY="{{ tc_https_proxy | default('') }}"
+
+# @param tc_ftp_proxy (string) FTP proxy URL (empty for none).
 TC_FTP_PROXY="{{ tc_ftp_proxy | default('') }}"
 
-# Module blacklist (used during X2Go TCE creation, e.g. pcspkr)
+# Module blacklist (used during X2Go TCE creation)
+# Kernel modules to exclude during chroot creation to reduce size or prevent conflicts.
+# @param tc_module_blacklist (string) Space-separated list of blacklisted modules.
 TC_MODULE_BLACKLIST="{{ tc_module_blacklist | default('pcspkr') }}"
 
 # TFTP boot environment (PXE/syslinux files delivered via tftpd)
+# Directory where PXE boot files are placed for network booting thin clients.
+# @param tc_tftp_boot (string) Path to the TFTP root directory.
 TC_TFTP_BOOT="{{ tc_tftp_boot | default('/srv/tftp') }}"
 
 # install non-interactively... uncomment it if needed...
-#TC_NONINTERACTIVE=yes
+# TC_NONINTERACTIVE=yes
+
+# =============================================================================
+# Runtime Status Display
+# =============================================================================
+# When this script is executed as a standalone shell script, it prints the
+# current configuration for verification purposes.
 
 echo
 echo "X2Go Thin Client Environment:"

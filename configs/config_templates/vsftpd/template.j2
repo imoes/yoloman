@@ -28,8 +28,9 @@ anonymous_enable=NO
 local_enable={{ local_enable | lower }}
 #
 # Uncomment this to enable any form of FTP write command.
-#write_enable={{ write_enable | lower }}
-#
+{% if write_enable is defined and write_enable is not none and (write_enable is number or write_enable is boolean or write_enable | length > 0) %}write_enable={{ write_enable | lower }}
+{% else %}#write_enable=YES
+{% endif %}#
 # Default umask for local users is 077. You may wish to change this to 022,
 # if your users expect that (022 is used by most other ftpd's)
 #local_umask=022
@@ -74,10 +75,11 @@ connect_from_port_20=YES
 #xferlog_std_format=YES
 #
 # You may change the default value for timing out an idle session.
-#idle_session_timeout={{ idle_session_timeout }}
-#
+{% if idle_session_timeout is defined and idle_session_timeout is not none and (idle_session_timeout is number or idle_session_timeout is boolean or idle_session_timeout | length > 0) %}idle_session_timeout={{ idle_session_timeout }}
+{% else %}#idle_session_timeout=600
+{% endif %}#
 # You may change the default value for timing out a data connection.
-data_connection_timeout={{ data_connection_timeout }}
+{% if data_connection_timeout is defined and data_connection_timeout is not none and (data_connection_timeout is number or data_connection_timeout is boolean or data_connection_timeout | length > 0) %}data_connection_timeout={{ data_connection_timeout }}{% else %}#data_connection_timeout=120{% endif %}
 #
 # It is recommended that you define on your system a unique user which the
 # ftp server can use as a totally isolated and unprivileged user.
@@ -100,7 +102,7 @@ data_connection_timeout={{ data_connection_timeout }}
 #ascii_download_enable=YES
 #
 # You may fully customise the login banner string:
-ftpd_banner={{ ftpd_banner }}
+{% if ftpd_banner is defined and ftpd_banner is not none and (ftpd_banner is number or ftpd_banner is boolean or ftpd_banner | length > 0) %}ftpd_banner={{ ftpd_banner }}{% else %}#ftpd_banner=Welcome to blah FTP service.{% endif %}
 #
 # You may specify a file of disallowed anonymous e-mail addresses. Apparently
 # useful for combatting certain DoS attacks.
@@ -119,9 +121,9 @@ chroot_local_user={{ chroot_local_user | lower }}
 # (Warning! chroot'ing can be very dangerous. If using chroot, make sure that
 # the user does not have write access to the top level directory within the
 # chroot)
-chroot_list_enable={{ chroot_list_enable | lower }}
+{% if chroot_list_enable is defined and chroot_list_enable is not none and (chroot_list_enable is number or chroot_list_enable is boolean or chroot_list_enable | length > 0) %}chroot_list_enable={{ chroot_list_enable | lower }}{% else %}#chroot_list_enable=YES{% endif %}
 # (default follows)
-chroot_list_file={{ chroot_list_file }}
+{% if chroot_list_file is defined and chroot_list_file is not none and (chroot_list_file is number or chroot_list_file is boolean or chroot_list_file | length > 0) %}chroot_list_file={{ chroot_list_file }}{% else %}#chroot_list_file=/etc/vsftpd.chroot_list{% endif %}
 #
 # You may activate the "-R" option to the builtin ls. This is disabled by
 # default to avoid remote users being able to cause excessive I/O on large

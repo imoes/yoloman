@@ -1,0 +1,152 @@
+# ips (process information utility) configuration template.
+# This file defines default behaviors, display formats, and conditions
+# for the `ips` process viewer utility.
+
+# --- General Options ---
+
+# The special command macro run by default.
+# Specifies the default arguments for the SysInit command macro.
+# Default: '-my -noself Cols'
+option	SysInit	{{ sysinit_args | default('-my -noself Cols') }}
+
+# --- Display Format Definitions ---
+
+# Different formats of interest:
+# These options define various column layouts for the output.
+
+# Basic column format: pid, parent, user, ttyname, summary, runtime, command.
+option	Cols	-col pid parent user ttyname summary runtime command
+
+# Packed format: Includes UID, GID, state, I/O, memory, runtime, age, and program name.
+# Uses a separator for readability.
+option	Pack	-col pid parent uid gid stat ttyd stdio residentset runtime \
+		age program -sep 1
+
+# 'All' format: Combines 'Cols' with 'Nocond' (no condition filtering).
+option	All	Cols Nocond
+
+# 'Servers' format: Applies 'All' format but filters only for Server processes.
+option	Servers	All -cond Server
+
+# 'Users' format: Applies 'All' format but filters only for User processes.
+option	Users	All -cond User
+
+# 'Cmd' format: Shows only process ID and command line.
+option	Cmd	-col pid command -sep 1
+
+# 'Env' format: Shows only process ID and environment variables.
+option	Env	-col pid environment -sep 1
+
+# 'Files' format: Shows process ID and open files.
+option	Files	-col pid Files
+
+# 'Vert' format: Vertical display with 'All' columns and a separator.
+option	Vert	-vert -sep 1 -col All
+
+# 'Cpu' format: Sorted by CPU percentage. Includes system/time, CPU%, command.
+# Initial sleep set to 2 seconds for sampling.
+option	Cpu	Nocond -col pid user summary runtime percentcpu command \
+		-sep 1 -revsort percentcpu -cond percentcpu -initsleep 2
+
+# 'Top' format: Interactive CPU-focused view similar to `top`.
+# Uses curses interface, active mode, and run order.
+option	Top	Cpu -revsort runorder -curses -default cond -active
+
+# 'Wide' format: Sets column width to maximum (999999) to prevent wrapping.
+option	Wide	-width 999999
+
+# 'Widerun' format: Custom widths for time-related columns (12 chars each).
+# Applies to system time, user time, runtime, and child runtime.
+option	Widerun	-colwidth systemtime 12 -colwidth usertime 12 \
+		-colwidth runtime 12 -colwidth childruntime 12
+
+# --- Condition Definitions ---
+
+# Different conditions of interest:
+# These options define filters for which processes to display.
+
+# Default condition: excludes self, root, my processes; shows pid, user, etc.
+# Can be overridden by specific conditions below.
+option	Nocond	-default noself noroot my pid user group active top cond
+
+# TTY condition: Filters for processes attached to a specific tty device.
+# Uses `ttydev.test` as the condition predicate.
+option	Tty	-cond ttydev.test
+
+# Stop condition: Filters for stopped processes.
+# Note: The actual expr for Stop is defined below. This option references it.
+option	Stop	-cond Stop
+
+# My TTY condition: Filters for processes in the current user's tty.
+# Uses `Mytty` expression defined below.
+option	Mytty	-cond Mytty
+
+# --- Column Definitions ---
+
+# Definitions for related groups of columns:
+# These allow grouping multiple individual columns under a single name.
+
+# 'Run' group: Runtime statistics and CPU usage.
+column	Run	runtime idletime percentcpu
+
+# 'Regs' group: CPU register values.
+column	Regs	eip esp
+
+# 'Sigs' group: Signal handling masks (catch, ignore, block).
+column	Sigs	signalcatch signalignore signalblock
+
+# 'Size' group: Memory size statistics.
+column	Size	residentsetsize percentmemory size pageswaps
+
+# 'Stdio' group: Standard I/O file descriptors.
+column	Stdio	stdin stdout stderr
+
+# 'Files' group: Open files, Stdio group, and directory paths.
+column	Files	openfiles Stdio currentdirectory rootdirectory
+
+# --- All Columns Definition ---
+
+# Comprehensive list of all available columns for 'ips'.
+# Use 'All' in options to display this complete set.
+column	All	pid parentpid uid user gid group \
+		processgroup ttyprocessgroup \
+		state flags priority processor threads \
+		nice priority realtimepriority policy \
+		systemtime usertime runtime childruntime \
+		percentcpu runorder \
+		residentsetsize size percentmemory \
+		active idletime starttime deadtime age realtimer \
+		eip esp waitchannel waitsymbol \
+		pagefaults minorpagefaults majorpagefaults \
+		pageswaps childpageswaps \
+		signalcatch signalignore signalblock \
+		ttyname ttydevice \
+		openfiles stdin stdout stderr stdio \
+		currentdirectory rootdirectory executable \
+		summary program command environment
+
+# --- Expression Definitions ---
+
+# Special definition to identify the first user id.
+# System processes typically have UIDs below this value.
+# This value is used to distinguish between system and user processes.
+# Default: 100
+expr	SysFirstUserId	{{ sysfirstuser_id | default('100') }}
+
+# Other definitions to use in conditions:
+# These expressions define logical predicates used in 'cond' options.
+
+# 'Me': Identifies processes belonging to the current user.
+expr	Me	(uid == my(uid))
+
+# 'Mytty': Identifies processes attached to the current user's tty.
+expr	Mytty	(ttydev == my(ttydev))
+
+# 'Server': Identifies system processes (UID less than SysFirstUserId).
+expr	Server	(uid < SysFirstUserId)
+
+# 'User': Identifies user processes (anything NOT identified as Server).
+expr	User	!Server
+
+# 'Stop': Identifies stopped processes (state 'T').
+expr	Stop	(state == 'T')

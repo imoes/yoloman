@@ -1,218 +1,319 @@
 [http]
 # IP and port to listen on for HTTP requests.
-listen = {{ (http_listen | default('127.0.0.1:8080')) }}
+# Comment line to disable the listener.
+#listen = {{ http_listen }}
 
 # HTTP socket read timeout in seconds.
-readtimeout = {{ (http_readtimeout | default(15)) }}
+#readtimeout = {{ http_readtimeout }}
 
 # HTTP socket write timeout in seconds.
-writetimeout = {{ (http_writetimeout | default(15)) }}
+#writetimeout = {{ http_writetimeout }}
 
 [https]
 # IP and port to listen on for HTTPS requests.
-listen = {{ (https_listen | default('127.0.0.1:8443')) }}
+# Comment line to disable the listener.
+#listen = {{ https_listen }}
 
 # HTTPS socket read timeout in seconds.
-readtimeout = {{ (https_readtimeout | default(15)) }}
+#readtimeout = {{ https_readtimeout }}
 
 # HTTPS socket write timeout in seconds.
-writetimeout = {{ (https_writetimeout | default(15)) }}
+#writetimeout = {{ https_writetimeout }}
 
-# Certificate to use for the HTTPS server.
-certificate = {{ (https_certificate | default('/etc/nginx/ssl/server.crt')) }}
-
-# Private key to use for the HTTPS server.
-key = {{ (https_key | default('/etc/nginx/ssl/server.key')) }}
+# Certificate / private key to use for the HTTPS server.
+certificate = {{ https_certificate }}
+key = {{ https_key }}
 
 [app]
-# Set to true to install pprof debug handlers.
-debug = {{ (app_debug | default(False)) | lower }}
+# Set to "true" to install pprof debug handlers.
+# See "https://golang.org/pkg/net/http/pprof/" for further information.
+debug = {{ app_debug }}
 
-# Set to true to allow subscribing any streams.
-allowsubscribeany = {{ (app_allowsubscribeany | default(False)) | lower }}
+# Set to "true" to allow subscribing any streams. This is insecure and should
+# only be enabled for testing. By default only streams of users in the same
+# room and call can be subscribed.
+{% if app_allowsubscribeany %}allowsubscribeany = {{ app_allowsubscribeany }}{% else %}#allowsubscribeany = false{% endif %}
 
 [sessions]
-# Secret value used to generate checksums of sessions.
-hashkey = {{ (sessions_hashkey | default('the-secret-for-session-checksums')) }}
+# Secret value used to generate checksums of sessions. This should be a random
+# string of 32 or 64 bytes.
+hashkey = {{ sessions_hashkey }}
 
-# Optional key for encrypting data in the sessions.
-blockkey = {{ (sessions_blockkey | default('-encryption-key-')) }}
+# Optional key for encrypting data in the sessions. Must be either 16, 24 or
+# 32 bytes.
+# If no key is specified, data will not be encrypted (not recommended).
+blockkey = {{ sessions_blockkey }}
 
 [clients]
-# Shared secret for connections from internal clients.
-internalsecret = {{ (clients_internalsecret | default('the-shared-secret-for-internal-clients')) }}
+# Shared secret for connections from internal clients. This must be the same
+# value as configured in the respective internal services.
+internalsecret = {{ clients_internalsecret }}
 
 [backend]
 # Type of backend configuration.
-backendtype = {{ (backend_backendtype | default('static')) }}
+# Defaults to "static".
+#
+# Possible values:
+# - static: A comma-separated list of backends is given in the "backends" option.
+# - etcd: Backends are retrieved from an etcd cluster.
+{% if backend_backendtype %}backendtype = {{ backend_backendtype }}{% else %}#backendtype = static{% endif %}
 
-# Comma-separated list of backend ids for static backend type.
-backends = {{ (backend_backends | default('backend-id, another-backend')) }}
+# For backend type "static":
+# Comma-separated list of backend ids from which clients are allowed to connect
+# from. Each backend will have isolated rooms, i.e. clients connecting to room
+# "abc12345" on backend 1 will be in a different room than clients connected to
+# a room with the same name on backend 2. Also sessions connected from different
+# backends will not be able to communicate with each other.
+{% if backend_backends %}backends = {{ backend_backends }}{% else %}#backends = backend-id, another-backend{% endif %}
 
-# Key prefix of backend entries for etcd backend type.
-backendprefix = {{ (backend_backendprefix | default('/signaling/backend')) }}
+# For backend type "etcd":
+# Key prefix of backend entries. All keys below will be watched and assumed to
+# contain a JSON document with the following entries:
+# - "url": Url of the Nextcloud instance.
+# - "secret": Shared secret for requests from and to the backend servers.
+#
+# Additional optional entries:
+# - "maxstreambitrate": Maximum bitrate per publishing stream (in bits per second).
+# - "maxscreenbitrate": Maximum bitrate per screensharing stream (in bits per second).
+# - "sessionlimit": Number of sessions that are allowed to connect.
+#
+# Example:
+# "/signaling/backend/one" -> {"url": "https://nextcloud.domain1.invalid", ...}
+# "/signaling/backend/two" -> {"url": "https://domain2.invalid/nextcloud", ...}
+{% if backend_backendprefix %}backendprefix = {{ backend_backendprefix }}{% else %}#backendprefix = /signaling/backend{% endif %}
 
-# Allow any hostname as backend endpoint.
-allowall = {{ (backend_allowall | default(False)) | lower }}
+# Allow any hostname as backend endpoint. This is extremely insecure and should
+# only be used while running the benchmark client against the server.
+allowall = {{ backend_allowall }}
 
-# Common shared secret for requests from and to the backend servers.
-secret = {{ (backend_secret | default('the-shared-secret-for-allowall')) }}
+# Common shared secret for requests from and to the backend servers. Used if
+# "allowall" is enabled or as fallback for individual backends that don't have
+# their own secret set.
+# This must be the same value as configured in the Nextcloud admin ui.
+#secret = {{ backend_secret }}
 
 # Timeout in seconds for requests to the backend.
-timeout = {{ (backend_timeout | default(10)) }}
+timeout = {{ backend_timeout }}
 
 # Maximum number of concurrent backend connections per host.
-connectionsperhost = {{ (backend_connectionsperhost | default(8)) }}
+connectionsperhost = {{ backend_connectionsperhost }}
 
-# Skip certificate validation of backend endpoints.
-skipverify = {{ (backend_skipverify | default(False)) | lower }}
+# If set to "true", certificate validation of backend endpoints will be skipped.
+# This should only be enabled during development, e.g. to work with self-signed
+# certificates.
+#skipverify = {{ backend_skipverify }}
 
-# For backendtype "static": Backend configurations.
-{% set backends_raw = (backend_backends | default('backend-id, another-backend')) %}
-{% for backend_id in backends_raw.split(',') %}
-{% set bid = backend_id | trim %}
-{% if bid %}
-[{{ bid }}]
-# URL of the Nextcloud instance for a specific backend.
-url = {{ ((namespace_map | default({})).get(bid + '_url')) | default('https://cloud.domain.invalid') }}
+# For backendtype "static":
+# Backend configurations as defined in the "[backend]" section above. The
+# section names must match the ids used in "backends" above.
+#[backend-id]
+# URL of the Nextcloud instance
+#url = {{ backend_backend_id_url }}
 
-# Shared secret for a specific backend.
-secret = {{ ((namespace_map | default({})).get(bid + '_secret')) | default('the-shared-secret') }}
+# Shared secret for requests from and to the backend servers. Leave empty to use
+# the common shared secret from above.
+# This must be the same value as configured in the Nextcloud admin ui.
+#secret = {{ backend_backend_id_secret }}
 
-# Limit the number of sessions for a specific backend.
-sessionlimit = {{ ((namespace_map | default({})).get(bid + '_sessionlimit')) | default(10) }}
+# Limit the number of sessions that are allowed to connect to this backend.
+# Omit or set to 0 to not limit the number of sessions.
+{% if backend_backend_id_sessionlimit %}sessionlimit = {{ backend_backend_id_sessionlimit }}{% else %}#sessionlimit = 10{% endif %}
 
-# Maximum bitrate per publishing stream for a specific backend.
-maxstreambitrate = {{ ((namespace_map | default({})).get(bid + '_maxstreambitrate')) | default(1048576) }}
+# The maximum bitrate per publishing stream (in bits per second).
+# Defaults to the maximum bitrate configured for the proxy / MCU.
+#maxstreambitrate = {{ backend_backend_id_maxstreambitrate }}
 
-# Maximum bitrate per screensharing stream for a specific backend.
-maxscreenbitrate = {{ ((namespace_map | default({})).get(bid + '_maxscreenbitrate')) | default(2097152) }}
+# The maximum bitrate per screensharing stream (in bits per second).
+# Defaults to the maximum bitrate configured for the proxy / MCU.
+#maxscreenbitrate = {{ backend_backend_id_maxscreenbitrate }}
 
-{% endif %}
-{% endfor %}
+#[another-backend]
+# URL of the Nextcloud instance
+#url = {{ backend_another_backend_url }}
+
+# Shared secret for requests from and to the backend servers. Leave empty to use
+# the common shared secret from above.
+# This must be the same value as configured in the Nextcloud admin ui.
+#secret = {{ backend_another_backend_secret }}
 
 [nats]
-# Url of NATS backend to use.
-url = {{ (nats_url | default('nats://localhost:4222')) }}
+# Url of NATS backend to use. This can also be a list of URLs to connect to
+# multiple backends. For local development, this can be set to "nats://loopback"
+# to process NATS messages internally instead of sending them through an
+# external NATS backend.
+#url = {{ nats_url }}
 
 [mcu]
-# The type of the MCU to use.
-type = {{ (mcu_type | default('')) }}
+# The type of the MCU to use. Currently only "janus" and "proxy" are supported.
+# Leave empty to disable MCU functionality.
+{% if mcu_type %}type = {{ mcu_type }}{% else %}#type ={% endif %}
 
-# URL to the MCU server or proxy servers.
-url = {{ (mcu_url | default('')) }}
+# For type "janus": the URL to the websocket endpoint of the MCU server.
+# For type "proxy": a space-separated list of proxy URLs to connect to.
+#url = {{ mcu_url }}
 
-# Maximum bitrate per publishing stream.
-maxstreambitrate = {{ (mcu_maxstreambitrate | default(1048576)) }}
+# The maximum bitrate per publishing stream (in bits per second).
+# Defaults to 1 mbit/sec.
+# For type "proxy": will be capped to the maximum bitrate configured at the
+# proxy server that is used.
+#maxstreambitrate = {{ mcu_maxstreambitrate }}
 
-# Maximum bitrate per screensharing stream.
-maxscreenbitrate = {{ (mcu_maxscreenbitrate | default(2097152)) }}
+# The maximum bitrate per screensharing stream (in bits per second).
+# Default is 2 mbit/sec.
+# For type "proxy": will be capped to the maximum bitrate configured at the
+# proxy server that is used.
+#maxscreenbitrate = {{ mcu_maxscreenbitrate }}
 
-# Timeout in seconds for requests to the proxy server.
-proxytimeout = {{ (mcu_proxytimeout | default(2)) }}
+# For type "proxy": timeout in seconds for requests to the proxy server.
+{% if mcu_proxytimeout %}proxytimeout = {{ mcu_proxytimeout }}{% else %}#proxytimeout = 2{% endif %}
 
-# Type of URL configuration for proxy servers.
-urltype = {{ (mcu_urltype | default('static')) }}
+# For type "proxy": type of URL configuration for proxy servers.
+# Defaults to "static".
+#
+# Possible values:
+# - static: A space-separated list of proxy URLs is given in the "url" option.
+# - etcd: Proxy URLs are retrieved from an etcd cluster (see below).
+{% if mcu_urltype %}urltype = {{ mcu_urltype }}{% else %}#urltype = static{% endif %}
 
-# Skip certificate validation of proxy servers.
-skipverify = {{ (mcu_skipverify | default(False)) | lower }}
+# If set to "true", certificate validation of proxy servers will be skipped.
+# This should only be enabled during development, e.g. to work with self-signed
+# certificates.
+#skipverify = {{ mcu_skipverify }}
 
-# The id of the token to use when connecting to proxy servers.
-token_id = {{ (mcu_token_id | default('server1')) }}
+# For type "proxy": the id of the token to use when connecting to proxy servers.
+{% if mcu_token_id %}token_id = {{ mcu_token_id }}{% else %}#token_id = server1{% endif %}
 
-# The private key for the configured token id.
-token_key = {{ (mcu_token_key | default('privkey.pem')) }}
+# For type "proxy": the private key for the configured token id to use when
+# connecting to proxy servers.
+{% if mcu_token_key %}token_key = {{ mcu_token_key }}{% else %}#token_key = privkey.pem{% endif %}
 
-# Enable DNS discovery on hostname of configured URL.
-dnsdiscovery = {{ (mcu_dnsdiscovery | default(True)) | lower }}
+# For url type "static": Enable DNS discovery on hostname of configured URL.
+# If the hostname resolves to multiple IP addresses, a connection is established
+# to each of them.
+# Changes to the DNS are monitored regularly and proxy connections are created
+# or deleted as necessary.
+#dnsdiscovery = {{ mcu_dnsdiscovery }}
 
-# Key prefix of MCU proxy entries for etcd URL type.
-keyprefix = {{ (mcu_keyprefix | default('/signaling/proxy/server')) }}
+# For url type "etcd": Key prefix of MCU proxy entries. All keys below will be
+# watched and assumed to contain a JSON document. The entry "address" from this
+# document will be used as proxy URL, other contents in the document will be
+# ignored.
+#
+# Example:
+# "/signaling/proxy/server/one" -> {"address": "https://proxy1.domain.invalid"}
+# "/signaling/proxy/server/two" -> {"address": "https://proxy2.domain.invalid"}
+{% if mcu_keyprefix %}keyprefix = {{ mcu_keyprefix }}{% else %}#keyprefix = /signaling/proxy/server{% endif %}
 
 [turn]
 # API key that the MCU will need to send when requesting TURN credentials.
-apikey = {{ (turn_apikey | default('the-api-key-for-the-rest-service')) }}
+{% if turn_apikey %}apikey = {{ turn_apikey }}{% else %}#apikey = the-api-key-for-the-rest-service{% endif %}
 
-# The shared secret to use for generating TURN credentials.
-secret = {{ (turn_secret | default('6d1c17a7-c736-4e22-b02c-e2955b7ecc64')) }}
+# The shared secret to use for generating TURN credentials. This must be the
+# same as on the TURN server.
+#secret = {{ turn_secret }}
 
-# A comma-separated list of TURN servers to use.
-servers = {{ (turn_servers | default('turn:1.2.3.4:9991?transport=udp,turn:1.2.3.4:9991?transport=tcp')) }}
+# A comma-separated list of TURN servers to use. Leave empty to disable the
+# TURN REST API.
+{% if turn_servers %}servers = {{ turn_servers }}{% else %}#servers = turn:1.2.3.4:9991?transport=udp,turn:1.2.3.4:9991?transport=tcp{% endif %}
 
 [geoip]
-# License key to use when downloading the MaxMind GeoIP database.
-license = {{ (geoip_license | default('')) }}
+# License key to use when downloading the MaxMind GeoIP database. You can
+# register an account at "https://www.maxmind.com/en/geolite2/signup" for
+# free. See "https://dev.maxmind.com/geoip/geoip2/geolite2/" for further
+# information.
+# You can also get a free GeoIP database from https://db-ip.com/ without
+# registration. Provide the URL below in this case.
+# Leave empty to disable GeoIP lookups.
+{% if geoip_license %}license = {{ geoip_license }}{% else %}#license ={% endif %}
 
-# Optional URL to download a MaxMind GeoIP database from.
-url = {{ (geoip_url | default('')) }}
+# Optional URL to download a MaxMind GeoIP database from. Will be generated if
+# "license" is provided above. Can be a "file://" url if a local file should
+# be used. Please note that the database must provide a country field when
+# looking up IP addresses.
+#url = {{ geoip_url }}
 
 [geoip-overrides]
-# Override for GeoIP lookup for 127.0.0.1.
-127.0.0.1 = {{ (geoip_overrides_127_0_0_1 | default('DE')) }}
-
-# Override for GeoIP lookup for 192.168.0.0/24.
-192.168.0.0/24 = {{ (geoip_overrides_192_168_0_0_24 | default('DE')) }}
+# Optional overrides for GeoIP lookups. The key is an IP address / range, the
+# value the associated country code.
+#127.0.0.1 = DE
+#192.168.0.0/24 = DE
 
 [continent-overrides]
-# Override for continent mapping for AF.
-AF = {{ (continent_overrides_af | default('EU')) }}
-
-# Override for continent mapping for SA.
-SA = {{ (continent_overrides_sa | default('NA')) }}
+# Optional overrides for continent mappings. The key is a continent code, the
+# value a comma-separated list of continent codes to map the continent to.
+# Use European servers for clients in Africa.
+{% if continent_overrides_af %}AF = {{ continent_overrides_af }}{% else %}#AF = EU{% endif %}
+# Use servers in North Africa for clients in South America.
+{% if continent_overrides_sa %}SA = {{ continent_overrides_sa }}{% else %}#SA = NA{% endif %}
 
 [stats]
-# Comma-separated list of IP addresses allowed to access the stats endpoint.
-allowed_ips = {{ (stats_allowed_ips | default('')) }}
+# Comma-separated list of IP addresses that are allowed to access the stats
+# endpoint. Leave empty (or commented) to only allow access from "127.0.0.1".
+{% if stats_allowed_ips %}allowed_ips = {{ stats_allowed_ips }}{% else %}#allowed_ips ={% endif %}
 
 [etcd]
 # Comma-separated list of static etcd endpoints to connect to.
-endpoints = {{ (etcd_endpoints | default('127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379')) }}
+{% if etcd_endpoints %}endpoints = {{ etcd_endpoints }}{% else %}#endpoints = 127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379{% endif %}
 
 # Options to perform endpoint discovery through DNS SRV.
-discoverysrv = {{ (etcd_discoverysrv | default('example.com')) }}
+# Only used if no endpoints are configured manually.
+{% if etcd_discoverysrv %}discoverysrv = {{ etcd_discoverysrv }}{% else %}#discoverysrv = example.com{% endif %}
+{% if etcd_discoveryservice %}discoveryservice = {{ etcd_discoveryservice }}{% else %}#discoveryservice = foo{% endif %}
 
-# Service name for DNS SRV discovery.
-discoveryservice = {{ (etcd_discoveryservice | default('foo')) }}
-
-# Path to private key for etcd TLS authentication.
-clientkey = {{ (etcd_clientkey | default('/path/to/etcd-client.key')) }}
-
-# Path to client certificate for etcd TLS authentication.
-clientcert = {{ (etcd_clientcert | default('/path/to/etcd-client.crt')) }}
-
-# Path to CA certificate for etcd TLS authentication.
-cacert = {{ (etcd_cacert | default('/path/to/etcd-ca.crt')) }}
+# Path to private key, client certificate and CA certificate if TLS
+# authentication should be used.
+#clientkey = {{ etcd_clientkey }}
+{% if etcd_clientcert %}clientcert = {{ etcd_clientcert }}{% else %}#clientcert = /path/to/etcd-client.crt{% endif %}
+{% if etcd_cacert %}cacert = {{ etcd_cacert }}{% else %}#cacert = /path/to/etcd-ca.crt{% endif %}
 
 [grpc]
 # IP and port to listen on for GRPC requests.
-listen = {{ (grpc_listen | default('0.0.0.0:9090')) }}
+# Comment line to disable the listener.
+#listen = {{ grpc_listen }}
 
-# Certificate to use for the GRPC server.
-servercertificate = {{ (grpc_servercertificate | default('/path/to/grpc-server.crt')) }}
-
-# Private key to use for the GRPC server.
-serverkey = {{ (grpc_serverkey | default('/path/to/grpc-server.key')) }}
+# Certificate / private key to use for the GRPC server.
+# Omit to use unencrypted connections.
+{% if grpc_servercertificate %}servercertificate = {{ grpc_servercertificate }}{% else %}#servercertificate = /path/to/grpc-server.crt{% endif %}
+{% if grpc_serverkey %}serverkey = {{ grpc_serverkey }}{% else %}#serverkey = /path/to/grpc-server.key{% endif %}
 
 # CA certificate that is allowed to issue certificates of GRPC servers.
-serverca = {{ (grpc_serverca | default('/path/to/grpc-ca.crt')) }}
+# Omit to expect unencrypted connections.
+{% if grpc_serverca %}serverca = {{ grpc_serverca }}{% else %}#serverca = /path/to/grpc-ca.crt{% endif %}
 
-# Certificate to use for the GRPC client.
-clientcertificate = {{ (grpc_clientcertificate | default('/path/to/grpc-client.crt')) }}
-
-# Private key to use for the GRPC client.
-clientkey = {{ (grpc_clientkey | default('/path/to/grpc-client.key')) }}
+# Certificate / private key to use for the GRPC client.
+# Omit if clients don't need to authenticate on the server.
+{% if grpc_clientcertificate %}clientcertificate = {{ grpc_clientcertificate }}{% else %}#clientcertificate = /path/to/grpc-client.crt{% endif %}
+#clientkey = {{ grpc_clientkey }}
 
 # CA certificate that is allowed to issue certificates of GRPC clients.
-clientca = {{ (grpc_clientca | default('/path/to/grpc-ca.crt')) }}
+# Omit to allow any clients to connect.
+{% if grpc_clientca %}clientca = {{ grpc_clientca }}{% else %}#clientca = /path/to/grpc-ca.crt{% endif %}
 
 # Type of GRPC target configuration.
-targettype = {{ (grpc_targettype | default('static')) }}
+# Defaults to "static".
+#
+# Possible values:
+# - static: A comma-separated list of targets is given in the "targets" option.
+# - etcd: Target URLs are retrieved from an etcd cluster.
+{% if grpc_targettype %}targettype = {{ grpc_targettype }}{% else %}#targettype = static{% endif %}
 
-# Comma-separated list of GRPC targets to connect to.
-targets = {{ (grpc_targets | default('192.168.0.1:9090, 192.168.0.2:9090')) }}
+# For target type "static": Comma-separated list of GRPC targets to connect to
+# for clustering mode.
+{% if grpc_targets %}targets = {{ grpc_targets }}{% else %}#targets = 192.168.0.1:9090, 192.168.0.2:9090{% endif %}
 
-# Enable DNS discovery on hostnames of GRPC target.
-dnsdiscovery = {{ (grpc_dnsdiscovery | default(True)) | lower }}
+# For target type "static": Enable DNS discovery on hostnames of GRPC target.
+# If a hostname resolves to multiple IP addresses, a connection is established
+# to each of them.
+# Changes to the DNS are monitored regularly and GRPC clients are created or
+# deleted as necessary.
+#dnsdiscovery = {{ grpc_dnsdiscovery }}
 
-# Key prefix of GRPC target entries for etcd target type.
-targetprefix = {{ (grpc_targetprefix | default('/signaling/cluster/grpc')) }}
+# For target type "etcd": Key prefix of GRPC target entries. All keys below will
+# be watched and assumed to contain a JSON document. The entry "address" from
+# this document will be used as target URL, other contents in the document will
+# be ignored.
+#
+# Example:
+# "/signaling/cluster/grpc/one" -> {"address": "192.168.0.1:9090"}
+# "/signaling/cluster/grpc/two" -> {"address": "192.168.0.2:9090"}
+{% if grpc_targetprefix %}targetprefix = {{ grpc_targetprefix }}{% else %}#targetprefix = /signaling/cluster/grpc{% endif %}

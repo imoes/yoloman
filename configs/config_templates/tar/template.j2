@@ -1,78 +1,138 @@
-# ==============================================================================
-# GNU Tar Configuration Template
-# ==============================================================================
-# This template generates a structured configuration (or wrapper script preamble)
-# for GNU Tar operations. Since 'tar' is a stateless command-line utility,
-# this configuration defines default behaviors and common invocation parameters.
+#!/bin/sh
+# =============================================================================
+# Tar Command Builder
+# =============================================================================
+# This script generates and executes a `tar` command based on configuration
+# variables provided by the automation engine (e.g., Ansible).
 #
-# Self-documenting: Every variable used here has a default value to prevent
-# rendering failures when not provided by the caller.
-# ==============================================================================
+# It handles mode selection (create, extract, etc.), compression, format,
+# permissions, and exclusion patterns.
+#
+# Variables expected:
+#   MODE               : Operation mode (create, extract, list, etc.)
+#   ARCHIVE_PATH       : Target archive or directory path
+#   COMPRESSION        : Compression type (none, gzip, bzip2, xz, etc.)
+#   FORMAT             : Archive format (gnu, posix, ustar, v7, etc.)
+#   VERBOSE            : Enable verbose output (true/false)
+#   PRESERVE_PERMISSIONS: Preserve file permissions (true/false)
+#   EXCLUDES           : Space-separated list of patterns to exclude
+#   SOURCES            : Space-separated list of files/directories to archive/extract
+# =============================================================================
 
-# ------------------------------------------------------------------------------
-# Operation mode: create (-c), extract (-x), list (-t), append (-r), diff (-d), update (-u).
-# Maps to tar's --create, --extract, --list, etc.
-# Default: 'create'
-# ------------------------------------------------------------------------------
-{% if (mode | default('create')) == 'create' %}OPERATION_MODE: create
-{% elif (mode | default('create')) == 'extract' %}OPERATION_MODE: extract
-{% elif (mode | default('create')) == 'list' %}OPERATION_MODE: list
-{% elif (mode | default('create')) == 'append' %}OPERATION_MODE: append
-{% elif (mode | default('create')) == 'diff' %}OPERATION_MODE: diff
-{% elif (mode | default('create')) == 'update' %}OPERATION_MODE: update
-{% else %}OPERATION_MODE: create
+set -e
+
+# -----------------------------------------------------------------------------
+# Configuration Defaults
+# -----------------------------------------------------------------------------
+
+# The operation mode for tar: create, extract, list, append, diff, update.
+MODE="{{ mode | default('create') }}"
+
+# The path to the archive file. Maps to the --file option.
+ARCHIVE_PATH="{{ archive_path | default('/tmp/archive.tar') }}"
+
+# Compression filter to use: gzip, bzip2, xz, none.
+COMPRESSION="{{ compression | default('none') }}"
+
+# Archive format to use. Maps to --format. Valid: gnu, posix, ustar, v7.
+FORMAT="{{ format | default('posix') }}"
+
+# Enable verbose output. Maps to --verbose or -v.
+# Converts Ansible boolean to shell-compatible string.
+{% if verbose is defined %}
+VERBOSE="{{ verbose | default(False) | bool | ternary('true', 'false') }}"
+{% else %}
+VERBOSE="{{ verbose | default(False) | bool | ternary('true', 'false') }}"
 {% endif %}
 
-# ------------------------------------------------------------------------------
-# Archive file path. Maps to tar's --file or -f option.
-# Default: '/tmp/archive.tar'
-# ------------------------------------------------------------------------------
-ARCHIVE_PATH: {{ (archive_path | default('/tmp/archive.tar')) | string }}
-
-# ------------------------------------------------------------------------------
-# Source files or directories to operate on. Maps to the positional arguments of tar.
-# Default: ['/etc']
-# ------------------------------------------------------------------------------
-{% for source in (sources | default(['/etc'])) %}SOURCE: {{ source | string }}
-{% endfor %}
-
-# ------------------------------------------------------------------------------
-# Compression method. Maps to -z (gzip), -j (bzip2), -J (xz), etc.
-# Valid values: gzip, bzip2, xz, none.
-# Default: 'none'
-# ------------------------------------------------------------------------------
-{% if (compression | default('none')) == 'gzip' %}COMPRESSION: gzip
-{% elif (compression | default('none')) == 'bzip2' %}COMPRESSION: bzip2
-{% elif (compression | default('none')) == 'xz' %}COMPRESSION: xz
-{% else %}COMPRESSION: none
+# Preserve permissions of extracted files. Maps to --preserve-permissions.
+# Converts Ansible boolean to shell-compatible string.
+{% if preserve_permissions is defined %}
+PRESERVE_PERMISSIONS="{{ preserve_permissions | default(False) | bool | ternary('true', 'false') }}"
+{% else %}
+PRESERVE_PERMISSIONS="{{ preserve_permissions | default(False) | bool | ternary('true', 'false') }}"
 {% endif %}
 
-# ------------------------------------------------------------------------------
-# Verbose output. Maps to tar's --verbose or -v.
-# Default: False
-# ------------------------------------------------------------------------------
-VERBOSE: {{ (verbose | default(False)) | ternary('true', 'false') }}
+# List of glob patterns to exclude from the archive or extraction. Maps to --exclude.
+# Joined by spaces for shell iteration.
+EXCLUDES="{{ exclude_patterns | default('') }}"
 
-# ------------------------------------------------------------------------------
-# Archive format. Maps to tar's --format option.
-# Valid values: gnu, posix, ustar, v7.
-# Default: 'posix'
-# ------------------------------------------------------------------------------
-FORMAT: {{ (format | default('posix')) | string }}
+# A list of source file or directory paths to operate on. Maps to positional arguments.
+# Joined by spaces.
+SOURCES="{{ sources | default(['/etc']) | join(' ') }}"
 
-# ------------------------------------------------------------------------------
-# Preserve permissions during extraction. Maps to --preserve-permissions or -p.
-# Only applicable if operation_mode is 'extract'.
-# Default: False
-# ------------------------------------------------------------------------------
-{% if (preserve_permissions | default(False)) %}PRESERVE_PERMISSIONS: true
-{% else %}PRESERVE_PERMISSIONS: false
-{% endif %}
+# -----------------------------------------------------------------------------
+# Command Construction
+# -----------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# Exclude patterns. Maps to tar's --exclude option.
-# Each item in the list is a glob pattern.
-# Default: []
-# ------------------------------------------------------------------------------
-{% for pattern in (exclude_patterns | default([])) %}EXCLUDE: {{ pattern | string }}
-{% endfor %}
+tar_cmd="tar"
+
+# Add compression flags
+# Note: 'compress' is the old Unix compress; 'zstd' is Zstandard.
+if [ "$COMPRESSION" != "none" ]; then
+  case $COMPRESSION in
+    gzip)   tar_cmd="$tar_cmd -z" ;;
+    bzip2)  tar_cmd="$tar_cmd -j" ;;
+    xz)     tar_cmd="$tar_cmd -J" ;;
+    lzip)   tar_cmd="$tar_cmd --lzip" ;;
+    lzma)   tar_cmd="$tar_cmd --lzma" ;;
+    lzop)   tar_cmd="$tar_cmd --lzop" ;;
+    compress) tar_cmd="$tar_cmd -Z" ;;
+    zstd)   tar_cmd="$tar_cmd --zstd" ;;
+  esac
+fi
+
+# Add format flag if not the default posix
+if [ "$FORMAT" != "posix" ]; then
+  tar_cmd="$tar_cmd --format=$FORMAT"
+fi
+
+# Add mode specific flags
+# create (-c), extract (-x), list (-t), append (-r), update (-u), compare (-d), delete (--delete)
+case $MODE in
+  create)   tar_cmd="$tar_cmd -c" ;;
+  extract)  tar_cmd="$tar_cmd -x" ;;
+  list)     tar_cmd="$tar_cmd -t" ;;
+  append)   tar_cmd="$tar_cmd -r" ;;
+  update)   tar_cmd="$tar_cmd -u" ;;
+  compare)  tar_cmd="$tar_cmd -d" ;;
+  delete)   tar_cmd="$tar_cmd --delete" ;;
+  *)
+    echo "Error: Unknown MODE '$MODE'" >&2
+    exit 1
+    ;;
+esac
+
+# Add verbose flag
+if [ "$VERBOSE" = "true" ]; then
+  tar_cmd="$tar_cmd -v"
+fi
+
+# Add preserve permissions flag
+if [ "$PRESERVE_PERMISSIONS" = "true" ]; then
+  tar_cmd="$tar_cmd --preserve-permissions"
+fi
+
+# Add exclude patterns
+# Iterate over the space-separated EXCLUDES variable
+if [ -n "$EXCLUDES" ]; then
+  for exclude in $EXCLUDES; do
+    tar_cmd="$tar_cmd --exclude=$exclude"
+  done
+fi
+
+# Add file/archive path
+# Always required for tar operations involving an archive file
+tar_cmd="$tar_cmd -f $ARCHIVE_PATH"
+
+# Add sources
+# Positional arguments: files or directories to operate on
+if [ -n "$SOURCES" ]; then
+  for source in $SOURCES; do
+    tar_cmd="$tar_cmd $source"
+  done
+fi
+
+# Execute the constructed command
+echo "Executing: $tar_cmd"
+$tar_cmd

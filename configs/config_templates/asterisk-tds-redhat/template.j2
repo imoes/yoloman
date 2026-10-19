@@ -1,0 +1,153 @@
+; ============================================================================
+; Asterisk Call Detail Records (CDR) - FreeTDS Backend Configuration
+; ============================================================================
+;
+; This template generates the configuration for Asterisk's ODBC CDR backend
+; when using Microsoft SQL Server (MSSQL) via the FreeTDS library.
+;
+; IMPORTANT: This is NOT 'freetds.conf'. This file tells Asterisk HOW to connect
+; to a database instance defined elsewhere in FreeTDS.
+;
+; ============================================================================
+
+; ============================================================================
+; Section: [global] or main context
+; ============================================================================
+
+; ============================================================================
+; Connection Instance
+; ============================================================================
+; Description:
+;   Specifies the name of the connection instance defined in the system-wide
+;   freetds.conf file. Asterisk uses this name to look up server details
+;   (host, port, tds version) from that external file.
+;
+; Source Variable: connection
+; Default: '' (Empty string - usually requires explicit configuration)
+;
+; Note: If left empty or commented out, Asterisk may fail to find the backend.
+;       Ensure the name matches exactly what is in freetds.conf under [name].
+; ============================================================================
+{% if connection is defined and connection %}
+connection={{ connection }}
+{% else %}
+;connection=
+{% endif %}
+
+; ============================================================================
+; Database Name
+; ============================================================================
+; Description:
+;   The name of the specific database on the SQL Server where CDR records
+;   will be stored.
+;
+; Source Variable: dbname
+; Default: '' (Empty string)
+;
+; Note: The database must exist and be accessible by the 'username' provided below.
+; ============================================================================
+{% if dbname is defined and dbname %}
+dbname={{ dbname }}
+{% else %}
+;dbname=
+{% endif %}
+
+; ============================================================================
+; Database Table Name
+; ============================================================================
+; Description:
+;   The name of the table within the 'dbname' database where CDR entries
+;   are logged.
+;
+; Source Variable: table
+; Default: '' (Empty string)
+;
+; Note: If not specified, Asterisk defaults to a table named 'cdr'.
+;       Ensure this table schema matches Asterisk's expectations.
+; ============================================================================
+{% if table is defined and table %}
+table={{ table }}
+{% else %}
+;table=cdr
+{% endif %}
+
+; ============================================================================
+; Authentication Credentials
+; ============================================================================
+; Description:
+;   Username and password for connecting to the database.
+;   These credentials must have write permissions to the 'table' specified above.
+;
+; Source Variables: username, password
+; Default: '' (Empty strings)
+;
+; Security Warning: Avoid plaintext passwords in production. Use Asterisk's
+;                   encrypted variable storage or environment variables if possible.
+; ============================================================================
+{% if username is defined and username %}
+username={{ username }}
+{% else %}
+;username=
+{% endif %}
+
+{% if password is defined and password %}
+password={{ password }}
+{% else %}
+;password=
+{% endif %}
+
+; ============================================================================
+; Message Language
+; ============================================================================
+; Description:
+;   Sets the language for error and informational messages returned by the
+;   SQL Server driver and FreeTDS.
+;
+; Source Variable: language
+; Default: '' (Empty string)
+;
+; Accepted Values: Common languages include 'us_english', 'english', or locale codes.
+;                  Must be supported by the SQL Server instance.
+; ============================================================================
+{% if language is defined and language %}
+language={{ language }}
+{% else %}
+;language=us_english
+{% endif %}
+
+; ============================================================================
+; Character Set
+; ============================================================================
+; Description:
+;   Defines the character set (encoding) used for data exchange between
+;   Asterisk and the SQL Server.
+;
+; Source Variable: charset
+; Default: '' (Empty string)
+;
+; Accepted Values: e.g., 'utf-8', 'iso_1', 'cp1252'.
+;                  Incorrect settings may cause garbled text in CDR fields.
+; ============================================================================
+{% if charset is defined and charset %}
+charset={{ charset }}
+{% else %}
+;charset=iso_1
+{% endif %}
+
+; ============================================================================
+; High Resolution Times
+; ============================================================================
+; Description:
+;   When enabled, stores 'billsec' and 'duration' fields with sub-second
+;   precision (floating point) instead of integers.
+;
+; Source Variable: hrtime
+; Default: '' (Empty string)
+;
+; Accepted Values: true or false
+; ============================================================================
+{% if hrtime is defined and hrtime %}
+hrtime={{ hrtime }}
+{% else %}
+;hrtime=false
+{% endif %}

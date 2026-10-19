@@ -1,0 +1,145 @@
+# Resalloc Server Pool Configuration (pools.yaml)
+# This template defines a single resource pool named "pool_vm_jenkins_x86_64".
+# It configures how Resalloc manages, allocates, and recycles virtual machine resources.
+
+pool_vm_jenkins_x86_64:
+    # Maximum number of resources allowed at the same time.
+    max: {{ pool_vm_jenkins_x86_64_max | default('7') }}
+
+    # Limit maximum number of starting instances. This helps if starting more
+    # instances at the same time could DDoS the resource provider.
+    max_starting: {{ pool_vm_jenkins_x86_64_max_starting | default('2') }}
+
+    # The minimal amount of seconds manager has to wait between attempts
+    # to allocate new resources in this pool (between two executions of
+    # cmd_new command). When this is 10s, and some resource began starting
+    # 5s ago, a new one won't be started earlier than after 5s. Default
+    # is 0 - start as soon as possible.
+    start_delay: {{ pool_vm_jenkins_x86_64_start_delay | default('0') }}
+
+    # Maximum number of resources to be pre-allocated. Taken resources are not
+    # counted into this limit (if some users takes some resource, a new resource
+    # is automatically started instead in background - up to this limit).
+    max_prealloc: {{ pool_vm_jenkins_x86_64_max_prealloc | default('4') }}
+
+    # This command is run to allocate a new resource. If the command succeeds
+    # (exit_status==0), resalloc considers this resource to be allocated
+    # correctly and marks it as "UP" in database. If the command fails,
+    # resalloc tries to spin-up new resource instead.
+    # WARNING: This needs to be atomic command -- either every "sub-resource" is
+    # allocated correctly (networks, disks, ...), or nothing. Resalloc pays not
+    # attention to clean-up actions if 'cmd_new' fails.
+    cmd_new: "{{ pool_vm_jenkins_x86_64_cmd_new | default('/bin/allocate-vm') }}"
+
+    # This command is run to check that the VM is up. If the command succeeds,
+    # resource is considered to be working. We run this checker
+    # periodically against all "UP" resources, no matter if the resources
+    # has assigned ticket. Among other environment variables, the script has
+    # also the RESALLOC_RESOURCE_DATA env variable available which contains
+    # base64 encoded value of the stdout output from `cmd_new` (for virtual
+    # machines, it e.g. usually contains the IP address in some form).
+    cmd_livecheck: "{{ pool_vm_jenkins_x86_64_cmd_livecheck | default('/bin/check-vm') }}"
+
+    # The minimum delay between two livechecks is 300s (not more often).
+    livecheck_period: {{ pool_vm_jenkins_x86_64_livecheck_period | default('300') }}
+
+    # The number of `cmd_livecheck` failures after which we forcibly delete
+    # the resource.
+    livecheck_attempts: {{ pool_vm_jenkins_x86_64_livecheck_attempts | default('3') }}
+
+    # Delete the resource (and sub-resources, if any). This command may be
+    # called multiple times when server needs, so you should make sure it's
+    # effects are idempotent.
+    # TODO: The atomicity specification needs to be polished.
+    cmd_delete: "{{ pool_vm_jenkins_x86_64_cmd_delete | default('/bin/terminate-vm') }}"
+
+    # Periodically check the pool for unknown or forgotten resources. The
+    # command specified here must list all the existing resources (names)
+    # available in the pool and print them on standard output. When this
+    # option is used, resalloc server will attempt to remove every resource
+    # listed that is not anymore tracked in the Resalloc server database.
+    # This option is useful for unreliable termination scripts — e.g.
+    # Resalloc server "normally" attempted to remove the resource, the
+    # script reported success so the resource was marked as "ENDED" in
+    # database, but still — in reality the resource survived the
+    # termination. This option is the last resort for removal.
+    cmd_list: {{ pool_vm_jenkins_x86_64_cmd_list | default('/bin/list-libvirt-machines-in-pool') }}
+
+    # List of tags all resources coming from this pool will have. Based on
+    # these tags, resources are assigned to user's tickets. Different pools
+    # can provide the same kind of resources (same tags). To prefer
+    # resources from one pool over another, there's a possibility
+    # to specify a priority value for each tag (default 0). Resalloc
+    # server then, when assigning resources to tags, prefers resources with
+    # higher tag priority score.
+    #
+    # This list accepts either dict values with tag-name/tag-priority
+    # fields, or string values (tag-name).
+    tags:
+        # First tag with explicit name and priority.
+        - name: {{ pool_vm_jenkins_x86_64_tags_0_name | default('compute_node') }}
+          priority: {{ pool_vm_jenkins_x86_64_tags_0_priority | default(5) }}
+        # Second tag (string value only).
+        - {{ pool_vm_jenkins_x86_64_tags_1 | default('ci_test_machine_x86_64') }}
+        # Third tag (string value only).
+        - {{ pool_vm_jenkins_x86_64_tags_2 | default('ci_test_machine') }}
+
+    # This is similar to the "tags" configuration in terms of "matching
+    # resources to tickets". But on demand tags trigger a completely
+    # different pool behavior. Instead of preallocating a set of "free"
+    # resources in advance dynamically, pool with the "tags_on_demand"
+    # configured have by default zero resources allocated until some existing
+    # ticket is taken with at least one of predefined "tags_on_demand".
+    # The more tags are taken, the more resources are allocated on demand.
+    #
+    # Note that contrary to normal pools, the resources are allocated on
+    # demand, so resolving such tickets always takes some time (unless the
+    # resource is reused within reuse_opportunity_time). Multiple pools may
+    # provide the same "tags_on_demand", but those tags may not be mixed
+    # between the "tags" and "tags_on_demand" in multiple pools (configuration
+    # runtime error is generated in such case).
+    tags_on_demand:
+        # First on-demand tag (string value).
+        - {{ pool_vm_jenkins_x86_64_tags_on_demand_0 | default('beefy_machine_x86_64') }}
+        # Second on-demand tag with explicit name and priority.
+        - name: {{ pool_vm_jenkins_x86_64_tags_on_demand_1_name | default('beefy_machine') }}
+          priority: {{ pool_vm_jenkins_x86_64_tags_on_demand_1_priority | default(-10) }}
+
+# Reuse feature options. These options configure the mechanism of
+# re-assigning of previously used resources to multiple subsequent tickets
+# (when the assigned tickets belong to the same --sandbox). Still, when the
+# feature is enabled, and the --sandbox isn't specified on particular
+# ticket, the corresponding resource can never be re-used (in such case it
+# is assigned to an unique/random sandbox).
+
+# Number of seconds given to user to re-take the same resource after it has
+# been released from previous ticket. The resource is not deleted earlier
+# than after this amount of time spent in "idle" (not assigned to any
+# ticket) state. Zero value (default) means the "reuse" feature is
+# disabled, and resources are deleted right after they are released.
+reuse_opportunity_time: {{ pool_vm_jenkins_x86_64_reuse_opportunity_time | default('0') }}
+
+# How many times the resource can be "reused". Zero means unlimited
+# (default).
+reuse_max_count: {{ pool_vm_jenkins_x86_64_reuse_max_count | default('0') }}
+
+# Execute "cleanup" script right after we release the ticket from it.
+# By default None. When this script fails, the resource is marked for
+# removal and won't be re-used. Among other environment variables, the
+# script has also the RESALLOC_RESOURCE_DATA env variable available which
+# contains base64 encoded value of the stdout output from `cmd_new` (for
+# virtual machines, it e.g. usually contains the IP address in some form).
+#
+#cmd_release: "/bin/prepare-for-reuse"
+
+# How long (in seconds) can this resource be assigned to --sandbox and still
+# "reused". The time spent is measured since the resource was taken for the
+# first time (assigned to sandbox). Default is 3600s.
+reuse_max_time: {{ pool_vm_jenkins_x86_64_reuse_max_time | default('3600') }}
+
+# Whenever a new machine is allocated within this pool, the smallest integer values
+# are taken from the following named counters, and exported for the
+# callback scripts as environment variables, for example
+# NAMED_COUNTER_VALUE_foo=10 (considering values 0->9 are already taken).
+#named_counters:
+# - foo

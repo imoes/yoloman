@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- -*- XML -*- -->
+
+<!-- D-Bus configuration for polkit (PolicyKit). -->
+<!-- This file defines the D-Bus policies for the polkitd service, -->
+<!-- allowing it to own its service name and handle authentication requests. -->
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!-- Policy for the polkitd user account. -->
+  <!-- Specifies the system user account under which polkitd runs. -->
+  <!-- Default: polkitd -->
+  <policy user="{{ polkit_user | default('polkitd') }}">
+    <!-- Allow the polkitd user to own the main D-Bus service name. -->
+    <!-- The D-Bus service name for polkit. -->
+    <!-- Default: org.freedesktop.PolicyKit1 -->
+    <allow own="{{ polkit_service_name | default('org.freedesktop.PolicyKit1') }}"/>
+  </policy>
+
+  <!-- Default policy for all other users/processes. -->
+  <policy context="default">
+    <!-- Allow default access to send messages to the polkit service. -->
+    <!-- The D-Bus service name for polkit. -->
+    <!-- Default: org.freedesktop.PolicyKit1 -->
+    <allow send_destination="{{ polkit_service_name | default('org.freedesktop.PolicyKit1') }}"/>
+  </policy>
+
+  <!-- Policy for authentication agent communication. -->
+  <!-- Specifies the system user account under which polkitd runs. -->
+  <!-- Default: polkitd -->
+  <policy user="{{ polkit_user | default('polkitd') }}">
+    <!-- Allow the polkitd user to send messages on the authentication interface. -->
+    <!-- This enables uid 0 (root) and the polkitd process to communicate -->
+    <!-- via the AuthenticationAgent interface for user authentication prompts. -->
+    <!-- The D-Bus interface used for authentication agent communication. -->
+    <!-- Default: org.freedesktop.PolicyKit1.AuthenticationAgent -->
+    <allow send_interface="{{ polkit_auth_interface | default('org.freedesktop.PolicyKit1.AuthenticationAgent') }}"/>
+  </policy>
+
+</busconfig>

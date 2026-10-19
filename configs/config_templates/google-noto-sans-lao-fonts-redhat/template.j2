@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig substitution and aliasing configuration for Noto Sans Lao.
+  This template configures two mechanisms:
+  1. A rule to substitute 'sans-serif' fonts with 'Noto Sans Lao' when the requested
+     language matches the specified language code.
+  2. An alias definition to ensure the generic family resolves to the specific font.
+-->
+<fontconfig>
+  <!--
+    Match rule: Intercept font requests for the specified language code and generic family.
+    If a font request contains the language code {{ lang_code | default('lo') }} and asks
+    for the {{ generic_family | default('sans-serif') }} family, prepend {{ font_family | default('Noto Sans Lao') }}.
+  -->
+  <match>
+    <!-- Test if the request language contains the target language code -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('lo') }}</string>
+    </test>
+    <!-- Test if the requested family matches the generic family -->
+    <test name="family">
+      <string>{{ generic_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Action: Prepend the specific font family to the candidate list -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans Lao') }}</string>
+    </edit>
+  </match>
+
+  <!--
+    Alias: Define the default font mapping for the generic family.
+    When an application requests {{ generic_family | default('sans-serif') }},
+    it will be resolved to {{ font_family | default('Noto Sans Lao') }}.
+  -->
+  <alias>
+    <family>{{ font_family | default('Noto Sans Lao') }}</family>
+    <default>
+      <family>{{ generic_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Hinting Configuration: Enable font hinting for the Noto Sans Lao family.
+    Hinting improves font rendering clarity on low-resolution screens.
+  -->
+  <match>
+    <test name="family">
+      <string>{{ font_family | default('Noto Sans Lao') }}</string>
+    </test>
+    <edit name="fonthashint" mode="append">
+      <bool>{{ hinting_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+</fontconfig>

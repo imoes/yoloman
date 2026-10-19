@@ -1,0 +1,156 @@
+# ==============================================================================
+# Prelude-LML Rules for APC EMU (Environmental Monitoring Unit)
+# ==============================================================================
+# This file defines rules for the Prelude LML (Log Management Layer) parser
+# to detect environmental anomalies and physical security events from APC
+# Environmental Monitoring Units (EMU).
+#
+# Source: APC EMU SNMP traps/syslog messages
+# Version: 1.0
+# License: GPL v2+ (Original)
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Rule: High Humidity Violation
+# --------------------------------------------------------------------------
+# Triggers when an APC EMU probe reports a humidity level exceeding the
+# configured high threshold.
+#
+# Expected Log Format Example:
+#   Mar 28 04:22:18 enviro1 12.34.56.78 EMU: Probe 2 'Loc Env Probe 2' high
+#   humidity violation, '40%RH'. 0x101C
+#
+# Severity: High
+# Category: Environmental
+regex=EMU: Probe (\d+) (\'.+\') high  humidity violation, \'(\d+%); \
+ classification.text=High Environmental Humidity; \
+# Unique identifier for this rule within the Prelude LML engine.
+# Default: 2800
+id={{rule_id_high_humidity | default(2800)}}; \
+ revision=2; \
+ analyzer(0).name=Environmental Monitoring Unit; \
+ analyzer(0).manufacturer=APC; \
+ analyzer(0).class=Power; \
+ assessment.impact.severity=high; \
+ assessment.impact.completion=succeeded; \
+ assessment.impact.type=other; \
+ assessment.impact.description=Environmental probe $2 has reported a high humidity: $3; \
+ additional_data(0).type=integer; \
+ additional_data(0).meaning=Probe; \
+ additional_data(0).data=$1; \
+ additional_data(1).type=string; \
+ additional_data(1).meaning=Probe name; \
+ additional_data(1).data=$2; \
+ additional_data(2).type=string; \
+ additional_data(2).meaning=Humidity; \
+ additional_data(2).data=$3; \
+ last
+
+# --------------------------------------------------------------------------
+# Rule: High Humidity Violation Cleared
+# --------------------------------------------------------------------------
+# Triggers when an APC EMU probe reports that humidity has returned to
+# normal levels after a high-humidity violation.
+#
+# Expected Log Format Example:
+#   Mar 28 04:06:27 enviro1 12.34.56.78 EMU: Probe 2 'Loc Env Probe 2' high
+#   humidity violation cleared, '39%RH'. 0x101D
+#
+# Severity: Low
+# Category: Environmental
+regex=EMU: Probe (\d+) (\'.+\') high  humidity violation cleared, \'(\d+%); \
+ classification.text=Environmental Humidity Normal; \
+# Unique identifier for this rule within the Prelude LML engine.
+# Default: 2801
+id={{rule_id_high_humidity_cleared | default(2801)}}; \
+ revision=2; \
+ analyzer(0).name=Environmental Monitoring Unit; \
+ analyzer(0).manufacturer=APC; \
+ analyzer(0).class=Power; \
+ assessment.impact.severity=low; \
+ assessment.impact.completion=succeeded; \
+ assessment.impact.type=other; \
+ assessment.impact.description=Environmental probe $2 has reported humidity has returned to normal: $3; \
+ additional_data(0).type=integer; \
+ additional_data(0).meaning=Probe; \
+ additional_data(0).data=$1; \
+ additional_data(1).type=string; \
+ additional_data(1).meaning=Probe name; \
+ additional_data(1).data=$2; \
+ additional_data(2).type=string; \
+ additional_data(2).meaning=Humidity; \
+ additional_data(2).data=$3; \
+ last
+
+# --------------------------------------------------------------------------
+# Rule: Device Contact Opened
+# --------------------------------------------------------------------------
+# Triggers when a physical input contact on the APC EMU detects an open
+# condition (e.g., a door or window sensor opened).
+#
+# Expected Log Format Example:
+#   Mar 22 16:27:50 enviro1 12.34.56.78 EMU: Input Contact 4 'Rack 4 Front
+#   Door' opened, abnormal condition. 0x1013
+#
+# Severity: High
+# Category: Environmental / Security
+regex=EMU: Input Contact (\d+) (\'.+\') opened, abnormal condition; \
+ classification.text=Device Contact Opened; \
+# Unique identifier for this rule within the Prelude LML engine.
+# Default: 2802
+id={{rule_id_contact_opened | default(2802)}}; \
+ revision=2; \
+ analyzer(0).name=Environmental Monitoring Unit; \
+ analyzer(0).manufacturer=APC; \
+ analyzer(0).class=Power; \
+ assessment.impact.severity=high; \
+ assessment.impact.completion=succeeded; \
+ assessment.impact.type=other; \
+ assessment.impact.description=Contact $2 has reported an open condition; \
+ additional_data(0).type=integer; \
+ additional_data(0).meaning=Contact; \
+ additional_data(0).data=$1; \
+ additional_data(1).type=string; \
+ additional_data(1).meaning=Contact name; \
+ additional_data(1).data=$2; \
+ last
+
+# --------------------------------------------------------------------------
+# Rule: Device Contact Closed
+# --------------------------------------------------------------------------
+# Triggers when a physical input contact on the APC EMU detects that an
+# open condition has been cleared (e.g., a door closed).
+#
+# Expected Log Format Example:
+#   Mar 22 16:28:51 enviro1 10.100.17.252 EMU: Input Contact 4 'Rack 4 Front
+#   Door' closed, abnormal condition cleared. 0x1014
+#
+# Severity: Low
+# Category: Environmental / Security
+regex=EMU: Input Contact (\d+) (\'.+\') closed, abnormal condition cleared; \
+ classification.text=Device Contact Closed; \
+# Unique identifier for this rule within the Prelude LML engine.
+# Default: 2803
+id={{rule_id_contact_closed | default(2803)}}; \
+ revision=2; \
+ analyzer(0).name=Environmental Monitoring Unit; \
+ analyzer(0).manufacturer=APC; \
+ analyzer(0).class=Power; \
+ assessment.impact.severity=low; \
+ assessment.impact.completion=succeeded; \
+ assessment.impact.type=other; \
+ assessment.impact.description=Contact $2 has reported a closed condition; \
+ additional_data(0).type=integer; \
+ additional_data(0).meaning=Contact; \
+ additional_data(0).data=$1; \
+ additional_data(1).type=string; \
+ additional_data(1).meaning=Contact name; \
+ additional_data(1).data=$2; \
+ last
+
+# ==============================================================================
+# TODO: Extend ruleset
+# - Low humidity violation
+# - High temperature violation
+# - Low temperature violation
+# ==============================================================================

@@ -1,0 +1,30 @@
+# ==============================================================================
+# nstreams Network Routing Configuration
+# ==============================================================================
+#
+# This file defines network routing rules for the nstreams package.
+# Rules are evaluated in order: the first matching rule is taken.
+#
+# Each line consists of a rule identifier followed by a colon and the
+# corresponding subnet definition.
+# ==============================================================================
+
+# private_admin: The subnet range for the private administration network.
+# Default: 192.168.1.1/29
+# Usage: Admin traffic isolation and management interfaces.
+private-admin:{{ private_admin_subnet | default('192.168.1.1/29') }}
+
+# private_network: The subnet range for the general private network.
+# Default: 192.168.0.0/16
+# Usage: Internal backend services, database replication, and cluster communication.
+private-network:{{ private_network_subnet | default('192.168.0.0/16') }}
+
+# cybercable: The subnet range for the cybercable network.
+# Default: 212.198.0.0/16
+# Usage: High-throughput data transport links or specialized hardware interfaces.
+cybercable:{{ cybercable_subnet | default('212.198.0.0/16') }}
+
+# internet: The default route or catch-all for internet traffic.
+# Default: 0.0.0.0/0
+# Usage: Public internet access and external API endpoints.
+internet:{{ internet_subnet | default('0.0.0.0/0') }}

@@ -1,6 +1,9 @@
 package modules
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDropinService(t *testing.T) {
 	cases := map[string]string{
@@ -26,5 +29,27 @@ func TestLookupCodecWellKnownDirs(t *testing.T) {
 	}
 	if _, _, ok := lookupCodec("/etc/some/unknown.thing"); ok {
 		t.Error("unknown path should not resolve from the registry")
+	}
+}
+
+// A file of another release of the same package finds the codec measured on the recorded release.
+func TestLookupCodec_AnotherVersionOfTheSamePath(t *testing.T) {
+	var key string
+	for k, s := range codecRegistry {
+		if strings.HasPrefix(k, "/etc/java/java-21-openjdk/java-21-openjdk-21.") && strings.HasSuffix(k, "/conf/net.properties") && s.Codec != "none" {
+			key = k
+		}
+	}
+	if key == "" {
+		t.Skip("no versioned java entry in the registry")
+	}
+	newer := digitRun.ReplaceAllStringFunc(key, func(d string) string { return d + "9" })
+	if newer == key {
+		t.Fatal("test path did not change")
+	}
+	got, _, ok := lookupCodec(newer)
+	want := codecRegistry[key].Codec
+	if !ok || got != want {
+		t.Errorf("lookupCodec(%s) = %q,%v; want %q (from %s)", newer, got, ok, want, key)
 	}
 }

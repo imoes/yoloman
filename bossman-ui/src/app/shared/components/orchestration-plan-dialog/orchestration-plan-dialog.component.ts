@@ -11,9 +11,11 @@ import { OrchestrationPlan, OrchestrationPlanInput, OrchestrationPlanType } from
 import { MetricCatalogEntry } from '../../../core/models/monitoring.model';
 import { MonitoringService } from '../../../core/services/monitoring.service';
 import { OrchestrationService } from '../../../core/services/orchestration.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 const PLAN_TYPES: { value: OrchestrationPlanType; label: string }[] = [
   { value: 'role', label: 'Role (e.g. docker_host)' },
+  { value: 'feature', label: 'Feature (supporting capability)' },
   { value: 'cluster', label: 'Cluster (e.g. postgres_cluster)' },
   { value: 'deployment', label: 'Deployment' },
   { value: 'remediation', label: 'Remediation' },
@@ -31,7 +33,7 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
 @Component({
   selector: 'app-orchestration-plan-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>{{ editing ? 'Edit policy' : 'New policy' }}</h2>
     <mat-dialog-content [formGroup]="form">
@@ -122,7 +124,7 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">{{ editing ? 'Save' : 'Create' }}</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">{{ editing ? 'Save' : 'Create' }}</button>
     </mat-dialog-actions>
   `,
   styles: [

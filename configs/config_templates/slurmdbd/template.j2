@@ -1,3 +1,24 @@
-# Additional command-line options passed to the slurmdbd daemon.
-# See slurmdbd(8) for available options (e.g., --conf-server, --debug-level, etc.).
-{{ SLURMDBD_OPTIONS | default('') }}
+# ==============================================================================
+# Slurm Database Daemon (slurmdbd) Configuration
+# ==============================================================================
+# This file configures the slurmdbd daemon, which is responsible for maintaining
+# the accounting and job history database for Slurm.
+#
+# Most configuration is typically handled by slurm.conf (for slurmctld/slurmd),
+# but slurmdbd-specific options can be passed here.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# SLURMDBD_OPTIONS
+# Description: Additional command-line options passed to the slurmdbd daemon.
+# Type: string
+# Default: '' (empty)
+# --------------------------------------------------------------------------
+# Example usage:
+#   SLURMDBD_OPTIONS="--debug=3"
+#   SLURMDBD_OPTIONS="--config-file=/etc/slurm/slurmdbd.conf"
+#
+# If left empty, no additional options are passed.
+{% if (SLURMDBD_OPTIONS | default('')) | trim != '' %}SLURMDBD_OPTIONS="{{ SLURMDBD_OPTIONS }}"
+{% else %}# SLURMDBD_OPTIONS=""
+{% endif %}

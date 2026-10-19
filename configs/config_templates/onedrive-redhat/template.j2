@@ -1,0 +1,28 @@
+# Onedrive Redhat Logrotate Configuration
+# This template configures log rotation for OneDrive client logs.
+# It ensures logs are rotated weekly, compressed, and retained for a specified number of weeks.
+# The rotation process runs under a specified system user and group.
+
+/var/log/onedrive/*log {
+    # The system user that logrotate should switch to when handling the logs.
+    # Logrotate 3.8.9 or greater is required for this directive.
+    su {{ logrotate_user | default('root') }} {{ logrotate_group | default('users') }}
+
+    # Rotate log files weekly.
+    weekly
+
+    # The number of rotated log files to keep.
+    rotate {{ logrotate_rotate_count | default('4') }}
+
+    # Create new (empty) log files after rotating old ones.
+    create
+
+    # Use date as a suffix of the rotated file.
+    dateext
+
+    # Compress the log files.
+    compress
+
+    # Missing files OK.
+    missingok
+}

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Font configuration for Hebrew language support.
+    This file creates a font match rule for Hebrew text and registers a font alias.
+  -->
+
+  <!-- Match block: Targets text with the specified language code and generic family -->
+  <match>
+    <!-- Test if the text language contains the target language code -->
+    <test name="lang" compare="contains">
+      <!-- The language code to match (e.g., 'he' for Hebrew). -->
+      <string>{{ lang_code | default('he') }}</string>
+    </test>
+
+    <!-- Test if the font family matches the target generic family -->
+    <test name="family">
+      <!-- The generic font family name to target (e.g., 'sans-serif'). -->
+      <string>{{ family_name | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Edit: Prepend the specific font to the list of available fonts for this match -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family to prepend (e.g., 'Noto Sans Hebrew'). -->
+      <string>{{ font_family | default('Noto Sans Hebrew') }}</string>
+    </edit>
+
+    <!-- Edit: Enable hinting for the matched fonts -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to enable font hinting (true or false). -->
+      <bool>{{ font_hint_bool | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias block: Registers a font alias for fallback purposes -->
+  <alias>
+    <!-- The font family name to alias -->
+    <family>{{ alias_font_family | default('Noto Sans Hebrew') }}</family>
+    
+    <!-- The default fallback family if the alias is not available -->
+    <default>
+      <!-- The default fallback family for the alias (e.g., 'sans-serif'). -->
+      <family>{{ default_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

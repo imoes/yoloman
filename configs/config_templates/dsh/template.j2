@@ -1,23 +1,14 @@
-# Default configuration file for dsh (Dancer's Shell).
-# This tool allows executing commands on multiple remote machines simultaneously.
-# See `man dsh` for full documentation.
 
-# -----------------------------------------------------------------------------
-# Verbosity level for dsh output.
-# 0 = silent, higher values = more verbose output.
-verbose = {{ verbose | default(0) }}
+#default configuration file for dsh.
+  # suppled as part of dancer's shell
 
-# -----------------------------------------------------------------------------
-# Remote shell command to use for connecting to remote hosts.
-# Common values: 'ssh', 'rsh'.
-remoteshell = {{ remoteshell | default('rsh') }}
+verbose = {{ verbose | default('0') }}
 
-# -----------------------------------------------------------------------------
-# Whether to prefix output lines with the machine name.
-# 0 = no prefix, 1 = prefix with hostname.
-showmachinenames = {{ showmachinenames | default(0) }}
+ remoteshell ={{ remoteshell | default('rsh') }}
+ showmachinenames = {{ showmachinenames | default('0') }}
+waitshell={{ waitshell | default('1  # whether to wait for execution') }}
 
-# -----------------------------------------------------------------------------
-# Whether to wait for execution of remote commands to complete before proceeding.
-# 0 = do not wait (fire-and-forget), 1 = wait for completion.
-waitshell = {{ waitshell | default(1) }}
+{% if remoteshellopt is defined and remoteshellopt is not none and (remoteshellopt is number or remoteshellopt is boolean or remoteshellopt | length > 0) %}remoteshellopt={{ remoteshellopt }}
+{% else %}#remoteshellopt=...
+{% endif %}
+# default config file end.

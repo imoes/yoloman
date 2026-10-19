@@ -1,0 +1,893 @@
+# LVM2 Configuration File
+# Managed by Ansible. See /etc/lvm/lvm.conf(5) for details.
+# This template is self-documenting: every directive is preceded by a comment
+# describing its purpose and default value.
+
+# Configuration section config.
+# How LVM configuration settings are handled.
+config {
+
+	# Configuration option config/validate_metadata.
+	# Allows to select the level of validation after metadata transformation.
+	# Accepted values: full, none.
+	# Default: full.
+{% if validate_metadata_default is defined and validate_metadata_default is not none and (validate_metadata_default is number or validate_metadata_default is boolean or validate_metadata_default | length > 0) %}	validate_metadata = "{{ validate_metadata_default | default('full') }}"{% else %}	# validate_metadata = "full"{% endif %}
+
+	# Configuration option config/profile_dir.
+	# Directory where LVM looks for configuration profiles.
+	# Default: None (uses LVM builtin default).
+{% if profile_dir_default is defined and profile_dir_default is not none and (profile_dir_default is number or profile_dir_default is boolean or profile_dir_default | length > 0) %}	profile_dir = "{{ profile_dir_default | default('') }}"{% else %}	# profile_dir = "/etc/lvm/profile"{% endif %}
+}
+
+# Configuration section devices.
+# How LVM uses block devices.
+devices {
+
+	# Configuration option devices/dir.
+	# Directory in which to create volume group device nodes.
+	# Default: None (uses LVM builtin default, usually /dev).
+{% if dir_default is defined and dir_default is not none and (dir_default is number or dir_default is boolean or dir_default | length > 0) %}	dir = "{{ dir_default | default('') }}"{% else %}	# dir = "/dev"{% endif %}
+
+	# Configuration option devices/scan.
+	# Directories containing device nodes to use with LVM.
+	# Default: None (uses LVM builtin default).
+{% if scan_default is defined and scan_default is not none and (scan_default is number or scan_default is boolean or scan_default | length > 0) %}	scan = [ "{{ scan_default | default('') }}" ]{% else %}	# scan = [ "/dev" ]{% endif %}
+
+	# Configuration option devices/external_device_info_source.
+	# Enable device information from udev.
+	# Accepted values: none, udev.
+	# Default: none.
+{% if external_device_info_source_default is defined and external_device_info_source_default is not none and (external_device_info_source_default is number or external_device_info_source_default is boolean or external_device_info_source_default | length > 0) %}	external_device_info_source = "{{ external_device_info_source_default | default('none') }}"{% else %}	# external_device_info_source = "none"{% endif %}
+
+	# Configuration option devices/hints.
+	# Use a local file to remember which devices have PVs on them.
+	# Accepted values: all, none.
+	# Default: all.
+{% if hints_default is defined and hints_default is not none and (hints_default is number or hints_default is boolean or hints_default | length > 0) %}	hints = "{{ hints_default | default('all') }}"{% else %}	# hints = "all"{% endif %}
+
+	# Configuration option devices/use_devicesfile.
+	# Enable or disable the use of a devices file.
+	# Default: None (uses LVM builtin default).
+	{% if use_devicesfile_default is defined and use_devicesfile_default is not none %}
+{% if use_devicesfile_default is defined and use_devicesfile_default is not none and (use_devicesfile_default is number or use_devicesfile_default is boolean or use_devicesfile_default | length > 0) %}	use_devicesfile = {{ use_devicesfile_default }}{% else %}	# use_devicesfile = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/devicesfile.
+	# The name of the system devices file.
+	# Default: None (uses LVM builtin default).
+	{% if devicesfile_default is defined and devicesfile_default is not none %}
+{% if devicesfile_default is defined and devicesfile_default is not none and (devicesfile_default is number or devicesfile_default is boolean or devicesfile_default | length > 0) %}	devicesfile = "{{ devicesfile_default }}"{% else %}	# devicesfile = "system.devices"{% endif %}
+	{% endif %}
+
+	# Configuration option devices/devicesfile_backup_limit.
+	# The max number of backup files to keep in /etc/lvm/devices/backup.
+	# Default: None (uses LVM builtin default).
+	{% if devicesfile_backup_limit_default is defined and devicesfile_backup_limit_default is not none %}
+{% if devicesfile_backup_limit_default is defined and devicesfile_backup_limit_default is not none and (devicesfile_backup_limit_default is number or devicesfile_backup_limit_default is boolean or devicesfile_backup_limit_default | length > 0) %}	devicesfile_backup_limit = {{ devicesfile_backup_limit_default }}{% else %}	# devicesfile_backup_limit = 50{% endif %}
+	{% endif %}
+
+	# Configuration option devices/search_for_devnames.
+	# Look outside of the devices file for missing devname entries.
+	# Accepted values: none, auto, all.
+	# Default: all.
+{% if search_for_devnames_default is defined and search_for_devnames_default is not none and (search_for_devnames_default is number or search_for_devnames_default is boolean or search_for_devnames_default | length > 0) %}	search_for_devnames = "{{ search_for_devnames_default | default('all') }}"{% else %}	# search_for_devnames = "all"{% endif %}
+
+	# Configuration option devices/device_ids_refresh.
+	# Find PVs on new devices and update the device IDs in the devices file.
+	# Default: None (uses LVM builtin default).
+	{% if device_ids_refresh_default is defined and device_ids_refresh_default is not none %}
+{% if device_ids_refresh_default is defined and device_ids_refresh_default is not none and (device_ids_refresh_default is number or device_ids_refresh_default is boolean or device_ids_refresh_default | length > 0) %}	device_ids_refresh = {{ device_ids_refresh_default }}{% else %}	# device_ids_refresh = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/device_ids_refresh_checks.
+	# Conditions that trigger device_ids_refresh to locate PVIDs on new devices.
+	# Accepted values: product_uuid, hostname.
+	# Default: hostname (if product_uuid check is not explicitly enabled).
+	# Note: If product_uuid is set, both values are included; otherwise only hostname.
+	{% if device_ids_refresh_checks_product_uuid_default is defined and device_ids_refresh_checks_product_uuid_default is not none %}
+	device_ids_refresh_checks = [ "{{ device_ids_refresh_checks_product_uuid_default | default('') }}", "{{ device_ids_refresh_checks_hostname_default | default('hostname') }}" ]
+	{% else %}
+{% if device_ids_refresh_checks_hostname_default is defined and device_ids_refresh_checks_hostname_default is not none and (device_ids_refresh_checks_hostname_default is number or device_ids_refresh_checks_hostname_default is boolean or device_ids_refresh_checks_hostname_default | length > 0) %}	device_ids_refresh_checks = [ "{{ device_ids_refresh_checks_hostname_default | default('hostname') }}" ]{% else %}	# device_ids_refresh_checks = [ "product_uuid", "hostname" ]{% endif %}
+	{% endif %}
+
+	# Configuration option devices/filter.
+	# Limit the block devices that are used by LVM commands.
+	# Syntax: [ "a|regex|", "r|regex|" ]
+	# Default: a|.*| (accept all).
+	{% if global_filter_default is defined and global_filter_default is not none %}
+{% if global_filter_default is defined and global_filter_default is not none and (global_filter_default is number or global_filter_default is boolean or global_filter_default | length > 0) %}	global_filter = [ "{{ global_filter_default }}" ]{% else %}	# global_filter = [ "a|.*|" ]{% endif %}
+	{% else %}
+	global_filter = [ "a|.*|" ]
+	{% endif %}
+
+	# Configuration option devices/sysfs_scan.
+	# Restrict device scanning to block devices appearing in sysfs.
+	# Default: None (uses LVM builtin default).
+	{% if sysfs_scan_default is defined and sysfs_scan_default is not none %}
+{% if sysfs_scan_default is defined and sysfs_scan_default is not none and (sysfs_scan_default is number or sysfs_scan_default is boolean or sysfs_scan_default | length > 0) %}	sysfs_scan = {{ sysfs_scan_default }}{% else %}	# sysfs_scan = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/scan_lvs.
+	# Allow LVM LVs to be used as PVs.
+	# Default: None (uses LVM builtin default).
+	{% if scan_lvs_default is defined and scan_lvs_default is not none %}
+{% if scan_lvs_default is defined and scan_lvs_default is not none and (scan_lvs_default is number or scan_lvs_default is boolean or scan_lvs_default | length > 0) %}	scan_lvs = {{ scan_lvs_default }}{% else %}	# scan_lvs = 0{% endif %}
+	{% endif %}
+
+	# Configuration option devices/multipath_component_detection.
+	# Ignore devices that are components of DM multipath devices.
+	# Default: None (uses LVM builtin default).
+	{% if multipath_component_detection_default is defined and multipath_component_detection_default is not none %}
+{% if multipath_component_detection_default is defined and multipath_component_detection_default is not none and (multipath_component_detection_default is number or multipath_component_detection_default is boolean or multipath_component_detection_default | length > 0) %}	multipath_component_detection = {{ multipath_component_detection_default }}{% else %}	# multipath_component_detection = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/multipath_wwids_file.
+	# The path to the multipath wwids file.
+	# Default: None (uses LVM builtin default).
+	{% if multipath_wwids_file_default is defined and multipath_wwids_file_default is not none %}
+{% if multipath_wwids_file_default is defined and multipath_wwids_file_default is not none and (multipath_wwids_file_default is number or multipath_wwids_file_default is boolean or multipath_wwids_file_default | length > 0) %}	multipath_wwids_file = "{{ multipath_wwids_file_default }}"{% else %}	# multipath_wwids_file = "/etc/multipath/wwids"{% endif %}
+	{% endif %}
+
+	# Configuration option devices/md_component_detection.
+	# Enable detection and exclusion of MD component devices.
+	# Default: None (uses LVM builtin default).
+	{% if md_component_detection_default is defined and md_component_detection_default is not none %}
+{% if md_component_detection_default is defined and md_component_detection_default is not none and (md_component_detection_default is number or md_component_detection_default is boolean or md_component_detection_default | length > 0) %}	md_component_detection = {{ md_component_detection_default }}{% else %}	# md_component_detection = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/md_component_checks.
+	# The checks LVM should use to detect MD component devices.
+	# Accepted values: auto, start, full.
+	# Default: auto.
+{% if md_component_checks_default is defined and md_component_checks_default is not none and (md_component_checks_default is number or md_component_checks_default is boolean or md_component_checks_default | length > 0) %}	md_component_checks = "{{ md_component_checks_default | default('auto') }}"{% else %}	# md_component_checks = "auto"{% endif %}
+
+	# Configuration option devices/fw_raid_component_detection.
+	# Ignore devices that are components of firmware RAID devices.
+	# Default: None (uses LVM builtin default).
+	{% if fw_raid_component_detection_default is defined and fw_raid_component_detection_default is not none %}
+{% if fw_raid_component_detection_default is defined and fw_raid_component_detection_default is not none and (fw_raid_component_detection_default is number or fw_raid_component_detection_default is boolean or fw_raid_component_detection_default | length > 0) %}	fw_raid_component_detection = {{ fw_raid_component_detection_default }}{% else %}	# fw_raid_component_detection = 0{% endif %}
+	{% endif %}
+
+	# Configuration option devices/md_chunk_alignment.
+	# Align the start of a PV data area with md device's stripe-width.
+	# Default: None (uses LVM builtin default).
+	{% if md_chunk_alignment_default is defined and md_chunk_alignment_default is not none %}
+{% if md_chunk_alignment_default is defined and md_chunk_alignment_default is not none and (md_chunk_alignment_default is number or md_chunk_alignment_default is boolean or md_chunk_alignment_default | length > 0) %}	md_chunk_alignment = {{ md_chunk_alignment_default }}{% else %}	# md_chunk_alignment = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/default_data_alignment.
+	# Align the start of a PV data area with this number of MiB.
+	# Default: None (uses LVM builtin default).
+	{% if default_data_alignment_default is defined and default_data_alignment_default is not none %}
+{% if default_data_alignment_default is defined and default_data_alignment_default is not none and (default_data_alignment_default is number or default_data_alignment_default is boolean or default_data_alignment_default | length > 0) %}	default_data_alignment = {{ default_data_alignment_default }}{% else %}	# default_data_alignment = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/data_alignment_detection.
+	# Align the start of a PV data area with sysfs io properties.
+	# Default: None (uses LVM builtin default).
+	{% if data_alignment_detection_default is defined and data_alignment_detection_default is not none %}
+{% if data_alignment_detection_default is defined and data_alignment_detection_default is not none and (data_alignment_detection_default is number or data_alignment_detection_default is boolean or data_alignment_detection_default | length > 0) %}	data_alignment_detection = {{ data_alignment_detection_default }}{% else %}	# data_alignment_detection = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/data_alignment.
+	# Align the start of a PV data area with this number of KiB.
+	# Default: None (uses LVM builtin default).
+	{% if data_alignment_default is defined and data_alignment_default is not none %}
+{% if data_alignment_default is defined and data_alignment_default is not none and (data_alignment_default is number or data_alignment_default is boolean or data_alignment_default | length > 0) %}	data_alignment = {{ data_alignment_default }}{% else %}	# data_alignment = 0{% endif %}
+	{% endif %}
+
+	# Configuration option devices/data_alignment_offset_detection.
+	# Shift the start of an aligned PV data area based on sysfs information.
+	# Default: None (uses LVM builtin default).
+	{% if data_alignment_offset_detection_default is defined and data_alignment_offset_detection_default is not none %}
+{% if data_alignment_offset_detection_default is defined and data_alignment_offset_detection_default is not none and (data_alignment_offset_detection_default is number or data_alignment_offset_detection_default is boolean or data_alignment_offset_detection_default | length > 0) %}	data_alignment_offset_detection = {{ data_alignment_offset_detection_default }}{% else %}	# data_alignment_offset_detection = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/ignore_suspended_devices.
+	# Ignore DM devices that have I/O suspended while scanning devices.
+	# Default: None (uses LVM builtin default).
+	{% if ignore_suspended_devices_default is defined and ignore_suspended_devices_default is not none %}
+{% if ignore_suspended_devices_default is defined and ignore_suspended_devices_default is not none and (ignore_suspended_devices_default is number or ignore_suspended_devices_default is boolean or ignore_suspended_devices_default | length > 0) %}	ignore_suspended_devices = {{ ignore_suspended_devices_default }}{% else %}	# ignore_suspended_devices = 0{% endif %}
+	{% endif %}
+
+	# Configuration option devices/ignore_lvm_mirrors.
+	# Do not scan 'mirror' LVs to avoid possible deadlocks.
+	# Default: None (uses LVM builtin default).
+	{% if ignore_lvm_mirrors_default is defined and ignore_lvm_mirrors_default is not none %}
+{% if ignore_lvm_mirrors_default is defined and ignore_lvm_mirrors_default is not none and (ignore_lvm_mirrors_default is number or ignore_lvm_mirrors_default is boolean or ignore_lvm_mirrors_default | length > 0) %}	ignore_lvm_mirrors = {{ ignore_lvm_mirrors_default }}{% else %}	# ignore_lvm_mirrors = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/require_restorefile_with_uuid.
+	# Allow use of pvcreate --uuid without requiring --restorefile.
+	# Default: None (uses LVM builtin default).
+	{% if require_restorefile_with_uuid_default is defined and require_restorefile_with_uuid_default is not none %}
+{% if require_restorefile_with_uuid_default is defined and require_restorefile_with_uuid_default is not none and (require_restorefile_with_uuid_default is number or require_restorefile_with_uuid_default is boolean or require_restorefile_with_uuid_default | length > 0) %}	require_restorefile_with_uuid = {{ require_restorefile_with_uuid_default }}{% else %}	# require_restorefile_with_uuid = 1{% endif %}
+	{% endif %}
+
+	# Configuration option devices/pv_min_size.
+	# Minimum size in KiB of block devices which can be used as PVs.
+	# Default: None (uses LVM builtin default).
+	{% if pv_min_size_default is defined and pv_min_size_default is not none %}
+{% if pv_min_size_default is defined and pv_min_size_default is not none and (pv_min_size_default is number or pv_min_size_default is boolean or pv_min_size_default | length > 0) %}	pv_min_size = {{ pv_min_size_default }}{% else %}	# pv_min_size = 2048{% endif %}
+	{% endif %}
+
+	# Configuration option devices/issue_discards.
+	# Issue discards to PVs that are no longer used by an LV.
+	# Default: None (uses LVM builtin default).
+	{% if issue_discards_default is defined and issue_discards_default is not none %}
+{% if issue_discards_default is defined and issue_discards_default is not none and (issue_discards_default is number or issue_discards_default is boolean or issue_discards_default | length > 0) %}	issue_discards = {{ issue_discards_default }}{% else %}	# issue_discards = 0{% endif %}
+	{% endif %}
+
+	# Configuration option devices/allow_changes_with_duplicate_pvs.
+	# Allow VG modification while a PV appears on multiple devices.
+	# Default: None (uses LVM builtin default).
+	{% if allow_changes_with_duplicate_pvs_default is defined and allow_changes_with_duplicate_pvs_default is not none %}
+{% if allow_changes_with_duplicate_pvs_default is defined and allow_changes_with_duplicate_pvs_default is not none and (allow_changes_with_duplicate_pvs_default is number or allow_changes_with_duplicate_pvs_default is boolean or allow_changes_with_duplicate_pvs_default | length > 0) %}	allow_changes_with_duplicate_pvs = {{ allow_changes_with_duplicate_pvs_default }}{% else %}	# allow_changes_with_duplicate_pvs = 0{% endif %}
+	{% endif %}
+
+	# Configuration option devices/allow_mixed_block_sizes.
+	# Allow PVs in the same VG with different logical block sizes.
+	# Default: None (uses LVM builtin default).
+	{% if allow_mixed_block_sizes_default is defined and allow_mixed_block_sizes_default is not none %}
+{% if allow_mixed_block_sizes_default is defined and allow_mixed_block_sizes_default is not none and (allow_mixed_block_sizes_default is number or allow_mixed_block_sizes_default is boolean or allow_mixed_block_sizes_default | length > 0) %}	allow_mixed_block_sizes = {{ allow_mixed_block_sizes_default }}{% else %}	# allow_mixed_block_sizes = 0{% endif %}
+	{% endif %}
+}
+
+# Configuration section allocation.
+# How LVM selects space and applies properties to LVs.
+allocation {
+
+	# Configuration option allocation/maximise_cling.
+	# Use a previous allocation algorithm.
+	# Default: None (uses LVM builtin default).
+	{% if maximise_cling_default is defined and maximise_cling_default is not none %}
+{% if maximise_cling_default is defined and maximise_cling_default is not none and (maximise_cling_default is number or maximise_cling_default is boolean or maximise_cling_default | length > 0) %}	maximise_cling = {{ maximise_cling_default }}{% else %}	# maximise_cling = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/use_blkid_wiping.
+	# Use blkid to detect and erase existing signatures on new PVs and LVs.
+	# Default: None (uses LVM builtin default).
+	{% if use_blkid_wiping_default is defined and use_blkid_wiping_default is not none %}
+{% if use_blkid_wiping_default is defined and use_blkid_wiping_default is not none and (use_blkid_wiping_default is number or use_blkid_wiping_default is boolean or use_blkid_wiping_default | length > 0) %}	use_blkid_wiping = {{ use_blkid_wiping_default }}{% else %}	# use_blkid_wiping = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/wipe_signatures_when_zeroing_new_lvs.
+	# Look for and erase any signatures while zeroing a new LV.
+	# Default: None (uses LVM builtin default).
+	{% if wipe_signatures_when_zeroing_new_lvs_default is defined and wipe_signatures_when_zeroing_new_lvs_default is not none %}
+{% if wipe_signatures_when_zeroing_new_lvs_default is defined and wipe_signatures_when_zeroing_new_lvs_default is not none and (wipe_signatures_when_zeroing_new_lvs_default is number or wipe_signatures_when_zeroing_new_lvs_default is boolean or wipe_signatures_when_zeroing_new_lvs_default | length > 0) %}	wipe_signatures_when_zeroing_new_lvs = {{ wipe_signatures_when_zeroing_new_lvs_default }}{% else %}	# wipe_signatures_when_zeroing_new_lvs = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/mirror_logs_require_separate_pvs.
+	# Mirror logs and images will always use different PVs.
+	# Default: None (uses LVM builtin default).
+	{% if mirror_logs_require_separate_pvs_default is defined and mirror_logs_require_separate_pvs_default is not none %}
+{% if mirror_logs_require_separate_pvs_default is defined and mirror_logs_require_separate_pvs_default is not none and (mirror_logs_require_separate_pvs_default is number or mirror_logs_require_separate_pvs_default is boolean or mirror_logs_require_separate_pvs_default | length > 0) %}	mirror_logs_require_separate_pvs = {{ mirror_logs_require_separate_pvs_default }}{% else %}	# mirror_logs_require_separate_pvs = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/raid_stripe_all_devices.
+	# Stripe across all PVs when RAID stripes are not specified.
+	# Default: None (uses LVM builtin default).
+	{% if raid_stripe_all_devices_default is defined and raid_stripe_all_devices_default is not none %}
+{% if raid_stripe_all_devices_default is defined and raid_stripe_all_devices_default is not none and (raid_stripe_all_devices_default is number or raid_stripe_all_devices_default is boolean or raid_stripe_all_devices_default | length > 0) %}	raid_stripe_all_devices = {{ raid_stripe_all_devices_default }}{% else %}	# raid_stripe_all_devices = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/cache_pool_metadata_require_separate_pvs.
+	# Cache pool metadata and data will always use different PVs.
+	# Default: None (uses LVM builtin default).
+	{% if cache_pool_metadata_require_separate_pvs_default is defined and cache_pool_metadata_require_separate_pvs_default is not none %}
+{% if cache_pool_metadata_require_separate_pvs_default is defined and cache_pool_metadata_require_separate_pvs_default is not none and (cache_pool_metadata_require_separate_pvs_default is number or cache_pool_metadata_require_separate_pvs_default is boolean or cache_pool_metadata_require_separate_pvs_default | length > 0) %}	cache_pool_metadata_require_separate_pvs = {{ cache_pool_metadata_require_separate_pvs_default }}{% else %}	# cache_pool_metadata_require_separate_pvs = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/cache_metadata_format.
+	# Sets default metadata format for new cache.
+	# Accepted values: 0 (auto), 1 (original), 2 (improved).
+	# Default: None (uses LVM builtin default).
+	{% if cache_metadata_format_default is defined and cache_metadata_format_default is not none %}
+{% if cache_metadata_format_default is defined and cache_metadata_format_default is not none and (cache_metadata_format_default is number or cache_metadata_format_default is boolean or cache_metadata_format_default | length > 0) %}	cache_metadata_format = {{ cache_metadata_format_default }}{% else %}	# cache_metadata_format = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/cache_mode.
+	# The default cache mode used for new cache.
+	# Accepted values: writethrough, writeback.
+	# Default: None (uses LVM builtin default).
+	{% if cache_mode_default is defined and cache_mode_default is not none %}
+{% if cache_mode_default is defined and cache_mode_default is not none and (cache_mode_default is number or cache_mode_default is boolean or cache_mode_default | length > 0) %}	cache_mode = "{{ cache_mode_default }}"{% else %}	# cache_mode = "writethrough"{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/thin_pool_metadata_require_separate_pvs.
+	# Thin pool metadata and data will always use different PVs.
+	# Default: None (uses LVM builtin default).
+	{% if thin_pool_metadata_require_separate_pvs_default is defined and thin_pool_metadata_require_separate_pvs_default is not none %}
+{% if thin_pool_metadata_require_separate_pvs_default is defined and thin_pool_metadata_require_separate_pvs_default is not none and (thin_pool_metadata_require_separate_pvs_default is number or thin_pool_metadata_require_separate_pvs_default is boolean or thin_pool_metadata_require_separate_pvs_default | length > 0) %}	thin_pool_metadata_require_separate_pvs = {{ thin_pool_metadata_require_separate_pvs_default }}{% else %}	# thin_pool_metadata_require_separate_pvs = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/thin_pool_crop_metadata.
+	# Older version of lvm2 cropped pool's metadata size.
+	# Default: None (uses LVM builtin default).
+	{% if thin_pool_crop_metadata_default is defined and thin_pool_crop_metadata_default is not none %}
+{% if thin_pool_crop_metadata_default is defined and thin_pool_crop_metadata_default is not none and (thin_pool_crop_metadata_default is number or thin_pool_crop_metadata_default is boolean or thin_pool_crop_metadata_default | length > 0) %}	thin_pool_crop_metadata = {{ thin_pool_crop_metadata_default }}{% else %}	# thin_pool_crop_metadata = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/thin_pool_zero.
+	# Thin pool data chunks are zeroed before they are first used.
+	# Default: None (uses LVM builtin default).
+	{% if thin_pool_zero_default is defined and thin_pool_zero_default is not none %}
+{% if thin_pool_zero_default is defined and thin_pool_zero_default is not none and (thin_pool_zero_default is number or thin_pool_zero_default is boolean or thin_pool_zero_default | length > 0) %}	thin_pool_zero = {{ thin_pool_zero_default }}{% else %}	# thin_pool_zero = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/thin_pool_discards.
+	# The discards behaviour of thin pool volumes.
+	# Accepted values: ignore, nopassdown, passdown.
+	# Default: None (uses LVM builtin default).
+	{% if thin_pool_discards_default is defined and thin_pool_discards_default is not none %}
+{% if thin_pool_discards_default is defined and thin_pool_discards_default is not none and (thin_pool_discards_default is number or thin_pool_discards_default is boolean or thin_pool_discards_default | length > 0) %}	thin_pool_discards = "{{ thin_pool_discards_default }}"{% else %}	# thin_pool_discards = "passdown"{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/thin_pool_chunk_size_policy.
+	# The chunk size calculation policy for thin pool volumes.
+	# Accepted values: generic, performance.
+	# Default: None (uses LVM builtin default).
+	{% if thin_pool_chunk_size_policy_default is defined and thin_pool_chunk_size_policy_default is not none %}
+{% if thin_pool_chunk_size_policy_default is defined and thin_pool_chunk_size_policy_default is not none and (thin_pool_chunk_size_policy_default is number or thin_pool_chunk_size_policy_default is boolean or thin_pool_chunk_size_policy_default | length > 0) %}	thin_pool_chunk_size_policy = "{{ thin_pool_chunk_size_policy_default }}"{% else %}	# thin_pool_chunk_size_policy = "generic"{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/zero_metadata.
+	# Zero whole metadata area before use with thin or cache pool.
+	# Default: None (uses LVM builtin default).
+	{% if zero_metadata_default is defined and zero_metadata_default is not none %}
+{% if zero_metadata_default is defined and zero_metadata_default is not none and (zero_metadata_default is number or zero_metadata_default is boolean or zero_metadata_default | length > 0) %}	zero_metadata = {{ zero_metadata_default }}{% else %}	# zero_metadata = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/physical_extent_size.
+	# Default physical extent size in KiB to use for new VGs.
+	# Default: None (uses LVM builtin default).
+	{% if physical_extent_size_default is defined and physical_extent_size_default is not none %}
+{% if physical_extent_size_default is defined and physical_extent_size_default is not none and (physical_extent_size_default is number or physical_extent_size_default is boolean or physical_extent_size_default | length > 0) %}	physical_extent_size = {{ physical_extent_size_default }}{% else %}	# physical_extent_size = 4096{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_use_compression.
+	# Enables or disables compression when creating a VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_use_compression_default is defined and vdo_use_compression_default is not none %}
+{% if vdo_use_compression_default is defined and vdo_use_compression_default is not none and (vdo_use_compression_default is number or vdo_use_compression_default is boolean or vdo_use_compression_default | length > 0) %}	vdo_use_compression = {{ vdo_use_compression_default }}{% else %}	# vdo_use_compression = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_use_deduplication.
+	# Enables or disables deduplication when creating a VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_use_deduplication_default is defined and vdo_use_deduplication_default is not none %}
+{% if vdo_use_deduplication_default is defined and vdo_use_deduplication_default is not none and (vdo_use_deduplication_default is number or vdo_use_deduplication_default is boolean or vdo_use_deduplication_default | length > 0) %}	vdo_use_deduplication = {{ vdo_use_deduplication_default }}{% else %}	# vdo_use_deduplication = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_minimum_io_size.
+	# The minimum IO size for VDO volume to accept, in bytes.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_minimum_io_size_default is defined and vdo_minimum_io_size_default is not none %}
+{% if vdo_minimum_io_size_default is defined and vdo_minimum_io_size_default is not none and (vdo_minimum_io_size_default is number or vdo_minimum_io_size_default is boolean or vdo_minimum_io_size_default | length > 0) %}	vdo_minimum_io_size = {{ vdo_minimum_io_size_default }}{% else %}	# vdo_minimum_io_size = 4096{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_block_map_cache_size_mb.
+	# Specifies the amount of memory in MiB allocated for caching block map pages for VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_block_map_cache_size_mb_default is defined and vdo_block_map_cache_size_mb_default is not none %}
+{% if vdo_block_map_cache_size_mb_default is defined and vdo_block_map_cache_size_mb_default is not none and (vdo_block_map_cache_size_mb_default is number or vdo_block_map_cache_size_mb_default is boolean or vdo_block_map_cache_size_mb_default | length > 0) %}	vdo_block_map_cache_size_mb = {{ vdo_block_map_cache_size_mb_default }}{% else %}	# vdo_block_map_cache_size_mb = 128{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_block_map_period.
+	# The speed with which the block map cache writes out modified block map pages.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_block_map_period_default is defined and vdo_block_map_period_default is not none %}
+{% if vdo_block_map_period_default is defined and vdo_block_map_period_default is not none and (vdo_block_map_period_default is number or vdo_block_map_period_default is boolean or vdo_block_map_period_default | length > 0) %}	vdo_block_map_period = {{ vdo_block_map_period_default }}{% else %}	# vdo_block_map_period = 16380{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_use_sparse_index.
+	# Enables sparse indexing for VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_use_sparse_index_default is defined and vdo_use_sparse_index_default is not none %}
+{% if vdo_use_sparse_index_default is defined and vdo_use_sparse_index_default is not none and (vdo_use_sparse_index_default is number or vdo_use_sparse_index_default is boolean or vdo_use_sparse_index_default | length > 0) %}	vdo_use_sparse_index = {{ vdo_use_sparse_index_default }}{% else %}	# vdo_use_sparse_index = 0{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_index_memory_size_mb.
+	# Specifies the amount of index memory in MiB for VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_index_memory_size_mb_default is defined and vdo_index_memory_size_mb_default is not none %}
+{% if vdo_index_memory_size_mb_default is defined and vdo_index_memory_size_mb_default is not none and (vdo_index_memory_size_mb_default is number or vdo_index_memory_size_mb_default is boolean or vdo_index_memory_size_mb_default | length > 0) %}	vdo_index_memory_size_mb = {{ vdo_index_memory_size_mb_default }}{% else %}	# vdo_index_memory_size_mb = 256{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_slab_size_mb.
+	# Specifies the size in MiB of the increment by which a VDO is grown.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_slab_size_mb_default is defined and vdo_slab_size_mb_default is not none %}
+{% if vdo_slab_size_mb_default is defined and vdo_slab_size_mb_default is not none and (vdo_slab_size_mb_default is number or vdo_slab_size_mb_default is boolean or vdo_slab_size_mb_default | length > 0) %}	vdo_slab_size_mb = {{ vdo_slab_size_mb_default }}{% else %}	# vdo_slab_size_mb = 2048{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_ack_threads.
+	# Specifies the number of threads to use for acknowledging completion of requested VDO I/O operations.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_ack_threads_default is defined and vdo_ack_threads_default is not none %}
+{% if vdo_ack_threads_default is defined and vdo_ack_threads_default is not none and (vdo_ack_threads_default is number or vdo_ack_threads_default is boolean or vdo_ack_threads_default | length > 0) %}	vdo_ack_threads = {{ vdo_ack_threads_default }}{% else %}	# vdo_ack_threads = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_bio_threads.
+	# Specifies the number of threads to use for submitting I/O operations to the storage device of VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_bio_threads_default is defined and vdo_bio_threads_default is not none %}
+{% if vdo_bio_threads_default is defined and vdo_bio_threads_default is not none and (vdo_bio_threads_default is number or vdo_bio_threads_default is boolean or vdo_bio_threads_default | length > 0) %}	vdo_bio_threads = {{ vdo_bio_threads_default }}{% else %}	# vdo_bio_threads = 4{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_bio_rotation.
+	# Specifies the number of I/O operations to enqueue for each bio-submission thread.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_bio_rotation_default is defined and vdo_bio_rotation_default is not none %}
+{% if vdo_bio_rotation_default is defined and vdo_bio_rotation_default is not none and (vdo_bio_rotation_default is number or vdo_bio_rotation_default is boolean or vdo_bio_rotation_default | length > 0) %}	vdo_bio_rotation = {{ vdo_bio_rotation_default }}{% else %}	# vdo_bio_rotation = 64{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_cpu_threads.
+	# Specifies the number of threads to use for CPU-intensive work such as hashing or compression for VDO volume.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_cpu_threads_default is defined and vdo_cpu_threads_default is not none %}
+{% if vdo_cpu_threads_default is defined and vdo_cpu_threads_default is not none and (vdo_cpu_threads_default is number or vdo_cpu_threads_default is boolean or vdo_cpu_threads_default | length > 0) %}	vdo_cpu_threads = {{ vdo_cpu_threads_default }}{% else %}	# vdo_cpu_threads = 2{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_hash_zone_threads.
+	# Specifies the number of threads across which to subdivide parts of the VDO processing based on the hash value.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_hash_zone_threads_default is defined and vdo_hash_zone_threads_default is not none %}
+{% if vdo_hash_zone_threads_default is defined and vdo_hash_zone_threads_default is not none and (vdo_hash_zone_threads_default is number or vdo_hash_zone_threads_default is boolean or vdo_hash_zone_threads_default | length > 0) %}	vdo_hash_zone_threads = {{ vdo_hash_zone_threads_default }}{% else %}	# vdo_hash_zone_threads = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_logical_threads.
+	# Specifies the number of threads across which to subdivide parts of the VDO processing based on the hash value.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_logical_threads_default is defined and vdo_logical_threads_default is not none %}
+{% if vdo_logical_threads_default is defined and vdo_logical_threads_default is not none and (vdo_logical_threads_default is number or vdo_logical_threads_default is boolean or vdo_logical_threads_default | length > 0) %}	vdo_logical_threads = {{ vdo_logical_threads_default }}{% else %}	# vdo_logical_threads = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_physical_threads.
+	# Specifies the number of threads across which to subdivide parts of the VDO processing based on physical block addresses.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_physical_threads_default is defined and vdo_physical_threads_default is not none %}
+{% if vdo_physical_threads_default is defined and vdo_physical_threads_default is not none and (vdo_physical_threads_default is number or vdo_physical_threads_default is boolean or vdo_physical_threads_default | length > 0) %}	vdo_physical_threads = {{ vdo_physical_threads_default }}{% else %}	# vdo_physical_threads = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_max_discard.
+	# Specified the maximum size of discard bio accepted, in 4096 byte blocks.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_max_discard_default is defined and vdo_max_discard_default is not none %}
+{% if vdo_max_discard_default is defined and vdo_max_discard_default is not none and (vdo_max_discard_default is number or vdo_max_discard_default is boolean or vdo_max_discard_default | length > 0) %}	vdo_max_discard = {{ vdo_max_discard_default }}{% else %}	# vdo_max_discard = 1{% endif %}
+	{% endif %}
+
+	# Configuration option allocation/vdo_pool_header_size.
+	# Specified the empty header size in KiB at the front and end of vdo pool device.
+	# Default: None (uses LVM builtin default).
+	{% if vdo_pool_header_size_default is defined and vdo_pool_header_size_default is not none %}
+{% if vdo_pool_header_size_default is defined and vdo_pool_header_size_default is not none and (vdo_pool_header_size_default is number or vdo_pool_header_size_default is boolean or vdo_pool_header_size_default | length > 0) %}	vdo_pool_header_size = {{ vdo_pool_header_size_default }}{% else %}	# vdo_pool_header_size = 512{% endif %}
+	{% endif %}
+}
+
+# Configuration section log.
+# How LVM log information is reported.
+log {
+
+	# Configuration option log/report_command_log.
+	# Enable or disable LVM log reporting.
+	# Default: None (uses LVM builtin default).
+	{% if report_command_log_default is defined and report_command_log_default is not none %}
+{% if report_command_log_default is defined and report_command_log_default is not none and (report_command_log_default is number or report_command_log_default is boolean or report_command_log_default | length > 0) %}	report_command_log = {{ report_command_log_default }}{% else %}	# report_command_log = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/command_log_sort.
+	# List of columns to sort by when reporting command log.
+	# Default: None (uses LVM builtin default).
+	{% if command_log_sort_default is defined and command_log_sort_default is not none %}
+{% if command_log_sort_default is defined and command_log_sort_default is not none and (command_log_sort_default is number or command_log_sort_default is boolean or command_log_sort_default | length > 0) %}	command_log_sort = "{{ command_log_sort_default }}"{% else %}	# command_log_sort = "log_seq_num"{% endif %}
+	{% endif %}
+
+	# Configuration option log/command_log_cols.
+	# List of columns to report when reporting command log.
+	# Default: None (uses LVM builtin default).
+	{% if command_log_cols_default is defined and command_log_cols_default is not none %}
+{% if command_log_cols_default is defined and command_log_cols_default is not none and (command_log_cols_default is number or command_log_cols_default is boolean or command_log_cols_default | length > 0) %}	command_log_cols = "{{ command_log_cols_default }}"{% else %}	# command_log_cols = "log_seq_num,log_type,log_context,log_object_type,log_object_name,log_object_id,log_object_group,log_object_group_id,log_message,log_errno,log_ret_code"{% endif %}
+	{% endif %}
+
+	# Configuration option log/command_log_selection.
+	# Selection criteria used when reporting command log.
+	# Default: None (uses LVM builtin default).
+	{% if command_log_selection_default is defined and command_log_selection_default is not none %}
+{% if command_log_selection_default is defined and command_log_selection_default is not none and (command_log_selection_default is number or command_log_selection_default is boolean or command_log_selection_default | length > 0) %}	command_log_selection = "{{ command_log_selection_default }}"{% else %}	# command_log_selection = "!(log_type=status && message=success)"{% endif %}
+	{% endif %}
+
+	# Configuration option log/verbose.
+	# Controls the messages sent to stdout or stderr.
+	# Default: None (uses LVM builtin default).
+	{% if verbose_default is defined and verbose_default is not none %}
+{% if verbose_default is defined and verbose_default is not none and (verbose_default is number or verbose_default is boolean or verbose_default | length > 0) %}	verbose = {{ verbose_default }}{% else %}	# verbose = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/silent.
+	# Suppress all non-essential messages from stdout.
+	# Default: None (uses LVM builtin default).
+	{% if silent_default is defined and silent_default is not none %}
+{% if silent_default is defined and silent_default is not none and (silent_default is number or silent_default is boolean or silent_default | length > 0) %}	silent = {{ silent_default }}{% else %}	# silent = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/syslog.
+	# Send log messages through syslog.
+	# Default: None (uses LVM builtin default).
+	{% if syslog_default is defined and syslog_default is not none %}
+{% if syslog_default is defined and syslog_default is not none and (syslog_default is number or syslog_default is boolean or syslog_default | length > 0) %}	syslog = {{ syslog_default }}{% else %}	# syslog = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/journal.
+	# Record lvm information in the systemd journal.
+	# Accepted values: command, output, debug.
+	# Default: None (uses LVM builtin default).
+	{% if journal_default is defined and journal_default is not none %}
+{% if journal_default is defined and journal_default is not none and (journal_default is number or journal_default is boolean or journal_default | length > 0) %}	journal = [ "{{ journal_default }}" ]{% else %}	# journal = [ ]{% endif %}
+	{% endif %}
+
+	# Configuration option log/overwrite.
+	# Overwrite the log file each time the program is run.
+	# Default: None (uses LVM builtin default).
+	{% if overwrite_default is defined and overwrite_default is not none %}
+{% if overwrite_default is defined and overwrite_default is not none and (overwrite_default is number or overwrite_default is boolean or overwrite_default | length > 0) %}	overwrite = {{ overwrite_default }}{% else %}	# overwrite = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/level.
+	# The level of log messages that are sent to the log file or syslog.
+	# Default: None (uses LVM builtin default).
+	{% if level_default is defined and level_default is not none %}
+{% if level_default is defined and level_default is not none and (level_default is number or level_default is boolean or level_default | length > 0) %}	level = {{ level_default }}{% else %}	# level = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/indent.
+	# Indent messages according to their severity.
+	# Default: 0.
+{% if indent_default is defined and indent_default is not none and indent_default != '' %}	indent = {{ indent_default }}{% else %}	# indent = 0{% endif %}
+
+	# Configuration option log/command_names.
+	# Display the command name on each line of output.
+	# Default: None (uses LVM builtin default).
+	{% if command_names_default is defined and command_names_default is not none %}
+{% if command_names_default is defined and command_names_default is not none and (command_names_default is number or command_names_default is boolean or command_names_default | length > 0) %}	command_names = {{ command_names_default }}{% else %}	# command_names = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/prefix.
+	# A prefix to use before the log message text.
+	# Default: None (uses LVM builtin default).
+	{% if prefix_default is defined and prefix_default is not none %}
+{% if prefix_default is defined and prefix_default is not none and (prefix_default is number or prefix_default is boolean or prefix_default | length > 0) %}	prefix = "{{ prefix_default }}"{% else %}	# prefix = "  "{% endif %}
+	{% endif %}
+
+	# Configuration option log/activation.
+	# Log messages during activation.
+	# Default: None (uses LVM builtin default).
+	{% if activation_default is defined and activation_default is not none %}
+{% if activation_default is defined and activation_default is not none and activation_default != '' %}	activation = {{ activation_default }}{% else %}	# activation = 0{% endif %}
+	{% endif %}
+
+	# Configuration option log/debug_classes.
+	# Select log messages by class.
+	# Default: None (uses LVM builtin default).
+	{% if debug_classes_default is defined and debug_classes_default is not none %}
+{% if debug_classes_default is defined and debug_classes_default is not none and (debug_classes_default is number or debug_classes_default is boolean or debug_classes_default | length > 0) %}	debug_classes = [ "{{ debug_classes_default }}" ]{% else %}	# debug_classes = [ "memory", "devices", "io", "activation", "allocation", "metadata", "cache", "locking", "lvmpolld", "dbus" ]{% endif %}
+	{% endif %}
+
+	# Configuration option log/debug_file_fields.
+	# The fields included in debug output written to log file.
+	# Default: None (uses LVM builtin default).
+	{% if debug_file_fields_default is defined and debug_file_fields_default is not none %}
+{% if debug_file_fields_default is defined and debug_file_fields_default is not none and (debug_file_fields_default is number or debug_file_fields_default is boolean or debug_file_fields_default | length > 0) %}	debug_file_fields = [ "{{ debug_file_fields_default }}" ]{% else %}	# debug_file_fields = [ "time", "command", "fileline", "message" ]{% endif %}
+	{% endif %}
+
+	# Configuration option log/debug_output_fields.
+	# The fields included in debug output written to stderr.
+	# Default: None (uses LVM builtin default).
+	{% if debug_output_fields_default is defined and debug_output_fields_default is not none %}
+{% if debug_output_fields_default is defined and debug_output_fields_default is not none and (debug_output_fields_default is number or debug_output_fields_default is boolean or debug_output_fields_default | length > 0) %}	debug_output_fields = [ "{{ debug_output_fields_default }}" ]{% else %}	# debug_output_fields = [ "time", "command", "fileline", "message" ]{% endif %}
+	{% endif %}
+}
+
+# Configuration section backup.
+# How LVM metadata is backed up and archived.
+backup {
+
+	# Configuration option backup/backup.
+	# Maintain a backup of the current metadata configuration.
+	# Default: None (uses LVM builtin default).
+	{% if backup_default is defined and backup_default is not none %}
+{% if backup_default is defined and backup_default is not none and backup_default != '' %}	backup = {{ backup_default }}{% else %}	# backup = 1{% endif %}
+	{% endif %}
+
+	# Configuration option backup/backup_dir.
+	# Location of the metadata backup files.
+	# Default: None (uses LVM builtin default).
+	{% if backup_dir_default is defined and backup_dir_default is not none %}
+{% if backup_dir_default is defined and backup_dir_default is not none and (backup_dir_default is number or backup_dir_default is boolean or backup_dir_default | length > 0) %}	backup_dir = "{{ backup_dir_default }}"{% else %}	# backup_dir = "/etc/lvm/backup"{% endif %}
+	{% endif %}
+
+	# Configuration option backup/archive.
+	# Maintain an archive of old metadata configurations.
+	# Default: None (uses LVM builtin default).
+	{% if archive_default is defined and archive_default is not none %}
+{% if archive_default is defined and archive_default is not none and (archive_default is number or archive_default is boolean or archive_default | length > 0) %}	archive = {{ archive_default }}{% else %}	# archive = 1{% endif %}
+	{% endif %}
+
+	# Configuration option backup/archive_dir.
+	# Location of the metadata archive files.
+	# Default: None (uses LVM builtin default).
+	{% if archive_dir_default is defined and archive_dir_default is not none %}
+{% if archive_dir_default is defined and archive_dir_default is not none and (archive_dir_default is number or archive_dir_default is boolean or archive_dir_default | length > 0) %}	archive_dir = "{{ archive_dir_default }}"{% else %}	# archive_dir = "/etc/lvm/archive"{% endif %}
+	{% endif %}
+
+	# Configuration option backup/retain_min.
+	# Minimum number of archives to keep.
+	# Default: None (uses LVM builtin default).
+	{% if retain_min_default is defined and retain_min_default is not none %}
+{% if retain_min_default is defined and retain_min_default is not none and (retain_min_default is number or retain_min_default is boolean or retain_min_default | length > 0) %}	retain_min = {{ retain_min_default }}{% else %}	# retain_min = 10{% endif %}
+	{% endif %}
+
+	# Configuration option backup/retain_days.
+	# Minimum number of days to keep archive files.
+	# Default: None (uses LVM builtin default).
+	{% if retain_days_default is defined and retain_days_default is not none %}
+{% if retain_days_default is defined and retain_days_default is not none and (retain_days_default is number or retain_days_default is boolean or retain_days_default | length > 0) %}	retain_days = {{ retain_days_default }}{% else %}	# retain_days = 30{% endif %}
+	{% endif %}
+}
+
+# Configuration section shell.
+# Settings for running LVM in shell (readline) mode.
+shell {
+
+	# Configuration option shell/history_size.
+	# Number of lines of history to store in ~/.lvm_history.
+	# Default: None (uses LVM builtin default).
+	{% if history_size_default is defined and history_size_default is not none %}
+{% if history_size_default is defined and history_size_default is not none and (history_size_default is number or history_size_default is boolean or history_size_default | length > 0) %}	history_size = {{ history_size_default }}{% else %}	# history_size = 100{% endif %}
+	{% endif %}
+}
+
+# Configuration section global.
+# Miscellaneous global LVM settings.
+global {
+
+	# Configuration option global/umask.
+	# The file creation mask for any files and directories created.
+	# Default: None (uses LVM builtin default).
+	{% if umask_default is defined and umask_default is not none %}
+{% if umask_default is defined and umask_default is not none and (umask_default is number or umask_default is boolean or umask_default | length > 0) %}	umask = {{ umask_default }}{% else %}	# umask = 077{% endif %}
+	{% endif %}
+
+	# Configuration option global/test.
+	# No on-disk metadata changes will be made in test mode.
+	# Default: None (uses LVM builtin default).
+	{% if test_default is defined and test_default is not none %}
+{% if test_default is defined and test_default is not none and (test_default is number or test_default is boolean or test_default | length > 0) %}	test = {{ test_default }}{% else %}	# test = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/units.
+	# Default value for --units argument.
+	# Default: None (uses LVM builtin default).
+	{% if units_default is defined and units_default is not none %}
+{% if units_default is defined and units_default is not none and (units_default is number or units_default is boolean or units_default | length > 0) %}	units = "{{ units_default }}"{% else %}	# units = "r"{% endif %}
+	{% endif %}
+
+	# Configuration option global/si_unit_consistency.
+	# Distinguish between powers of 1024 and 1000 bytes.
+	# Default: None (uses LVM builtin default).
+	{% if si_unit_consistency_default is defined and si_unit_consistency_default is not none %}
+{% if si_unit_consistency_default is defined and si_unit_consistency_default is not none and (si_unit_consistency_default is number or si_unit_consistency_default is boolean or si_unit_consistency_default | length > 0) %}	si_unit_consistency = {{ si_unit_consistency_default }}{% else %}	# si_unit_consistency = 1{% endif %}
+	{% endif %}
+
+	# Configuration option global/suffix.
+	# Display unit suffix for sizes.
+	# Default: None (uses LVM builtin default).
+	{% if suffix_default is defined and suffix_default is not none %}
+{% if suffix_default is defined and suffix_default is not none and (suffix_default is number or suffix_default is boolean or suffix_default | length > 0) %}	suffix = {{ suffix_default }}{% else %}	# suffix = 1{% endif %}
+	{% endif %}
+
+	# Configuration option global/activation.
+	# Enable/disable communication with the kernel device-mapper.
+	# Default: 1.
+{% if activation_global_default is defined and activation_global_default is not none and activation_global_default != '' %}	activation = {{ activation_global_default }}{% else %}	# activation = 0{% endif %}
+
+	# Configuration option global/proc.
+	# Location of proc filesystem.
+	# Default: None (uses LVM builtin default).
+	{% if proc_default is defined and proc_default is not none %}
+{% if proc_default is defined and proc_default is not none and (proc_default is number or proc_default is boolean or proc_default | length > 0) %}	proc = "{{ proc_default }}"{% else %}	# proc = ""{% endif %}
+	{% endif %}
+
+	# Configuration option global/etc.
+	# Location of /etc system configuration directory.
+	# Default: None (uses LVM builtin default).
+	{% if etc_default is defined and etc_default is not none %}
+{% if etc_default is defined and etc_default is not none and (etc_default is number or etc_default is boolean or etc_default | length > 0) %}	etc = "{{ etc_default }}"{% else %}	# etc = "/etc"{% endif %}
+	{% endif %}
+
+	# Configuration option global/wait_for_locks.
+	# When disabled, fail if a lock request would block.
+	# Default: None (uses LVM builtin default).
+	{% if wait_for_locks_default is defined and wait_for_locks_default is not none %}
+{% if wait_for_locks_default is defined and wait_for_locks_default is not none and (wait_for_locks_default is number or wait_for_locks_default is boolean or wait_for_locks_default | length > 0) %}	wait_for_locks = {{ wait_for_locks_default }}{% else %}	# wait_for_locks = 1{% endif %}
+	{% endif %}
+
+	# Configuration option global/locking_dir.
+	# Directory to use for LVM command file locks.
+	# Default: None (uses LVM builtin default).
+	{% if locking_dir_default is defined and locking_dir_default is not none %}
+{% if locking_dir_default is defined and locking_dir_default is not none and (locking_dir_default is number or locking_dir_default is boolean or locking_dir_default | length > 0) %}	locking_dir = "{{ locking_dir_default }}"{% else %}	# locking_dir = "/run/lock/lvm"{% endif %}
+	{% endif %}
+
+	# Configuration option global/prioritise_write_locks.
+	# Allow quicker VG write access during high volume read access.
+	# Default: None (uses LVM builtin default).
+	{% if prioritise_write_locks_default is defined and prioritise_write_locks_default is not none %}
+{% if prioritise_write_locks_default is defined and prioritise_write_locks_default is not none and (prioritise_write_locks_default is number or prioritise_write_locks_default is boolean or prioritise_write_locks_default | length > 0) %}	prioritise_write_locks = {{ prioritise_write_locks_default }}{% else %}	# prioritise_write_locks = 1{% endif %}
+	{% endif %}
+
+	# Configuration option global/abort_on_internal_errors.
+	# Abort a command that encounters an internal error.
+	# Default: None (uses LVM builtin default).
+	{% if abort_on_internal_errors_default is defined and abort_on_internal_errors_default is not none %}
+{% if abort_on_internal_errors_default is defined and abort_on_internal_errors_default is not none and (abort_on_internal_errors_default is number or abort_on_internal_errors_default is boolean or abort_on_internal_errors_default | length > 0) %}	abort_on_internal_errors = {{ abort_on_internal_errors_default }}{% else %}	# abort_on_internal_errors = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/metadata_read_only.
+	# No operations that change on-disk metadata are permitted.
+	# Default: None (uses LVM builtin default).
+	{% if metadata_read_only_default is defined and metadata_read_only_default is not none %}
+{% if metadata_read_only_default is defined and metadata_read_only_default is not none and (metadata_read_only_default is number or metadata_read_only_default is boolean or metadata_read_only_default | length > 0) %}	metadata_read_only = {{ metadata_read_only_default }}{% else %}	# metadata_read_only = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/mirror_segtype_default.
+	# The segment type used by the short mirroring option -m.
+	# Accepted values: mirror, raid1.
+	# Default: None (uses LVM builtin default).
+	{% if mirror_segtype_default_default is defined and mirror_segtype_default_default is not none %}
+{% if mirror_segtype_default_default is defined and mirror_segtype_default_default is not none and (mirror_segtype_default_default is number or mirror_segtype_default_default is boolean or mirror_segtype_default_default | length > 0) %}	mirror_segtype_default = "{{ mirror_segtype_default_default }}"{% else %}	# mirror_segtype_default = "raid1"{% endif %}
+	{% endif %}
+
+	# Configuration option global/support_mirrored_mirror_log.
+	# Enable mirrored 'mirror' log type for testing.
+	# Default: None (uses LVM builtin default).
+	{% if support_mirrored_mirror_log_default is defined and support_mirrored_mirror_log_default is not none %}
+{% if support_mirrored_mirror_log_default is defined and support_mirrored_mirror_log_default is not none and (support_mirrored_mirror_log_default is number or support_mirrored_mirror_log_default is boolean or support_mirrored_mirror_log_default | length > 0) %}	support_mirrored_mirror_log = {{ support_mirrored_mirror_log_default }}{% else %}	# support_mirrored_mirror_log = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/raid10_segtype_default.
+	# The segment type used by the -i -m combination.
+	# Accepted values: raid10, mirror.
+	# Default: None (uses LVM builtin default).
+	{% if raid10_segtype_default_default is defined and raid10_segtype_default_default is not none %}
+{% if raid10_segtype_default_default is defined and raid10_segtype_default_default is not none and (raid10_segtype_default_default is number or raid10_segtype_default_default is boolean or raid10_segtype_default_default | length > 0) %}	raid10_segtype_default = "{{ raid10_segtype_default_default }}"{% else %}	# raid10_segtype_default = "raid10"{% endif %}
+	{% endif %}
+
+	# Configuration option global/sparse_segtype_default.
+	# The segment type used by the -V -L combination.
+	# Accepted values: snapshot, thin.
+	# Default: None (uses LVM builtin default).
+	{% if sparse_segtype_default_default is defined and sparse_segtype_default_default is not none %}
+{% if sparse_segtype_default_default is defined and sparse_segtype_default_default is not none and (sparse_segtype_default_default is number or sparse_segtype_default_default is boolean or sparse_segtype_default_default | length > 0) %}	sparse_segtype_default = "{{ sparse_segtype_default_default }}"{% else %}	# sparse_segtype_default = "thin"{% endif %}
+	{% endif %}
+
+	# Configuration option global/lvdisplay_shows_full_device_path.
+	# Enable this to reinstate the previous lvdisplay name format.
+	# Default: None (uses LVM builtin default).
+	{% if lvdisplay_shows_full_device_path_default is defined and lvdisplay_shows_full_device_path_default is not none %}
+{% if lvdisplay_shows_full_device_path_default is defined and lvdisplay_shows_full_device_path_default is not none and (lvdisplay_shows_full_device_path_default is number or lvdisplay_shows_full_device_path_default is boolean or lvdisplay_shows_full_device_path_default | length > 0) %}	lvdisplay_shows_full_device_path = {{ lvdisplay_shows_full_device_path_default }}{% else %}	# lvdisplay_shows_full_device_path = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/event_activation.
+	# Disable event based autoactivation commands.
+	# Default: None (uses LVM builtin default).
+	{% if event_activation_default is defined and event_activation_default is not none %}
+{% if event_activation_default is defined and event_activation_default is not none and (event_activation_default is number or event_activation_default is boolean or event_activation_default | length > 0) %}	event_activation = {{ event_activation_default }}{% else %}	# event_activation = 1{% endif %}
+	{% endif %}
+
+	# Configuration option global/use_aio.
+	# Use async I/O when reading and writing devices.
+	# Default: None (uses LVM builtin default).
+	{% if use_aio_default is defined and use_aio_default is not none %}
+{% if use_aio_default is defined and use_aio_default is not none and (use_aio_default is number or use_aio_default is boolean or use_aio_default | length > 0) %}	use_aio = {{ use_aio_default }}{% else %}	# use_aio = 1{% endif %}
+	{% endif %}
+
+	# Configuration option global/use_lvmlockd.
+	# Use lvmlockd for locking among hosts using LVM on shared storage.
+	# Default: None (uses LVM builtin default).
+	{% if use_lvmlockd_default is defined and use_lvmlockd_default is not none %}
+{% if use_lvmlockd_default is defined and use_lvmlockd_default is not none and (use_lvmlockd_default is number or use_lvmlockd_default is boolean or use_lvmlockd_default | length > 0) %}	use_lvmlockd = {{ use_lvmlockd_default }}{% else %}	# use_lvmlockd = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/lvmlockd_lock_retries.
+	# Retry lvmlockd lock requests this many times.
+	# Default: None (uses LVM builtin default).
+	{% if lvmlockd_lock_retries_default is defined and lvmlockd_lock_retries_default is not none %}
+{% if lvmlockd_lock_retries_default is defined and lvmlockd_lock_retries_default is not none and (lvmlockd_lock_retries_default is number or lvmlockd_lock_retries_default is boolean or lvmlockd_lock_retries_default | length > 0) %}	lvmlockd_lock_retries = {{ lvmlockd_lock_retries_default }}{% else %}	# lvmlockd_lock_retries = 3{% endif %}
+	{% endif %}
+
+	# Configuration option global/sanlock_lv_extend.
+	# Size in MiB to extend the internal LV holding sanlock locks.
+	# Default: None (uses LVM builtin default).
+	{% if sanlock_lv_extend_default is defined and sanlock_lv_extend_default is not none %}
+{% if sanlock_lv_extend_default is defined and sanlock_lv_extend_default is not none and (sanlock_lv_extend_default is number or sanlock_lv_extend_default is boolean or sanlock_lv_extend_default | length > 0) %}	sanlock_lv_extend = {{ sanlock_lv_extend_default }}{% else %}	# sanlock_lv_extend = 256{% endif %}
+	{% endif %}
+
+	# Configuration option global/sanlock_align_size.
+	# The sanlock lease size in MiB to use on disks with a 4K sector size.
+	# Default: None (uses LVM builtin default).
+	{% if sanlock_align_size_default is defined and sanlock_align_size_default is not none %}
+{% if sanlock_align_size_default is defined and sanlock_align_size_default is not none and (sanlock_align_size_default is number or sanlock_align_size_default is boolean or sanlock_align_size_default | length > 0) %}	sanlock_align_size = {{ sanlock_align_size_default }}{% else %}	# sanlock_align_size = 8{% endif %}
+	{% endif %}
+
+	# Configuration option global/lvmlockctl_kill_command.
+	# The command that lvmlockctl --kill should use to force LVs offline.
+	# Default: None (uses LVM builtin default).
+	{% if lvmlockctl_kill_command_default is defined and lvmlockctl_kill_command_default is not none %}
+{% if lvmlockctl_kill_command_default is defined and lvmlockctl_kill_command_default is not none and (lvmlockctl_kill_command_default is number or lvmlockctl_kill_command_default is boolean or lvmlockctl_kill_command_default | length > 0) %}	lvmlockctl_kill_command = "{{ lvmlockctl_kill_command_default }}"{% else %}	# lvmlockctl_kill_command = ""{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_check_executable.
+	# The full path to the thin_check command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_check_executable_default is defined and thin_check_executable_default is not none %}
+{% if thin_check_executable_default is defined and thin_check_executable_default is not none and (thin_check_executable_default is number or thin_check_executable_default is boolean or thin_check_executable_default | length > 0) %}	thin_check_executable = "{{ thin_check_executable_default }}"{% else %}	# thin_check_executable = "/usr/sbin/thin_check"{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_dump_executable.
+	# The full path to the thin_dump command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_dump_executable_default is defined and thin_dump_executable_default is not none %}
+{% if thin_dump_executable_default is defined and thin_dump_executable_default is not none and (thin_dump_executable_default is number or thin_dump_executable_default is boolean or thin_dump_executable_default | length > 0) %}	thin_dump_executable = "{{ thin_dump_executable_default }}"{% else %}	# thin_dump_executable = "/usr/sbin/thin_dump"{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_repair_executable.
+	# The full path to the thin_repair command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_repair_executable_default is defined and thin_repair_executable_default is not none %}
+{% if thin_repair_executable_default is defined and thin_repair_executable_default is not none and (thin_repair_executable_default is number or thin_repair_executable_default is boolean or thin_repair_executable_default | length > 0) %}	thin_repair_executable = "{{ thin_repair_executable_default }}"{% else %}	# thin_repair_executable = "/usr/sbin/thin_repair"{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_restore_executable.
+	# The full path to the thin_restore command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_restore_executable_default is defined and thin_restore_executable_default is not none %}
+{% if thin_restore_executable_default is defined and thin_restore_executable_default is not none and (thin_restore_executable_default is number or thin_restore_executable_default is boolean or thin_restore_executable_default | length > 0) %}	thin_restore_executable = "{{ thin_restore_executable_default }}"{% else %}	# thin_restore_executable = "/usr/sbin/thin_restore"{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_check_options.
+	# List of options passed to the thin_check command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_check_options_default is defined and thin_check_options_default is not none %}
+{% if thin_check_options_default is defined and thin_check_options_default is not none and (thin_check_options_default is number or thin_check_options_default is boolean or thin_check_options_default | length > 0) %}	thin_check_options = [ {{ thin_check_options_default | tojson }} ]{% else %}	# thin_check_options = [ "-q", "--clear-needs-check-flag" ]{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_repair_options.
+	# List of options passed to the thin_repair command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_repair_options_default is defined and thin_repair_options_default is not none %}
+{% if thin_repair_options_default is defined and thin_repair_options_default is not none and (thin_repair_options_default is number or thin_repair_options_default is boolean or thin_repair_options_default | length > 0) %}	thin_repair_options = [ {{ thin_repair_options_default | tojson }} ]{% else %}	# thin_repair_options = [ "" ]{% endif %}
+	{% endif %}
+
+	# Configuration option global/thin_restore_options.
+	# List of options passed to the thin_restore command.
+	# Default: None (uses LVM builtin default).
+	{% if thin_restore_options_default is defined and thin_restore_options_default is not none %}
+{% if thin_restore_options_default is defined and thin_restore_options_default is not none and (thin_restore_options_default is number or thin_restore_options_default is boolean or thin_restore_options_default | length > 0) %}	thin_restore_options = [ {{ thin_restore_options_default | tojson }} ]{% else %}	# thin_restore_options = [ "" ]{% endif %}
+	{% endif %}
+
+	# Configuration option global/command_names.
+	# Display the command name on each line of output.
+	# Default: None (uses LVM builtin default).
+	{% if command_names_global_default is defined and command_names_global_default is not none %}
+{% if command_names_global_default is defined and command_names_global_default is not none and (command_names_global_default is number or command_names_global_default is boolean or command_names_global_default | length > 0) %}	command_names = {{ command_names_global_default }}{% else %}	# command_names = 0{% endif %}
+	{% endif %}
+
+	# Configuration option global/prefix.
+	# A prefix to use before the log message text.
+	# Default: None (uses LVM builtin default).
+	{% if prefix_global_default is defined and prefix_global_default is not none %}
+{% if prefix_global_default is defined and prefix_global_default is not none and (prefix_global_default is number or prefix_global_default is boolean or prefix_global_default | length > 0) %}	prefix = "{{ prefix_global_default }}"{% else %}	# prefix = "  "{% endif %}
+	{% endif %}
+}

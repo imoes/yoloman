@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!--
+    D-Bus Policy Configuration for accountsservice-redhat
+  
+    This configuration file defines the security policies for the D-Bus system bus
+    regarding the accountsservice daemon. It restricts service ownership to the root
+    user and allows general access to the service's public interface.
+  -->
+
+  <!--
+    Policy for the root user:
+    Allows the root user exclusively to own the accountsservice D-Bus service.
+    No other user or system process can claim this service name unless root releases it.
+  -->
+  <policy user="root">
+    <!--
+      The D-Bus service name owned by accountsservice.
+      Default: org.freedesktop.Accounts
+      This ensures the service is correctly identified on the bus.
+    -->
+    <allow own="{{ dbus_service_name | default('org.freedesktop.Accounts') }}"/>
+  </policy>
+
+  <!--
+    Default Policy:
+    Controls access for all other users and services not covered by specific rules above.
+    This section permits reading properties and introspecting the service, which is
+    necessary for client applications to discover and interact with user account information.
+  -->
+  <policy context="default">
+    <!--
+      Allow sending method calls to the main accountsservice daemon.
+      This enables clients to query and modify account data.
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.Accounts') }}"/>
+
+    <!--
+      Allow access to the standard D-Bus Properties interface.
+      This permits reading configuration and state properties exposed by the daemon.
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.Accounts') }}"
+           send_interface="org.freedesktop.DBus.Properties"/>
+
+    <!--
+      Allow access to the standard D-Bus Introspectable interface.
+      This permits clients to discover available methods and signals exposed by the daemon.
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.Accounts') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+
+    <!--
+      Allow sending method calls to the User sub-object of accountsservice.
+      This enables interaction with user-specific account data.
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.Accounts') }}.User"
+           send_interface="org.freedesktop.DBus.Properties"/>
+
+    <!--
+      Allow introspection of the User sub-object.
+      This permits clients to discover user-specific methods and properties.
+    -->
+    <allow send_destination="{{ dbus_service_name | default('org.freedesktop.Accounts') }}.User"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+  </policy>
+
+</busconfig>

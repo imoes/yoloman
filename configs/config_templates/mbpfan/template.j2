@@ -1,8 +1,9 @@
 [general]
 # see https://ineed.coffee/3838/a-beginners-tutorial-for-mbpfan-under-ubuntu for the values
 # 
-# mbpfan will load the max / min speed of from the files produced by the applesmc driver. If these files are not found it will set all fans to the default of min_speed = {{ min_fan_speed }} and max_speed = {{ max_fan_speed }}
-# by setting the values for the speeds in this config it will override whatever it finds in:
+{% if min_fan_speed is defined and min_fan_speed is not none and (min_fan_speed is number or min_fan_speed is boolean or min_fan_speed | length > 0) %}mbpfan will load the max / min speed of from the files produced by the applesmc driver. If these files are not found it will set all fans to the default of min_speed = {{ min_fan_speed }} and max_speed = {{ max_fan_speed }}
+{% else %}# mbpfan will load the max / min speed of from the files produced by the applesmc driver. If these files are not found it will set all fans to the default of min_speed = 2000 and max_speed = 6200
+{% endif %}# by setting the values for the speeds in this config it will override whatever it finds in:
 # /sys/devices/platform/applesmc.768/fan*_min
 # /sys/devices/platform/applesmc.768/fan*_max
 # or the defaults.
@@ -10,9 +11,11 @@
 # multiple fans can be configured by using the config key of min_fan*_speed and max_fan*_speed
 # the number used will correlate to the file number of the fan in the applesmc driver that are used to control the fan speed.
 #
-#min_fan1_speed = {{ min_fan_speed }}	# put the *lowest* value of "cat /sys/devices/platform/applesmc.768/fan*_min"
-#max_fan1_speed = {{ max_fan_speed }}	# put the *highest* value of "cat /sys/devices/platform/applesmc.768/fan*_max"
-
+{% if min_fan_speed is defined and min_fan_speed is not none and (min_fan_speed is number or min_fan_speed is boolean or min_fan_speed | length > 0) %}min_fan1_speed = {{ min_fan_speed }}	# put the *lowest* value of "cat /sys/devices/platform/applesmc.768/fan*_min"
+{% else %}#min_fan1_speed = 2000	# put the *lowest* value of "cat /sys/devices/platform/applesmc.768/fan*_min"
+{% endif %}{% if max_fan_speed is defined and max_fan_speed is not none and (max_fan_speed is number or max_fan_speed is boolean or max_fan_speed | length > 0) %}max_fan1_speed = {{ max_fan_speed }}	# put the *highest* value of "cat /sys/devices/platform/applesmc.768/fan*_max"
+{% else %}#max_fan1_speed = 6200	# put the *highest* value of "cat /sys/devices/platform/applesmc.768/fan*_max"
+{% endif %}
 # temperature units in celcius
 low_temp = {{ low_temp_threshold }}			# if temperature is below this, fans will run at minimum speed
 high_temp = {{ medium_temp_threshold }}			# if temperature is above this, fan speed will gradually increase

@@ -3,6 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { OUNode, OUNodeInput } from '../../../core/models/ou.model';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface OuNodeDialogData {
   nodes: OUNode[];
@@ -15,7 +16,7 @@ export interface OuNodeDialogData {
 @Component({
   selector: 'app-ou-node-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
+  imports: [BlockedReasonDirective, ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>New OU</h2>
     <mat-dialog-content [formGroup]="form">
@@ -33,7 +34,7 @@ export interface OuNodeDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Create</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">Create</button>
     </mat-dialog-actions>
   `,
 })

@@ -1,148 +1,77 @@
 {
-  "library_backend": {
-    "type": "string",
-    "default": "m3u",
-    "description": "Backend to use for the library (e.g., m3u, sqlite, file). m3u keeps playlists in M3U format files."
-  },
-  "core_max_history_size": {
+  "core_max_tracklist_length": {
     "type": "number",
-    "default": 100,
-    "description": "Maximum number of tracks to retain in the playback history."
+    "default": null,
+    "description": "Maximum number of tracks in the tracklist. (unset = Mopidy's default)"
   },
-  "local_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable scanning and playback of local music files."
-  },
-  "local_media_dir": {
+  "core_cache_dir": {
     "type": "string",
-    "default": "/var/lib/mopidy/media",
-    "description": "Directory containing local music files. Must be readable by the mopidy user."
+    "default": null,
+    "description": "Directory for cache files. (unset = Mopidy's default)"
   },
-  "local_scan_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Seconds to wait before re-scanning the media directory for changes."
-  },
-  "local_scan_flush_threshold": {
-    "type": "number",
-    "default": 1000,
-    "description": "Number of files to scan before flushing the library cache (tuning parameter)."
-  },
-  "local_scan_ignore_patterns": {
-    "type": "list",
-    "default": [
-      ".*",
-      "*~",
-      "*.pyc",
-      "*.pyo"
-    ],
-    "description": "List of filename glob patterns to skip during local scan."
-  },
-  "local_images_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable local image search (e.g., album art embedded or in the same folder)."
-  },
-  "local_images_search_dirs": {
-    "type": "list",
-    "default": [],
-    "description": "Additional directories to search for images (if not using default media_dir). Leave empty to use media_dir."
-  },
-  "file_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable the file backend to serve local files via the file:// URI scheme."
-  },
-  "file_media_dir": {
+  "core_data_dir": {
     "type": "string",
-    "default": "/var/lib/mopidy/media",
-    "description": "Base directory for file:// URIs (if different from local media_dir)."
+    "default": null,
+    "description": "Directory for persistent data. (unset = Mopidy's default)"
   },
-  "file_allowed_extensions": {
+  "logging_verbosity": {
+    "type": "number",
+    "default": null,
+    "description": "Log verbosity (-1 \u2026 4). (unset = Mopidy's default)"
+  },
+  "audio_output": {
+    "type": "string",
+    "default": null,
+    "description": "GStreamer audio sink, e.g. autoaudiosink or alsasink. (unset = Mopidy's default)"
+  },
+  "audio_mixer_volume": {
+    "type": "number",
+    "default": null,
+    "description": "Initial volume (0\u2013100). (unset = Mopidy's default)"
+  },
+  "file_media_dirs": {
     "type": "list",
-    "default": [
-      "mp3",
-      "flac",
-      "wav",
-      "ogg",
-      "m4a"
-    ],
-    "description": "File extensions that may be played via the file backend."
+    "default": null,
+    "description": "Media directories, each `path|Name`. (unset = Mopidy's default)"
   },
-  "http_enabled": {
+  "file_excluded_file_extensions": {
+    "type": "list",
+    "default": null,
+    "description": "File extensions to skip. (unset = Mopidy's default)"
+  },
+  "file_show_dotfiles": {
     "type": "bool",
-    "default": true,
-    "description": "Enable the HTTP server (provides web API, stream, and optional web UI)."
+    "default": null,
+    "description": "Show files and directories starting with a dot. (unset = Mopidy's default)"
+  },
+  "file_follow_symlinks": {
+    "type": "bool",
+    "default": null,
+    "description": "Follow symbolic links. (unset = Mopidy's default)"
   },
   "http_hostname": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "Network interface to bind to. Use '127.0.0.1' for localhost-only."
+    "default": null,
+    "description": "Address the HTTP server binds to. (unset = Mopidy's default)"
   },
   "http_port": {
     "type": "number",
-    "default": 6680,
-    "description": "TCP port for the HTTP API/stream."
+    "default": null,
+    "description": "HTTP port. (unset = Mopidy's default)"
   },
   "http_allowed_origins": {
     "type": "list",
-    "default": [],
-    "description": "List of allowed CORS origins (e.g., ['https://mydomain.com']). Empty = allow all."
+    "default": null,
+    "description": "Extra origins allowed for WebSocket and RPC requests. (unset = Mopidy's default)"
   },
-  "http_cors_headers": {
-    "type": "list",
-    "default": [],
-    "description": "Additional CORS headers to send (e.g., ['X-Requested-With'])."
-  },
-  "mpd_enabled": {
+  "http_csrf_protection": {
     "type": "bool",
-    "default": true,
-    "description": "Enable the MPD server for compatibility with MPD clients (e.g., ncmpcpp, Sonata)."
+    "default": null,
+    "description": "Require CSRF protection headers on RPC requests. (unset = Mopidy's default)"
   },
-  "mpd_hostname": {
+  "m3u_playlists_dir": {
     "type": "string",
-    "default": "0.0.0.0",
-    "description": "Network interface to bind MPD to."
-  },
-  "mpd_port": {
-    "type": "number",
-    "default": 6600,
-    "description": "TCP port for MPD connections."
-  },
-  "mpd_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password required for MPD clients (empty = no authentication)."
-  },
-  "webstats_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable the webstats extension, which logs track events to a JSON file (useful for analytics)."
-  },
-  "spotify_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Spotify playback (requires valid credentials from developer account)."
-  },
-  "spotify_username": {
-    "type": "string",
-    "default": "",
-    "description": "Spotify username (not email). Required if Spotify is enabled."
-  },
-  "spotify_password": {
-    "type": "string",
-    "default": "",
-    "description": "Spotify password."
-  },
-  "spotify_client_id": {
-    "type": "string",
-    "default": "",
-    "description": "Spotify App client ID."
-  },
-  "spotify_client_secret": {
-    "type": "string",
-    "default": "",
-    "description": "Spotify App client secret."
+    "default": null,
+    "description": "Directory for M3U playlists. (unset = Mopidy's default)"
   }
 }

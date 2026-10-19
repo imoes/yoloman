@@ -1,22 +1,119 @@
-# Enriched template for puppetserver report cleanup cron script.
-# Generated from Ansible role; see schema for field details.
-#!/bin/sh
+# ============================================================================
+# Puppet Server JRuby/Puppet Configuration Template
+# ============================================================================
+# This template generates the `jruby-puppet.conf` (or similar HOCON-style)
+# configuration file for Puppet Server. It manages the environment settings
+# for the embedded JRuby instance and its integration with the Puppet agent
+# code.
+# ============================================================================
 
-# Ensure the `puppet` command is available on the system path.
-# If not installed, exit cleanly without errors.
-command -v puppet >/dev/null || exit 0
+# --- JRuby and Puppet Environment Settings ---
+jruby-puppet: {
+    # (Read-only/Reserved) This list determines where JRuby searches for
+    # Ruby libraries. It typically points to the vendored Ruby gems shipped
+    # with Puppet Server. Do not modify unless troubleshooting gem loads.
+    ruby-load-path: [/usr/lib/puppetserver/ruby/vendor_ruby]
 
-# reportdir: Path to the Puppet report directory to be cleaned up by the cron job.
-# Default: /var/lib/puppet/reports
-reportdir="{{ reportdir | default('/var/lib/puppet/reports') }}"
+    # ========================================================================
+    # Gem Installation Home
+    # Description: The directory where `puppetserver gem` installs new gems.
+    #              This path is also used to locate installed gems at runtime.
+    # Schema Field: gem_home
+    # Default: /var/lib/puppetserver/jruby-gems
+    # ========================================================================
+    gem-home: {{ gem_home | default('/var/lib/puppetserver/jruby-gems') }}
 
-# Check if the report directory exists before attempting cleanup.
-if [ -e "$reportdir" ] ; then
-    # Delete report files older than 30 days.
-    find "$reportdir" -type f -ctime +30 -delete
+    # ========================================================================
+    # Gem Path Resolution
+    # Description: Defines the complete GEM_PATH for JRuby.
+    #              Must include the dynamic gem-home and any static vendored
+    #              gem directories. Using ${...} allows HOCON variable
+    #              interpolation at runtime.
+    # ========================================================================
+    gem-path: [${jruby-puppet.gem-home}, "/usr/lib/puppetserver/vendored-jruby-gems"]
 
-    # Remove empty subdirectories (but not the root directory itself).
-    find "$reportdir" -mindepth 1 -type d -empty -delete
-fi
+    # ========================================================================
+    # Server Directory Paths
+    # Description: Critical paths for Puppet Server operation.
+    #              Changes to these paths must also reflect in puppet.conf
+    #              for CLI tools to function correctly.
+    # See: https://docs.puppetlabs.com/puppetserver/latest/puppet_conf_setting_diffs.html
+    # ========================================================================
 
-exit 0
+    # (optional) Path to the Puppet configuration directory.
+    # Schema Field: server_conf_dir
+    # Default: /etc/puppet
+    # ========================================================================
+    server-conf-dir: {{ server_conf_dir | default('/etc/puppet') }}
+
+    # (optional) Path to the Puppet code environment root.
+    # Schema Field: server_code_dir
+    # Default: /etc/puppet/code
+    # ========================================================================
+    server-code-dir: {{ server_code_dir | default('/etc/puppet/code') }}
+
+    # (optional) Path to the Puppet Server variable state directory.
+    # Schema Field: server_var_dir
+    # Default: /var/lib/puppetserver
+    # ========================================================================
+    server-var-dir: {{ server_var_dir | default('/var/lib/puppetserver') }}
+
+    # (optional) Path to the runtime PID/state directory.
+    # Schema Field: server_run_dir
+    # Default: /run/puppetserver
+    # ========================================================================
+    server-run-dir: {{ server_run_dir | default('/run/puppetserver') }}
+
+    # (optional) Path to the log directory for Puppet Server.
+    # Schema Field: server_log_dir
+    # Default: /var/log/puppetserver
+    # ========================================================================
+    server-log-dir: {{ server_log_dir | default('/var/log/puppetserver') }}
+
+    # (optional) Maximum number of concurrent JRuby instances allowed.
+    # Uncomment and set if custom tuning is required.
+    # max-active-instances: 1
+
+    # (optional) Track lookups during compilation and send to PuppetDB.
+    # Uncomment to enable tracking.
+    # track-lookups: true
+}
+
+# --- HTTPS Client Request Settings ---
+http-client: {
+    # ========================================================================
+    # SSL/TLS Protocol Configuration
+    # Description: List of acceptable TLS protocols for outbound HTTPS requests.
+    #              Recommended to keep TLSv1.2 and TLSv1.3.
+    # ========================================================================
+    # ssl-protocols: [TLSv1.3, TLSv1.2]
+
+    # ========================================================================
+    # SSL/TLS Cipher Suite Configuration
+    # Description: List of acceptable cipher suites for HTTPS connections.
+    # ========================================================================
+    # cipher-suites: [
+    #   TLS_RSA_WITH_AES_256_CBC_SHA256,
+    #   TLS_RSA_WITH_AES_256_CBC_SHA,
+    #   TLS_RSA_WITH_AES_128_CBC_SHA256,
+    #   TLS_RSA_WITH_AES_128_CBC_SHA
+    # ]
+
+    # ========================================================================
+    # Metrics Enablement
+    # Description: Enable or disable HTTP client metrics collection.
+    # Default: true
+    # ========================================================================
+    # metrics-enabled: true
+}
+
+# --- Ruby Code Profiling Settings ---
+profiler: {
+    # ========================================================================
+    # Profiler Enablement
+    # Description: Enable or disable the profiler for the Ruby codebase.
+    #              Useful for performance debugging.
+    # Default: true
+    # ========================================================================
+    # enabled: true
+}

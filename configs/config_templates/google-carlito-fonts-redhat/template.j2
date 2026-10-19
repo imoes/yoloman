@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+    <!--
+      Font substitution configuration for Google Carlito Fonts (Red Hat).
+      This template configures fontconfig to substitute Microsoft proprietary fonts
+      with the free Carlito font family, ensuring visual consistency across platforms.
+    -->
+
+    <!--
+      Substitution Rule 1: Microsoft Font -> Carlito
+      When an application requests the original Microsoft font family,
+      fontconfig will accept the substitute font family instead.
+      This is the primary direction of substitution (e.g., Calibri -> Carlito).
+    -->
+    <alias binding="same">
+        <!--
+          Field: microsoft_font_family
+          Description: The original Microsoft font family name to be substituted.
+          Default: 'Calibri'
+        -->
+        <family>{{ microsoft_font_family | default('Calibri') }}</family>
+        <accept>
+            <!--
+              Field: substitute_font_family
+              Description: The substitute font family name provided by the package.
+              Default: 'Carlito'
+            -->
+            <family>{{ substitute_font_family | default('Carlito') }}</family>
+        </accept>
+    </alias>
+
+    <!--
+      Substitution Rule 2: Carlito -> Microsoft Font (Reverse/Default)
+      When an application requests the substitute font family, fontconfig defaults
+      back to the Microsoft font family. This ensures that if Carlito is missing
+      or broken, the system falls back gracefully to the expected Microsoft font
+      (assuming it is installed).
+    -->
+    <alias binding="same">
+        <!--
+          Field: substitute_font_family
+          Description: The substitute font family name provided by the package.
+          Default: 'Carlito'
+        -->
+        <family>{{ substitute_font_family | default('Carlito') }}</family>
+        <default>
+            <!--
+              Field: microsoft_font_family
+              Description: The original Microsoft font family name to be substituted.
+              Default: 'Calibri'
+            -->
+            <family>{{ microsoft_font_family | default('Calibri') }}</family>
+        </default>
+    </alias>
+</fontconfig>

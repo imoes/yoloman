@@ -1,22 +1,20 @@
-# ==============================================================================
-# pcaputils Configuration
-# ==============================================================================
-# This template configures the 'pcapdump' utility, which captures network traffic
-# on specified network interfaces.
-#
-# NOTE: This configuration is primarily for non-systemd environments.
-# On systemd systems, use: systemctl enable pcapdump@<instance>.service
-# The systemd service unit typically handles the `enabled` state.
+# Configuration for pcaputils (pcapdump wrapper)
+# Note: The 'enabled' variable is explicitly documented as "Not used on systemd systems" in the schema.
+# However, this template sets it as an environment variable or legacy flag.
+# ENABLED controls whether pcapdump is enabled by default (0 or 1).
+ENABLED={{ enabled_default | default('0') }}
 
-# ------------------------------------------------------------------------------
-# enabled_default: Whether pcapdump is enabled by default (0 or 1).
-# Not used on systemd systems.
-# 0 = disabled, 1 = enabled
-# ------------------------------------------------------------------------------
-ENABLED={{ (enabled_default | default(0)) | int }}
+# INSTANCES lists the network interfaces for which pcapdump instances should run.
+# These are passed to the systemctl unit templates via the @interface suffix.
+INSTANCES="{{ instance_names | default([]) | join(' ') }}"
 
-# ------------------------------------------------------------------------------
-# instance_names: List of network interfaces for pcapdump instances.
-# Examples: 'eth0', 'eth1', 'wlan0'
-# ------------------------------------------------------------------------------
-INSTANCES="{{ instance_names | default(['eth0']) | join(' ') }}"
+# Legacy/Non-systemd instruction:
+# If not running on a systemd system, you may need to manually enable the service.
+{% if instance_names is defined and instance_names is not none and (instance_names | length > 0) %}
+# Manual enable command for non-systemd or manual management:
+# Use systemctl enable pcapdump@{{ instance_names[0] }}.service
+{% else %}
+# No instances configured.
+# Default manual enable command (if needed):
+# Use systemctl enable pcapdump@eth0.service
+{% endif %}

@@ -79,8 +79,8 @@ import { ServiceUnit } from '../../../core/models/agent.model';
       .bm-mgmt-filter { flex: 1 1 260px; padding: 6px 10px; border: 1px solid var(--bm-border, #ccc); border-radius: 4px; }
       .bm-mgmt-count { color: var(--bm-muted, #888); font-size: 12px; }
       .bm-mgmt-loading { display: flex; justify-content: center; padding: 24px; }
-      .bm-mgmt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-      .bm-mgmt-table th, .bm-mgmt-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--bm-border, #eee); }
+      .bm-mgmt-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+      .bm-mgmt-table th, .bm-mgmt-table td { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--bm-border, #eee); }
       .bm-mgmt-unit { font-family: monospace; }
       .bm-mgmt-actions { white-space: nowrap; }
       .bm-active { color: #2e7d32; }

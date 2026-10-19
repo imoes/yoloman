@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- Match fonts for the specified language code (ISO 639-1). -->
+  <match>
+    <!-- Test if the font language attribute contains the target language code. -->
+    <test name="lang" compare="contains">
+      <!-- The ISO 639 language code to match against for applying this font rule. -->
+      <string>{{ lang_code | default('km') }}</string>
+    </test>
+    <!-- Test if the font family is the target generic family. -->
+    <test name="family">
+      <!-- The generic font family to target for replacement. -->
+      <string>{{ default_font_family | default('sans-serif') }}</string>
+    </test>
+    <!-- Prepend the Noto font to the font stack for matched fonts. -->
+    <edit name="family" mode="prepend">
+      <!-- The specific font family name to prepend for the matched fonts. -->
+      <string>{{ font_family_name | default('Noto Sans Khmer UI') }}</string>
+    </edit>
+    <!-- Disable hinting for this font context by appending false to the fonthashint property. -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether to append false to fonthashint, effectively disabling hinting for this context. -->
+      <bool>{{ font_hint_bool | default(false) }}</bool>
+    </edit>
+  </match>
+  <!-- Alias definition to ensure the Noto font is used when the generic family is requested. -->
+  <alias>
+    <!-- The specific font family name being aliased. -->
+    <family>{{ font_family_name | default('Noto Sans Khmer UI') }}</family>
+    <!-- The default generic family that should resolve to the specific font. -->
+    <default>
+      <!-- The generic font family name (e.g., sans-serif) that gets replaced. -->
+      <family>{{ default_font_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

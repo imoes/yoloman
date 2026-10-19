@@ -7,9 +7,9 @@ namespace AgenticMcp.Agent.Core;
 /// An <see cref="HttpClient"/> for fetching things inside the fleet, with the one proxy rule .NET gets wrong.
 ///
 /// <para><b>Measured on bossman-wintest, 2026-09-02.</b> The host carries the corporate proxy in its
-/// environment (<c>HTTP_PROXY=http://proxy.ippen.media:80</c>) and the matching bypass list
-/// (<c>NO_PROXY=localhost,127.0.0.1,.ippen.media,10.32.0.0/16</c>). Fetching an installer from a fleet-internal
-/// address — <c>http://10.32.28.130:8099/…</c>, inside that very CIDR — went to the proxy anyway and came back
+/// environment (<c>HTTP_PROXY=http://proxy.example.internal:80</c>) and the matching bypass list
+/// (<c>NO_PROXY=localhost,127.0.0.1,.example.internal,192.0.2.0/24</c>). Fetching an installer from a fleet-internal
+/// address — <c>http://192.0.2.130:8099/…</c>, inside that very CIDR — went to the proxy anyway and came back
 /// <b>503 Service Unavailable</b>, so <c>package</c> could not install anything from an internal repository.
 /// <c>curl.exe</c> on the same host, same environment, same URL: <b>200</b>.</para>
 ///
@@ -78,7 +78,7 @@ public static class ProxyPolicy
 
         foreach (var suffix in Bypass.Suffixes)
         {
-            // ".ippen.media" and "*.ippen.media" both mean "any host under it", and a bare "example.com"
+            // ".example.internal" and "*.example.internal" both mean "any host under it", and a bare "example.com"
             // means the host itself — the three spellings an operator actually writes.
             var s = suffix.TrimStart('*');
             if (s.StartsWith('.')

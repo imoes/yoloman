@@ -1,0 +1,35 @@
+fqcn: yoloman.cpu_governor
+name: cpu_governor
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Set the CPU frequency governor (and energy/performance preference) on all CPUs, live and boot-persistent
+description: >-
+  Kernel-tuning tunable (docs/kernel-tuning.md). Writes cpufreq/scaling_governor (and optionally
+  energy_performance_preference) of every CPU. Persistence follows the init system from
+  ctx.facts().kernel_caps: systemd hosts get /etc/tmpfiles.d/yoloman-cpufreq.conf, OpenRC hosts
+  /etc/local.d/yoloman-cpufreq.start. Returns before/after per distinct value, the persistence state
+  (live | persistent) and the rollback parameters. A host without a cpufreq driver (most VMs) fails
+  with "unsupported:" and the path that is missing.
+options:
+  governor:
+    type: str
+    description: Governor to set (must be listed in scaling_available_governors), e.g. performance, schedutil, powersave.
+  energy_performance_preference:
+    type: str
+    description: Optional EPP hint (intel_pstate/amd-pstate active mode), e.g. performance, balance_performance, power.
+  persistent:
+    type: bool
+    default: true
+    description: Also write the boot-persistent file. false changes only the running values and reports any persisted value that differs.
+  state:
+    type: str
+    default: present
+    choices: [present, absent]
+    description: absent removes yoloman's persistence file only; the running values are left as they are.
+examples: |
+  - yoloman.cpu_governor:
+      governor: performance
+  - yoloman.cpu_governor:
+      governor: schedutil
+      persistent: false

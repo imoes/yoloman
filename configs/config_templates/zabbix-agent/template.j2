@@ -1,63 +1,36 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          zabbix-agent
-# Required-Start:    $remote_fs $network
-# Required-Stop:    $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start zabbix-agent daemon
-# Description: Start zabbix-agent daemon
-### END INIT INFO
+# Logrotate configuration for Zabbix Agent daemon logs.
+# Managed by Ansible. Do not edit manually.
 
-NAME=zabbix_agentd
-DAEMON=/usr/sbin/$NAME
-# Exit if executable is not installed
-[ -x $DAEMON ] || exit 0
+/var/log/zabbix-agent/zabbix_agentd.log {
+    # Rotate logs weekly.
+    weekly
 
-DIR=/run/zabbix
-PID=$DIR/$NAME.pid
-RETRY=TERM/30/KILL/5
+    # Keep 7 rotated log files.
+    rotate 7
 
-# Load the VERBOSE setting and other rcS variables
-[ -f /etc/default/rcS ] && . /etc/default/rcS
+    # Compress old log files using gzip to save disk space.
+    compress
 
-# define LSB log_* functions.
-. /lib/lsb/init-functions
+    # Delay compression of the most recent rotated file until the next rotation cycle.
+    # This ensures the previously compressed file is fully closed and safe.
+    delaycompress
 
-_ev_ () {
-  [ "$VERBOSE" = "no" ] || eval $@
+    # Do not produce an error if the log file is missing.
+    missingok
+
+    # Do not rotate the log if it is empty.
+    notifempty
+
+    # Create new log files with these permissions, owned by the zabbix user and group.
+    # Defaults are taken from the schema: zabbix_agent_user='zabbix', zabbix_agent_group='zabbix'.
+    create 0640 {{ zabbix_agent_user | default('zabbix') }} {{ zabbix_agent_group | default('zabbix') }}
+
+    # Run the postrotate script only once for all log files (if multiple matched).
+    sharedscripts
+
+    # Reload the Zabbix Agent to reopen log files after rotation.
+    # Checks for the PID file to ensure the service is running before sending the signal.
+    postrotate
+        [ -e /run/zabbix/zabbix_agentd.pid ] && invoke-rc.d zabbix-agent force-reload >/dev/null || true
+    endscript
 }
-
-[ -d "$DIR" ] || mkdir "$DIR"
-# Set ownership of the runtime directory to the user and group under which zabbix-agent runs
-chown -R {{ zabbix_agent_user | default('zabbix') }}:{{ zabbix_agent_group | default('zabbix') }} "$DIR"
-export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
-
-case "$1" in
-  start)
-    start-stop-daemon --start --pidfile $PID --exec $DAEMON --test --quiet > /dev/null
-    [ $? -ne 0 ] && log_action_msg "$NAME is already running" && exit 0
-    _ev_ log_action_begin_msg \"$NAME starting\"
-    R=$(start-stop-daemon --start --pidfile $PID --exec $DAEMON --oknodo 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  stop)
-    _ev_ log_action_begin_msg "$NAME stopping"
-    R=$(start-stop-daemon --stop --pidfile $PID --exec $DAEMON --oknodo --retry=$RETRY 2>&1) \
-    && _ev_ log_action_end_msg 0 \"$R\" \
-    || _ev_ log_action_end_msg 1 \"$R\"
-  ;;
-  status)
-    ## return status 0 if process is running.
-    status_of_proc -p $PID "$DAEMON" "$NAME"
-  ;;
-  restart|force-reload)
-    $0 stop
-    $0 start
-  ;;
-  *)
-    echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
-    exit 1
-  ;;
-esac

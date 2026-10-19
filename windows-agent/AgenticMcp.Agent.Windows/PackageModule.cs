@@ -339,8 +339,8 @@ public sealed class PackageModule : IModule
         var target = Path.Combine(directory, Path.GetFileName(new Uri(url).LocalPath));
 
         // NOT `new HttpClient()`: that one uses HttpClient.DefaultProxy, which cannot read a CIDR entry in
-        // NO_PROXY. Measured on the host — an installer at http://10.32.28.130:8099/… inside the bypass
-        // list's own 10.32.0.0/16 was proxied anyway and came back 503, while curl.exe on the same host with
+        // NO_PROXY. Measured on the host — an installer at http://192.0.2.130:8099/… inside the bypass
+        // list's own 192.0.2.0/24 was proxied anyway and came back 503, while curl.exe on the same host with
         // the same environment got 200. See ProxyPolicy for the whole measurement.
         using var http = ProxyPolicy.CreateFleetHttpClient(TimeSpan.FromMinutes(30));
         var bytes = await http.GetByteArrayAsync(url, ct);

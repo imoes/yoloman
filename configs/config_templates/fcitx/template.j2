@@ -1,23 +1,42 @@
-# Fcitx Configuration Template
-# This template configures the Fcitx Input Method Framework.
-# It sets the global XIM compatibility settings and IM module names for GTK/Qt applications.
+# ============================================================================
+# Fcitx Input Method Configuration
+# ============================================================================
+# This configuration file sets up the Fcitx Input Method framework for the
+# current user session. It defines which X Input Method protocol to use,
+# the executable to launch, and integration modules for GTK and Qt applications.
+#
+# Variables:
+#   XIM           - Name of the X Input Method protocol to use (default: fcitx)
+#   XIM_PROGRAM   - Absolute path to the Fcitx server executable (default: /usr/bin/fcitx)
+#   XIM_ARGS      - Command-line arguments passed to the XIM server (default: "")
+#   GTK_IM_MODULE - GTK2/GTK3 input method module name (default: fcitx)
+#   QT_IM_MODULE  - Qt4/Qt5/Qt6 input method module name (default: fcitx)
+#   DEPENDS       - Package dependency string for this IM system (default: "fcitx")
+# ============================================================================
 
-# Name of the X Input Method to use
+# Name of the X Input Method to use.
+# Set to 'fcitx' to use the Fcitx XIM server, or 'xim' for generic XIM.
 XIM={{ XIM | default('fcitx') }}
 
-# Path to the XIM server executable
+# Path to the XIM server executable.
+# This is the binary that gets invoked when the XIM protocol is active.
 XIM_PROGRAM={{ XIM_PROGRAM | default('/usr/bin/fcitx') }}
 
-# Additional arguments for the XIM server
-# Note: Quotes are included in the default to ensure valid shell syntax if passed directly.
+# Additional arguments for the XIM server.
+# Useful for passing flags like `--daemon` or specific configuration paths.
 XIM_ARGS={{ XIM_ARGS | default('""') }}
 
-# IM module for GTK applications
+# IM module for GTK applications.
+# GTK applications look for this environment variable to load the input method
+# library. 'fcitx' loads the libfcitxgtk module.
 GTK_IM_MODULE={{ GTK_IM_MODULE | default('fcitx') }}
 
-# IM module for Qt applications
+# IM module for Qt applications.
+# Qt applications use this variable to determine the input method integration.
+# 'fcitx' loads the libfcitxplatforminputcontextplugin.
 QT_IM_MODULE={{ QT_IM_MODULE | default('fcitx') }}
 
-# Package dependency declaration
-# This field is informational for role dependencies; not a runtime config directive for fcitx itself.
+# Package dependency declaration.
+# This field is typically used by package managers or meta-packages to ensure
+# the correct IM framework is installed alongside dependent software.
 DEPENDS={{ DEPENDS | default('"fcitx"') }}

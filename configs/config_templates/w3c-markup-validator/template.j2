@@ -1,83 +1,183 @@
-#
-# list of accepted/preferred character encodings
-#
-# Syntax:
-#
-# charset/encoding      = ? result
-#
-# Note: charsets and results are lowercase, actions are uppercase
-#
-# ? indicates the action to take:
-# 1: OK, character supported
-# A: OK, character supported, Encode::Alias it to result
-# X: frequent error, e.g. starting with x-; ask user to replace with result
-# ERR: a charset we refuse, per some policy. Reason stated after ERR
+# W3C Markup Validation Service - Apache Configuration Snippet
+# This template configures the W3C Validator within an Apache web server.
+# It handles CGI execution, mod_perl integration, static file serving,
+# and rewrite rules for the validator interface.
 
-#e.g:
-# utf-8         = 1
-# some-alias    = A perl-Encode-name
-# odd-alias     = X good-alias
-# bad_charset   = ERR explain reason
+# -----------------------------------------------------------------------------
+# Directory paths and encoding definitions
+# -----------------------------------------------------------------------------
 
-{{ utf8_encoding }}                           = 1
-{{ utf16_encoding }}                          = 1
-{{ utf16be_encoding }}                        = 1
-{{ utf16le_encoding }}                        = 1
-{{ iso8859_1_encoding }}                      = 1
-{{ iso8859_2_encoding }}                      = 1
-{{ iso8859_3_encoding }}                      = 1
-{{ iso8859_4_encoding }}                      = 1
-{{ iso8859_5_encoding }}                      = 1
-{{ iso8859_6_encoding }}                      = 1
-# implicit bidi, but character encoding is the same
-{{ iso8859_6_i_encoding }}                    = A iso-8859-6
-{{ iso8859_7_encoding }}                      = 1
-{{ iso8859_8_encoding }}                      = 1
-# implicit bidi, but character encoding is the same
-{{ iso8859_8_i_encoding }}                    = A iso-8859-8
-{{ iso8859_9_encoding }}                      = 1
-{{ iso8859_10_encoding }}                     = 1
-{{ iso8859_11_encoding }}                     = 1
-# iso-8859-12 doesn't exist (yet?)
-{{ iso8859_13_encoding }}                     = 1
-{{ iso8859_14_encoding }}                     = 1
-{{ iso8859_15_encoding }}                     = 1
-{{ iso8859_16_encoding }}                     = 1
-{{ us_ascii_encoding }}                       = 1
-{{ iso2022_jp_encoding }}                     = 1
-{{ shift_jis_encoding }}                      = 1
-{{ euc_jp_encoding }}                         = 1
-{{ gb2312_encoding }}                         = 1
-{{ big5_encoding }}                           = 1
-{{ big5_hkscs_encoding }}                     = 1
-{{ iso2022_kr_encoding }}                     = 1
-{{ euc_kr_encoding }}                         = 1
-{{ gb18030_encoding }}                        = 1
-# 0xA0 is U+00A0 in ISO-8859-11 but undefined in tis-620
-# other than that the character encodings are equivalent
-{{ tis620_encoding }}                         = A iso-8859-11
-{{ koi8_r_encoding }}                         = 1
-{{ koi8_u_encoding }}                         = 1
-{{ iso_ir_111_encoding }}                     = 1
-{{ windows_1250_encoding }}                   = 1
-{{ windows_1251_encoding }}                   = 1
-{{ windows_1252_encoding }}                   = 1
-{{ windows_1253_encoding }}                   = 1
-{{ windows_1254_encoding }}                   = 1
-{{ windows_1255_encoding }}                   = 1
-{{ windows_1256_encoding }}                   = 1
-{{ windows_1257_encoding }}                   = 1
-# windows-1258                  = 1
-# Encode::Byte does not know 'macintosh' but MacRoman
-{{ macintosh_encoding }}                      = A MacRoman
-{{ ks_c_5601_1987_encoding }}                 = 1
-# Encode only knows the long hand version of 'ksc_5601'
-{{ ksc_5601_encoding }}                       = A KS_C_5601-1987
+# Directory where CGI binaries are located
+# {{ cgi_bin_dir | default('/usr/lib/cgi-bin') }}
+{% set cgi_bin_dir = cgi_bin_dir | default('/usr/lib/cgi-bin') %}
 
-{{ x_mac_roman_encoding }}                     = X macintosh
-{{ x_sjis_encoding }}                          = X shift_jis
-{{ iso8859_1_x_encoding }}                     = X iso-8859-1
-{{ ascii_x_encoding }}                         = X us-ascii
-{{ 8859_1_x_encoding }}                        = X iso-8859-1
-# this one is in IANA, but better use only windows-1252
-{{ iso8859_1_windows_3_1_x_encoding }}         = X windows-1252
+# Base directory for the validator's shared files and scripts
+# {{ validator_share_dir | default('/usr/share/w3c-markup-validator') }}
+{% set validator_share_dir = validator_share_dir | default('/usr/share/w3c-markup-validator') %}
+
+# Encoding aliases for character set support
+# {{ utf8_encoding | default('utf-8') }}
+{% set utf8_encoding = utf8_encoding | default('utf-8') %}
+# {{ utf16_encoding | default('utf-16') }}
+{% set utf16_encoding = utf16_encoding | default('utf-16') %}
+# {{ utf16be_encoding | default('utf-16be') }}
+{% set utf16be_encoding = utf16be_encoding | default('utf-16be') %}
+# {{ utf16le_encoding | default('utf-16le') }}
+{% set utf16le_encoding = utf16le_encoding | default('utf-16le') %}
+# {{ iso8859_1_encoding | default('iso-8859-1') }}
+{% set iso8859_1_encoding = iso8859_1_encoding | default('iso-8859-1') %}
+# {{ iso8859_2_encoding | default('iso-8859-2') }}
+{% set iso8859_2_encoding = iso8859_2_encoding | default('iso-8859-2') %}
+# {{ iso8859_3_encoding | default('iso-8859-3') }}
+{% set iso8859_3_encoding = iso8859_3_encoding | default('iso-8859-3') %}
+# {{ iso8859_4_encoding | default('iso-8859-4') }}
+{% set iso8859_4_encoding = iso8859_4_encoding | default('iso-8859-4') %}
+# {{ iso8859_5_encoding | default('iso-8859-5') }}
+{% set iso8859_5_encoding = iso8859_5_encoding | default('iso-8859-5') %}
+# {{ iso8859_6_encoding | default('iso-8859-6') }}
+{% set iso8859_6_encoding = iso8859_6_encoding | default('iso-8859-6') %}
+# {{ iso8859_6_i_encoding | default('iso-8859-6-i') }}
+{% set iso8859_6_i_encoding = iso8859_6_i_encoding | default('iso-8859-6-i') %}
+# {{ iso8859_7_encoding | default('iso-8859-7') }}
+{% set iso8859_7_encoding = iso8859_7_encoding | default('iso-8859-7') %}
+# {{ iso8859_8_encoding | default('iso-8859-8') }}
+{% set iso8859_8_encoding = iso8859_8_encoding | default('iso-8859-8') %}
+# {{ iso8859_8_i_encoding | default('iso-8859-8-i') }}
+{% set iso8859_8_i_encoding = iso8859_8_i_encoding | default('iso-8859-8-i') %}
+# {{ iso8859_9_encoding | default('iso-8859-9') }}
+{% set iso8859_9_encoding = iso8859_9_encoding | default('iso-8859-9') %}
+# {{ iso8859_10_encoding | default('iso-8859-10') }}
+{% set iso8859_10_encoding = iso8859_10_encoding | default('iso-8859-10') %}
+# {{ iso8859_11_encoding | default('iso-8859-11') }}
+{% set iso8859_11_encoding = iso8859_11_encoding | default('iso-8859-11') %}
+# {{ iso8859_13_encoding | default('iso-8859-13') }}
+{% set iso8859_13_encoding = iso8859_13_encoding | default('iso-8859-13') %}
+# {{ iso8859_14_encoding | default('iso-8859-14') }}
+{% set iso8859_14_encoding = iso8859_14_encoding | default('iso-8859-14') %}
+# {{ iso8859_15_encoding | default('iso-8859-15') }}
+{% set iso8859_15_encoding = iso8859_15_encoding | default('iso-8859-15') %}
+# {{ iso8859_16_encoding | default('iso-8859-16') }}
+{% set iso8859_16_encoding = iso8859_16_encoding | default('iso-8859-16') %}
+
+# -----------------------------------------------------------------------------
+# Rewrite Rules for Referer-dependent Redirects
+# -----------------------------------------------------------------------------
+# Note: check/referer is deprecated in favor of check?uri=referer
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirect old referer-style URLs to the new URI-based format
+    RewriteRule ^(/+w3c-validator/+check)/+referr?er$ $1?uri=referer [R=301,QSA,L]
+
+    # If Referer is present, redirect check?uri=referer to check?uri=$Referer
+    RewriteRule . - [E=have_uri_referer:false]
+    RewriteCond %{QUERY_STRING} (^|.*?[;&])ur[il]=referer([;&].*|$)
+    RewriteRule . - [E=qs1:%1,E=qs2:%2,E=have_uri_referer:true]
+    RewriteCond %{ENV:have_uri_referer} =true
+    RewriteCond %{HTTP_REFERER} ^(.+)$
+    RewriteRule ^/+w3c-validator/+check$ \
+                /w3c-validator/check?%{ENV:qs1}uri=%1%{ENV:qs2} [R,B,NE,L]
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# CGI Aliases
+# -----------------------------------------------------------------------------
+# Tell httpd that check and sendfeedback.pl are CGI scripts.
+
+Alias /w3c-validator/check {{ cgi_bin_dir | default('/usr/lib/cgi-bin') }}/w3c-markup-validator/check
+AliasMatch ^/+w3c-validator/+feedback(\.html)?$ \
+           {{ cgi_bin_dir | default('/usr/lib/cgi-bin') }}/w3c-markup-validator/sendfeedback.pl
+
+# -----------------------------------------------------------------------------
+# Mod_Perl 2.x Integration
+# -----------------------------------------------------------------------------
+# Note: this block affects the whole server, not just the validator.
+# To run the validator without mod_perl 2.x even if it is loaded, comment
+# out the "IfDefine MODPERL2" sections below.
+
+<IfDefine MODPERL2>
+    PerlSwitches -T
+    PerlPostConfigRequire {{ validator_share_dir | default('/usr/share/w3c-markup-validator') }}/mod_perl/startup.pl
+</IfDefine>
+
+# -----------------------------------------------------------------------------
+# Validator Location Block
+# -----------------------------------------------------------------------------
+# Configures access and handlers for the main validator and feedback pages.
+
+<LocationMatch "^/+w3c-validator/+(check|feedback(\.html)?)$">
+    Options               +ExecCGI
+    SetHandler            cgi-script
+
+    <IfDefine MODPERL2>
+        SetHandler            perl-script
+        PerlResponseHandler   ModPerl::Registry
+        PerlOptions           +ParseHeaders
+    </IfDefine>
+
+    Require all granted
+
+    # Environment settings affecting validator's outside connectivity, see
+    # LWP::UserAgent and Net::FTP documentation for details.
+    #SetEnv                http_proxy      http://proxy:3128
+    #SetEnv                https_proxy     http://proxy:3128
+    #SetEnv                ftp_proxy       http://proxy:3128
+    #SetEnv                no_proxy        localdomain
+    #SetEnv                FTP_PASSIVE     1
+</LocationMatch>
+
+# -----------------------------------------------------------------------------
+# Static Content Directory
+# -----------------------------------------------------------------------------
+# This is the directory where you have the validator's *.html, *.css etc files.
+
+Alias /w3c-validator/   {{ validator_share_dir | default('/usr/share/w3c-markup-validator') }}/html/
+
+<Directory {{ validator_share_dir | default('/usr/share/w3c-markup-validator') }}/html/>
+    Options               IncludesNOEXEC Indexes MultiViews
+    AllowOverride         None
+
+    AddHandler            server-parsed .html
+    AddCharset            {{ utf8_encoding | default('utf-8') }}         .html
+    AddEncoding           x-gzip        .gz
+
+    <Files *.js.gz>
+        ForceType           application/javascript
+    </Files>
+
+    <Files *.css.gz>
+        ForceType           text/css
+    </Files>
+
+    <IfModule mod_rewrite.c>
+        Options +SymLinksIfOwnerMatch
+        RewriteBase /w3c-validator/
+        RewriteRule fragment-upload(\.html)? detailed.html#validate-by-input [R,L,NE]
+        RewriteRule file-upload(\.html)? detailed.html#validate-by-upload [R,L,NE]
+    </IfModule>
+
+    <IfModule mod_expires.c>
+        ExpiresActive On
+        ExpiresByType image/gif A2592000
+        ExpiresByType image/png A2592000
+        ExpiresByType text/html A604800
+        ExpiresByType text/css A2592000
+        ExpiresByType text/javascript A2592000
+        ExpiresByType application/javascript A2592000
+        ExpiresByType application/ecmascript A2592000
+    </IfModule>
+
+    # See bug 608225
+    # Permission may be denied higher up so override here.
+    Require all granted
+
+    # That project doesn't use ap_expr yet: Enable legacy mode:
+    SSILegacyExprParser on
+</Directory>
+
+# -----------------------------------------------------------------------------
+# Atom News Feed
+# -----------------------------------------------------------------------------
+Redirect /w3c-validator/whatsnew.atom \
+         http://www.w3.org/QA/Tools/validator-whatsnew.atom

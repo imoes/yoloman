@@ -11,21 +11,22 @@
 # where we want the swapfile to be, this is the default
 # This variable specifies the absolute path to the swapfile.
 # Ensure the target partition has enough free space.
-CONF_SWAPFILE="{{ CONF_SWAPFILE | default('/var/swap') }}"
+{% if CONF_SWAPFILE is defined and CONF_SWAPFILE is not none and (CONF_SWAPFILE is number or CONF_SWAPFILE is boolean or CONF_SWAPFILE | length > 0) %}CONF_SWAPFILE="{{ CONF_SWAPFILE | default('/var/swap') }}"{% else %}#CONF_SWAPFILE=/var/swap{% endif %}
 
 
 # set size to absolute value, leaving empty (default) then uses computed value
 #   you most likely don't want this, unless you have an special disk situation
 # This variable sets the swapfile size to a specific value in megabytes.
 # If left empty, the size is computed dynamically using CONF_SWAPFACTOR.
-# CONF_SWAPSIZE={{ CONF_SWAPSIZE | default('', true) }}
-
+{% if CONF_SWAPSIZE is defined and CONF_SWAPSIZE is not none and (CONF_SWAPSIZE is number or CONF_SWAPSIZE is boolean or CONF_SWAPSIZE | length > 0) %}CONF_SWAPSIZE={{ CONF_SWAPSIZE | default('', true) }}
+{% else %}#CONF_SWAPSIZE=
+{% endif %}
 
 # set size to computed value, this times RAM size, dynamically adapts,
 #   guarantees that there is enough swap without wasting disk space on excess
 # This variable is a multiplier applied to the total RAM size to calculate
 # the dynamic swap size when CONF_SWAPSIZE is empty.
-CONF_SWAPFACTOR="{{ CONF_SWAPFACTOR | default(2) }}"
+{% if CONF_SWAPFACTOR is defined and CONF_SWAPFACTOR is not none and (CONF_SWAPFACTOR is number or CONF_SWAPFACTOR is boolean or CONF_SWAPFACTOR | length > 0) %}CONF_SWAPFACTOR="{{ CONF_SWAPFACTOR | default(2) }}"{% else %}#CONF_SWAPFACTOR=2{% endif %}
 
 
 # restrict size (computed and absolute!) to maximally this limit
@@ -35,4 +36,4 @@ CONF_SWAPFACTOR="{{ CONF_SWAPFACTOR | default(2) }}"
 # This variable sets the maximum allowed swap size in megabytes, applying
 # to both absolute (CONF_SWAPSIZE) and computed values.
 # A sensible default prevents accidental disk exhaustion.
-CONF_MAXSWAP="{{ CONF_MAXSWAP | default(2048) }}"
+{% if CONF_MAXSWAP is defined and CONF_MAXSWAP is not none and (CONF_MAXSWAP is number or CONF_MAXSWAP is boolean or CONF_MAXSWAP | length > 0) %}CONF_MAXSWAP="{{ CONF_MAXSWAP | default(2048) }}"{% else %}#CONF_MAXSWAP=2048{% endif %}

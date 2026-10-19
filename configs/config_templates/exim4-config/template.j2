@@ -1,19 +1,15 @@
-# /etc/email-addresses - Exim4 alias file
-# This file maps local system usernames to real email addresses for
-# outgoing mail sent by the exim Mail Transfer Agent (MTA).
-#
-# Format: <local_user>: <email_address>
-# Any local part (username) not present in this file will be qualified
-# by the system domain (e.g., user@hostname) as per standard exim behavior.
+# /etc/email-addresses
+# This file maps local system users to their full email addresses for outgoing mail.
+# Lines follow the format: local_part: full_email_address
+# If a local part is not listed here, Exim will qualify it using the configured domain.
 
-# Email address for the system administrator.
-# This address is used for outgoing mail from local users who do not have
-# an explicit mapping defined here or in other exim alias files.
-# Schema: admin_email
-{{ 'root' }}: {{ admin_email | default('admin@example.com') }}
+# List of email address aliases mapping local user names to their full email addresses.
+# Default is an empty dictionary if no aliases are provided.
+{% set aliases = email_addresses | default({}) %}
 
-# Email address for the postmaster.
-# This address is used for outgoing mail from other local users without
-# explicit mappings. Postmaster is a standard system account.
-# Schema: postmaster_email
-{{ 'postmaster' }}: {{ postmaster_email | default('postmaster@example.com') }}
+# Iterate over the provided email address aliases safely.
+# Uses dict2items to convert the mapping to a list of key-value pairs without calling Python methods.
+{% for item in aliases | dict2items %}
+# {{ item.key }}: Email alias for the local user '{{ item.key }}'
+{{ item.key }}: {{ item.value }}
+{% endfor %}

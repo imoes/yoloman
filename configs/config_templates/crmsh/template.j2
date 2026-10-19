@@ -26,8 +26,9 @@ interactive = {{ interactive | default(False) | lower }}
 
 ; Timeout in seconds for acquiring locks on cluster resources.
 ; Default: 120
-; lock_timeout = {{ lock_timeout | default(120) }}
-
+{% if lock_timeout is defined and lock_timeout is not none and (lock_timeout is number or lock_timeout is boolean or lock_timeout | length > 0) %}lock_timeout = {{ lock_timeout | default(120) }}
+{% else %}; lock_timeout = 120
+{% endif %}
 ; If true, skip confirmation prompts for dangerous operations (use with caution).
 ; Default: False
 ; noconfirm = {{ noconfirm | default(False) | lower }}
@@ -54,8 +55,9 @@ interactive = {{ interactive | default(False) | lower }}
 ; If you don't want to obscure, change the value to blank.
 ; Example: obscure_pattern = passw* | ip
 ; Default: 'passw*'
-; obscure_pattern = {{ obscure_pattern | default('passw*') }}
-
+{% if obscure_pattern is defined and obscure_pattern is not none and (obscure_pattern is number or obscure_pattern is boolean or obscure_pattern | length > 0) %}obscure_pattern = {{ obscure_pattern | default('passw*') }}
+{% else %}; obscure_pattern = passw*
+{% endif %}
 ; [path]
 ; This section defines system paths for crmsh and Pacemaker components.
 

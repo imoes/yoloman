@@ -1,28 +1,45 @@
-;; -*-emacs-lisp---
+;; -*-emacs-lisp-*-
 ;;
-;; {{ 'Emacs site-startup configuration file for ' ~ (package_name | default('c-sig')) | default('Emacs site-startup configuration file for c-sig') }}
-;; Managed by Ansible: do not edit manually.
+; Directory where the site-startup configuration file is installed
+; Default: None
+; Filename of the site-startup configuration file
+; Default: 50c-sig.el
+{% if config_dir is defined and config_dir is not none and (config_dir is number or config_dir is boolean or config_dir | length > 0) %}Emacs startup file, e.g.  {{ config_dir | default('') }}/{{ filename | default('50c-sig.el') }}
+{% else %};; Emacs startup file, e.g.  /etc/emacs/site-start.d/50c-sig.el
+{% endif %}
+; Name of the package whose elisp files are installed
+; Default: None
+{% if package_name is defined and package_name is not none and (package_name is number or package_name is boolean or package_name | length > 0) %}
+for the Debian {{ package_name | default('') }} package
+{% else %};; for the Debian c-sig package
+{% endif %}
 ;;
-;; Schema defaults:
-;;   config_dir:      '/etc/emacs/site-start.d' (Directory for site-startup files)
-;;   filename:        '50c-sig.el'          (Filename of this configuration file)
-;;   install_prefix:  '/usr/share/emacs/site-lisp' (Base installation prefix for site Lisp packages)
-;;   package_name:    'c-sig'              (Name of the Emacs Lisp package)
-
-;; The {{ package_name | default('c-sig') }} package follows the Debian/GNU Linux 'emacsen' policy and
-;; byte-compiles its elisp files for each 'emacs flavor' (emacs19,
-;; xemacs19, emacs20, xemacs20...).  The compiled code is then
-;; installed in a subdirectory of the respective site-lisp directory.
-;; We have to add this to the load-path:
-(let ((package-dir (concat "{{ install_prefix | default('/usr/share/emacs/site-lisp') }}/{{ package_name | default('c-sig') }}")))
-;; If package-dir does not exist, the {{ package_name | default('c-sig') }} package must have
-;; removed but not purged, and we should skip the setup.
+;; Originally contributed by Nils Naumann <naumann@unileoben.ac.at>
+;; Modified by Dirk Eddelbuettel <edd@debian.org>
+;; Adapted for dh-make by Jim Van Zandt <jrv@debian.org>
+;;
+; Base installation prefix for site Lisp packages
+; Default: /usr/share/emacs/site-lisp
+; Name of the package whose elisp files are installed
+; Default: None
+; The c-sig package follows the Debian/GNU Linux 'emacsen' policy and
+; byte-compiles its elisp files for each 'emacs flavor' (emacs19,
+; xemacs19, emacs20, xemacs20...).  The compiled code is then
+; installed in a subdirectory of the respective site-lisp directory.
+; We have to add this to the load-path:
+(let ((package-dir (concat "{{ install_prefix | default('/usr/share/emacs/site-lisp') }}/{{ package_name | default('') }}")))
+{% if package_name is defined and package_name is not none and (package_name is number or package_name is boolean or package_name | length > 0) %}
+  If package-dir does not exist, the {{ package_name | default('') }} package must have
+{% else %}
+  ;; If package-dir does not exist, the c-sig package must have
+{% endif %}
+  ;; removed but not purged, and we should skip the setup.
   (when (file-directory-p package-dir)
     (if (fboundp 'debian-pkg-add-load-path-item)
         (debian-pkg-add-load-path-item package-dir)
       (setq load-path (cons package-dir load-path)))
-    (autoload 'add-signature "{{ package_name | default('c-sig') }}" "{{ package_name | default('c-sig') }}" t)
-    (autoload 'delete-signature "{{ package_name | default('c-sig') }}" "{{ package_name | default('c-sig') }}" t)
-    (autoload 'insert-signature-eref "{{ package_name | default('c-sig') }}" "{{ package_name | default('c-sig') }}" t)
-    (autoload 'insert-signature-automatically "{{ package_name | default('c-sig') }}" "{{ package_name | default('c-sig') }}" t)
-    (autoload 'insert-signature-randomly "{{ package_name | default('c-sig') }}" "{{ package_name | default('c-sig') }}" t)))
+    (autoload 'add-signature "{{ package_name | default('') }}" "{{ package_name | default('') }}" t)
+    (autoload 'delete-signature "{{ package_name | default('') }}" "{{ package_name | default('') }}" t)
+    (autoload 'insert-signature-eref "{{ package_name | default('') }}" "{{ package_name | default('') }}" t)
+    (autoload 'insert-signature-automatically "{{ package_name | default('') }}" "{{ package_name | default('') }}" t)
+    (autoload 'insert-signature-randomly "{{ package_name | default('') }}" "{{ package_name | default('') }}" t)))

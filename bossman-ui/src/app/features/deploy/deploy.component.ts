@@ -11,6 +11,7 @@ import { PlanService, StoredPlan } from '../../core/services/plan.service';
 import { DeploymentRun, DeploymentService } from '../../core/services/deployment.service';
 import { Agent } from '../../core/models/agent.model';
 import { HostGroup } from '../../core/models/host-group.model';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface TreeRow { kind: 'folder' | 'plan'; label: string; depth: number; path?: string; plan?: StoredPlan; }
 interface ParamField { key: string; type: string; required: boolean; default: unknown; value: string; }
@@ -38,7 +39,7 @@ interface RunItem {
 @Component({
   selector: 'app-deploy',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-deploy">
       <!-- Left: plan library tree (drag a plan into the Run) -->
@@ -144,7 +145,7 @@ interface RunItem {
 
         @if (runItems().length) {
           <div class="bm-actions">
-            <button mat-raised-button color="primary" (click)="execute(true)" [disabled]="!canRun() || running()">
+            <button mat-raised-button color="primary" (click)="execute(true)" [disabled]="running()" [bmBlocked]="!runItems().length ? 'Add at least one plan to run' : !targetCount() ? 'Pick at least one target' : ''">
               @if (running()) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>visibility</mat-icon> } Dry-run all
             </button>
             @if (anyDryRunOk()) {
@@ -161,7 +162,13 @@ interface RunItem {
         <strong class="bm-tlabel">Hosts</strong>
         <div class="bm-checklist">
           @for (a of agents(); track a.id) {
+            @if (a.mode === 'cluster') {
+              <!-- A cluster is an aggregate of its member hosts: a plan runs on hosts, so it is shown, not offered. -->
+              <label class="bm-dim" [title]="'A cluster has no agent of its own — select its member hosts'">
+                <mat-checkbox [disabled]="true"></mat-checkbox> {{ a.name }} <span class="bm-dim">(cluster — select its member hosts)</span></label>
+            } @else {
             <label><mat-checkbox [checked]="selectedAgents().has(a.id)" (change)="toggleAgent(a.id)"></mat-checkbox> {{ a.name }}@if (!a.address) { <span class="bm-dim"> (no addr)</span> }</label>
+            }
           }
           @if (!agents().length) { <span class="bm-dim">No hosts.</span> }
         </div>
@@ -194,7 +201,7 @@ interface RunItem {
     .bm-run { border: 2px dashed transparent; border-radius: 8px; overflow: auto; padding: 4px 8px; }
     .bm-run-over { border-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 5%, transparent); }
     .bm-run h2 { margin: 8px 4px; font-size: 18px; }
-    .bm-drop-hint { display: flex; align-items: center; gap: 8px; opacity: 0.5; padding: 40px; justify-content: center; border: 2px dashed var(--mat-sys-outline-variant); border-radius: 8px; }
+    .bm-drop-hint { display: flex; align-items: center; gap: 8px; opacity: 0.62; padding: 40px; justify-content: center; border: 2px dashed var(--mat-sys-outline-variant); border-radius: 8px; }
     .bm-item { margin-bottom: 10px; }
     .bm-item-head { display: flex; align-items: center; gap: 8px; }
     .bm-item-name { font-family: monospace; font-weight: 600; }

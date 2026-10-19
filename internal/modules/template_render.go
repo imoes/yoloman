@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nikolalohinski/gonja/v2"
 	"github.com/nikolalohinski/gonja/v2/exec"
@@ -87,6 +88,12 @@ func (t *TemplateRender) Run(ctx context.Context, params map[string]any, dryRun 
 	if err != nil {
 		return Result{}, fmt.Errorf("template_render: render: %w", err)
 	}
+	// Ansible renders with preserve_trailing_newlines; gonja, like plain Jinja2, strips the template's final
+	// newline. These are Ansible templates, so the file must end the way the template does — measured: haproxy
+	// refuses a config without one ("Missing LF on last line, file might have been truncated").
+	if strings.HasSuffix(tmplText, "\n") && !strings.HasSuffix(rendered, strings.Repeat("\n", trailingNewlines(tmplText))) {
+		rendered = strings.TrimRight(rendered, "\n") + strings.Repeat("\n", trailingNewlines(tmplText))
+	}
 
 	existing, readErr := os.ReadFile(dest)
 	if readErr != nil && !os.IsNotExist(readErr) {
@@ -156,4 +163,9 @@ func normalizeValues(v any) any {
 	default:
 		return v
 	}
+}
+
+// trailingNewlines counts the newlines a template text ends with.
+func trailingNewlines(s string) int {
+	return len(s) - len(strings.TrimRight(s, "\n"))
 }

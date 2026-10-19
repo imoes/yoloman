@@ -28,6 +28,7 @@ import { HostStatusBadgeComponent } from '../host-status-badge/host-status-badge
 import { PerfOMeterComponent } from '../perf-o-meter/perf-o-meter.component';
 import { serviceStateBadge } from '../../status.util';
 import { BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
+import { StatusPillComponent } from '../../../shared/status-pill/status-pill.component';
 
 /** The polymorphic per-widget renderer for the GridStack dashboard (see
  * docs/plan.md's monitoring-cockpit ergänzung Block F5) — one component,
@@ -38,7 +39,7 @@ import { BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
 @Component({
   selector: 'app-dashboard-widget',
   standalone: true,
-  imports: [DatePipe, RouterLink, MatButtonModule, MatIconModule, NgxEchartsDirective, HostStatusBadgeComponent, PerfOMeterComponent],
+  imports: [StatusPillComponent, DatePipe, RouterLink, MatButtonModule, MatIconModule, NgxEchartsDirective, HostStatusBadgeComponent, PerfOMeterComponent],
   template: `
     <div class="bm-widget">
       <div class="bm-widget-header">
@@ -97,7 +98,7 @@ import { BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
                     <tr>
                       <td>{{ p.host }}</td>
                       <td>{{ p.name }}</td>
-                      <td><app-status-badge [status]="badgeOf(p.state)" [label]="p.state" /></td>
+                      <td><bm-status-pill [status]="p.state" /></td>
                       <td>{{ p.last_state_change | date: 'short' }}</td>
                     </tr>
                   }

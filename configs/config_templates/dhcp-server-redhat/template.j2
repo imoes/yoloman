@@ -1,0 +1,44 @@
+#
+# DHCP Server Configuration file (RedHat/CentOS).
+# This template generates a self-contained DHCP subnet configuration.
+# See /usr/share/doc/dhcp-server/dhcpd.conf.example for more details.
+# See dhcpd.conf(5) man page for syntax reference.
+#
+
+# Syslog facility used for logging DHCP server messages.
+log-facility {{ log_facility | default('local7') }};
+
+# Define the subnet scope for which this server will hand out addresses.
+subnet {{ subnet_cidr | default('192.168.1.0') }} netmask {{ subnet_netmask | default('255.255.255.0') }} {
+
+    # Define the pool of IP addresses available for dynamic assignment within this subnet.
+    range {{ range_start | default('192.168.1.100') }} {{ range_end | default('192.168.1.200') }};
+
+    # Option 3: Routers (Default Gateway)
+    # The default router/gateway IP address to offer to clients.
+    option routers {{ option_routers | default('192.168.1.254') }};
+
+    # Option 6: DNS Name Servers
+    # A list of DNS servers to offer to clients. Comma-separated if multiple.
+    option domain-name-servers {{ option_dns_servers | default('192.168.1.1') }};
+
+    # Option 44: NetBIOS Name Servers
+    # NetBIOS name servers (WINS) to offer to clients. Empty string results in no option sent.
+    # Note: DHCPv4 does not use NetBIOS heavily anymore, but legacy clients may require it.
+    {% if option_nbns_servers | default('') | trim | length > 0 %}
+    option netbios-name-servers {{ option_nbns_servers | default('') }};
+    {% endif %}
+
+    # Option 28: Broadcast Address
+    # The broadcast address for the subnet, used for local network communication.
+    option broadcast-address {{ broadcast_address | default('192.168.1.255') }};
+
+    # Default Lease Time
+    # The amount of time in seconds that an IP address lease is valid by default.
+    default-lease-time {{ default_lease_time | default('600') }};
+
+    # Maximum Lease Time
+    # The maximum amount of time in seconds for which an IP address lease may be renewed.
+    max-lease-time {{ max_lease_time | default('7200') }};
+
+}

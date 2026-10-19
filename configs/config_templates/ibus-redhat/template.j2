@@ -1,0 +1,56 @@
+# =============================================================================
+# IBus Input Method Configuration
+# =============================================================================
+# This file configures the IBus (Intelligent Input Bus) input method framework.
+# It defines how X11 and Qt/GTK applications interact with IBus.
+# =============================================================================
+
+# XIM: The X Input Method system to use.
+# Default: ibus
+XIM={{ XIM | default('ibus') }}
+
+# XIM_PROGRAM: Path to the XIM daemon program.
+# Default: /usr/bin/ibus-daemon
+XIM_PROGRAM="{{ XIM_PROGRAM | default('/usr/bin/ibus-daemon') }}"
+
+# ICON: Icon name for the input method.
+# Default: ibus
+ICON="{{ ICON | default('ibus') }}"
+
+# XIM_ARGS: Arguments passed to the XIM daemon.
+# Default: -r --xim
+XIM_ARGS="{{ XIM_ARGS | default('-r --xim') }}"
+
+# PREFERENCE_PROGRAM: Path to the preferences/settings program.
+# Default: /usr/bin/ibus-setup
+PREFERENCE_PROGRAM={{ PREFERENCE_PROGRAM | default('/usr/bin/ibus-setup') }}
+
+# SHORT_DESC: Short description of the input method framework.
+# Default: IBus
+SHORT_DESC="{{ SHORT_DESC | default('IBus') }}"
+
+# GTK_IM_MODULE: GTK input method module to use.
+# Default: ibus
+GTK_IM_MODULE={{ GTK_IM_MODULE | default('ibus') }}
+
+# NOT_RUN: Comma-separated list of environments where this should not run automatically.
+# Default: gnome3
+NOT_RUN={{ NOT_RUN | default('gnome3') }}
+
+# Qt Input Method Configuration
+# Detects available Qt platform input context plugins to determine whether
+# to use the native IBus plugin or fall back to XIM.
+
+if test -f /usr/lib64/qt5/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so || \
+   test -f /usr/lib/qt5/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so || \
+   test -f /usr/lib64/qt4/plugins/inputmethods/libqtim-ibus.so || \
+   test -f /usr/lib/qt4/plugins/inputmethods/libqtim-ibus.so;
+then
+    # Qt plugins detected: Use the native IBus input method module.
+    # Default: ibus
+    QT_IM_MODULE={{ QT_IM_MODULE_DEFAULT | default('ibus') }}
+else
+    # No Qt plugins detected: Fall back to X Input Method (XIM).
+    # Default: xim
+    QT_IM_MODULE={{ QT_IM_MODULE_FALLBACK | default('xim') }}
+fi

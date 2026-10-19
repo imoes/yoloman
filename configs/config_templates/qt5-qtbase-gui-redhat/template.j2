@@ -1,0 +1,52 @@
+{#
+  qt5-qtbase-gui-redhat configuration snippet
+  Forces Qt5 on X11/XCB backends to use software OpenGL rendering if the detected
+  OpenGL major version is below the specified threshold. This is useful for environments
+  with broken or missing hardware OpenGL drivers where hardware acceleration causes crashes.
+
+  This script is designed to be sourced or executed in a shell environment to set the
+  environment variable QT_XCB_FORCE_SOFTWARE_OPENGL.
+#}
+
+{#
+  Check if the override variable is already set. If it is, do not interfere with user preference.
+#}
+{% if not qt_xcb_force_software_opengl_version_threshold is defined or qt_xcb_force_software_opengl_version_threshold == "" %}
+{#
+  If no threshold is specified in the schema/variables, we default to '1' as per schema definition.
+  However, to keep the script logic clean, we usually rely on the environment variable being explicitly set or omitted.
+  The original logic checks if the env var is empty. We preserve that behavior.
+#}
+{% endif %}
+
+if [ -z "$QT_XCB_FORCE_SOFTWARE_OPENGL" ]; then
+
+  {#
+    Detect the OpenGL major version string from the system's glxinfo.
+    We use LANG=C to ensure consistent output parsing across locales.
+    If glxinfo fails, we default to an empty string or a value that won't trigger the switch,
+    effectively preserving existing behavior (no forced software rendering unless version is low).
+  #}
+  QT5_CHECK_OPENGL_VERSION=`LANG=C glxinfo 2> /dev/null | grep '^OpenGL version string: ' | head -n 1 | sed -e 's/^OpenGL version string: \([0-9]\).*$/\1/g'` || :
+
+  {#
+    Compare the detected major version against the threshold defined in the schema.
+    Default to '1' if the schema variable is not provided.
+  #}
+  {% set threshold = qt_xcb_force_software_opengl_version_threshold | default('1') %}
+
+  if [ "${QT5_CHECK_OPENGL_VERSION}" -lt "{{ threshold }}" ] 2>/dev/null; then
+    {#
+      Set the environment variable to 1 to force software OpenGL.
+      This ensures Qt5 does not attempt to use hardware-accelerated OpenGL that might be broken or too old.
+    #}
+    QT_XCB_FORCE_SOFTWARE_OPENGL=1
+    export QT_XCB_FORCE_SOFTWARE_OPENGL
+  fi
+
+  {#
+    Clean up the temporary detection variable.
+  #}
+  unset QT5_CHECK_OPENGL_VERSION
+
+fi

@@ -1,15 +1,35 @@
-# MUNGE configuration file (munge.conf)
-#
-# Munge (Unix Name Space Governance Extension) is used to provide a
-# credential service for secure user authentication. This template
-# configures the daemon's core runtime parameters.
+# Munge configuration file
+# Munge is used for authentication and credential delegation in HPC clusters.
 
-# Path to the symmetric secret key file (binary format).
-# Must be readable only by the munge user (mode 0400).
-# The munge daemon reads this key at startup to sign/verify credentials.
-key_file: {{ key_path | default('/etc/munge/munge.key') }}
+# num_workers: Number of worker threads to handle credential requests. Increase for high-throughput environments.
+# Default: 4
+num_workers {{ num_workers | default(4) }}
 
-# Number of worker threads to handle credential requests.
-# Increase for high-throughput environments.
-# Defaults to 4 if not specified.
-num_threads: {{ num_workers | default(4) }}
+# key_path: Path to the symmetric secret key file (binary format). Must be readable only by the munge user (mode 0400).
+# Default: /etc/munge/munge.key
+key_path {{ key_path | default('/etc/munge/munge.key') }}
+
+# Log rotation configuration for munge daemon logs.
+# This section defines how /var/log/munge/munged.log is managed by logrotate.
+/var/log/munge/munged.log {
+    # rotate: Keep this many rotated log files.
+    # Default: 1
+    rotate {{ rotate | default(1) }}
+
+    # size: Rotate when the log file reaches this size.
+    # Default: 100k
+    size {{ size | default('100k') }}
+
+    # copytruncate: Copy the log file and then truncate it to zero length, instead of moving and restarting the daemon.
+    # This is safer for daemons that hold file descriptors open and cannot be easily signaled to reopen logs.
+    copytruncate
+
+    # compress: Compress rotated log files using gzip.
+    compress
+
+    # nodelaycompress: Do not delay compression of the most recent rotated file; compress it immediately.
+    nodelaycompress
+
+    # missingok: Do not issue an error if the log file is missing.
+    missingok
+}

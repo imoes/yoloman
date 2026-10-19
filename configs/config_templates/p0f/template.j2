@@ -1,0 +1,1440 @@
+;
+; p0f - Application fingerprint database
+; ---------------------------------------
+;
+; This file defines signatures for identifying operating systems, web browsers,
+; and network tools by analyzing TCP and HTTP traffic patterns.
+; See the p0f documentation for a detailed discussion of the signature format.
+;
+
+; Email address for the copyright header.
+{% if admin_email is defined and admin_email is not none and (admin_email is number or admin_email is boolean or admin_email | length > 0) %}Copyright (C) 2012 by Michal Zalewski <{{ admin_email }}>
+{% else %}; Copyright (C) 2012 by Michal Zalewski <lcamtuf@coredump.cx>
+{% endif %};
+; Distributed under the terms and conditions of GNU LGPL.
+
+; The default OS classes to match against (comma-separated list).
+p0f_classes = {{ p0f_classes | default('win,unix,other') }}
+
+; ==============
+; MTU signatures
+; ==============
+; Defines Maximum Transmission Unit signatures for various link layer technologies.
+
+[mtu]
+
+; The most common values, used by Ethernet-homed systems, PPP over POTS, PPPoA DSL, etc.
+; MTU signature for Ethernet or modem (first value).
+label = Ethernet or modem
+sig   = {{ mtu_ethernet_1 | default(576) }}
+
+; MTU signature for Ethernet or modem (second value).
+sig   = {{ mtu_ethernet_2 | default(1500) }}
+
+; Common DSL-specific values (1492 is canonical for PPPoE, but ISPs tend to
+; horse around a bit).
+; MTU signature for DSL (first value).
+label = DSL
+sig   = {{ mtu_dsl_1 | default(1452) }}
+
+; MTU signature for DSL (second value).
+sig   = {{ mtu_dsl_2 | default(1454) }}
+
+; MTU signature for DSL (third value).
+sig   = {{ mtu_dsl_3 | default(1492) }}
+
+; Miscellaneous tunnels (including VPNs, IPv6 tunneling, etc).
+; MTU signature for GIF tunnel (first value).
+label = GIF
+sig   = {{ mtu_gif_1 | default(1240) }}
+
+; MTU signature for GIF tunnel (second value).
+sig   = {{ mtu_gif_2 | default(1280) }}
+
+; MTU signature for generic tunnel or VPN (first value).
+label = generic tunnel or VPN
+sig   = {{ mtu_tunnel_1 | default(1300) }}
+
+; MTU signature for generic tunnel or VPN (second value).
+sig   = {{ mtu_tunnel_2 | default(1400) }}
+
+; MTU signature for generic tunnel or VPN (third value).
+sig   = {{ mtu_tunnel_3 | default(1420) }}
+
+; MTU signature for generic tunnel or VPN (fourth value).
+sig   = {{ mtu_tunnel_4 | default(1440) }}
+
+; MTU signature for generic tunnel or VPN (fifth value).
+sig   = {{ mtu_tunnel_5 | default(1450) }}
+
+; MTU signature for generic tunnel or VPN (sixth value).
+sig   = {{ mtu_tunnel_6 | default(1460) }}
+
+; MTU signature for IPSec or GRE.
+label = IPSec or GRE
+sig   = {{ mtu_ipsec | default(1476) }}
+
+; MTU signature for IPIP or SIT.
+label = IPIP or SIT
+sig   = {{ mtu_ipip | default(1480) }}
+
+; MTU signature for PPTP.
+label = PPTP
+sig   = {{ mtu_pptp | default(1490) }}
+
+; Really exotic stuff.
+; MTU signature for AX.25 radio modem.
+label = AX.25 radio modem
+sig   = {{ mtu_ax25 | default(256) }}
+
+; MTU signature for SLIP.
+label = SLIP
+sig   = {{ mtu_slip | default(552) }}
+
+; MTU signature for Google.
+label = Google
+sig   = {{ mtu_google | default(1470) }}
+
+; MTU signature for VLAN.
+label = VLAN
+sig   = {{ mtu_vlan | default(1496) }}
+
+; MTU signature for Ericsson HIS modem.
+label = Ericsson HIS modem
+sig   = {{ mtu_ericsson | default(1656) }}
+
+; MTU signature for jumbo Ethernet.
+label = jumbo Ethernet
+sig   = {{ mtu_jumbo | default(9000) }}
+
+; Loopback interfaces on Linux and other systems.
+; MTU signature for loopback (first value).
+label = loopback
+sig   = {{ mtu_loopback_1 | default(3924) }}
+
+; MTU signature for loopback (second value).
+sig   = {{ mtu_loopback_2 | default(16384) }}
+
+; MTU signature for loopback (third value).
+sig   = {{ mtu_loopback_3 | default(16436) }}
+
+; ==================
+; TCP SYN signatures
+; ==================
+; Signatures for the initial TCP SYN packet.
+
+[tcp:request]
+
+; -----
+; Linux
+; -----
+
+; TCP SYN signature for Linux 3.11 and newer (first variant).
+label = s:unix:Linux:3.11 and newer
+sig   = {{ sig_linux_3_11_1 | default('*:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 3.11 and newer (second variant).
+sig   = {{ sig_linux_3_11_2 | default('*:64:0:*:mss*20,7:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 3.1-3.10 (first variant).
+label = s:unix:Linux:3.1-3.10
+sig   = {{ sig_linux_3_1_3_10_1 | default('*:64:0:*:mss*10,4:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 3.1-3.10 (second variant).
+sig   = {{ sig_linux_3_1_3_10_2 | default('*:64:0:*:mss*10,5:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 3.1-3.10 (third variant).
+sig   = {{ sig_linux_3_1_3_10_3 | default('*:64:0:*:mss*10,6:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 3.1-3.10 (fourth variant).
+sig   = {{ sig_linux_3_1_3_10_4 | default('*:64:0:*:mss*10,7:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; Fun fact: 2.6 with ws=7 seems to be really common for Amazon EC2, while 8 is
+; common for Yahoo and Twitter. There seem to be some other (rare) uses, though,
+; so not I'm not flagging these signatures in a special way.
+
+; TCP SYN signature for Linux 2.6.x (first variant).
+label = s:unix:Linux:2.6.x
+sig   = {{ sig_linux_2_6_1 | default('*:64:0:*:mss*4,6:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.6.x (second variant).
+sig   = {{ sig_linux_2_6_2 | default('*:64:0:*:mss*4,7:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.6.x (third variant).
+sig   = {{ sig_linux_2_6_3 | default('*:64:0:*:mss*4,8:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.4.x (first variant).
+label = s:unix:Linux:2.4.x
+sig   = {{ sig_linux_2_4_1 | default('*:64:0:*:mss*4,0:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.4.x (second variant).
+sig   = {{ sig_linux_2_4_2 | default('*:64:0:*:mss*4,1:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.4.x (third variant).
+sig   = {{ sig_linux_2_4_3 | default('*:64:0:*:mss*4,2:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; No real traffic seen for 2.2 & 2.0, signatures extrapolated from p0f2 data:
+
+; TCP SYN signature for Linux 2.2.x (first variant).
+label = s:unix:Linux:2.2.x
+sig   = {{ sig_linux_2_2_1 | default('*:64:0:*:mss*11,0:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.2.x (second variant).
+sig   = {{ sig_linux_2_2_2 | default('*:64:0:*:mss*20,0:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.2.x (third variant).
+sig   = {{ sig_linux_2_2_3 | default('*:64:0:*:mss*22,0:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.0 (first variant).
+label = s:unix:Linux:2.0
+sig   = {{ sig_linux_2_0_1 | default('*:64:0:*:mss*12,0:mss::0') }}
+
+; TCP SYN signature for Linux 2.0 (second variant).
+sig   = {{ sig_linux_2_0_2 | default('*:64:0:*:16384,0:mss::0') }}
+
+; Just to keep people testing locally happy (IPv4 & IPv6):
+
+; TCP SYN signature for Linux 3.x loopback (first variant).
+label = s:unix:Linux:3.x (loopback)
+sig   = {{ sig_linux_loopback_3_1 | default('*:64:0:16396:mss*2,4:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 3.x loopback (second variant).
+sig   = {{ sig_linux_loopback_3_2 | default('*:64:0:16376:mss*2,4:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.6.x loopback (first variant).
+label = s:unix:Linux:2.6.x (loopback)
+sig   = {{ sig_linux_loopback_2_6_1 | default('*:64:0:16396:mss*2,2:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.6.x loopback (second variant).
+sig   = {{ sig_linux_loopback_2_6_2 | default('*:64:0:16376:mss*2,2:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.4.x loopback.
+label = s:unix:Linux:2.4.x (loopback)
+sig   = {{ sig_linux_loopback_2_4_1 | default('*:64:0:16396:mss*2,0:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux 2.2.x loopback.
+label = s:unix:Linux:2.2.x (loopback)
+sig   = {{ sig_linux_loopback_2_2_1 | default('*:64:0:3884:mss*8,0:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; Various distinctive flavors of Linux:
+
+; TCP SYN signature for Linux 2.6.x Google crawler.
+label = s:unix:Linux:2.6.x (Google crawler)
+sig   = {{ sig_linux_google_crawler | default('4:64:0:1430:mss*4,6:mss,sok,ts,nop,ws::0') }}
+
+; TCP SYN signature for Linux Android (first variant).
+label = s:unix:Linux:(Android)
+sig   = {{ sig_linux_android_1 | default('*:64:0:*:mss*44,1:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Linux Android (second variant).
+sig   = {{ sig_linux_android_2 | default('*:64:0:*:mss*44,3:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; Catch-all rules:
+
+; TCP SYN catch-all for Linux 3.x.
+label = g:unix:Linux:3.x
+sig   = {{ sig_linux_catchall_3x | default('*:64:0:*:mss*10,*:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN catch-all for Linux 2.4.x-2.6.x.
+label = g:unix:Linux:2.4.x-2.6.x
+sig   = {{ sig_linux_catchall_24_26 | default('*:64:0:*:mss*4,*:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN catch-all for Linux 2.2.x-3.x.
+label = g:unix:Linux:2.2.x-3.x
+sig   = {{ sig_linux_catchall_22_3x | default('*:64:0:*:*,*:mss,sok,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN catch-all for Linux 2.2.x-3.x no timestamps.
+label = g:unix:Linux:2.2.x-3.x (no timestamps)
+sig   = {{ sig_linux_catchall_no_ts | default('*:64:0:*:*,*:mss,nop,nop,sok,nop,ws:df,id+:0') }}
+
+; TCP SYN catch-all for Linux 2.2.x-3.x barebone.
+label = g:unix:Linux:2.2.x-3.x (barebone)
+sig   = {{ sig_linux_catchall_barebone | default('*:64:0:*:*,0:mss:df,id+:0') }}
+
+; -------
+; Windows
+; -------
+
+; TCP SYN signature for Windows XP (first variant).
+label = s:win:Windows:XP
+sig   = {{ sig_winxp_1 | default('*:128:0:*:16384,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows XP (second variant).
+sig   = {{ sig_winxp_2 | default('*:128:0:*:65535,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows XP (third variant).
+sig   = {{ sig_winxp_3 | default('*:128:0:*:65535,0:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows XP (fourth variant).
+sig   = {{ sig_winxp_4 | default('*:128:0:*:65535,1:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows XP (fifth variant).
+sig   = {{ sig_winxp_5 | default('*:128:0:*:65535,2:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows 7 or 8 (first variant).
+label = s:win:Windows:7 or 8
+sig   = {{ sig_win7_1 | default('*:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows 7 or 8 (second variant).
+sig   = {{ sig_win7_2 | default('*:128:0:*:8192,2:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows 7 or 8 (third variant).
+sig   = {{ sig_win7_3 | default('*:128:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Windows 7 or 8 (fourth variant).
+sig   = {{ sig_win7_4 | default('*:128:0:*:8192,2:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; Robots with distinctive fingerprints:
+
+; TCP SYN signature for Windows 7 (Websense crawler) (first variant).
+label = s:win:Windows:7 (Websense crawler)
+sig   = {{ sig_websense_1 | default('*:64:0:1380:mss*4,6:mss,nop,nop,ts,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for Windows 7 (Websense crawler) (second variant).
+sig   = {{ sig_websense_2 | default('*:64:0:1380:mss*4,7:mss,nop,nop,ts,nop,ws:df,id+:0') }}
+
+; Catch-all:
+
+; TCP SYN catch-all for Windows NT kernel 5.x (first variant).
+label = g:win:Windows:NT kernel 5.x
+sig   = {{ sig_winnt5_1 | default('*:128:0:*:16384,*:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel 5.x (second variant).
+sig   = {{ sig_winnt5_2 | default('*:128:0:*:65535,*:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel 5.x (third variant).
+sig   = {{ sig_winnt5_3 | default('*:128:0:*:16384,*:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel 5.x (fourth variant).
+sig   = {{ sig_winnt5_4 | default('*:128:0:*:65535,*:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel 6.x (first variant).
+label = g:win:Windows:NT kernel 6.x
+sig   = {{ sig_winnt6_1 | default('*:128:0:*:8192,*:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel 6.x (second variant).
+sig   = {{ sig_winnt6_2 | default('*:128:0:*:8192,*:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel (first variant).
+label = g:win:Windows:NT kernel
+sig   = {{ sig_winnt_1 | default('*:128:0:*:*,*:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN catch-all for Windows NT kernel (second variant).
+sig   = {{ sig_winnt_2 | default('*:128:0:*:*,*:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; ------
+; Mac OS
+; ------
+
+; TCP SYN signature for Mac OS X 10.x (first variant).
+label = s:unix:Mac OS X:10.x
+sig   = {{ sig_macos_10_1 | default('*:64:0:*:65535,1:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; TCP SYN signature for Mac OS X 10.x (second variant).
+sig   = {{ sig_macos_10_2 | default('*:64:0:*:65535,3:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; TCP SYN signature for MacOS X 10.9+ (sometimes iPhone or iPad).
+label = s:unix:MacOS X:10.9 or newer (sometimes iPhone or iPad)
+sig   = {{ sig_macos_10_9 | default('*:64:0:*:65535,4:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; TCP SYN signature for iPhone or iPad.
+label = s:unix:iOS:iPhone or iPad
+sig   = {{ sig_ios | default('*:64:0:*:65535,2:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; Catch-all rules:
+
+; TCP SYN catch-all for Mac OS X.
+label = g:unix:Mac OS X:
+sig   = {{ sig_macos_catchall | default('*:64:0:*:65535,*:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; -------
+; FreeBSD
+; -------
+
+; TCP SYN signature for FreeBSD 9.x or newer.
+label = s:unix:FreeBSD:9.x or newer
+sig   = {{ sig_freebsd_9 | default('*:64:0:*:65535,6:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; TCP SYN signature for FreeBSD 8.x.
+label = s:unix:FreeBSD:8.x
+sig   = {{ sig_freebsd_8 | default('*:64:0:*:65535,3:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; Catch-all rules:
+
+; TCP SYN catch-all for FreeBSD.
+label = g:unix:FreeBSD:
+sig   = {{ sig_freebsd_catchall | default('*:64:0:*:65535,*:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; -------
+; OpenBSD
+; -------
+
+; TCP SYN signature for OpenBSD 3.x.
+label = s:unix:OpenBSD:3.x
+sig   = {{ sig_openbsd_3 | default('*:64:0:*:16384,0:mss,nop,nop,sok,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN signature for OpenBSD 4.x-5.x.
+label = s:unix:OpenBSD:4.x-5.x
+sig   = {{ sig_openbsd_4_5 | default('*:64:0:*:16384,3:mss,nop,nop,sok,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; -------
+; Solaris
+; -------
+
+; TCP SYN signature for Solaris 8.
+label = s:unix:Solaris:8
+sig   = {{ sig_solaris_8 | default('*:64:0:*:32850,1:nop,ws,nop,nop,ts,nop,nop,sok,mss:df,id+:0') }}
+
+; TCP SYN signature for Solaris 10.
+label = s:unix:Solaris:10
+sig   = {{ sig_solaris_10 | default('*:64:0:*:mss*34,0:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; -------
+; OpenVMS
+; -------
+
+; TCP SYN signature for OpenVMS 8.x.
+label = s:unix:OpenVMS:8.x
+sig   = {{ sig_openvms_8 | default('4:128:0:1460:mtu*2,0:mss,nop,ws::0') }}
+
+; TCP SYN signature for OpenVMS 7.x.
+label = s:unix:OpenVMS:7.x
+sig   = {{ sig_openvms_7 | default('4:64:0:1460:61440,0:mss,nop,ws::0') }}
+
+; --------
+; NeXTSTEP
+; --------
+
+; TCP SYN signature for NeXTSTEP.
+label = s:other:NeXTSTEP:
+sig   = {{ sig_nextstep | default('4:64:0:1024:mss*4,0:mss::0') }}
+
+; -----
+; Tru64
+; -----
+
+; TCP SYN signature for Tru64 4.x.
+label = s:unix:Tru64:4.x
+sig   = {{ sig_tru64 | default('4:64:0:1460:32768,0:mss,nop,ws:df,id+:0') }}
+
+; ----
+; NMap
+; ----
+
+; TCP SYN signature for NMap SYN scan (first variant).
+label = s:!:NMap:SYN scan
+sys   = @unix,@win
+sig   = {{ sig_nmap_syn_1 | default('*:64-:0:1460:1024,0:mss::0') }}
+
+; TCP SYN signature for NMap SYN scan (second variant).
+sig   = {{ sig_nmap_syn_2 | default('*:64-:0:1460:2048,0:mss::0') }}
+
+; TCP SYN signature for NMap SYN scan (third variant).
+sig   = {{ sig_nmap_syn_3 | default('*:64-:0:1460:3072,0:mss::0') }}
+
+; TCP SYN signature for NMap SYN scan (fourth variant).
+sig   = {{ sig_nmap_syn_4 | default('*:64-:0:1460:4096,0:mss::0') }}
+
+; TCP SYN signature for NMap OS detection (first variant).
+label = s:!:NMap:OS detection
+sys   = @unix,@win
+sig   = {{ sig_nmap_os_1 | default('*:64-:0:265:512,0:mss,sok,ts:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (second variant).
+sig   = {{ sig_nmap_os_2 | default('*:64-:0:0:4,10:sok,ts,ws,eol+0:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (third variant).
+sig   = {{ sig_nmap_os_3 | default('*:64-:0:1460:1,10:ws,nop,mss,ts,sok:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (fourth variant).
+sig   = {{ sig_nmap_os_4 | default('*:64-:0:536:16,10:mss,sok,ts,ws,eol+0:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (fifth variant).
+sig   = {{ sig_nmap_os_5 | default('*:64-:0:640:4,5:ts,nop,nop,ws,nop,mss:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (sixth variant).
+sig   = {{ sig_nmap_os_6 | default('*:64-:0:1400:63,0:mss,ws,sok,ts,eol+0:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (seventh variant).
+sig   = {{ sig_nmap_os_7 | default('*:64-:0:265:31337,10:ws,nop,mss,ts,sok:ack+:0') }}
+
+; TCP SYN signature for NMap OS detection (eighth variant).
+sig   = {{ sig_nmap_os_8 | default('*:64-:0:1460:3,10:ws,nop,mss,sok,nop,nop:ecn,uptr+:0') }}
+
+; -----------
+; p0f-sendsyn
+; -----------
+
+; These are intentionally goofy, to avoid colliding with any sensible real-world
+; stacks. Do not tag these signatures as userspace, unless you want p0f to hide
+; the responses!
+
+; TCP SYN signature for p0f-sendsyn utility (first variant).
+label = s:unix:p0f:sendsyn utility
+sig   = {{ sig_sendsyn_1 | default('*:192:0:1331:1337,0:mss,nop,eol+18::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (second variant).
+sig   = {{ sig_sendsyn_2 | default('*:192:0:1331:1337,0:mss,ts,nop,eol+8::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (third variant).
+sig   = {{ sig_sendsyn_3 | default('*:192:0:1331:1337,5:mss,ws,nop,eol+15::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (fourth variant).
+sig   = {{ sig_sendsyn_4 | default('*:192:0:1331:1337,0:mss,sok,nop,eol+16::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (fifth variant).
+sig   = {{ sig_sendsyn_5 | default('*:192:0:1331:1337,5:mss,ws,ts,nop,eol+5::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (sixth variant).
+sig   = {{ sig_sendsyn_6 | default('*:192:0:1331:1337,0:mss,sok,ts,nop,eol+6::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (seventh variant).
+sig   = {{ sig_sendsyn_7 | default('*:192:0:1331:1337,5:mss,ws,sok,nop,eol+13::0') }}
+
+; TCP SYN signature for p0f-sendsyn utility (eighth variant).
+sig   = {{ sig_sendsyn_8 | default('*:192:0:1331:1337,5:mss,ws,sok,ts,nop,eol+3::0') }}
+
+; -------------
+; Odds and ends
+; -------------
+
+; TCP SYN signature for Blackberry.
+label = s:other:Blackberry:
+sig   = {{ sig_blackberry | default('*:128:0:1452:65535,0:mss,nop,nop,sok,nop,nop,ts::0') }}
+
+; TCP SYN signature for Nintendo 3DS.
+label = s:other:Nintendo:3DS
+sig   = {{ sig_nintendo_3ds | default('*:64:0:1360:32768,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for Nintendo Wii.
+label = s:other:Nintendo:Wii
+sig   = {{ sig_nintendo_wii | default('4:64:0:1460:32768,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN signature for BaiduSpider (first variant).
+label = s:unix:BaiduSpider:
+sig   = {{ sig_baidu_1 | default('*:64:0:1460:mss*4,7:mss,sok,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,ws:df,id+:0') }}
+
+; TCP SYN signature for BaiduSpider (second variant).
+sig   = {{ sig_baidu_2 | default('*:64:0:1460:mss*4,2:mss,sok,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,nop,ws:df,id+:0') }}
+
+; ======================
+; TCP SYN+ACK signatures
+; ======================
+; Signatures for the TCP SYN+ACK packet (server response).
+
+[tcp:response]
+
+; -----
+; Linux
+; -----
+
+; The variation here is due to ws, sok, or ts being adaptively removed if the
+; client initiating the connection doesn't support them. Use tools/p0f-sendsyn
+; to get a full set of up to 8 signatures.
+
+; TCP SYN+ACK signature for Linux 3.x (first variant).
+label = s:unix:Linux:3.x
+sig   = {{ sig_resp_linux_3_1 | default('*:64:0:*:mss*10,0:mss:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (second variant).
+sig   = {{ sig_resp_linux_3_2 | default('*:64:0:*:mss*10,0:mss,sok,ts:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (third variant).
+sig   = {{ sig_resp_linux_3_3 | default('*:64:0:*:mss*10,0:mss,nop,nop,ts:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (fourth variant).
+sig   = {{ sig_resp_linux_3_4 | default('*:64:0:*:mss*10,0:mss,nop,nop,sok:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (fifth variant).
+sig   = {{ sig_resp_linux_3_5 | default('*:64:0:*:mss*10,*:mss,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (sixth variant).
+sig   = {{ sig_resp_linux_3_6 | default('*:64:0:*:mss*10,*:mss,sok,ts,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (seventh variant).
+sig   = {{ sig_resp_linux_3_7 | default('*:64:0:*:mss*10,*:mss,nop,nop,ts,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 3.x (eighth variant).
+sig   = {{ sig_resp_linux_3_8 | default('*:64:0:*:mss*10,*:mss,nop,nop,sok,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4-2.6 (first variant).
+label = s:unix:Linux:2.4-2.6
+sig   = {{ sig_resp_linux_24_26_1 | default('*:64:0:*:mss*4,0:mss:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4-2.6 (second variant).
+sig   = {{ sig_resp_linux_24_26_2 | default('*:64:0:*:mss*4,0:mss,sok,ts:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4-2.6 (third variant).
+sig   = {{ sig_resp_linux_24_26_3 | default('*:64:0:*:mss*4,0:mss,nop,nop,ts:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4-2.6 (fourth variant).
+sig   = {{ sig_resp_linux_24_26_4 | default('*:64:0:*:mss*4,0:mss,nop,nop,sok:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4.x (first variant).
+label = s:unix:Linux:2.4.x
+sig   = {{ sig_resp_linux_24_1 | default('*:64:0:*:mss*4,0:mss,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4.x (second variant).
+sig   = {{ sig_resp_linux_24_2 | default('*:64:0:*:mss*4,0:mss,sok,ts,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4.x (third variant).
+sig   = {{ sig_resp_linux_24_3 | default('*:64:0:*:mss*4,0:mss,nop,nop,ts,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.4.x (fourth variant).
+sig   = {{ sig_resp_linux_24_4 | default('*:64:0:*:mss*4,0:mss,nop,nop,sok,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.6.x (first variant).
+label = s:unix:Linux:2.6.x
+sig   = {{ sig_resp_linux_26_1 | default('*:64:0:*:mss*4,*:mss,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.6.x (second variant).
+sig   = {{ sig_resp_linux_26_2 | default('*:64:0:*:mss*4,*:mss,sok,ts,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.6.x (third variant).
+sig   = {{ sig_resp_linux_26_3 | default('*:64:0:*:mss*4,*:mss,nop,nop,ts,nop,ws:df:0') }}
+
+; TCP SYN+ACK signature for Linux 2.6.x (fourth variant).
+sig   = {{ sig_resp_linux_26_4 | default('*:64:0:*:mss*4,*:mss,nop,nop,sok,nop,ws:df:0') }}
+
+; -------
+; Windows
+; -------
+
+; TCP SYN+ACK signature for Windows XP (first variant).
+label = s:win:Windows:XP
+sig   = {{ sig_resp_winxp_1 | default('*:128:0:*:65535,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (second variant).
+sig   = {{ sig_resp_winxp_2 | default('*:128:0:*:65535,0:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (third variant).
+sig   = {{ sig_resp_winxp_3 | default('*:128:0:*:65535,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (fourth variant).
+sig   = {{ sig_resp_winxp_4 | default('*:128:0:*:65535,0:mss,nop,nop,ts:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (fifth variant).
+sig   = {{ sig_resp_winxp_5 | default('*:128:0:*:65535,0:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (sixth variant).
+sig   = {{ sig_resp_winxp_6 | default('*:128:0:*:65535,0:mss,nop,ws,nop,nop,ts:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (seventh variant).
+sig   = {{ sig_resp_winxp_7 | default('*:128:0:*:65535,0:mss,nop,nop,ts,nop,nop,sok:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (eighth variant).
+sig   = {{ sig_resp_winxp_8 | default('*:128:0:*:65535,0:mss,nop,ws,nop,nop,ts,nop,nop,sok:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, first variant).
+sig   = {{ sig_resp_winxp_16k_1 | default('*:128:0:*:16384,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, second variant).
+sig   = {{ sig_resp_winxp_16k_2 | default('*:128:0:*:16384,0:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, third variant).
+sig   = {{ sig_resp_winxp_16k_3 | default('*:128:0:*:16384,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, fourth variant).
+sig   = {{ sig_resp_winxp_16k_4 | default('*:128:0:*:16384,0:mss,nop,nop,ts:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, fifth variant).
+sig   = {{ sig_resp_winxp_16k_5 | default('*:128:0:*:16384,0:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, sixth variant).
+sig   = {{ sig_resp_winxp_16k_6 | default('*:128:0:*:16384,0:mss,nop,ws,nop,nop,ts:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, seventh variant).
+sig   = {{ sig_resp_winxp_16k_7 | default('*:128:0:*:16384,0:mss,nop,nop,ts,nop,nop,sok:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows XP (16k MSS, eighth variant).
+sig   = {{ sig_resp_winxp_16k_8 | default('*:128:0:*:16384,0:mss,nop,ws,nop,nop,ts,nop,nop,sok:df,id+,ts1-:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (first variant).
+label = s:win:Windows:7 or 8
+sig   = {{ sig_resp_win7_1 | default('*:128:0:*:8192,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (second variant).
+sig   = {{ sig_resp_win7_2 | default('*:128:0:*:8192,0:mss,sok,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (third variant).
+sig   = {{ sig_resp_win7_3 | default('*:128:0:*:8192,8:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (fourth variant).
+sig   = {{ sig_resp_win7_4 | default('*:128:0:*:8192,0:mss,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (fifth variant).
+sig   = {{ sig_resp_win7_5 | default('*:128:0:*:8192,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (sixth variant).
+sig   = {{ sig_resp_win7_6 | default('*:128:0:*:8192,8:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (seventh variant).
+sig   = {{ sig_resp_win7_7 | default('*:128:0:*:8192,8:mss,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for Windows 7 or 8 (eighth variant).
+sig   = {{ sig_resp_win7_8 | default('*:128:0:*:8192,8:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; -------
+; FreeBSD
+; -------
+
+; TCP SYN+ACK signature for FreeBSD 9.x (first variant).
+label = s:unix:FreeBSD:9.x
+sig   = {{ sig_resp_freebsd_9_1 | default('*:64:0:*:65535,6:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 9.x (second variant).
+sig   = {{ sig_resp_freebsd_9_2 | default('*:64:0:*:65535,6:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 9.x (third variant).
+sig   = {{ sig_resp_freebsd_9_3 | default('*:64:0:*:65535,6:mss,nop,ws,sok,eol+1:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 9.x (fourth variant).
+sig   = {{ sig_resp_freebsd_9_4 | default('*:64:0:*:65535,6:mss,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x (first variant).
+label = s:unix:FreeBSD:8.x
+sig   = {{ sig_resp_freebsd_8_1 | default('*:64:0:*:65535,3:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x (second variant).
+sig   = {{ sig_resp_freebsd_8_2 | default('*:64:0:*:65535,3:mss,nop,ws,sok,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x (third variant).
+sig   = {{ sig_resp_freebsd_8_3 | default('*:64:0:*:65535,3:mss,nop,ws,sok,eol+1:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x (fourth variant).
+sig   = {{ sig_resp_freebsd_8_4 | default('*:64:0:*:65535,3:mss,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x-9.x (first variant).
+label = s:unix:FreeBSD:8.x-9.x
+sig   = {{ sig_resp_freebsd_89_1 | default('*:64:0:*:65535,0:mss,sok,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x-9.x (second variant).
+sig   = {{ sig_resp_freebsd_89_2 | default('*:64:0:*:65535,0:mss,sok,eol+1:df,id+:0') }}
+
+; TCP SYN+ACK signature for FreeBSD 8.x-9.x (third variant).
+sig   = {{ sig_resp_freebsd_89_3 | default('*:64:0:*:65535,0:mss,nop,nop,ts:df,id+:0') }}
+
+; -------
+; OpenBSD
+; -------
+
+; TCP SYN+ACK signature for OpenBSD 5.x (first variant).
+label = s:unix:OpenBSD:5.x
+sig   = {{ sig_resp_openbsd_5_1 | default('*:64:0:1460:16384,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for OpenBSD 5.x (second variant).
+sig   = {{ sig_resp_openbsd_5_2 | default('*:64:0:1460:16384,3:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for OpenBSD 5.x (third variant).
+sig   = {{ sig_resp_openbsd_5_3 | default('*:64:0:1460:16384,3:mss,nop,nop,sok,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for OpenBSD 5.x (fourth variant).
+sig   = {{ sig_resp_openbsd_5_4 | default('*:64:0:1460:16384,0:mss,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for OpenBSD 5.x (fifth variant).
+sig   = {{ sig_resp_openbsd_5_5 | default('*:64:0:1460:16384,0:mss,nop,nop,sok,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for OpenBSD 5.x (sixth variant).
+sig   = {{ sig_resp_openbsd_5_6 | default('*:64:0:1460:16384,3:mss,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for OpenBSD 5.x (seventh variant).
+sig   = {{ sig_resp_openbsd_5_7 | default('*:64:0:1460:16384,3:mss,nop,nop,sok,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; This one resembles Windows, but almost nobody will be seeing it:
+; sig   = *:64:0:1460:16384,0:mss:df,id+:0
+
+; --------
+; Mac OS X
+; --------
+
+; TCP SYN+ACK signature for Mac OS X 10.x (first variant).
+label = s:unix:Mac OS X:10.x
+sig   = {{ sig_resp_macos_10_1 | default('*:64:0:*:65535,0:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Mac OS X 10.x (second variant).
+sig   = {{ sig_resp_macos_10_2 | default('*:64:0:*:65535,0:mss,sok,eol+1:df,id+:0') }}
+
+; TCP SYN+ACK signature for Mac OS X 10.x (third variant).
+sig   = {{ sig_resp_macos_10_3 | default('*:64:0:*:65535,0:mss,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for Mac OS X 10.x (fourth variant).
+sig   = {{ sig_resp_macos_10_4 | default('*:64:0:*:65535,0:mss,nop,ws,sok,eol+1:df,id+:0') }}
+
+; TCP SYN+ACK signature for Mac OS X 10.x (fifth variant).
+sig   = {{ sig_resp_macos_10_5 | default('*:64:0:*:65535,0:mss,nop,ws,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for Mac OS X 10.x (sixth variant).
+sig   = {{ sig_resp_macos_10_6 | default('*:64:0:*:65535,0:mss,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; TCP SYN+ACK signature for Mac OS X 10.x (seventh variant).
+sig   = {{ sig_resp_macos_10_7 | default('*:64:0:*:65535,0:mss,nop,ws,nop,nop,ts,sok,eol+1:df,id+:0') }}
+
+; Ditto:
+; sig   = *:64:0:*:65535,0:mss:df,id+:0
+
+; -------
+; Solaris
+; -------
+
+; TCP SYN+ACK signature for Solaris 6 (first variant).
+label = s:unix:Solaris:6
+sig   = {{ sig_resp_solaris_6_1 | default('4:255:0:*:mss*7,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 6 (second variant).
+sig   = {{ sig_resp_solaris_6_2 | default('4:255:0:*:mss*7,0:nop,ws,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 6 (third variant).
+sig   = {{ sig_resp_solaris_6_3 | default('4:255:0:*:mss*7,0:nop,nop,ts,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 6 (fourth variant).
+sig   = {{ sig_resp_solaris_6_4 | default('4:255:0:*:mss*7,0:nop,nop,ts,nop,ws,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (first variant).
+label = s:unix:Solaris:8
+sig   = {{ sig_resp_solaris_8_1 | default('*:64:0:*:mss*19,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (second variant).
+sig   = {{ sig_resp_solaris_8_2 | default('*:64:0:*:mss*19,0:nop,ws,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (third variant).
+sig   = {{ sig_resp_solaris_8_3 | default('*:64:0:*:mss*19,0:nop,nop,ts,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (fourth variant).
+sig   = {{ sig_resp_solaris_8_4 | default('*:64:0:*:mss*19,0:nop,nop,sok,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (fifth variant).
+sig   = {{ sig_resp_solaris_8_5 | default('*:64:0:*:mss*19,0:nop,nop,ts,nop,ws,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (sixth variant).
+sig   = {{ sig_resp_solaris_8_6 | default('*:64:0:*:mss*19,0:nop,ws,nop,nop,sok,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (seventh variant).
+sig   = {{ sig_resp_solaris_8_7 | default('*:64:0:*:mss*19,0:nop,nop,ts,nop,nop,sok,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 8 (eighth variant).
+sig   = {{ sig_resp_solaris_8_8 | default('*:64:0:*:mss*19,0:nop,nop,ts,nop,ws,nop,nop,sok,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (first variant).
+label = s:unix:Solaris:10
+sig   = {{ sig_resp_solaris_10_1 | default('*:64:0:*:mss*37,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (second variant).
+sig   = {{ sig_resp_solaris_10_2 | default('*:64:0:*:mss*37,0:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (third variant).
+sig   = {{ sig_resp_solaris_10_3 | default('*:64:0:*:mss*37,0:nop,nop,ts,mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (fourth variant).
+sig   = {{ sig_resp_solaris_10_4 | default('*:64:0:*:mss*37,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (fifth variant).
+sig   = {{ sig_resp_solaris_10_5 | default('*:64:0:*:mss*37,0:nop,nop,ts,mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (sixth variant).
+sig   = {{ sig_resp_solaris_10_6 | default('*:64:0:*:mss*37,0:mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (seventh variant).
+sig   = {{ sig_resp_solaris_10_7 | default('*:64:0:*:mss*37,0:nop,nop,ts,mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for Solaris 10 (eighth variant).
+sig   = {{ sig_resp_solaris_10_8 | default('*:64:0:*:mss*37,0:nop,nop,ts,mss,nop,ws,nop,nop,sok:df,id+:0') }}
+
+; -----
+; HP-UX
+; -----
+
+; TCP SYN+ACK signature for HP-UX 11.x (first variant).
+label = s:unix:HP-UX:11.x
+sig   = {{ sig_resp_hpux_1 | default('*:64:0:*:32768,0:mss:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (second variant).
+sig   = {{ sig_resp_hpux_2 | default('*:64:0:*:32768,0:mss,ws,nop:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (third variant).
+sig   = {{ sig_resp_hpux_3 | default('*:64:0:*:32768,0:mss,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (fourth variant).
+sig   = {{ sig_resp_hpux_4 | default('*:64:0:*:32768,0:mss,nop,nop,sok:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (fifth variant).
+sig   = {{ sig_resp_hpux_5 | default('*:64:0:*:32768,0:mss,ws,nop,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (sixth variant).
+sig   = {{ sig_resp_hpux_6 | default('*:64:0:*:32768,0:mss,nop,nop,sok,ws,nop:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (seventh variant).
+sig   = {{ sig_resp_hpux_7 | default('*:64:0:*:32768,0:mss,nop,nop,sok,nop,nop,ts:df,id+:0') }}
+
+; TCP SYN+ACK signature for HP-UX 11.x (eighth variant).
+sig   = {{ sig_resp_hpux_8 | default('*:64:0:*:32768,0:mss,nop,nop,sok,ws,nop,nop,nop,ts:df,id+:0') }}
+
+; -------
+; OpenVMS
+; -------
+
+; TCP SYN+ACK signature for OpenVMS 7.x (first variant).
+label = s:other:OpenVMS:7.x
+sig   = {{ sig_resp_openvms_7_1 | default('4:64:0:1460:3993,0:mss::0') }}
+
+; TCP SYN+ACK signature for OpenVMS 7.x (second variant).
+sig   = {{ sig_resp_openvms_7_2 | default('4:64:0:1460:3993,0:mss,nop,ws::0') }}
+
+; -----
+; Tru64
+; -----
+
+; TCP SYN+ACK signature for Tru64 4.x (first variant).
+label = s:unix:Tru64:4.x
+sig   = {{ sig_resp_tru64_1 | default('4:64:0:1460:mss*25,0:mss,nop,ws:df,id+:0') }}
+
+; TCP SYN+ACK signature for Tru64 4.x (second variant).
+sig   = {{ sig_resp_tru64_2 | default('4:64:0:1460:mss*25,0:mss:df,id+:0') }}
+
+; ======================
+; HTTP client signatures
+; ======================
+
+; Safari and Firefox are frequently seen using HTTP/1.0 when going through
+; proxies; this is far less common for MSIE, Chrome, etc. I wildcarded some of
+; the signatures accordingly.
+;
+; Also note that there are several proxies that mess with HTTP headers for no
+; reason. For example, BlueCoat proxy appears to change 'keep-alive' to
+; 'Keep-Alive' for a tiny percentage of users (why?!).
+
+[http:request]
+
+; HTTP User-Agent OS mapping (comma-separated list of OS=Pattern pairs).
+ua_os = {{ http_ua_os | default('Linux,Windows,iOS=[iPad],iOS=[iPhone],Mac OS X,FreeBSD,OpenBSD,NetBSD,Solaris=[SunOS]') }}
+
+; -------
+; Firefox
+; -------
+
+; HTTP Request signature for Firefox 2.x.
+label = s:!:Firefox:2.x
+sys   = Windows,@unix
+sig   = {{ sig_firefox_2 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip,deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[300],Connection=[keep-alive]::Firefox/') }}
+
+; HTTP Request signature for Firefox 3.x.
+label = s:!:Firefox:3.x
+sys   = Windows,@unix
+sig   = {{ sig_firefox_3 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip,deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[115],Connection=[keep-alive],?Referer::Firefox/') }}
+
+; HTTP Request signature for Firefox 4.x.
+label = s:!:Firefox:4.x
+sys   = Windows,@unix
+sig   = {{ sig_firefox_4 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],Keep-Alive=[115],Connection=[keep-alive],?Referer::Firefox/') }}
+
+; I have no idea where this 'UTF-8' variant comes from, but it happens on *BSD.
+; Likewise, no clue why Referer is in a different place for some users.
+
+; HTTP Request signature for Firefox 5.x-9.x (first variant).
+label = s:!:Firefox:5.x-9.x
+sys   = Windows,@unix
+sig   = {{ sig_firefox_5_9_1 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?DNT=[1],Connection=[keep-alive],?Referer:Keep-Alive:Firefox/') }}
+
+; HTTP Request signature for Firefox 5.x-9.x (second variant).
+sig   = {{ sig_firefox_5_9_2 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[UTF-8,*],?DNT=[1],Connection=[keep-alive],?Referer:Keep-Alive:Firefox/') }}
+
+; HTTP Request signature for Firefox 5.x-9.x (third variant).
+sig   = {{ sig_firefox_5_9_3 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[UTF-8,*],?DNT=[1],?Referer,Connection=[keep-alive]:Keep-Alive:Firefox/') }}
+
+; HTTP Request signature for Firefox 5.x-9.x (fourth variant).
+sig   = {{ sig_firefox_5_9_4 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?DNT=[1],?Referer,Connection=[keep-alive]:Keep-Alive:Firefox/') }}
+
+; HTTP Request signature for Firefox 5.x-9.x (fifth variant).
+sig   = {{ sig_firefox_5_9_5 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language,Accept-Encoding=[gzip, deflate],Accept-Charset=[utf-8;q=0.7,*;q=0.7],?Referer,?DNT=[1],Connection=[keep-alive]:Keep-Alive:Firefox/') }}
+
+; HTTP Request signature for Firefox 10.x+ (first variant).
+label = s:!:Firefox:10.x or newer
+sys   = Windows,@unix
+sig   = {{ sig_firefox_10_newer_1 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],Connection=[keep-alive],?Referer:Accept-Charset,Keep-Alive:Firefox/') }}
+
+; HTTP Request signature for Firefox 10.x+ (second variant).
+sig   = {{ sig_firefox_10_newer_2 | default('*:Host,User-Agent,Accept=[,*/*;q=],?Accept-Language=[;q=],Accept-Encoding=[gzip, deflate],?DNT=[1],?Referer,Connection=[keep-alive]:Accept-Charset,Keep-Alive:Firefox/') }}
+
+; There is this one weird case where Firefox 10.x is indistinguishable
+; from Safari 5.1:
+
+; HTTP Request signature for Firefox 10.x or Safari 5.x.
+label = s:!:Firefox:10.x or Safari 5.x
+sys   = Windows,@unix
+sig   = {{ sig_firefox_10_safari_5 | default('*:Host,User-Agent,Accept=[xml;q=0.9,*/*;q=0.8],Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Keep-Alive,Accept-Charset,DNT,Referer:Gecko') }}
+
+; ----
+; MSIE
+; ----
+
+; MSIE 11 no longer sends the 'MSIE' part in U-A, but we don't consider
+; U-A to be a robust signal for fingerprinting, so no dice.
+
+; HTTP Request signature for MSIE 8 or newer (first variant).
+label = s:!:MSIE:8 or newer
+sys   = Windows
+sig   = {{ sig_msie_8_newer_1 | default('1:Accept=[*/*],?Referer,?Accept-Language,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset,UA-CPU:Trident/') }}
+
+; HTTP Request signature for MSIE 8 or newer (second variant).
+sig   = {{ sig_msie_8_newer_2 | default('1:Accept=[*/*],?Referer,?Accept-Language,Accept-Encoding=[gzip, deflate],User-Agent,Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset:(compatible; MSIE') }}
+
+; HTTP Request signature for MSIE 7.
+label = s:!:MSIE:7
+sys   = Windows
+sig   = {{ sig_msie_7 | default('1:Accept=[*/*],?Referer,?Accept-Language,UA-CPU,User-Agent,Accept-Encoding=[gzip, deflate],Host,Connection=[Keep-Alive]:Keep-Alive,Accept-Charset:(compatible; MSIE') }}
+
+; TODO: Check if this one ever uses Accept-Language, etc. Also try to find MSIE 5.
+
+; HTTP Request signature for MSIE 6 (first variant).
+label = s:!:MSIE:6
+sys   = Windows
+sig   = {{ sig_msie_6_1 | default('0:Accept=[*/*],?Referer,User-Agent,Host:Keep-Alive,Connection,Accept-Encoding,Accept-Language,Accept-Charset:(compatible; MSIE') }}
+
+; HTTP Request signature for MSIE 6 (second variant).
+sig   = {{ sig_msie_6_2 | default('1:Accept=[*/*],Connection=[Keep-Alive],Host,?Pragma=[no-cache],?Range,?Referer,User-Agent:Keep-Alive,Accept-Encoding,Accept-Language,Accept-Charset:(compatible; MSIE') }}
+
+; ------
+; Chrome
+; ------
+
+; HTTP Request signature for Chrome 11.x to 26.x (first variant).
+label = s:!:Chrome:11.x to 26.x
+sys   = Windows,@unix
+sig   = {{ sig_chrome_11_26_1 | default('1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3]:: Chrom') }}
+
+; HTTP Request signature for Chrome 11.x to 26.x (second variant).
+sig   = {{ sig_chrome_11_26_2 | default('1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[UTF-8,*;q=0.5]:: Chrom') }}
+
+; HTTP Request signature for Chrome 11.x to 26.x (third variant).
+sig   = {{ sig_chrome_11_26_3 | default('1:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3],Connection=[keep-alive]::Chrom') }}
+
+; HTTP Request signature for Chrome 27.x to 42.x.
+label = s:!:Chrome:27.x to 42.x
+sys   = Windows,@unix
+sig   = {{ sig_chrome_27_42 | default('1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip,deflate,sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom') }}
+
+; HTTP Request signature for Chrome 43.x or 50.x.
+label = s:!:Chrome:43.x or 50.x
+sys   = Windows,@unix
+sig   = {{ sig_chrome_43_50 | default('1:Host,Connection=[keep-alive],Accept=[*/*],User-Agent,?Referer,Accept-Encoding=[gzip, deflate, sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom') }}
+
+; HTTP Request signature for Chrome 51.x or newer.
+label = s:!:Chrome:51.x or newer
+sys   = Windows,@unix
+sig   = {{ sig_chrome_51_newer | default('1:Host,Connection=[keep-alive],Upgrade-Insecure-Requests=[1],User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, sdch],Accept-Language:Accept-Charset,Keep-Alive: Chrom') }}
+
+; -----
+; Opera
+; -----
+
+; HTTP Request signature for Opera 19.x or newer.
+label = s:!:Opera:19.x or newer
+sys   = Windows,@unix
+sig   = {{ sig_opera_19_newer | default('1:Host,Connection=[keep-alive],Accept=[*/*;q=0.8],User-Agent,Accept-Encoding=[gzip,deflate,lzma,sdch],Accept-Language=[;q=0.]:Accept-Charset,Keep-Alive:OPR/') }}
+
+; HTTP Request signature for Opera 15.x-18.x.
+label = s:!:Opera:15.x-18.x
+sys   = Windows,@unix
+sig   = {{ sig_opera_15_18 | default('1:Host,Connection=[keep-alive],Accept=[*/*;q=0.8],User-Agent,Accept-Encoding=[gzip, deflate],Accept-Language=[;q=0.]:Accept-Charset,Keep-Alive:OPR/') }}
+
+; HTTP Request signature for Opera 11.x-14.x.
+label = s:!:Opera:11.x-14.x
+sys   = Windows,@unix
+sig   = {{ sig_opera_11_14 | default('1:User-Agent,Host,Accept=[*/*;q=0.1],?Accept-Language=[;q=0.],Accept-Encoding=[gzip, deflate],Connection=[Keep-Alive]:Accept-Charset,X-OperaMini-Phone-UA:) Presto/') }}
+
+; HTTP Request signature for Opera 10.x (first variant).
+label = s:!:Opera:10.x
+sys   = Windows,@unix
+sig   = {{ sig_opera_10_1 | default('1:User-Agent,Host,Accept=[*/*;q=0.1],Accept-Language=[;q=0.],Accept-Charset=[utf-8, utf-16, *;q=0.1],Accept-Encoding=[deflate, gzip, x-gzip, identity, *;q=0],Connection=[Keep-Alive]::Presto/') }}
+
+; HTTP Request signature for Opera 10.x (second variant).
+sig   = {{ sig_opera_10_2 | default('1:User-Agent,Host,Accept=[*/*;q=0.1],Accept-Language=[en],Accept-Encoding=[gzip, deflate],Connection=[Keep-Alive]:Accept-Charset:Opera/') }}
+
+; HTTP Request signature for Opera Mini.
+label = s:!:Opera:Mini
+sys   = Linux
+sig   = {{ sig_opera_mini | default('1:User-Agent,Host,Accept=[*/*;q=0.1],Accept-Language=[;q=0.],Accept-Encoding=[gzip, deflate],Connection=[Keep-Alive],X-OperaMini-Phone-UA,X-OperaMini-Features,X-OperaMini-Phone,x-forwarded-for:Accept-Charset:Opera Mini/') }}
+
+; HTTP Request signature for Opera on Nintendo Wii.
+label = s:!:Opera:on Nintendo Wii
+sys   = Nintendo
+sig   = {{ sig_opera_wii | default('1:User-Agent,Host,Accept=[*/*;q=0.1],Accept-Language=[en],Accept-Charset=[iso-8859-1, utf-8, utf-16, *;q=0.1],Accept-Encoding=[deflate, gzip, x-gzip, identity, *;q=0],Connection=[Keep-Alive]::Nintendo') }}
+
+; ---------------
+; Android browser
+; ---------------
+
+; HTTP Request signature for Android 2.x (first variant).
+label = s:!:Android:2.x
+sys   = Linux
+sig   = {{ sig_android_2_1 | default('1:Host,Accept-Encoding=[gzip],Accept-Language,User-Agent,Accept=[,*/*;q=0.5],Accept-Charset=[utf-16, *;q=0.7]:Connection:Android') }}
+
+; HTTP Request signature for Android 2.x (second variant).
+sig   = {{ sig_android_2_2 | default('1:Host,Connection=[keep-alive],Accept-Encoding=[gzip],Accept-Language,User-Agent,Accept=[,*/*;q=0.5],Accept-Charset=[utf-16, *;q=0.7]::Android') }}
+
+; HTTP Request signature for Android 2.x (third variant).
+sig   = {{ sig_android_2_3 | default('1:Host,Accept-Encoding=[gzip],Accept-Language=[en-US],Accept=[*/*;q=0.5],User-Agent,Accept-Charset=[utf-16, *;q=0.7]:Connection:Android') }}
+
+; HTTP Request signature for Android 4.x.
+label = s:!:Android:4.x
+sys   = Linux
+sig   = {{ sig_android_4 | default('1:Host,Connection=[keep-alive],Accept=[,*/*;q=0.8],User-Agent,Accept-Encoding=[gzip,deflate],Accept-Language,Accept-Charset=[utf-16, *;q=0.7]::Android') }}
+
+; ------
+; Safari
+; ------
+
+; HTTP Request signature for Safari 7 or newer.
+label = s:!:Safari:7 or newer
+sys   = @unix
+sig   = {{ sig_safari_7_newer | default('*:Host,Accept-Encoding=[gzip, deflate],Connection=[keep-alive],Accept=[*/*],User-Agent,Accept-Language,?Referer,?DNT:Accept-Charset,Keep-Alive:KHTML, like Gecko)') }}
+
+; HTTP Request signature for Safari 5.1-6 (first variant).
+label = s:!:Safari:5.1-6
+sys   = Windows,@unix
+sig   = {{ sig_safari_51_6_1 | default('*:Host,User-Agent,Accept=[*/*],?Referer,Accept-Language,Accept-Encoding=[gzip, deflate],Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)') }}
+
+; HTTP Request signature for Safari 5.1-6 (second variant).
+sig   = {{ sig_safari_51_6_2 | default('*:Host,User-Agent,Accept=[*/*],?Referer,Accept-Encoding=[gzip, deflate],Accept-Language,Connection=[keep-alive]:Accept-Charset:KHTML, like Gecko)') }}
+
+; HTTP Request signature for Safari 5.0 or earlier.
+label = s:!:Safari:5.0 or earlier
+sys   = Mac OS X
+sig   = {{ sig_safari_5_0_earlier | default('0:Host,User-Agent,Connection=[close]:Accept,Accept-Encoding,Accept-Language,Accept-Charset:CFNetwork/') }}
+
+; ---------
+; Konqueror
+; ---------
+
+; HTTP Request signature for Konqueror 4.6 or earlier.
+label = s:!:Konqueror:4.6 or earlier
+sys   = Linux,FreeBSD,OpenBSD
+sig   = {{ sig_konqueror_46_earlier | default('1:Host,Connection=[Keep-Alive],User-Agent,?Pragma,?Cache-control,Accept=[*/*],Accept-Encoding=[x-gzip, x-deflate, gzip, deflate],Accept-Charset=[;q=0.5, *;q=0.5],Accept-Language::Konqueror/') }}
+
+; HTTP Request signature for Konqueror 4.7 or newer.
+label = s:!:Konqueror:4.7 or newer
+sys   = Linux,FreeBSD,OpenBSD
+sig   = {{ sig_konqueror_47_newer | default('1:Host,Connection=[keep-alive],User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, x-gzip, x-deflate],Accept-Charset=[,*;q=0.5],Accept-Language::Konqueror/') }}
+
+; -------------------
+; Major search robots
+; -------------------
+
+; HTTP Request signature for BaiduSpider (first variant).
+label = s:!:BaiduSpider:
+sys   = BaiduSpider
+sig   = {{ sig_baidu_spider_1 | default('1:Host,Connection=[close],User-Agent,Accept=[*/*]:Accept-Encoding,Accept-Language,Accept-Charset:Baiduspider-image') }}
+
+; HTTP Request signature for BaiduSpider (second variant).
+sig   = {{ sig_baidu_spider_2 | default('1:Host,Accept-Language=[zh-cn],Connection=[close],User-Agent:Accept,Accept-Encoding,Accept-Charset:Baiduspider') }}
+
+; HTTP Request signature for BaiduSpider (third variant).
+sig   = {{ sig_baidu_spider_3 | default('1:Host,Connection=[close],User-Agent,Accept-Language=[zh-cn,zh-tw],Accept-Encoding=[gzip],Accept=[*/*]:Accept-Charset:Baiduspider') }}
+
+; HTTP Request signature for BaiduSpider (fourth variant).
+sig   = {{ sig_baidu_spider_4 | default('1:Host,Connection=[close],User-Agent,Accept-Language=[tr-TR],Accept-Encoding=[gzip],Accept=[*/*]:Accept-Charset:Baiduspider') }}
+
+; HTTP Request signature for BaiduSpider (fifth variant).
+sig   = {{ sig_baidu_spider_5 | default('1:Host,Connection=[close],User-Agent,Accept-Encoding=[gzip],?Accept-Language=[zh-cn,zh-tw],Accept=[*/*]:Accept-Charset:Baiduspider') }}
+
+; HTTP Request signature for BaiduSpider (sixth variant).
+sig   = {{ sig_baidu_spider_6 | default('1:Host,Connection=[close],User-Agent,Accept-Encoding=[gzip],Accept-Language=[tr-TR],Accept=[*/*]:Accept-Charset:Baiduspider') }}
+
+; HTTP Request signature for Googlebot (first variant).
+label = s:!:Googlebot:
+sys   = Linux
+sig   = {{ sig_googlebot_1 | default('1:Host,Connection=[Keep-alive],Accept=[*/*],From=[googlebot(at)googlebot.com],User-Agent,Accept-Encoding=[gzip,deflate],?If-Modified-Since:Accept-Language,Accept-Charset:Googlebot') }}
+
+; HTTP Request signature for Googlebot (second variant).
+sig   = {{ sig_googlebot_2 | default('1:Host,Connection=[Keep-alive],Accept=[text/plain],Accept=[text/html],From=[googlebot(at)googlebot.com],User-Agent,Accept-Encoding=[gzip,deflate]:Accept-Language,Accept-Charset:Googlebot') }}
+
+; HTTP Request signature for Googlebot feed fetcher (first variant).
+label = s:!:Googlebot:feed fetcher
+sys   = Linux
+sig   = {{ sig_googlebot_feed_1 | default('1:Host,Connection=[Keep-alive],Accept=[*/*],User-Agent,Accept-Encoding=[gzip,deflate],?If-Modified-Since:Accept-Language,Accept-Charset:-Google') }}
+
+; HTTP Request signature for Googlebot feed fetcher (second variant).
+sig   = {{ sig_googlebot_feed_2 | default('1:User-Agent,?X-shindig-dos=[on],Cache-Control,Host,?X-Forwarded-For,Accept-Encoding=[gzip],?Accept-Language:Connection,Accept,Accept-Charset:Feedfetcher-Google') }}
+
+; HTTP Request signature for Bingbot.
+label = s:!:Bingbot:
+sys   = Windows
+sig   = {{ sig_bingbot | default('1:Cache-Control,Connection=[Keep-Alive],Pragma=[no-cache],Accept=[*/*],Accept-Encoding,Host,User-Agent:Accept-Language,Accept-Charset:bingbot/') }}
+
+; MSNbot has a really silly Accept header, only a tiny part of which is preserved here:
+
+; HTTP Request signature for MSNbot.
+label = s:!:MSNbot:
+sys   = Windows
+sig   = {{ sig_msnbot | default('1:Connection=[Close],Accept,Accept-Encoding=[gzip, deflate],From=[msnbot(at)microsoft.com],Host,User-Agent:Accept-Language,Accept-Charset:msnbot') }}
+
+; HTTP Request signature for Yandex crawler (first variant).
+label = s:!:Yandex:crawler
+sys   = FreeBSD
+sig   = {{ sig_yandex_1 | default('1:Host,Connection=[Keep-Alive],Accept=[*/*],Accept-Encoding=[gzip,deflate],Accept-Language=[en-us, en;q=0.7, *;q=0.01],User-Agent,From=[support@search.yandex.ru]:Accept-Charset:YandexBot/') }}
+
+; HTTP Request signature for Yandex crawler (second variant).
+sig   = {{ sig_yandex_2 | default('1:Host,Connection=[Keep-Alive],Accept=[image/jpeg, image/pjpeg, image/png, image/gif],User-Agent,From=[support@search.yandex.ru]:Accept-Encoding,Accept-Language,Accept-Charset:YandexImages/') }}
+
+; HTTP Request signature for Yandex crawler (third variant).
+sig   = {{ sig_yandex_3 | default('1:Host,Connection=[Keep-Alive],User-Agent,From=[support@search.yandex.ru]:Accept,Accept-Encoding,Accept-Language,Accept-Charset:YandexBot/') }}
+
+; HTTP Request signature for Yahoo crawler.
+label = s:!:Yahoo:crawler
+sys   = Linux
+sig   = {{ sig_yahoo_crawler | default('0:Host,User-Agent,Accept=[,image/png,*/*;q=0.5],Accept-Language=[en-us,en;q=0.5],Accept-Encoding=[gzip],Accept-Charset=[,utf-8;q=0.7,*;q=0.7]:Connection:Slurp') }}
+
+; -----------------
+; Misc other robots
+; -----------------
+
+; HTTP Request signature for Flipboard crawler (first variant).
+label = s:!:Flipboard:crawler
+sys   = Linux
+sig   = {{ sig_flipboard_1 | default('1:User-Agent,Accept-Language=[en-us,en;q=0.5],Accept-Charset=[;q=0.7,*;q=0.5],Accept-Encoding=[gzip],Host,Accept=[*; q=.2, */*; q=.2],Connection=[keep-alive]::FlipboardProxy') }}
+
+; HTTP Request signature for Flipboard crawler (second variant).
+sig   = {{ sig_flipboard_2 | default('1:Accept-language=[en-us,en;q=0.5],Accept-encoding=[gzip],Accept=[;q=0.9,*/*;q=0.8],User-agent,Host:User-Agent,Connection,Accept-Encoding,Accept-Language,Accept-Charset:FlipboardProxy') }}
+
+; HTTP Request signature for Spinn3r.
+label = s:!:Spinn3r:crawler
+sys   = Linux
+sig   = {{ sig_spinn3r | default('1:User-Agent,Accept-Encoding=[gzip],Host,Accept=[*; q=.2, */*; q=.2],Connection=[close]:Accept-Language,Accept-Charset:Spinn3r') }}
+
+; HTTP Request signature for Facebook crawler (first variant).
+label = s:!:Facebook:crawler
+sys   = Linux
+sig   = {{ sig_facebook_1 | default('1:User-Agent,Host,Accept=[*/*],Accept-Encoding=[deflate, gzip],Connection=[close]:Accept-Language,Accept-Charset:facebookexternalhit/') }}
+
+; HTTP Request signature for Facebook crawler (second variant).
+sig   = {{ sig_facebook_2 | default('1:User-Agent,Host,Accept=[*/*],Connection=[close]:Accept-Encoding,Accept-Language,Accept-Charset:facebookexternalhit/') }}
+
+; HTTP Request signature for paper.li crawler.
+label = s:!:paper.li:crawler
+sys   = Linux
+sig   = {{ sig_paperli | default('1:Accept-Language=[en-us,en;q=0.5],Accept=[*/*],User-Agent,Connection=[close],Accept-Encoding=[gzip,identity],?Referer,Host,Accept-Charset=[ISO-8859-1,utf-8;q=0.7,*;q=0.7]::PaperLiBot/') }}
+
+; HTTP Request signature for Twitter crawler.
+label = s:!:Twitter:crawler
+sys   = Linux
+sig   = {{ sig_twitter | default('1:User-Agent=[Twitterbot/],Host,Accept=[*; q=.2, */*; q=.2],Cache-Control,Connection=[keep-alive]:Accept-Encoding,Accept-Language,Accept-Charset:Twitterbot/') }}
+
+; HTTP Request signature for linkdex crawler.
+label = s:!:linkdex:crawler
+sys   = Linux
+sig   = {{ sig_linkdex | default('0:Host,Connection=[Keep-Alive],User-Agent,Accept-Encoding=[gzip,deflate]:Accept,Accept-Language,Accept-Charset:linkdex.com/') }}
+
+; HTTP Request signature for Yodaobot.
+label = s:!:Yodaobot:
+sys   = Linux
+sig   = {{ sig_yodaobot | default('1:Accept-Encoding=[identity;q=0.5, *;q=0.1],User-Agent,Host:Connection,Accept,Accept-Language,Accept-Charset:YodaoBot/') }}
+
+; HTTP Request signature for Tweetmeme crawler.
+label = s:!:Tweetmeme:crawler
+sys   = Linux
+sig   = {{ sig_tweetmeme | default('1:Host,User-Agent,Accept=[,image/png,*/*;q=0.5],Accept-Language=[en-gb,en;q=0.5],Accept-Charset=[ISO-8859-1,utf-8;q=0.7,*;q=0.7]:Connection,Accept-Encoding:TweetmemeBot/') }}
+
+; HTTP Request signature for Archive.org crawler.
+label = s:!:Archive.org:crawler
+sys   = Linux
+sig   = {{ sig_archive_org | default('0:User-Agent,Connection=[close],Accept=[application/xml;q=0.9,*/*;q=0.8],Host:Accept-Encoding,Accept-Language,Accept-Charset:archive.org') }}
+
+; HTTP Request signature for Yahoo Pipes (first variant).
+label = s:!:Yahoo Pipes:
+sys   = Linux
+sig   = {{ sig_yahoo_pipes_1 | default('0:Client-IP,X-Forwarded-For,X-YQL-Depth,User-Agent,Host,Connection=[keep-alive],Via:Accept,Accept-Encoding,Accept-Language,Accept-Charset:Yahoo Pipes') }}
+
+; HTTP Request signature for Yahoo Pipes (second variant).
+sig   = {{ sig_yahoo_pipes_2 | default('1:Client-IP,X-Forwarded-For,X-YQL-Depth,User-Agent,Host,Via:Connection,Accept,Accept-Encoding,Accept-Language,Accept-Charset:Yahoo Pipes') }}
+
+; HTTP Request signature for Google Web Preview.
+label = s:!:Google Web Preview:
+sys   = Linux
+sig   = {{ sig_google_web_preview | default('1:Referer,User-Agent,Accept-Encoding=[gzip,deflate],Host,X-Forwarded-For:Connection,Accept,Accept-Language,Accept-Charset:Web Preview') }}
+
+; --------------------------------
+; Command-line tools and libraries
+; --------------------------------
+
+; HTTP Request signature for wget.
+label = s:!:wget:
+sys   = @unix,Windows
+sig   = {{ sig_wget | default('*:User-Agent,Accept=[*/*],Host,Connection=[Keep-Alive]:Accept-Encoding,Accept-Language,Accept-Charset:Wget/') }}
+
+; HTTP Request signature for Lynx.
+label = s:!:Lynx:
+sys   = @unix,Windows
+sig   = {{ sig_lynx | default('0:Host,Accept=[text/sgml, */*;q=0.01],Accept-Encoding=[gzip, compress],Accept-Language,User-Agent:Connection,Accept-Charset:Lynx/') }}
+
+; HTTP Request signature for curl.
+label = s:!:curl:
+sys   = @unix,Windows
+sig   = {{ sig_curl | default('1:User-Agent,Host,Accept=[*/*]:Connection,Accept-Encoding,Accept-Language,Accept-Charset:curl/') }}
+
+; HTTP Request signature for links (first variant).
+label = s:!:links:
+sys   = @unix,Windows
+sig   = {{ sig_links_1 | default('1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip, deflate, bzip2],Accept-Charset=[us-ascii],Accept-Language=[;q=0.1],Connection=[Keep-Alive]::Links') }}
+
+; HTTP Request signature for links (second variant).
+sig   = {{ sig_links_2 | default('1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip,deflate,bzip2],Accept-Charset=[us-ascii],Accept-Language=[;q=0.1],Connection=[keep-alive]::Links') }}
+
+; HTTP Request signature for elinks.
+label = s:!:elinks:
+sys   = @unix,Windows
+sig   = {{ sig_elinks | default('1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[bzip2, deflate, gzip],Accept-Language:Connection,Accept-Charset:ELinks/') }}
+
+; HTTP Request signature for Java JRE.
+label = s:!:Java:JRE
+sys   = @unix,@win
+sig   = {{ sig_java | default('1:User-Agent,Host,Accept=[*; q=.2, */*; q=.2],Connection=[keep-alive]:Accept-Encoding,Accept-Language,Accept-Charset:Java/') }}
+
+; HTTP Request signature for Python urllib.
+label = s:!:Python:urllib
+sys   = @unix,Windows
+sig   = {{ sig_python_urllib | default('1:Accept-Encoding=[identity],Host,Connection=[close],User-Agent:Accept,Accept-Language,Accept-Charset:Python-urllib/') }}
+
+; HTTP Request signature for w3m.
+label = s:!:w3m:
+sys   = @unix,Windows
+sig   = {{ sig_w3m | default('0:User-Agent,Accept=[image/*],Accept-Encoding=[gzip, compress, bzip, bzip2, deflate],Accept-Language=[;q=1.0],Host:Connection,Accept-Charset:w3m/') }}
+
+; HTTP Request signature for libfetch.
+label = s:!:libfetch:
+sys   = @unix
+sig   = {{ sig_libfetch | default('1:Host,User-Agent,Connection=[close]:Accept,Accept-Encoding,Accept-Language,Accept-Charset:libfetch/') }}
+
+; -------------
+; Odds and ends
+; -------------
+
+; HTTP Request signature for Google AppEngine.
+label = s:!:Google AppEngine:
+sys   = Linux
+sig   = {{ sig_appengine | default('1:User-Agent,Host,Accept-Encoding=[gzip]:Connection,Accept,Accept-Language,Accept-Charset:AppEngine-Google') }}
+
+; HTTP Request signature for WebOS.
+label = s:!:WebOS:
+sys   = Linux
+sig   = {{ sig_webos | default('1:Host,Accept-Encoding=[gzip, deflate],User-Agent,Accept=[,*/*;q=0.5],Accept-Language,Accept-Charset=[utf-8;q=0.7,*;q=0.3]:Connection:wOSBrowser') }}
+
+; HTTP Request signature for xxxterm.
+label = s:!:xxxterm:
+sys   = @unix
+sig   = {{ sig_xxxterm | default('1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip]:Connection,Accept-Language,Accept-Charset:xxxterm') }}
+
+; HTTP Request signature for Google Desktop.
+label = s:!:Google Desktop:
+sys   = Windows
+sig   = {{ sig_google_desktop | default('1:Accept=[*/*],Accept-Encoding=[gzip],User-Agent,Host,Connection=[Keep-Alive]:Accept-Language,Accept-Charset:Google Desktop/') }}
+
+; HTTP Request signature for luakit.
+label = s:!:luakit:
+sys   = @unix
+sig   = {{ sig_luakit | default('1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip],Connection=[Keep-Alive]:Accept-Language,Accept-Charset:luakit') }}
+
+; HTTP Request signature for Epiphany.
+label = s:!:Epiphany:
+sys   = @unix
+sig   = {{ sig_epiphany | default('1:Host,User-Agent,Accept=[*/*],Accept-Encoding=[gzip],Accept-Language:Connection,Accept-Charset,Keep-Alive:Epiphany/') }}
+
+; ======================
+; HTTP server signatures
+; ======================
+
+[http:response]
+
+; ------
+; Apache
+; ------
+
+; HTTP Response signature for Apache 2.x (first variant).
+label = s:!:Apache:2.x
+sys   = @unix,Windows
+sig   = {{ sig_apache_2_1 | default('1:Date,Server,?Last-Modified,?Accept-Ranges=[bytes],?Content-Length,?Content-Range,Keep-Alive=[timeout],Connection=[Keep-Alive],?Transfer-Encoding=[chunked],Content-Type::Apache') }}
+
+; HTTP Response signature for Apache 2.x (second variant).
+sig   = {{ sig_apache_2_2 | default('1:Date,Server,?Last-Modified,?Accept-Ranges=[bytes],?Content-Length,?Connection=[close],?Transfer-Encoding=[chunked],Content-Type:Keep-Alive:Apache') }}
+
+; HTTP Response signature for Apache 2.x (third variant).
+sig   = {{ sig_apache_2_3 | default('1:Date,Server,Connection=[Keep-Alive],Keep-Alive=[timeout]:Content-Type,Accept-Ranges:Apache') }}
+
+; HTTP Response signature for Apache 2.x (fourth variant).
+sig   = {{ sig_apache_2_4 | default('1:Date,Server,?Last-Modified,?Accept-Ranges=[bytes],?Content-Length,Content-Type,Keep-Alive=[timeout],Connection=[Keep-Alive]::Apache') }}
+
+; HTTP Response signature for Apache 1.x (first variant).
+label = s:!:Apache:1.x
+sys   = @unix,Windows
+sig   = {{ sig_apache_1_1 | default('1:Server,Content-Type,?Content-Length,Date,Connection=[keep-alive]:Keep-Alive,Accept-Ranges:Apache') }}
+
+; HTTP Response signature for Apache 1.x (second variant).
+sig   = {{ sig_apache_1_2 | default('1:Server,Content-Type,?Content-Length,Date,Connection=[close]:Keep-Alive,Accept-Ranges:Apache') }}
+
+; ---
+; IIS
+; ---
+
+; HTTP Response signature for IIS 7.x (first variant).
+label = s:!:IIS:7.x
+sys   = Windows
+sig   = {{ sig_iis_7_1 | default('1:?Content-Length,Content-Type,?Etag,Server,Date:Connection,Keep-Alive,Accept-Ranges:Microsoft-IIS/') }}
+
+; HTTP Response signature for IIS 7.x (second variant).
+sig   = {{ sig_iis_7_2 | default('1:?Content-Length,Content-Type,?Etag,Server,Date,Connection=[close]:Keep-Alive,Accept-Ranges:Microsoft-IIS/') }}
+
+; --------
+; lighttpd
+; --------
+
+; HTTP Response signature for lighttpd 2.x (first variant).
+label = s:!:lighttpd:2.x
+sys   = @unix
+sig   = {{ sig_lighttpd_2_1 | default('1:?ETag,?Last-Modified,Accept-Ranges=[bytes],Content-Type,?Vary,?Content-Length,Date,Server:Connection,Keep-Alive:lighttpd/') }}
+
+; HTTP Response signature for lighttpd 2.x (second variant).
+sig   = {{ sig_lighttpd_2_2 | default('1:?ETag,?Last-Modified,Transfer-Encoding=[chunked],Content-Type,?Vary,?Content-Length,Date,Server:Connection,Keep-Alive:lighttpd/') }}
+
+; HTTP Response signature for lighttpd 1.x (first variant).
+label = s:!:lighttpd:1.x
+sys   = @unix
+sig   = {{ sig_lighttpd_1_1 | default('1:Content-Type,Accept-Ranges=[bytes],?ETag,?Last-Modified,Date,Server:Connection,Keep-Alive:lighttpd/') }}
+
+; HTTP Response signature for lighttpd 1.x (second variant).
+sig   = {{ sig_lighttpd_1_2 | default('1:Content-Type,Transfer-Encoding=[chunked],?ETag,?Last-Modified,Date,Server:Connection,Keep-Alive:lighttpd/') }}
+
+; HTTP Response signature for lighttpd 1.x (third variant).
+sig   = {{ sig_lighttpd_1_3 | default('0:Content-Type,Content-Length,Connection=[close],Date,Server:Keep-Alive,Accept-Ranges:lighttpd/') }}
+
+; -----
+; nginx
+; -----
+
+; HTTP Response signature for nginx 1.x (first variant).
+label = s:!:nginx:1.x
+sys   = @unix
+sig   = {{ sig_nginx_1_1 | default('1:Server,Date,Content-Type,?Content-Length,?Last-Modified,Connection=[keep-alive],Keep-Alive=[timeout],Accept-Ranges=[bytes]::nginx/') }}
+
+; HTTP Response signature for nginx 1.x (second variant).
+sig   = {{ sig_nginx_1_2 | default('1:Server,Date,Content-Type,?Content-Length,?Last-Modified,Connection=[close]:Keep-Alive,Accept-Ranges:nginx/') }}
+
+; HTTP Response signature for nginx 0.x (first variant).
+label = s:!:nginx:0.x
+sys   = @unix
+sig   = {{ sig_nginx_0_1 | default('1:Server,Date,Content-Type,?Content-Length,Connection=[keep-alive],?Last-Modified:Keep-Alive,Accept-Ranges:nginx/') }}
+
+; HTTP Response signature for nginx 0.x (second variant).
+sig   = {{ sig_nginx_0_2 | default('1:Server,Date,Content-Type,?Content-Length,Connection=[close],?Last-Modified:Keep-Alive,Accept-Ranges:nginx/') }}
+
+; -------------
+; Odds and ends
+; -------------
+
+; HTTP Response signature for Google Web Server (first variant).
+label = s:!:Google Web Server:
+sys   = Linux
+sig   = {{ sig_gws_1 | default('*:Content-Type,X-Content-Type-Options=[nosniff],Date,Server=[sffe]:Connection,Accept-Ranges,Keep-Alive,Connection:') }}
+
+; HTTP Response signature for Google Web Server (second variant).
+sig   = {{ sig_gws_2 | default('*:Date,Content-Type,Server=[gws]:Connection,Accept-Ranges,Keep-Alive:') }}
+
+; HTTP Response signature for Google Web Server (third variant).
+sig   = {{ sig_gws_3 | default('*:Content-Type,X-Content-Type-Options=[nosniff],Server=[GSE]:Connection,Accept-Ranges,Keep-Alive:') }}

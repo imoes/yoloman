@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {# Configure font fallback behavior for the 'sans-serif' family. #}
+  {# If a page requests 'sans-serif' but lacks a specific font, #}
+  {# this block prepends the custom Noto font to the resolution order. #}
+  <match>
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    <edit name="family" mode="prepend">
+      {# The name of the font family to inject. #}
+      <string>{{ font_family | default('Noto Sans Kaithi') }}</string>
+    </edit>
+    <edit name="fonthashint" mode="append">
+      {# Whether font hinting is enabled for this family. #}
+      <bool>{{ font_hinting_enabled | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  {# Define an alias mapping for the custom font family. #}
+  {# Specifies which family to use as a fallback if the custom font #}
+  {# is unavailable or fails to load. #}
+  <alias>
+    {# The primary name of the font family being configured. #}
+    <family>{{ font_family | default('Noto Sans Kaithi') }}</family>
+    <default>
+      {# The generic font family to use as a fallback. #}
+      <family>{{ fallback_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

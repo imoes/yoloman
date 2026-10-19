@@ -60,7 +60,7 @@ interface CodecResponse {
                placeholder="Search pattern, path, package, notes…" />
 
         <div class="bm-cc">
-          <div class="bm-cc-list">
+          <div class="bm-cc-list" tabindex="0" role="region" aria-label="Config codecs">
             @for (e of filtered(); track e.pattern) {
               <div class="bm-cc-item" [class.bm-cc-sel]="selected()?.pattern === e.pattern" (click)="select(e)">
                 <span class="bm-cc-pattern">{{ e.pattern }}</span>

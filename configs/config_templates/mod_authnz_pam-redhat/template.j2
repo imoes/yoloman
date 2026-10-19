@@ -1,0 +1,77 @@
+# ==============================================================================
+# mod_authnz_pam configuration template
+# ==============================================================================
+# This block configures the Apache module mod_authnz_pam, enabling
+# PAM-based and Kerberos-based authentication for Apache web services.
+# It is intended to be included via /etc/httpd/conf.modules.d/ or similar.
+#
+# See: http://httpd.apache.org/docs/current/mod/mod_authnz_pam.html
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Section 1: Kerberos Authentication
+# -----------------------------------------------------------------------------
+# This section configures Kerberos (GSSAPI) authentication.
+# It allows users to authenticate using their Kerberos tickets.
+#
+# Note: The <Location> directive scopes these settings to a specific URL path.
+# Adjust "/login" if your application uses a different endpoint.
+
+# <Location /login>
+#   AuthType Kerberos
+#   AuthName "Kerberos Login"
+#   KrbMethodNegotiate On
+#   KrbMethodK5Passwd Off
+
+# KrbAuthRealms: The Kerberos realm(s) to trust for authentication.
+# Multiple realms can be specified as a space-separated list.
+# If unset, this line is commented out to prevent Apache errors or fallback behavior.
+{% if krb_auth_realms is defined and krb_auth_realms is not none and (krb_auth_realms is number or krb_auth_realms is boolean or krb_auth_realms is string or krb_auth_realms is iterable) %}KrbAuthRealms {{ krb_auth_realms | join(' ') }}
+{% else %}# KrbAuthRealms EXAMPLE.COM
+{% endif %}
+
+# Krb5KeyTab: Path to the system keytab file used to identify the service to the KDC.
+# This keytab must be readable by the Apache user (usually apache or www-data).
+{% if krb5_keytab is defined and krb5_keytab is not none and (krb5_keytab is string or krb5_keytab is number) %}Krb5KeyTab {{ krb5_keytab }}
+{% else %}# Krb5KeyTab /etc/http.keytab
+{% endif %}
+
+# KrbLocalUserMapping: Automatically map the Kerberos principal to a local system user.
+# This simplifies authorization by allowing use of Require valid-user.
+KrbLocalUserMapping On
+
+# Require pam-account: Enforce a PAM account check (e.g., account validity, shell access)
+# during the Kerberos authentication phase.
+# Note: This is commented out by default as it requires a specific PAM config.
+# Require pam-account {{ pam_account_service | default('webapp') }}
+
+# </Location>
+
+# -----------------------------------------------------------------------------
+# Section 2: Basic Authentication via PAM
+# -----------------------------------------------------------------------------
+# This section configures standard HTTP Basic Authentication, delegating
+# credential verification to the PAM (Pluggable Authentication Modules) system.
+# This allows Apache to use local system users or other PAM-authenticated users.
+#
+# Note: The <Location> directive scopes these settings to a specific URL path.
+# Adjust "/protected" if your application uses a different endpoint.
+
+# <Location /protected>
+#   AuthType Basic
+#   AuthName: The realm name displayed in the browser's login prompt.
+#   AuthName "{{ auth_name_protected | default('private area') }}"
+
+#   AuthBasicProvider PAM
+#   AuthBasicAuthoritative Off
+
+#   AuthPAMService: The name of the PAM configuration file (without .conf extension)
+#   to use for authenticating users in this section.
+#   Example: If set to 'webapp', Apache looks for /etc/pam.d/webapp.
+{% if pam_service_name is defined and pam_service_name is not none and (pam_service_name is string or pam_service_name is number) %}AuthPAMService {{ pam_service_name }}
+{% else %}# AuthPAMService webapp
+{% endif %}
+
+#   Require valid-user
+#   Require user specificuser
+# </Location>

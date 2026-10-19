@@ -1,36 +1,38 @@
 <?xml version="1.0"?> <!--*-nxml-*-->
 <!--
-  D-Bus Bus Configuration for TCMU (Target Core Userspace) Service.
-  This file registers the TCMU D-Bus service, allowing the specified user
-  to own the service name and restricting other entities to the defined
-  policy rules.
-
-  Managed by Ansible role. See schema fields 'user', 'service_name', 'handler_prefix'.
+  D-Bus Bus Configuration for TCMU (Target Configurable Userspace)
+  This file defines access policies for the TCMU D-Bus service.
+  It allows the configured user to own the service and grants
+  broad access to the service methods for other local users.
 -->
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
 "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
+    <!--
+      Policy for the specific user allowed to own the D-Bus service.
+      This restricts 'own' (creating the service name) to a single privileged user.
+    -->
+    <policy user="{{ user | default('root') }}">
+        <!-- Allow this user to claim the primary service name -->
+        <allow own="{{ service_name | default('org.kernel.TCMUService1') }}"/>
+    </policy>
 
-  <!--
-    Policy allowing the configured user to own the main TCMU D-Bus service name.
-    'user' is the OS user account allowed to own the service.
-  -->
-  <policy user="{{ user | default('root') }}">
-    <!-- Allow the user to own the main service name -->
-    <allow own="{{ service_name | default('org.kernel.TCMUService1') }}"/>
-  </policy>
+    <!--
+      Default Policy: Defines what other users/roles can do.
+      The 'default' context applies to any user not matched by specific policies above.
+    -->
+    <policy context="default">
+        <!-- Allow clients to send method calls to the TCMU service name -->
+        <allow send_destination="{{ service_name | default('org.kernel.TCMUService1') }}"/>
 
-  <!--
-    Default policy applied to all other D-Bus clients/connections.
-    Restricts interaction to the specific TCMU service name and handler prefix.
-  -->
-  <policy context="default">
-    <!-- Allow sending messages to the main TCMU service destination -->
-    <allow send_destination="{{ service_name | default('org.kernel.TCMUService1') }}"/>
-    <!-- Allow owning the handler manager sub-prefixed services -->
-    <allow own_prefix="{{ handler_prefix | default('org.kernel.TCMUService1.HandlerManager1') }}"/>
-    <!-- Allow sending messages to the TCMU service interface -->
-    <allow send_interface="{{ service_name | default('org.kernel.TCMUService1') }}"/>
-  </policy>
+        <!--
+          Allow any client to own services under this prefix.
+          This permits handler plugins to register their own D-Bus names
+          derived from the main service name.
+        -->
+        <allow own_prefix="{{ handler_prefix | default('org.kernel.TCMUService1.HandlerManager1') }}"/>
 
+        <!-- Allow clients to send messages to interfaces matching the service name -->
+        <allow send_interface="{{ service_name | default('org.kernel.TCMUService1') }}"/>
+    </policy>
 </busconfig>

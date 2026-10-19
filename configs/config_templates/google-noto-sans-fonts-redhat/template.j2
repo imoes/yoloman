@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Google Noto Sans on RedHat systems.
+  This file sets 'Noto Sans' as the primary sans-serif family and manages hinting.
+-->
+<fontconfig>
+  <!--
+    Match the logical font family 'sans-serif'.
+    This block intercepts requests for generic sans-serif fonts and redirects them.
+  -->
+  <match>
+    <!-- Test if the requested font family is 'sans-serif' -->
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    <!--
+      Prepend the specified font family to the fallback list.
+      This ensures Noto Sans is tried first before other sans-serif fonts.
+      The variable `font_family` defines the name of this font.
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_family | default('Noto Sans') }}</string>
+    </edit>
+
+    <!--
+      Enable font hinting for the specified font family.
+      Hinting improves font rendering on low-resolution screens by aligning
+      glyph strokes to the pixel grid.
+      The variable `hinting_enabled` controls this behavior (true/false).
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ hinting_enabled | default('false') | lower }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Define an alias for the font family.
+    This block explicitly maps the configured font family to the standard
+    'sans-serif' alias, ensuring consistency across applications.
+  -->
+  <alias>
+    <!-- The primary family name to use (from schema: font_family) -->
+    <family>{{ font_family | default('Noto Sans') }}</family>
+    <!--
+      The fallback target for this alias.
+      If applications specifically request this family, they fall back to
+      the generic 'sans-serif' category defined elsewhere.
+    -->
+    <default>
+      <family>sans-serif</family>
+    </default>
+  </alias>
+</fontconfig>

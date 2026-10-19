@@ -84,9 +84,69 @@ def template_variables(template: str) -> set[str]:
     return used - _loop_vars(template) - set(_SETVAR_RE.findall(template)) - _TEMPLATE_BUILTINS
 
 
+#: `{% for k, v in X | dict2items %}` — two loop variables over dict2items. dict2items yields `{key:, value:}`
+#: objects, and unpacking one into two names gives the FIELD NAMES: measured with the agent's engine, every entry
+#: renders as the literal `key = value` (postfix: "unused parameter: key=value" in a role's main.cf). The Ansible
+#: idiom is `for item in X | dict2items` + item.key/item.value; `X | dictsort` yields the pairs themselves.
+_DICT2ITEMS_UNPACK = re.compile(r"(\{%-?\s*for\s+\w+\s*,\s*\w+\s+in\s+[^%]*?)\|\s*dict2items\b")
+
+
+def fix_dict2items_unpack(template: str) -> str:
+    """Rewrite each two-variable loop over `| dict2items` to `| dictsort` (same pairs, sorted by key)."""
+    prev = None
+    while prev != template:          # a line may hold more than one such loop
+        prev = template
+        template = _DICT2ITEMS_UNPACK.sub(lambda m: m.group(1) + "| dictsort", template)
+    return template
+
+
+_EXPR = re.compile(r"(\{\{.*?\}\}|\{%.*?%\})", re.S)
+
+
+def null_safe_objects(template: str, schema: dict) -> tuple[str, list[str]]:
+    """Make attribute access on an OBJECT field without a default safe for the agent's engine.
+
+    gonja fails on `{{ pve.auth_url }}` when `pve` is unset ("Can't use Getitem on None") and on `x.items()`
+    ("'items' is not callable") — jinja2's ChainableUndefined, which the pipeline checks with, renders both as empty,
+    so 14 reachable templates passed the pipeline and could not be rendered with their own defaults (stage 5).
+    Inside expressions only: `V.attr` → `(V | default({})).attr`, `V.items()` → `(V | default({})) | dictsort`.
+    Returns (template, fields rewritten)."""
+    names = [k for k, v in (schema or {}).items()
+             if isinstance(v, dict) and v.get("type") == "object" and v.get("default") is None
+             and re.fullmatch(r"[A-Za-z_]\w*", k)]
+    touched: list[str] = []
+
+    def chain(m: re.Match) -> str:
+        # `a.b.c` → `((a | default({})).b | default({})).c` — every level but the last may be unset
+        parts = m.group(0).split(".")
+        acc = parts[0]
+        for part in parts[1:-1]:
+            acc = f"({acc} | default({{}})).{part}"
+        return f"({acc} | default({{}})).{parts[-1]}"
+
+    def fix(expr: str) -> str:
+        for n in names:
+            new = re.sub(r"(?<![\w.(])" + n + r"((?:\.[A-Za-z_]\w*)*)\.items\(\)",
+                         lambda m: (chain(re.match(r".*", n + m.group(1))) if m.group(1) else n)
+                         .join(["(", " | default({})) | dictsort"]) if m.group(1) else f"({n} | default({{}})) | dictsort",
+                         expr)
+            new = re.sub(r"(?<![\w.(])" + n + r"(?:\.(?!items\b)[A-Za-z_]\w*)+", chain, new)
+            if new != expr and n not in touched:
+                touched.append(n)
+            expr = new
+        return expr
+
+    return _EXPR.sub(lambda m: fix(m.group(0)), template), touched
+
+
 def verify_template(template: str, schema: dict, sample: dict | None = None) -> list[str]:
-    """HARD errors only: the schema contract. Use warn_template for heuristics."""
-    return verify_template_schema(schema)
+    """HARD errors only: the schema contract, and template constructs measured to render wrong.
+    Use warn_template for heuristics."""
+    problems = verify_template_schema(schema)
+    if _DICT2ITEMS_UNPACK.search(template or ""):
+        problems.append("two loop variables over `| dict2items` render the literal `key = value` — "
+                        "use `| dictsort` (or one variable and item.key/item.value)")
+    return problems
 
 
 def warn_template(template: str, schema: dict, sample: dict | None = None) -> list[str]:

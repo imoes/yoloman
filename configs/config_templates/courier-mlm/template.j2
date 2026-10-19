@@ -1,48 +1,81 @@
-#!/bin/sh
-# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
-if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
-    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
-fi
-### BEGIN INIT INFO
-# Provides:          courier-mlm
-# Required-Start:    courier-authdaemon $remote_fs $syslog
-# Required-Stop:     courier-authdaemon $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Courier WebMLM server
-### END INIT INFO
+##VERSION: $Id: 7b218a8185f424046f3ef3322a37443983e443e3-20241204205950$
+#
+##NAME: PORT:0
+#
+# This is the filename for webmlmd's socket. This configuration file is
+# manually parsed by webmlm, so the PORT setting cannot use any shell
+# constructs, and cannot use quotes.
+# PORT's directory must either be writable by the userid that owns the
+# LISTS directories (see below), or webmlmd must be started by root.
+# Additionally, the PORT socket must be accessible by the userid that
+# executes the web cgi-bin scripts (nobody, in the default Apache
+# configuration).
+#
+# Schema Description: Path to the socket file for webmlmd
+# Default: /run/courier/webmlm
+PORT={{ (port | default('/run/courier/webmlm')) | string }}
 
-# Author: Ondřej Surý <ondrej@debian.org>,
-#         Markus Wanner <markus@bluegap.ch>
+##NAME: PIDFILE:0
+#
+# The PID file. Don't change unless you know what you're doing.
+#
+# Note: This file is derived from PORT. If PORT changes, PIDFILE location
+# changes accordingly. It is not a direct schema field but is defined
+# here to maintain config structure.
+PIDFILE="{{ (port | default('/run/courier/webmlm')) | string }}.pid"
 
-# Path to the Courier WebMLM configuration file
-CONFIGFILE={{ configfile | default('/etc/courier/webmlmrc') }}
+##NAME: PREFORK:0
+#
+# Number of processes pre-forked by webmlmd to handle web requests.
+# Higher values increase concurrency but also memory usage.
+#
+# Schema Description: Number of processes pre-forked by webmlmd to handle web requests
+# Default: 3
+PREFORK={{ (prefork | default('3')) | string }}
 
-# The WebMLM daemon executable path
-DAEMON=/usr/bin/webmlmd
+##NAME: LOGGEROPTS:0
+#
+# Placeholder to pass any special options to the courierlogger process.
+# Leave empty if no special options are needed.
+#
+# Schema Description: Options to pass to the courierlogger process
+# Default: (empty string)
+LOGGEROPTS={{ (loggeropts | default('')) | string }}
 
-# Description string for the service
-DESC="Courier WebMLM daemon"
-
-# Arguments passed to the daemon, primarily the configuration file path
-DAEMON_ARGS="$CONFIGFILE"
-
-# Extract PIDFILE path from the configuration file at runtime
-# This assumes the config file is sourced and exports the PIDFILE variable
-PIDFILE=$(/bin/sh -c ". $CONFIGFILE; echo \"\$PIDFILE\";")
-
-# Extract LISTS path from the configuration file at runtime
-# This assumes the config file is sourced and exports the LISTS variable
-LISTS=$(/bin/sh -c ". $CONFIGFILE; echo \"\$LISTS\";")
-
-# Check whether webmlm can start.
-# If LISTS is not configured, the service cannot function properly.
-if [ -z "$LISTS" ]; then
-    log_begin_msg "courier-mlm: no LISTS configured, not starting or reloading..."
-    log_end_msg 1
-    exit 1
-else
-    DO_START=yes
-fi
-
-. /usr/lib/courier/init-d-script-courier
+##NAME: LISTS:0
+#
+# Set LISTS to a colon separated list of directories, just like the PATH
+# variable. Each directory in LISTS must be a directory created by couriermlm.
+#
+# All directories in LISTS must be owned by the same uid and gid, and webmlmd
+# needs to be running under the same uid and gid. If webmlmd is started by
+# root, it will automatically drop its root privileges and set them to the
+# correct uid and gid. NOTE -- the PORT file, and the PIDFILE will still be
+# created by the root user.
+#
+# Additionally: the last component of each list directory must be unique. No
+# two directories in LISTS can have the same directory name (the last component
+# of the path).
+#
+# Example: LISTS=/home/lists/users-list:/home/lists/admin-list
+#
+# Schema Description: Colon-separated list of directories for mailing lists
+# Default: (None/Disabled)
+{% if lists is defined and lists is not none %}
+{% if lists is string and lists | length > 0 %}
+LISTS={{ lists | string }}
+{% elif lists is iterable and not lists is string %}
+# LISTS is defined as a list but requires string format.
+# Please provide a colon-separated string in the 'lists' variable.
+# Current value: {{ lists | tojson }}
+LISTS={{ lists | join(':') }}
+{% else %}
+# LISTS is not configured or is empty.
+# See above for required format (colon-separated directories).
+# LISTS=/path/to/list1:/path/to/list2
+{% endif %}
+{% else %}
+# LISTS is not configured.
+# See above for required format (colon-separated directories).
+# LISTS=/path/to/list1:/path/to/list2
+{% endif %}

@@ -1,0 +1,306 @@
+# ==========================================================================
+# strongSwan swanctl IKE Connection Configuration
+# This template generates the `connections.conf` file for swanctl.
+# It defines the global IKEv1/IKEv2 connection parameters and CHILD_SA
+# (IPsec data channel) settings.
+# ==========================================================================
+
+# Section defining IKE connection configurations.
+connections {
+    # Section for an IKE connection named <conn>.
+    # Note: In a real scenario, this block is typically generated via a loop
+    # over a list of connections. Here we document the structure for a single
+    # connection entity, enriched with defaults from the schema.
+
+    # Local address(es) to use for IKE communication, comma separated.
+    # local_addrs = %any
+
+    # Remote address(es) to use for IKE communication, comma separated.
+    # remote_addrs = %any
+
+    # Local UDP port for IKE communication.
+    # Defaults to 500 (standard IKE port) if not explicitly configured.
+    local_port = {{ (connection | default({})).ike_local_port | default(500) }}
+
+    # Remote UDP port for IKE communication.
+    # Defaults to 500 (standard IKE port) if not explicitly configured.
+    remote_port = {{ (connection | default({})).ike_remote_port | default(500) }}
+
+    # Comma separated proposals to accept for IKE.
+    # Examples: 'aes256-sha256-prf13-modp2048'.
+    # Defaults to the strongSwan default proposal list if not explicitly configured.
+    proposals = {{ (connection | default({})).ike_proposals | default('default') }}
+
+    # Use Aggressive Mode in IKEv1.
+    # WARNING: Aggressive mode is less secure as identities are sent in clear.
+    # Defaults to no if not explicitly configured.
+    aggressive = {{ (connection | default({})).ike_aggressive | default('no') }}
+
+    # Set the Mode Config mode to use.
+    # 'yes' or 'true' enables pull mode.
+    # Defaults to no if not explicitly configured.
+    pull = {{ (connection | default({})).ike_pull | default('no') }}
+
+    # Differentiated Services Field Codepoint to set on outgoing IKE packets.
+    # Six binary digits (0-63).
+    # Defaults to 000000 if not explicitly configured.
+    dscp = {{ (connection | default({})).ike_dscp | default('000000') }}
+
+    # Enforce UDP encapsulation by faking NAT-D payloads.
+    # Useful for traversing NAT gateways that might drop unencapsulated ESP.
+    # Defaults to no if not explicitly configured.
+    encap = {{ (connection | default({})).ike_encap | default('no') }}
+
+    # Enables MOBIKE (Mobility and Multihoming) on IKEv2 connections.
+    # Allows the peer to change IP addresses without re-authenticating.
+    # Defaults to yes if not explicitly configured.
+    mobike = {{ (connection | default({})).ike_mobike | default('yes') }}
+
+    # Interval of liveness checks (DPD - Dead Peer Detection).
+    # Defaults to 0s (disabled) if not explicitly configured.
+    dpd_delay = {{ (connection | default({})).ike_dpd_delay | default('0s') }}
+
+    # Timeout for DPD checks (IKEv1 only).
+    # Defaults to 0s (disabled) if not explicitly configured.
+    dpd_timeout = {{ (connection | default({})).ike_dpd_timeout | default('0s') }}
+
+    # Use IKE UDP datagram fragmentation.
+    # Values: yes, accept, no, force.
+    # Defaults to yes.
+    fragmentation = {{ (connection | default({})).ike_fragmentation | default('yes') }}
+
+    # Use childless IKE_SA initiation.
+    # Values: allow, prefer, force, never.
+    # Defaults to allow.
+    childless = {{ (connection | default({})).ike_childless | default('allow') }}
+
+    # Send certificate requests payloads.
+    # Values: yes, no.
+    # Defaults to yes if not explicitly configured.
+    send_certreq = {{ (connection | default({})).ike_send_certreq | default('yes') }}
+
+    # Send certificate payloads.
+    # Values: always, never, ifasked.
+    # Defaults to ifasked.
+    send_cert = {{ (connection | default({})).ike_send_cert | default('ifasked') }}
+
+    # Request and send OCSP status in certificate request or certificate payloads.
+    # Values: never, reply, request, both.
+    # Defaults to reply.
+    ocsp = {{ (connection | default({})).ike_ocsp | default('reply') }}
+
+    # Whether a Postquantum Preshared Key (PPK) is required for this connection.
+    # Defaults to no if not explicitly configured.
+    ppk_required = {{ (connection | default({})).ike_ppk_required | default('no') }}
+
+    # Number of retransmission sequences to perform during initial connect.
+    # Defaults to 1 if not explicitly configured.
+    keyingtries = {{ (connection | default({})).ike_keyingtries | default(1) }}
+
+    # Connection uniqueness policy.
+    # Values: never, no, keep, replace.
+    # Defaults to no.
+    unique = {{ (connection | default({})).ike_unique | default('no') }}
+
+    # Time to schedule IKE reauthentication.
+    # Defaults to 0s (disabled) if not explicitly configured.
+    reauth_time = {{ (connection | default({})).ike_reauth_time | default('0s') }}
+
+    # Time to schedule IKE rekeying.
+    # Defaults to 4 hours.
+    rekey_time = {{ (connection | default({})).ike_rekey_time | default('4h') }}
+
+    # Default inbound XFRM interface ID for children.
+    # Defaults to 0.
+    if_id_in = {{ (connection | default({})).ike_if_id_in | default(0) }}
+
+    # Default outbound XFRM interface ID for children.
+    # Defaults to 0.
+    if_id_out = {{ (connection | default({})).ike_if_id_out | default(0) }}
+
+    # Whether this connection is a mediation connection.
+    # Defaults to no if not explicitly configured.
+    mediation = {{ (connection | default({})).ike_mediation | default('no') }}
+
+    # Authentication to perform locally (pubkey, psk, xauth[-backend] or eap[-method]).
+    # Defaults to pubkey.
+    auth = {{ (connection | default({})).ike_local_auth | default('pubkey') }}
+
+    # Certificate revocation policy.
+    # Values: strict, ifuri, relaxed.
+    # Defaults to relaxed.
+    revocation = {{ (connection | default({})).ike_remote_revocation | default('relaxed') }}
+
+    # Authentication to expect from remote (pubkey, psk, xauth[-backend] or eap[-method]).
+    # Defaults to pubkey.
+    auth_remote = {{ (connection | default({})).ike_remote_auth | default('pubkey') }}
+
+    children {
+        # CHILD_SA configuration sub-section.
+
+        # ESP proposals to offer for the CHILD_SA.
+        # Defaults to the strongSwan default proposal list if not explicitly configured.
+        esp_proposals = {{ (connection | default({})).child_esp_proposals | default('default') }}
+
+        # Use incorrect 96-bit truncation for HMAC-SHA-256.
+        # Defaults to no if not explicitly configured.
+        sha256_96 = {{ (connection | default({})).child_sha256_96 | default('no') }}
+
+        # Local traffic selectors to include in CHILD_SA.
+        # Comma-separated list of CIDRs.
+        # Defaults to dynamic if not explicitly configured.
+        local_ts = {{ (connection | default({})).child_local_ts | default('dynamic') }}
+
+        # Remote selectors to include in CHILD_SA.
+        # Comma-separated list of CIDRs.
+        # Defaults to dynamic if not explicitly configured.
+        remote_ts = {{ (connection | default({})).child_remote_ts | default('dynamic') }}
+
+        # Updown script to invoke on CHILD_SA up and down events.
+        # Defaults to empty if not explicitly configured.
+        updown = {{ (connection | default({})).child_updown | default('') }}
+
+        # Hostaccess variable to pass to updown script.
+        # Defaults to no if not explicitly configured.
+        hostaccess = {{ (connection | default({})).child_hostaccess | default('no') }}
+
+        # IPsec Mode to establish.
+        # Values: tunnel, transport, transport_proxy, beet, pass, drop.
+        # Defaults to tunnel.
+        mode = {{ (connection | default({})).child_mode | default('tunnel') }}
+
+        # Whether to install IPsec policies or not.
+        # Defaults to yes if not explicitly configured.
+        policies = {{ (connection | default({})).child_policies | default('yes') }}
+
+        # Whether to install outbound FWD IPsec policies or not.
+        # Defaults to no if not explicitly configured.
+        policies_fwd_out = {{ (connection | default({})).child_policies_fwd_out | default('no') }}
+
+        # Action to perform on DPD timeout.
+        # Values: clear, trap, restart.
+        # Defaults to clear.
+        dpd_action = {{ (connection | default({})).child_dpd_action | default('clear') }}
+
+        # Enable IPComp compression before encryption.
+        # Defaults to no if not explicitly configured.
+        ipcomp = {{ (connection | default({})).child_ipcomp | default('no') }}
+
+        # Timeout before closing CHILD_SA after inactivity.
+        # Defaults to 0s (disabled) if not explicitly configured.
+        inactivity = {{ (connection | default({})).child_inactivity | default('0s') }}
+
+        # Fixed reqid to use for this CHILD_SA.
+        # Defaults to 0 if not explicitly configured.
+        reqid = {{ (connection | default({})).child_reqid | default(0) }}
+
+        # Optional fixed priority for IPsec policies.
+        # Defaults to 0 if not explicitly configured.
+        priority = {{ (connection | default({})).child_priority | default(0) }}
+
+        # Optional interface name to restrict IPsec policies.
+        # Defaults to empty if not explicitly configured.
+        interface = {{ (connection | default({})).child_interface | default('') }}
+
+        # Netfilter mark and mask for input traffic.
+        # Defaults to 0/0x00000000 if not explicitly configured.
+        mark_in = {{ (connection | default({})).child_mark_in | default('0/0x00000000') }}
+
+        # Whether to set mark_in on the inbound SA.
+        # Defaults to no if not explicitly configured.
+        mark_in_sa = {{ (connection | default({})).child_mark_in_sa | default('no') }}
+
+        # Netfilter mark and mask for output traffic.
+        # Defaults to 0/0x00000000 if not explicitly configured.
+        mark_out = {{ (connection | default({})).child_mark_out | default('0/0x00000000') }}
+
+        # Netfilter mark applied to packets after the inbound IPsec SA processed them.
+        # Defaults to 0/0x00000000 if not explicitly configured.
+        set_mark_in = {{ (connection | default({})).child_set_mark_in | default('0/0x00000000') }}
+
+        # Netfilter mark applied to packets after the outbound IPsec SA processed them.
+        # Defaults to 0/0x00000000 if not explicitly configured.
+        set_mark_out = {{ (connection | default({})).child_set_mark_out | default('0/0x00000000') }}
+
+        # Inbound XFRM interface ID (32-bit unsigned integer).
+        # Defaults to 0.
+        if_id_in_child = {{ (connection | default({})).child_if_id_in | default(0) }}
+
+        # Outbound XFRM interface ID (32-bit unsigned integer).
+        # Defaults to 0.
+        if_id_out_child = {{ (connection | default({})).child_if_id_out | default(0) }}
+
+        # Security label mode (system, simple or selinux), IKEv2 only.
+        # Defaults to system.
+        label_mode = {{ (connection | default({})).child_label_mode | default('system') }}
+
+        # Traffic Flow Confidentiality padding.
+        # Defaults to 0 if not explicitly configured.
+        tfc_padding = {{ (connection | default({})).child_tfc_padding | default(0) }}
+
+        # IPsec replay window to configure for this CHILD_SA.
+        # Defaults to 32 if not explicitly configured.
+        replay_window = {{ (connection | default({})).child_replay_window | default(32) }}
+
+        # Enable hardware offload for this CHILD_SA, if supported by the IPsec implementation.
+        # Defaults to no if not explicitly configured.
+        hw_offload = {{ (connection | default({})).child_hw_offload | default('no') }}
+
+        # Whether to copy the DF bit to the outer IPv4 header in tunnel mode.
+        # Defaults to yes if not explicitly configured.
+        copy_df = {{ (connection | default({})).child_copy_df | default('yes') }}
+
+        # Whether to copy the ECN header field to/from the outer IP header in tunnel mode.
+        # Defaults to yes if not explicitly configured.
+        copy_ecn = {{ (connection | default({})).child_copy_ecn | default('yes') }}
+
+        # Whether to copy the DSCP header field to/from the outer IP header in tunnel mode.
+        # Values: none, in, out, both.
+        # Defaults to out.
+        copy_dscp = {{ (connection | default({})).child_copy_dscp | default('out') }}
+
+        # Action to perform after loading the configuration (none, trap, start).
+        # Defaults to none.
+        start_action = {{ (connection | default({})).child_start_action | default('none') }}
+
+        # Action to perform after a CHILD_SA gets closed (none, trap, start).
+        # Defaults to none.
+        close_action = {{ (connection | default({})).child_close_action | default('none') }}
+    }
+}
+
+# Section defining secrets for IKE/EAP/XAuth authentication and private key decryption.
+# secrets {
+    # EAP Secret configuration.
+    # Note: Secrets must be provided via the 'secrets' mapping variable.
+    # This block iterates over provided secrets to generate eap<name> entries.
+    # If no secrets are defined, this block remains empty or commented out.
+{% if secrets is defined and secrets is iterable %}
+{% for name, secret_data in secrets | dictsort %}
+    eap{{ name }} {
+        # Secret for EAP authentication.
+        # WARNING: This value is sensitive. Ensure secure handling in Ansible.
+        secret = {{ secret_data | default('') }}
+    }
+{% endfor %}
+{% endif %}
+# }
+
+# Section defining named pools.
+# pools {
+    # <name> {
+    #     addrs = 192.168.0.0/24
+    # }
+# }
+
+# Section defining attributes of certification authorities.
+# authorities {
+    # <name> {
+    #     cacert = /path/to/ca.crt
+    # }
+# }
+
+# Include config snippets from the specified path pattern.
+# This allows for modular configuration.
+# Defaults to conf.d/*.conf.
+include {{ confd_path | default('conf.d/*.conf') }}

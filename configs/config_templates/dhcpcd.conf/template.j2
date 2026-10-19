@@ -110,7 +110,7 @@ retry {{ retry_count | default(5) }}
 
 # custom_options: default={}
 # desc="Arbitrary key-value options passed directly to dhcpcd (e.g., 'blacklist', 'permit', 'nohook')."
-{% for opt, val in (custom_options | default({}) | dict2items) %}
+{% for opt, val in (custom_options | default({}) | dictsort) %}
 # Custom global option: {{ opt }}={{ val }}
 {{ opt.key }} {{ val.value }}
 {% endfor %}
@@ -121,7 +121,7 @@ retry {{ retry_count | default(5) }}
 
 # request_options: default={}
 # desc="Custom DHCP options to request (by numeric option code, e.g., '121' for classless static routes)."
-{% for code, value in (request_options | default({}) | dict2items) %}
+{% for code, value in (request_options | default({}) | dictsort) %}
 # Request DHCP option code {{ code.key }}
 request {{ code.key }}
 {% endfor %}

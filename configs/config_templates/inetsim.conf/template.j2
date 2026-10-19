@@ -1,77 +1,2109 @@
-# Configuration file for inetsim — Internet Services Simulation
-# Main service port (HTTP, SMTP, etc. will be relative to this)
-service_port {{ service_port }}
+#############################################################
+#
+# INetSim configuration file
+#
+#############################################################
 
-# Network interface to bind to
-service_bind_address {{ bind_address }}
 
-# Enable or disable DNS simulation
-enable_dns {{ enable_dns | string | lower }}
+#############################################################
+# Main configuration
+#############################################################
 
-# Enable or disable FTP simulation
-enable_ftp {{ enable_ftp | string | lower }}
+#########################################
+# start_service
+#
+# The services to start
+#
+# Syntax: start_service <service name>
+#
+# Default: none
+#
+# Available service names are:
+# dns, http, smtp, pop3, tftp, ftp, ntp, time_tcp,
+# time_udp, daytime_tcp, daytime_udp, echo_tcp,
+# echo_udp, discard_tcp, discard_udp, quotd_tcp,
+# quotd_udp, chargen_tcp, chargen_udp, finger,
+# ident, syslog, dummy_tcp, dummy_udp, smtps, pop3s,
+# ftps, irc, https
+#
+start_service dns
+start_service http
+start_service https
+start_service smtp
+start_service smtps
+start_service pop3
+start_service pop3s
+start_service ftp
+start_service ftps
+start_service tftp
+start_service irc
+start_service ntp
+start_service finger
+start_service ident
+start_service syslog
+start_service time_tcp
+start_service time_udp
+start_service daytime_tcp
+start_service daytime_udp
+start_service echo_tcp
+start_service echo_udp
+start_service discard_tcp
+start_service discard_udp
+start_service quotd_tcp
+start_service quotd_udp
+start_service chargen_tcp
+start_service chargen_udp
+start_service dummy_tcp
+start_service dummy_udp
 
-# Enable or disable HTTP simulation
-enable_http {{ enable_http | string | lower }}
 
-# Enable or disable SMTP simulation
-enable_smtp {{ enable_smtp | string | lower }}
-
-# Enable or disable SSH simulation
-enable_ssh {{ enable_ssh | string | lower }}
-
-# Enable or disable Telnet simulation
-enable_telnet {{ enable_telnet | string | lower }}
-
-# Enable or disable HTTPS simulation (requires ssl_cert and ssl_key)
-enable_https {{ enable_https | string | lower }}
-
-# SSL certificate file path (used if enable_https is true)
-ssl_cert {{ ssl_cert }}
-
-# SSL private key file path (used if enable_https is true)
-ssl_key {{ ssl_key }}
-
-# Log file path (use '-' for stdout)
-log_file {{ log_file }}
-
-# Log level: debug, info, notice, warning, error
-log_level {{ log_level }}
-
-# Directory for simulated files (e.g., web content, FTP files)
-www_directory {{ www_directory }}
-
-# Default user agent for HTTP responses
-user_agent {{ user_agent }}
-
-# TCP services to run (list of port->service mappings)
-{% for mapping in tcp_services %}
-tcp_service {{ mapping.port }} {{ mapping.service }}
-{% endfor %}
-
-# UDP services to run (list of port->service mappings)
-{% for mapping in udp_services %}
-udp_service {{ mapping.port }} {{ mapping.service }}
-{% endfor %}
-
-# DNS resolution behavior
-{% if dns_simulation == 'internal' %}
-dns_simulation internal
-{% else %}
-dns_simulation external
+#########################################
+# service_bind_address
+#
+# IP address to bind services to
+#
+# Syntax: service_bind_address <IP address>
+#
+# Default: 127.0.0.1
+#
+{% if bind_address is defined and bind_address is not none and (bind_address is number or bind_address is boolean or bind_address | length > 0) %}service_bind_address {{ bind_address }}
+{% else %}#service_bind_address 10.10.10.1
 {% endif %}
 
-# DNS server to use when dns_simulation=external
-dns_server {{ dns_server }}
+#########################################
+# service_run_as_user
+#
+# User to run services
+#
+# Syntax: service_run_as_user <username>
+#
+# Default: inetsim
+#
+{% if service_run_as_user is defined and service_run_as_user is not none and (service_run_as_user is number or service_run_as_user is boolean or service_run_as_user | length > 0) %}service_run_as_user {{ service_run_as_user }}
+{% else %}#service_run_as_user nobody
+{% endif %}
 
-# Whether to randomize service ports (for testing)
-randomize_port {{ randomize_port | string | lower }}
+#########################################
+# service_max_childs
+#
+# Maximum number of child processes (parallel connections)
+# for each service
+#
+# Syntax: service_max_childs [1..30]
+#
+# Default: 10
+#
+{% if service_max_childs is defined and service_max_childs is not none and (service_max_childs is number or service_max_childs is boolean or service_max_childs | length > 0) %}service_max_childs {{ service_max_childs }}
+{% else %}#service_max_childs 15
+{% endif %}
 
-# Time to wait before closing idle connections (seconds)
-close_timeout {{ close_timeout }}
+#########################################
+# service_timeout
+#
+# If a client does not send any data for the number of seconds
+# given here, the corresponding connection will be closed.
+#
+# Syntax: service_timeout [1..600]
+#
+# Default: 120
+#
+{% if service_timeout is defined and service_timeout is not none and (service_timeout is number or service_timeout is boolean or service_timeout | length > 0) %}service_timeout {{ service_timeout }}
+{% else %}#service_timeout 60
+{% endif %}
 
-# Maximum number of concurrent connections
-max_connections {{ max_connections }}
+#########################################
+# create_reports
+#
+# Create report with a summary of connections
+# for the session on shutdown
+#
+# Syntax: create_reports [yes|no]
+#
+# Default: yes
+#
+{% if create_reports is defined and create_reports is not none and (create_reports is number or create_reports is boolean or create_reports | length > 0) %}create_reports {{ create_reports }}
+{% else %}#create_reports no
+{% endif %}
 
-# User to run services as
-service_run_as_user {{ service_run_as_user }}
+#########################################
+# report_language
+#
+# Set language for reports
+# Note: Currently only languages 'en' and 'de' are supported
+#
+# Syntax: report_language <language>
+#
+# Default: en
+#
+{% if report_language is defined and report_language is not none and (report_language is number or report_language is boolean or report_language | length > 0) %}report_language {{ report_language }}
+{% else %}#report_language de
+{% endif %}
+
+#############################################################
+# Faketime
+#############################################################
+
+#########################################
+# faketime_init_delta
+#
+# Initial number of seconds (positive or negative)
+# relative to current date/time for fake time used by all services 
+#
+# Syntax: faketime_init_delta <number of seconds>
+#
+# Default: 0  (use current date/time) 
+#
+{% if faketime_init_delta is defined and faketime_init_delta is not none and (faketime_init_delta is number or faketime_init_delta is boolean or faketime_init_delta | length > 0) %}faketime_init_delta {{ faketime_init_delta }}
+{% else %}#faketime_init_delta 1000
+{% endif %}
+
+#########################################
+# faketime_auto_delay
+#
+# Number of seconds to wait before incrementing fake time
+# by value specified with 'faketime_auto_increment'.
+# Setting to '0' disables this option.
+#
+# Syntax: faketime_auto_delay [0..86400]
+#
+# Default: 0  (disabled)
+#
+{% if faketime_auto_delay is defined and faketime_auto_delay is not none and (faketime_auto_delay is number or faketime_auto_delay is boolean or faketime_auto_delay | length > 0) %}faketime_auto_delay {{ faketime_auto_delay }}
+{% else %}#faketime_auto_delay 1000
+{% endif %}
+
+#########################################
+# faketime_auto_increment
+#
+# Number of seconds by which fake time is incremented at
+# regular intervals specified by 'faketime_auto_delay'.
+# This option only takes effect if 'faketime_auto_delay'
+# is enabled (not set to '0').
+#
+# Syntax: faketime_auto_increment [-31536000..31536000]
+#
+# Default: 3600
+#
+{% if faketime_auto_increment is defined and faketime_auto_increment is not none and (faketime_auto_increment is number or faketime_auto_increment is boolean or faketime_auto_increment | length > 0) %}faketime_auto_increment {{ faketime_auto_increment }}
+{% else %}#faketime_auto_increment 86400
+{% endif %}
+
+#############################################################
+# Service DNS
+#############################################################
+
+#########################################
+# dns_bind_port
+#
+# Port number to bind DNS service to
+#
+# Syntax: dns_bind_port <port number>
+#
+# Default: 53
+#
+{% if dns_bind_port is defined and dns_bind_port is not none and (dns_bind_port is number or dns_bind_port is boolean or dns_bind_port | length > 0) %}dns_bind_port {{ dns_bind_port }}
+{% else %}#dns_bind_port 53
+{% endif %}
+
+#########################################
+# dns_default_ip
+#
+# Default IP address to return with DNS replies
+#
+# Syntax: dns_default_ip <IP address>
+#
+# Default: 127.0.0.1
+#
+{% if dns_default_ip is defined and dns_default_ip is not none and (dns_default_ip is number or dns_default_ip is boolean or dns_default_ip | length > 0) %}dns_default_ip {{ dns_default_ip }}
+{% else %}#dns_default_ip 10.10.10.1
+{% endif %}
+
+#########################################
+# dns_default_hostname
+#
+# Default hostname to return with DNS replies
+#
+# Syntax: dns_default_hostname <hostname>
+#
+# Default: www
+#
+{% if dns_default_hostname is defined and dns_default_hostname is not none and (dns_default_hostname is number or dns_default_hostname is boolean or dns_default_hostname | length > 0) %}dns_default_hostname {{ dns_default_hostname }}
+{% else %}#dns_default_hostname somehost
+{% endif %}
+
+#########################################
+# dns_default_domainname
+#
+# Default domain name to return with DNS replies
+#
+# Syntax: dns_default_domainname <domain name>
+#
+# Default: inetsim.org
+#
+{% if dns_default_domainname is defined and dns_default_domainname is not none and (dns_default_domainname is number or dns_default_domainname is boolean or dns_default_domainname | length > 0) %}dns_default_domainname {{ dns_default_domainname }}
+{% else %}#dns_default_domainname some.domain
+{% endif %}
+
+#########################################
+# dns_static
+#
+# Static mappings for DNS
+#
+# Syntax: dns_static <fqdn hostname> <IP address>
+#
+# Default: none
+#
+#dns_static www.foo.com 10.10.10.10
+#dns_static ns1.foo.com 10.70.50.30
+#dns_static ftp.bar.net 10.10.20.30
+
+
+#########################################
+# dns_version
+#
+# DNS version
+#
+# Syntax: dns_version <version>
+#
+# Default: "INetSim DNS Server"
+#
+{% if dns_version is defined and dns_version is not none and (dns_version is number or dns_version is boolean or dns_version | length > 0) %}dns_version {{ dns_version }}
+{% else %}#dns_version "9.2.4"
+{% endif %}
+
+#############################################################
+# Service HTTP
+#############################################################
+
+#########################################
+# http_bind_port
+#
+# Port number to bind HTTP service to
+#
+# Syntax: http_bind_port <port number>
+#
+# Default: 80
+#
+{% if http_bind_port is defined and http_bind_port is not none and (http_bind_port is number or http_bind_port is boolean or http_bind_port | length > 0) %}http_bind_port {{ http_bind_port }}
+{% else %}#http_bind_port 80
+{% endif %}
+
+#########################################
+# http_version
+#
+# Version string to return in HTTP replies
+#
+# Syntax: http_version <string>
+#
+# Default: "INetSim HTTP server"
+#
+{% if http_version is defined and http_version is not none and (http_version is number or http_version is boolean or http_version | length > 0) %}http_version {{ http_version }}
+{% else %}#http_version "Microsoft-IIS/4.0"
+{% endif %}
+
+#########################################
+# http_post_limit
+#
+# Size limit for HTTP POST requests
+#
+# Syntax: http_post_limit [1..1000000000]
+#
+# Default: 10000000
+#
+{% if http_post_limit is defined and http_post_limit is not none and (http_post_limit is number or http_post_limit is boolean or http_post_limit | length > 0) %}http_post_limit {{ http_post_limit }}
+{% else %}#http_post_limit 500000000
+{% endif %}
+
+#########################################
+# http_fakemode
+#
+# Turn HTTP fake mode on or off
+#
+# Syntax: http_fakemode [yes|no]
+#
+# Default: yes
+#
+{% if http_fakemode is defined and http_fakemode is not none and (http_fakemode is number or http_fakemode is boolean or http_fakemode | length > 0) %}http_fakemode {{ http_fakemode }}
+{% else %}#http_fakemode no
+{% endif %}
+
+#########################################
+# http_fakefile
+#
+# Fake files returned in fake mode based on the file extension
+# in the HTTP request.
+# The fake files must be placed in <data-dir>/http/fakefiles
+#
+# Syntax: http_fakefile <extension> <filename> <mime-type>
+#
+# Default: none
+#
+http_fakefile txt  sample.txt     text/plain
+http_fakefile htm  sample.html    text/html
+http_fakefile html sample.html    text/html
+http_fakefile php  sample.html    text/html
+http_fakefile gif  sample.gif     image/gif
+http_fakefile jpg  sample.jpg     image/jpeg
+http_fakefile jpeg sample.jpg     image/jpeg
+http_fakefile png  sample.png     image/png
+http_fakefile bmp  sample.bmp     image/x-ms-bmp
+http_fakefile ico  favicon.ico    image/x-icon
+http_fakefile exe  sample_gui.exe x-msdos-program
+http_fakefile com  sample_gui.exe x-msdos-program
+
+
+#########################################
+# http_default_fakefile
+#
+# The default fake file returned in fake mode if the file extension
+# in the HTTP request does not match any of the extensions
+# defined above.
+#
+# The default fake file must be placed in <data-dir>/http/fakefiles
+#
+# Syntax: http_default_fakefile <filename> <mime-type>
+#
+# Default: none
+#
+http_default_fakefile {{ http_default_fakefile | default('sample.html text/html') }}
+
+
+#########################################
+# http_static_fakefile
+#
+# Fake files returned in fake mode based on static path.
+# The fake files must be placed in <data-dir>/http/fakefiles
+#
+# Syntax: http_static_fakefile <path> <filename> <mime-type>
+#
+# Default: none
+#
+#http_static_fakefile /path/ sample_gui.exe x-msdos-program
+#http_static_fakefile /path/to/file.exe sample_gui.exe x-msdos-program
+
+
+#############################################################
+# Service HTTPS
+#############################################################
+
+#########################################
+# https_bind_port
+#
+# Port number to bind HTTPS service to
+#
+# Syntax: https_bind_port <port number>
+#
+# Default: 443
+#
+{% if https_bind_port is defined and https_bind_port is not none and (https_bind_port is number or https_bind_port is boolean or https_bind_port | length > 0) %}https_bind_port {{ https_bind_port }}
+{% else %}#https_bind_port 443
+{% endif %}
+
+#########################################
+# https_version
+#
+# Version string to return in HTTPS replies
+#
+# Syntax: https_version <string>
+#
+# Default: "INetSim HTTPs server"
+#
+{% if https_version is defined and https_version is not none and (https_version is number or https_version is boolean or https_version | length > 0) %}https_version {{ https_version }}
+{% else %}#https_version "Microsoft-IIS/4.0"
+{% endif %}
+
+#########################################
+# https_post_limit
+#
+# Size limit for HTTPS POST requests
+#
+# Syntax: https_post_limit [1..1000000000]
+#
+# Default: 10000000
+#
+{% if https_post_limit is defined and https_post_limit is not none and (https_post_limit is number or https_post_limit is boolean or https_post_limit | length > 0) %}https_post_limit {{ https_post_limit }}
+{% else %}#https_post_limit 500000000
+{% endif %}
+
+#########################################
+# https_fakemode
+#
+# Turn HTTPS fake mode on or off
+#
+# Syntax: https_fakemode [yes|no]
+#
+# Default: yes
+#
+{% if https_fakemode is defined and https_fakemode is not none and (https_fakemode is number or https_fakemode is boolean or https_fakemode | length > 0) %}https_fakemode {{ https_fakemode }}
+{% else %}#https_fakemode no
+{% endif %}
+
+#########################################
+# https_fakefile
+#
+# Fake files returned in fake mode based on the file extension
+# in the HTTPS request.
+# The fake files must be placed in <data-dir>/http/fakefiles
+#
+# Syntax: https_fakefile <extension> <filename> <mime-type>
+#
+# Default: none
+#
+https_fakefile txt  sample.txt     text/plain
+https_fakefile htm  sample.html    text/html
+https_fakefile html sample.html    text/html
+https_fakefile php  sample.html    text/html
+https_fakefile gif  sample.gif     image/gif
+https_fakefile jpg  sample.jpg     image/jpeg
+https_fakefile jpeg sample.jpg     image/jpeg
+https_fakefile png  sample.png     image/png
+https_fakefile bmp  sample.bmp     image/x-ms-bmp
+https_fakefile ico  favicon.ico    image/x-icon
+https_fakefile exe  sample_gui.exe x-msdos-program
+https_fakefile com  sample_gui.exe x-msdos-program
+
+
+#########################################
+# https_default_fakefile
+#
+# The default fake file returned in fake mode if the file extension
+# in the HTTPS request does not match any of the extensions
+# defined above.
+#
+# The default fake file must be placed in <data-dir>/http/fakefiles
+#
+# Syntax: https_default_fakefile <filename> <mime-type>
+#
+# Default: none
+#
+https_default_fakefile {{ https_default_fakefile | default('sample.html text/html') }}
+
+
+#########################################
+# https_static_fakefile
+#
+# Fake files returned in fake mode based on static path.
+# The fake files must be placed in <data-dir>/http/fakefiles
+#
+# Syntax: https_static_fakefile <path> <filename> <mime-type>
+#
+# Default: none
+#
+#https_static_fakefile /path/ sample_gui.exe x-msdos-program
+#https_static_fakefile /path/to/file.exe sample_gui.exe x-msdos-program
+
+
+#########################################
+# https_ssl_keyfile
+#
+# Name of the SSL private key PEM file.
+# The key MUST NOT be encrypted!
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: https_ssl_keyfile <filename>
+#
+# Default: default_key.pem
+#
+{% if https_ssl_keyfile is defined and https_ssl_keyfile is not none and (https_ssl_keyfile is number or https_ssl_keyfile is boolean or https_ssl_keyfile | length > 0) %}https_ssl_keyfile {{ https_ssl_keyfile }}
+{% else %}#https_ssl_keyfile https_key.pem
+{% endif %}
+
+#########################################
+# https_ssl_certfile
+#
+# Name of the SSL certificate file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: https_ssl_certfile <filename>
+#
+# Default: default_cert.pem
+#
+{% if https_ssl_certfile is defined and https_ssl_certfile is not none and (https_ssl_certfile is number or https_ssl_certfile is boolean or https_ssl_certfile | length > 0) %}https_ssl_certfile {{ https_ssl_certfile }}
+{% else %}#https_ssl_certfile https_cert.pem
+{% endif %}
+
+#########################################
+# https_ssl_dhfile
+#
+# Name of the Diffie-Hellman parameter PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: https_ssl_dhfile <filename>
+#
+# Default: none
+#
+{% if https_ssl_dhfile is defined and https_ssl_dhfile is not none and (https_ssl_dhfile is number or https_ssl_dhfile is boolean or https_ssl_dhfile | length > 0) %}https_ssl_dhfile {{ https_ssl_dhfile }}
+{% else %}#https_ssl_dhfile https_dh1024.pem
+{% endif %}
+
+#############################################################
+# Service SMTP
+#############################################################
+
+#########################################
+# smtp_bind_port
+#
+# Port number to bind SMTP service to
+#
+# Syntax: smtp_bind_port <port number>
+#
+# Default: 25
+#
+{% if smtp_bind_port is defined and smtp_bind_port is not none and (smtp_bind_port is number or smtp_bind_port is boolean or smtp_bind_port | length > 0) %}smtp_bind_port {{ smtp_bind_port }}
+{% else %}#smtp_bind_port 25
+{% endif %}
+
+#########################################
+# smtp_fqdn_hostname
+#
+# The FQDN hostname used for SMTP
+#
+# Syntax: smtp_fqdn_hostname <string>
+#
+# Default: mail.inetsim.org
+#
+{% if smtp_fqdn_hostname is defined and smtp_fqdn_hostname is not none and (smtp_fqdn_hostname is number or smtp_fqdn_hostname is boolean or smtp_fqdn_hostname | length > 0) %}smtp_fqdn_hostname {{ smtp_fqdn_hostname }}
+{% else %}#smtp_fqdn_hostname foo.bar.org
+{% endif %}
+
+#########################################
+# smtp_banner
+#
+# The banner string used in SMTP greeting message
+#
+# Syntax: smtp_banner <string>
+#
+# Default: "INetSim Mail Service ready."
+#
+{% if smtp_banner is defined and smtp_banner is not none and (smtp_banner is number or smtp_banner is boolean or smtp_banner | length > 0) %}smtp_banner {{ smtp_banner }}
+{% else %}#smtp_banner "SMTP Mailer ready."
+{% endif %}
+
+#########################################
+# smtp_helo_required
+#
+# Client has to send HELO/EHLO before any other command
+#
+# Syntax: smtp_helo_required [yes|no]
+#
+# Default: no
+#
+{% if smtp_helo_required is defined and smtp_helo_required is not none and (smtp_helo_required is number or smtp_helo_required is boolean or smtp_helo_required | length > 0) %}smtp_helo_required {{ smtp_helo_required }}
+{% else %}#smtp_helo_required yes
+{% endif %}
+
+#########################################
+# smtp_extended_smtp
+#
+# Turn support for extended smtp (ESMTP) on or off
+#
+# Syntax: smtp_extended_smtp [yes|no]
+#
+# Default: yes
+#
+{% if smtp_extended_smtp is defined and smtp_extended_smtp is not none and (smtp_extended_smtp is number or smtp_extended_smtp is boolean or smtp_extended_smtp | length > 0) %}smtp_extended_smtp {{ smtp_extended_smtp }}
+{% else %}#smtp_extended_smtp no
+{% endif %}
+
+#########################################
+# smtp_service_extension
+#
+# SMTP service extensions offered to client.
+# For more information, see
+# <http://www.iana.org/assignments/mail-parameters>
+#
+# Syntax: smtp_service_extension <extension [parameter(s)]>
+#
+# Supported extensions and parameters:
+# VRFY
+# EXPN
+# HELP
+# 8BITMIME
+# SIZE   # one optional parameter
+# ENHANCEDSTATUSCODES
+# AUTH    # one or more of [PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1]
+# DSN
+# SEND
+# SAML
+# SOML
+# TURN
+# ETRN
+# ATRN
+# VERP
+# MTRK
+# CHUNKING
+# STARTTLS
+# DELIVERBY  # one optional parameter
+# SUBMITTER
+# CHECKPOINT
+# BINARYMIME
+# NO-SOLICITING  # one optional parameter
+# FUTURERELEASE  # two required parameters
+#
+# Default: none
+#
+smtp_service_extension VRFY
+smtp_service_extension EXPN
+smtp_service_extension HELP
+smtp_service_extension 8BITMIME
+smtp_service_extension SIZE 102400000
+smtp_service_extension ENHANCEDSTATUSCODES
+smtp_service_extension AUTH PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1
+smtp_service_extension DSN
+smtp_service_extension ETRN
+smtp_service_extension STARTTLS
+#
+
+
+#########################################
+# smtp_auth_reversibleonly
+#
+# Only offer authentication mechanisms which allow reversing
+# the authentication information sent by a client
+# to clear text username/password.
+# This option only takes effect if 'smtp_extended_smtp' is
+# enabled and 'smtp_service_extension AUTH' is configured.
+#
+# Syntax: smtp_auth_reversibleonly [yes|no]
+#
+# Default: no
+#
+{% if smtp_auth_reversibleonly is defined and smtp_auth_reversibleonly is not none and (smtp_auth_reversibleonly is number or smtp_auth_reversibleonly is boolean or smtp_auth_reversibleonly | length > 0) %}smtp_auth_reversibleonly {{ smtp_auth_reversibleonly }}
+{% else %}#smtp_auth_reversibleonly yes
+{% endif %}
+
+#########################################
+# smtp_auth_required
+#
+# Force the client to authenticate.
+# This option only takes effect if 'smtp_extended_smtp' is
+# enabled and 'smtp_service_extension AUTH' is configured.
+#
+# Syntax: smtp_auth_required [yes|no]
+#
+# Default: no
+#
+{% if smtp_auth_required is defined and smtp_auth_required is not none and (smtp_auth_required is number or smtp_auth_required is boolean or smtp_auth_required | length > 0) %}smtp_auth_required {{ smtp_auth_required }}
+{% else %}#smtp_auth_required yes
+{% endif %}
+
+#########################################
+# smtp_ssl_keyfile
+#
+# Name of the SSL private key PEM file.
+# The key MUST NOT be encrypted!
+#
+# This option only takes effect if 'smtp_extended_smtp' is
+# enabled and 'smtp_service_extension STARTTLS' is configured.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Note: If no key file is specified, the extension STARTTLS
+# will be disabled.
+#
+# Syntax: smtp_ssl_keyfile <filename>
+#
+# Default: default_key.pem
+#
+{% if smtp_ssl_keyfile is defined and smtp_ssl_keyfile is not none and (smtp_ssl_keyfile is number or smtp_ssl_keyfile is boolean or smtp_ssl_keyfile | length > 0) %}smtp_ssl_keyfile {{ smtp_ssl_keyfile }}
+{% else %}#smtp_ssl_keyfile smtp_key.pem
+{% endif %}
+
+#########################################
+# smtp_ssl_certfile
+#
+# Name of the SSL certificate PEM file.
+#
+# This option only takes effect if 'smtp_extended_smtp' is
+# enabled and 'smtp_service_extension STARTTLS' is configured.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Note: If no cert file is specified, the extension STARTTLS
+# will be disabled.
+#
+# Syntax: smtp_ssl_certfile <filename>
+#
+# Default: default_cert.pem
+#
+{% if smtp_ssl_certfile is defined and smtp_ssl_certfile is not none and (smtp_ssl_certfile is number or smtp_ssl_certfile is boolean or smtp_ssl_certfile | length > 0) %}smtp_ssl_certfile {{ smtp_ssl_certfile }}
+{% else %}#smtp_ssl_certfile smtp_cert.pem
+{% endif %}
+
+#########################################
+# smtp_ssl_dhfile
+#
+# Name of the Diffie-Hellman parameter PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: smtp_ssl_dhfile <filename>
+#
+# Default: none
+#
+{% if smtp_ssl_dhfile is defined and smtp_ssl_dhfile is not none and (smtp_ssl_dhfile is number or smtp_ssl_dhfile is boolean or smtp_ssl_dhfile | length > 0) %}smtp_ssl_dhfile {{ smtp_ssl_dhfile }}
+{% else %}#smtp_ssl_dhfile smtp_dh1024.pem
+{% endif %}
+
+
+#############################################################
+# Service SMTPS
+#############################################################
+
+#########################################
+# smtps_bind_port
+#
+# Port number to bind SMTPS service to
+#
+# Syntax: smtps_bind_port <port number>
+#
+# Default: 465
+#
+{% if smtps_bind_port is defined and smtps_bind_port is not none and (smtps_bind_port is number or smtps_bind_port is boolean or smtps_bind_port | length > 0) %}smtps_bind_port {{ smtps_bind_port }}
+{% else %}#smtps_bind_port 465
+{% endif %}
+
+#########################################
+# smtps_fqdn_hostname
+#
+# The FQDN hostname used for SMTPS
+#
+# Syntax: smtps_fqdn_hostname <string>
+#
+# Default: mail.inetsim.org
+#
+{% if smtps_fqdn_hostname is defined and smtps_fqdn_hostname is not none and (smtps_fqdn_hostname is number or smtps_fqdn_hostname is boolean or smtps_fqdn_hostname | length > 0) %}smtps_fqdn_hostname {{ smtps_fqdn_hostname }}
+{% else %}#smtps_fqdn_hostname foo.bar.org
+{% endif %}
+
+#########################################
+# smtps_banner
+#
+# The banner string used in SMTPS greeting message
+#
+# Syntax: smtps_banner <string>
+#
+# Default: "INetSim Mail Service ready."
+#
+{% if smtps_banner is defined and smtps_banner is not none and (smtps_banner is number or smtps_banner is boolean or smtps_banner | length > 0) %}smtps_banner {{ smtps_banner }}
+{% else %}#smtps_banner "SMTPS Mailer ready."
+{% endif %}
+
+#########################################
+# smtps_helo_required
+#
+# Client has to send HELO/EHLO before any other command
+#
+# Syntax: smtps_helo_required [yes|no]
+#
+# Default: no
+#
+{% if smtps_helo_required is defined and smtps_helo_required is not none and (smtps_helo_required is number or smtps_helo_required is boolean or smtps_helo_required | length > 0) %}smtps_helo_required {{ smtps_helo_required }}
+{% else %}#smtps_helo_required yes
+{% endif %}
+
+#########################################
+# smtps_extended_smtp
+#
+# Turn support for extended smtp (ESMTP) on or off
+#
+# Syntax: smtps_extended_smtp [yes|no]
+#
+# Default: yes
+#
+{% if smtps_extended_smtp is defined and smtps_extended_smtp is not none and (smtps_extended_smtp is number or smtps_extended_smtp is boolean or smtps_extended_smtp | length > 0) %}smtps_extended_smtp {{ smtps_extended_smtp }}
+{% else %}#smtps_extended_smtp no
+{% endif %}
+
+#########################################
+# smtps_service_extension
+#
+# SMTP service extensions offered to client.
+# For more information, see
+# <http://www.iana.org/assignments/mail-parameters>
+#
+# Syntax: smtp_service_extension <extension [parameter(s)]>
+#
+# Supported extensions and parameters:
+# VRFY
+# EXPN
+# HELP
+# 8BITMIME
+# SIZE   # one optional parameter
+# ENHANCEDSTATUSCODES
+# AUTH    # one or more of [PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1]
+# DSN
+# SEND
+# SAML
+# SOML
+# TURN
+# ETRN
+# ATRN
+# VERP
+# MTRK
+# CHUNKING
+# DELIVERBY  # one optional parameter
+# SUBMITTER
+# CHECKPOINT
+# BINARYMIME
+# NO-SOLICITING  # one optional parameter
+# FUTURERELEASE  # two required parameters
+#
+# Default: none
+#
+smtps_service_extension VRFY
+smtps_service_extension EXPN
+smtps_service_extension HELP
+smtps_service_extension 8BITMIME
+smtps_service_extension SIZE 102400000
+smtps_service_extension ENHANCEDSTATUSCODES
+smtps_service_extension AUTH PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1
+smtps_service_extension DSN
+smtps_service_extension ETRN
+#
+
+
+#########################################
+# smtps_auth_reversibleonly
+#
+# Only offer authentication mechanisms which allow reversing
+# the authentication information sent by a client
+# to clear text username/password.
+# This option only takes effect if 'smtps_extended_smtp' is
+# enabled and 'smtps_service_extension AUTH' is configured.
+#
+# Syntax: smtps_auth_reversibleonly [yes|no]
+#
+# Default: no
+#
+{% if smtps_auth_reversibleonly is defined and smtps_auth_reversibleonly is not none and (smtps_auth_reversibleonly is number or smtps_auth_reversibleonly is boolean or smtps_auth_reversibleonly | length > 0) %}smtps_auth_reversibleonly {{ smtps_auth_reversibleonly }}
+{% else %}#smtps_auth_reversibleonly yes
+{% endif %}
+
+#########################################
+# smtps_auth_required
+#
+# Force the client to authenticate.
+# This option only takes effect if 'smtps_extended_smtp' is
+# enabled and 'smtp_service_extension AUTH' is configured.
+#
+# Syntax: smtps_auth_required [yes|no]
+#
+# Default: no
+#
+{% if smtps_auth_required is defined and smtps_auth_required is not none and (smtps_auth_required is number or smtps_auth_required is boolean or smtps_auth_required | length > 0) %}smtps_auth_required {{ smtps_auth_required }}
+{% else %}#smtps_auth_required yes
+{% endif %}
+
+#########################################
+# smtps_ssl_keyfile
+#
+# Name of the SSL private key PEM file.
+# The key MUST NOT be encrypted!
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: smtps_ssl_keyfile <filename>
+#
+# Default: default_key.pem
+#
+{% if smtps_ssl_keyfile is defined and smtps_ssl_keyfile is not none and (smtps_ssl_keyfile is number or smtps_ssl_keyfile is boolean or smtps_ssl_keyfile | length > 0) %}smtps_ssl_keyfile {{ smtps_ssl_keyfile }}
+{% else %}#smtps_ssl_keyfile smtps_key.pem
+{% endif %}
+
+#########################################
+# smtps_ssl_certfile
+#
+# Name of the SSL certificate PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: smtps_ssl_certfile <filename>
+#
+# Default: default_cert.pem
+#
+{% if smtps_ssl_certfile is defined and smtps_ssl_certfile is not none and (smtps_ssl_certfile is number or smtps_ssl_certfile is boolean or smtps_ssl_certfile | length > 0) %}smtps_ssl_certfile {{ smtps_ssl_certfile }}
+{% else %}#smtps_ssl_certfile smtps_cert.pem
+{% endif %}
+
+#########################################
+# smtps_ssl_dhfile
+#
+# Name of the Diffie-Hellman parameter PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: smtps_ssl_dhfile <filename>
+#
+# Default: none
+#
+{% if smtps_ssl_dhfile is defined and smtps_ssl_dhfile is not none and (smtps_ssl_dhfile is number or smtps_ssl_dhfile is boolean or smtps_ssl_dhfile | length > 0) %}smtps_ssl_dhfile {{ smtps_ssl_dhfile }}
+{% else %}#smtps_ssl_dhfile smtps_dh1024.pem
+{% endif %}
+
+#############################################################
+# Service POP3
+#############################################################
+
+#########################################
+# pop3_bind_port
+#
+# Port number to bind POP3 service to
+#
+# Syntax: pop3_bind_port <port number>
+#
+# Default: 110
+#
+{% if pop3_bind_port is defined and pop3_bind_port is not none and (pop3_bind_port is number or pop3_bind_port is boolean or pop3_bind_port | length > 0) %}pop3_bind_port {{ pop3_bind_port }}
+{% else %}#pop3_bind_port 110
+{% endif %}
+
+#########################################
+# pop3_banner
+#
+# The banner string used in POP3 greeting message
+#
+# Syntax: pop3_banner <string>
+#
+# Default: "INetSim POP3 Server ready"
+#
+{% if pop3_banner is defined and pop3_banner is not none and (pop3_banner is number or pop3_banner is boolean or pop3_banner | length > 0) %}pop3_banner {{ pop3_banner }}
+{% else %}#pop3_banner "POP3 Server ready"
+{% endif %}
+
+#########################################
+# pop3_hostname
+#
+# The hostname used in POP3 greeting message
+#
+# Syntax: pop3_hostname <string>
+#
+# Default: pop3host
+#
+{% if pop3_hostname is defined and pop3_hostname is not none and (pop3_hostname is number or pop3_hostname is boolean or pop3_hostname | length > 0) %}pop3_hostname {{ pop3_hostname }}
+{% else %}#pop3_hostname pop3server
+{% endif %}
+
+#########################################
+# pop3_mbox_maxmails
+#
+# Maximum number of e-mails to select from supplied mbox files
+# for creation of random POP3 mailbox
+#
+# Syntax: pop3_mbox_maxmails <number>
+#
+# Default: 10
+#
+{% if pop3_mbox_maxmails is defined and pop3_mbox_maxmails is not none and (pop3_mbox_maxmails is number or pop3_mbox_maxmails is boolean or pop3_mbox_maxmails | length > 0) %}pop3_mbox_maxmails {{ pop3_mbox_maxmails }}
+{% else %}#pop3_mbox_maxmails 20
+{% endif %}
+
+#########################################
+# pop3_mbox_reread
+#
+# Re-read supplied mbox files if POP3 service was inactive
+# for <number> seconds
+#
+# Syntax: pop3_mbox_reread <number>
+#
+# Default: 180
+#
+{% if pop3_mbox_reread is defined and pop3_mbox_reread is not none and (pop3_mbox_reread is number or pop3_mbox_reread is boolean or pop3_mbox_reread | length > 0) %}pop3_mbox_reread {{ pop3_mbox_reread }}
+{% else %}#pop3_mbox_reread 300
+{% endif %}
+
+#########################################
+# pop3_mbox_rebuild
+#
+# Rebuild random POP3 mailbox if POP3 service was inactive
+# for <number> seconds
+#
+# Syntax: pop3_mbox_rebuild <number>
+#
+# Default: 60
+#
+{% if pop3_mbox_rebuild is defined and pop3_mbox_rebuild is not none and (pop3_mbox_rebuild is number or pop3_mbox_rebuild is boolean or pop3_mbox_rebuild | length > 0) %}pop3_mbox_rebuild {{ pop3_mbox_rebuild }}
+{% else %}#pop3_mbox_rebuild 120
+{% endif %}
+
+#########################################
+# pop3_enable_apop
+#
+# Turn APOP on or off
+#
+# Syntax: pop3_enable_apop [yes|no]
+#
+# Default: yes
+#
+{% if pop3_enable_apop is defined and pop3_enable_apop is not none and (pop3_enable_apop is number or pop3_enable_apop is boolean or pop3_enable_apop | length > 0) %}pop3_enable_apop {{ pop3_enable_apop }}
+{% else %}#pop3_enable_apop no
+{% endif %}
+
+#########################################
+# pop3_auth_reversibleonly
+#
+# Only offer authentication mechanisms which allow reversing
+# the authentication information sent by a client
+# to clear text username/password
+#
+# Syntax: pop3_auth_reversibleonly [yes|no]
+#
+# Default: no
+#
+{% if pop3_auth_reversibleonly is defined and pop3_auth_reversibleonly is not none and (pop3_auth_reversibleonly is number or pop3_auth_reversibleonly is boolean or pop3_auth_reversibleonly | length > 0) %}pop3_auth_reversibleonly {{ pop3_auth_reversibleonly }}
+{% else %}#pop3_auth_reversibleonly yes
+{% endif %}
+
+#########################################
+# pop3_enable_capabilities
+#
+# Turn support for pop3 capabilities on or off
+#
+# Syntax: pop3_enable_capabilities [yes|no]
+#
+# Default: yes
+#
+{% if pop3_enable_capabilities is defined and pop3_enable_capabilities is not none and (pop3_enable_capabilities is number or pop3_enable_capabilities is boolean or pop3_enable_capabilities | length > 0) %}pop3_enable_capabilities {{ pop3_enable_capabilities }}
+{% else %}#pop3_enable_capabilities no
+{% endif %}
+
+#########################################
+# pop3_capability
+#
+# POP3 capabilities offered to client.
+# For more information, see
+# <http://www.iana.org/assignments/pop3-extension-mechanism>
+#
+# Syntax: pop3_capability <capability [parameter(s)]>
+#
+# Supported capabilities and parameters:
+# TOP
+# USER
+# UIDL
+# SASL   # one or more of [PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1]
+# RESP-CODES
+# EXPIRE  # one required parameter and one optional parameter
+# LOGIN-DELAY  # one required parameter and one optional parameter
+# IMPLEMENTATION # one required parameter
+# AUTH-RESP-CODE
+# STLS
+#
+# Default: none
+#
+pop3_capability TOP
+pop3_capability USER
+pop3_capability SASL PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1
+pop3_capability UIDL
+pop3_capability IMPLEMENTATION "INetSim POP3 server"
+pop3_capability STLS
+#
+
+
+#########################################
+# pop3_ssl_keyfile
+#
+# Name of the SSL private key PEM file.
+# The key MUST NOT be encrypted!
+#
+# This option only takes effect if 'pop3_enable_capabilities' is
+# true and 'pop3_capability STLS' is configured.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Note: If no key file is specified, capability STLS will be disabled.
+#
+# Syntax: pop3_ssl_keyfile <filename>
+#
+# Default: default_key.pem
+#
+{% if pop3_ssl_keyfile is defined and pop3_ssl_keyfile is not none and (pop3_ssl_keyfile is number or pop3_ssl_keyfile is boolean or pop3_ssl_keyfile | length > 0) %}pop3_ssl_keyfile {{ pop3_ssl_keyfile }}
+{% else %}#pop3_ssl_keyfile pop3_key.pem
+{% endif %}
+
+#########################################
+# pop3_ssl_certfile
+#
+# Name of the SSL certificate PEM file.
+#
+# This option only takes effect if 'pop3_enable_capabilities' is
+# true and 'pop3_capability STLS' is configured.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Note: If no cert file is specified, capability STLS will be disabled.
+#
+# Syntax: pop3_ssl_certfile <filename>
+#
+# Default: default_cert.pem
+#
+{% if pop3_ssl_certfile is defined and pop3_ssl_certfile is not none and (pop3_ssl_certfile is number or pop3_ssl_certfile is boolean or pop3_ssl_certfile | length > 0) %}pop3_ssl_certfile {{ pop3_ssl_certfile }}
+{% else %}#pop3_ssl_certfile pop3_cert.pem
+{% endif %}
+
+#########################################
+# pop3_ssl_dhfile
+#
+# Name of the Diffie-Hellman parameter PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: pop3_ssl_dhfile <filename>
+#
+# Default: none
+#
+{% if pop3_ssl_dhfile is defined and pop3_ssl_dhfile is not none and (pop3_ssl_dhfile is number or pop3_ssl_dhfile is boolean or pop3_ssl_dhfile | length > 0) %}pop3_ssl_dhfile {{ pop3_ssl_dhfile }}
+{% else %}#pop3_ssl_dhfile pop3_dh1024.pem
+{% endif %}
+
+#############################################################
+# Service POP3S
+#############################################################
+
+#########################################
+# pop3s_bind_port
+#
+# Port number to bind POP3S service to
+#
+# Syntax: pop3s_bind_port <port number>
+#
+# Default: 995
+#
+{% if pop3s_bind_port is defined and pop3s_bind_port is not none and (pop3s_bind_port is number or pop3s_bind_port is boolean or pop3s_bind_port | length > 0) %}pop3s_bind_port {{ pop3s_bind_port }}
+{% else %}#pop3s_bind_port 995
+{% endif %}
+
+#########################################
+# pop3s_banner
+#
+# The banner string used in POP3 greeting message
+#
+# Syntax: pop3s_banner <string>
+#
+# Default: "INetSim POP3 Server ready"
+#
+{% if pop3s_banner is defined and pop3s_banner is not none and (pop3s_banner is number or pop3s_banner is boolean or pop3s_banner | length > 0) %}pop3s_banner {{ pop3s_banner }}
+{% else %}#pop3s_banner "POP3S Server ready"
+{% endif %}
+
+#########################################
+# pop3s_hostname
+#
+# The hostname used in POP3 greeting message
+#
+# Syntax: pop3s_hostname <string>
+#
+# Default: pop3host
+#
+{% if pop3s_hostname is defined and pop3s_hostname is not none and (pop3s_hostname is number or pop3s_hostname is boolean or pop3s_hostname | length > 0) %}pop3s_hostname {{ pop3s_hostname }}
+{% else %}#pop3s_hostname pop3server
+{% endif %}
+
+#########################################
+# pop3s_mbox_maxmails
+#
+# Maximum number of e-mails to select from supplied mbox files
+# for creation of random POP3 mailbox
+#
+# Syntax: pop3s_mbox_maxmails <number>
+#
+# Default: 10
+#
+{% if pop3s_mbox_maxmails is defined and pop3s_mbox_maxmails is not none and (pop3s_mbox_maxmails is number or pop3s_mbox_maxmails is boolean or pop3s_mbox_maxmails | length > 0) %}pop3s_mbox_maxmails {{ pop3s_mbox_maxmails }}
+{% else %}#pop3s_mbox_maxmails 20
+{% endif %}
+
+#########################################
+# pop3s_mbox_reread
+#
+# Re-read supplied mbox files if POP3S service was inactive
+# for <number> seconds
+#
+# Syntax: pop3s_mbox_reread <number>
+#
+# Default: 180
+#
+{% if pop3s_mbox_reread is defined and pop3s_mbox_reread is not none and (pop3s_mbox_reread is number or pop3s_mbox_reread is boolean or pop3s_mbox_reread | length > 0) %}pop3s_mbox_reread {{ pop3s_mbox_reread }}
+{% else %}#pop3s_mbox_reread 300
+{% endif %}
+
+#########################################
+# pop3s_mbox_rebuild
+#
+# Rebuild random POP3 mailbox if POP3S service was inactive
+# for <number> seconds
+#
+# Syntax: pop3s_mbox_rebuild <number>
+#
+# Default: 60
+#
+{% if pop3s_mbox_rebuild is defined and pop3s_mbox_rebuild is not none and (pop3s_mbox_rebuild is number or pop3s_mbox_rebuild is boolean or pop3s_mbox_rebuild | length > 0) %}pop3s_mbox_rebuild {{ pop3s_mbox_rebuild }}
+{% else %}#pop3s_mbox_rebuild 120
+{% endif %}
+
+#########################################
+# pop3s_enable_apop
+#
+# Turn APOP on or off
+#
+# Syntax: pop3s_enable_apop [yes|no]
+#
+# Default: yes
+#
+{% if pop3s_enable_apop is defined and pop3s_enable_apop is not none and (pop3s_enable_apop is number or pop3s_enable_apop is boolean or pop3s_enable_apop | length > 0) %}pop3s_enable_apop {{ pop3s_enable_apop }}
+{% else %}#pop3s_enable_apop no
+{% endif %}
+
+#########################################
+# pop3s_auth_reversibleonly
+#
+# Only offer authentication mechanisms which allow reversing
+# the authentication information sent by a client
+# to clear text username/password
+#
+# Syntax: pop3s_auth_reversibleonly [yes|no]
+#
+# Default: no
+#
+{% if pop3s_auth_reversibleonly is defined and pop3s_auth_reversibleonly is not none and (pop3s_auth_reversibleonly is number or pop3s_auth_reversibleonly is boolean or pop3s_auth_reversibleonly | length > 0) %}pop3s_auth_reversibleonly {{ pop3s_auth_reversibleonly }}
+{% else %}#pop3s_auth_reversibleonly yes
+{% endif %}
+
+#########################################
+# pop3s_enable_capabilities
+#
+# Turn support for pop3 capabilities on or off
+#
+# Syntax: pop3s_enable_capabilities [yes|no]
+#
+# Default: yes
+#
+{% if pop3s_enable_capabilities is defined and pop3s_enable_capabilities is not none and (pop3s_enable_capabilities is number or pop3s_enable_capabilities is boolean or pop3s_enable_capabilities | length > 0) %}pop3s_enable_capabilities {{ pop3s_enable_capabilities }}
+{% else %}#pop3s_enable_capabilities no
+{% endif %}
+
+#########################################
+# pop3s_capability
+#
+# POP3 capabilities offered to client.
+# For more information, see
+# <http://www.iana.org/assignments/pop3-extension-mechanism>
+#
+# Syntax: pop3s_capability <capability [parameter(s)]>
+#
+# Supported capabilities and parameters:
+# TOP
+# USER
+# UIDL
+# SASL   # one or more of [PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1]
+# RESP-CODES
+# EXPIRE  # one required parameter and one optional parameter
+# LOGIN-DELAY  # one required parameter and one optional parameter
+# IMPLEMENTATION # one required parameter
+# AUTH-RESP-CODE
+#
+# Default: none
+#
+pop3s_capability TOP
+pop3s_capability USER
+pop3s_capability SASL PLAIN LOGIN ANONYMOUS CRAM-MD5 CRAM-SHA1
+pop3s_capability UIDL
+pop3s_capability IMPLEMENTATION "INetSim POP3s server"
+#
+
+
+#########################################
+# pop3s_ssl_keyfile
+#
+# Name of the SSL private key PEM file.
+# The key MUST NOT be encrypted!
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: pop3s_ssl_keyfile <filename>
+#
+# Default: default_key.pem
+#
+{% if pop3s_ssl_keyfile is defined and pop3s_ssl_keyfile is not none and (pop3s_ssl_keyfile is number or pop3s_ssl_keyfile is boolean or pop3s_ssl_keyfile | length > 0) %}pop3s_ssl_keyfile {{ pop3s_ssl_keyfile }}
+{% else %}#pop3s_ssl_keyfile pop3s_key.pem
+{% endif %}
+
+#########################################
+# pop3s_ssl_certfile
+#
+# Name of the SSL certificate PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: pop3s_ssl_certfile <filename>
+#
+# Default: default_cert.pem
+#
+{% if pop3s_ssl_certfile is defined and pop3s_ssl_certfile is not none and (pop3s_ssl_certfile is number or pop3s_ssl_certfile is boolean or pop3s_ssl_certfile | length > 0) %}pop3s_ssl_certfile {{ pop3s_ssl_certfile }}
+{% else %}#pop3s_ssl_certfile pop3s_cert.pem
+{% endif %}
+
+#########################################
+# pop3s_ssl_dhfile
+#
+# Name of the Diffie-Hellman parameter PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: pop3s_ssl_dhfile <filename>
+#
+# Default: none
+#
+{% if pop3s_ssl_dhfile is defined and pop3s_ssl_dhfile is not none and (pop3s_ssl_dhfile is number or pop3s_ssl_dhfile is boolean or pop3s_ssl_dhfile | length > 0) %}pop3s_ssl_dhfile {{ pop3s_ssl_dhfile }}
+{% else %}#pop3s_ssl_dhfile pop3s_dh1024.pem
+{% endif %}
+
+#############################################################
+# Service TFTP
+#############################################################
+
+#########################################
+# tftp_bind_port
+#
+# Port number to bind TFTP service to
+#
+# Syntax: tftp_bind_port <port number>
+#
+# Default: 69
+#
+{% if tftp_bind_port is defined and tftp_bind_port is not none and (tftp_bind_port is number or tftp_bind_port is boolean or tftp_bind_port | length > 0) %}tftp_bind_port {{ tftp_bind_port }}
+{% else %}#tftp_bind_port 69
+{% endif %}
+
+#########################################
+# tftp_allow_overwrite
+#
+# Allow overwriting of existing files
+#
+# Syntax: tftp_allow_overwrite [yes|no]
+#
+# Default: no
+#
+{% if tftp_allow_overwrite is defined and tftp_allow_overwrite is not none and (tftp_allow_overwrite is number or tftp_allow_overwrite is boolean or tftp_allow_overwrite | length > 0) %}tftp_allow_overwrite {{ tftp_allow_overwrite }}
+{% else %}#tftp_allow_overwrite yes
+{% endif %}
+
+#########################################
+# tftp_max_filesize
+# 
+# Size limit for uploaded files
+# 
+# Syntax: tftp_max_filesize [1..1000000000]
+# 
+# Default: 10000000
+#
+{% if tftp_max_filesize is defined and tftp_max_filesize is not none and (tftp_max_filesize is number or tftp_max_filesize is boolean or tftp_max_filesize | length > 0) %}tftp_max_filesize {{ tftp_max_filesize }}
+{% else %}#tftp_max_filesize 500000000
+{% endif %}
+
+#########################################
+# tftp_enable_options
+#
+# Turn support for tftp options on or off
+#
+# Syntax: tftp_enable_options [yes|no]
+#
+# Default: yes
+#
+{% if tftp_enable_options is defined and tftp_enable_options is not none and (tftp_enable_options is number or tftp_enable_options is boolean or tftp_enable_options | length > 0) %}tftp_enable_options {{ tftp_enable_options }}
+{% else %}#tftp_enable_options no
+{% endif %}
+
+#########################################
+# tftp_option
+#
+# TFTP extensions offered to client.
+# For more information, see RFC 2347
+#
+# Syntax: tftp_option <option [parameter(s)]>
+#
+# Supported extensions and parameters:
+# BLKSIZE  # two optional parameters
+# TIMEOUT  # two optional parameters
+# TSIZE   # one optional parameter
+#
+# Default: none
+#
+tftp_option BLKSIZE 512 65464
+tftp_option TIMEOUT 5 60
+tftp_option TSIZE 10485760
+#
+
+
+#############################################################
+# Service FTP
+#############################################################
+
+#########################################
+# ftp_bind_port
+#
+# Port number to bind FTP service to
+#
+# Syntax: ftp_bind_port <port number>
+#
+# Default: 21
+#
+{% if ftp_bind_port is defined and ftp_bind_port is not none and (ftp_bind_port is number or ftp_bind_port is boolean or ftp_bind_port | length > 0) %}ftp_bind_port {{ ftp_bind_port }}
+{% else %}#ftp_bind_port 21
+{% endif %}
+
+#########################################
+# ftp_version
+#
+# Version string to return in replies to the STAT command
+#
+# Syntax: ftp_version <string>
+#
+# Default: "INetSim FTP Server"
+#
+{% if ftp_version is defined and ftp_version is not none and (ftp_version is number or ftp_version is boolean or ftp_version | length > 0) %}ftp_version {{ ftp_version }}
+{% else %}#ftp_version "vsFTPd 2.0.4 - secure, fast, stable"
+{% endif %}
+
+#########################################
+# ftp_banner
+#
+# The banner string used in FTP greeting message
+#
+# Syntax: ftp_banner <string>
+#
+# Default: "INetSim FTP Service ready."
+#
+{% if ftp_banner is defined and ftp_banner is not none and (ftp_banner is number or ftp_banner is boolean or ftp_banner | length > 0) %}ftp_banner {{ ftp_banner }}
+{% else %}#ftp_banner "FTP Server ready"
+{% endif %}
+
+#########################################
+# ftp_recursive_delete
+#
+# Allow recursive deletion of directories,
+# even if they are not empty
+#
+# Syntax: ftp_recursive_delete [yes|no]
+#
+# Default: no
+#
+{% if ftp_recursive_delete is defined and ftp_recursive_delete is not none and (ftp_recursive_delete is number or ftp_recursive_delete is boolean or ftp_recursive_delete | length > 0) %}ftp_recursive_delete {{ ftp_recursive_delete }}
+{% else %}#ftp_recursive_delete yes
+{% endif %}
+
+#########################################
+# ftp_max_filesize
+# 
+# Size limit for uploaded files
+# 
+# Syntax: ftp_max_filesize [1..1000000000]
+# 
+# Default: 10000000
+#
+#ftp_max_filesize 500000000
+
+
+#############################################################
+# Service FTPS
+#############################################################
+
+#########################################
+# ftps_bind_port
+#
+# Port number to bind FTP service to
+#
+# Syntax: ftp_bind_port <port number>
+#
+# Default: 990
+#
+{% if ftps_bind_port is defined and ftps_bind_port is not none and (ftps_bind_port is number or ftps_bind_port is boolean or ftps_bind_port | length > 0) %}ftps_bind_port {{ ftps_bind_port }}
+{% else %}#ftps_bind_port 990
+{% endif %}
+
+#########################################
+# ftps_version
+#
+# Version string to return in replies to the STAT command
+#
+# Syntax: ftps_version <string>
+#
+# Default: "INetSim FTPS Server"
+#
+{% if ftps_version is defined and ftps_version is not none and (ftps_version is number or ftps_version is boolean or ftps_version | length > 0) %}ftps_version {{ ftps_version }}
+{% else %}#ftps_version "vsFTPd 2.0.4 - secure, fast, stable"
+{% endif %}
+
+#########################################
+# ftps_banner
+#
+# The banner string used in FTP greeting message
+#
+# Syntax: ftps_banner <string>
+#
+# Default: "INetSim FTPS Service ready."
+#
+{% if ftps_banner is defined and ftps_banner is not none and (ftps_banner is number or ftps_banner is boolean or ftps_banner | length > 0) %}ftps_banner {{ ftps_banner }}
+{% else %}#ftps_banner "FTPS Server ready"
+{% endif %}
+
+#########################################
+# ftps_recursive_delete
+#
+# Allow recursive deletion of directories,
+# even if they are not empty
+#
+# Syntax: ftps_recursive_delete [yes|no]
+#
+# Default: no
+#
+{% if ftps_recursive_delete is defined and ftps_recursive_delete is not none and (ftps_recursive_delete is number or ftps_recursive_delete is boolean or ftps_recursive_delete | length > 0) %}ftps_recursive_delete {{ ftps_recursive_delete }}
+{% else %}#ftps_recursive_delete yes
+{% endif %}
+
+#########################################
+# ftps_max_filesize
+# 
+# Size limit for uploaded files
+# 
+# Syntax: ftp_max_filesize [1..1000000000]
+# 
+# Default: 10000000
+#
+#ftp_max_filesize 500000000
+
+
+#########################################
+# ftps_ssl_keyfile
+#
+# Name of the SSL private key PEM file.
+# The key MUST NOT be encrypted!
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: ftps_ssl_keyfile <filename>
+#
+# Default: default_key.pem
+#
+{% if ftps_ssl_keyfile is defined and ftps_ssl_keyfile is not none and (ftps_ssl_keyfile is number or ftps_ssl_keyfile is boolean or ftps_ssl_keyfile | length > 0) %}ftps_ssl_keyfile {{ ftps_ssl_keyfile }}
+{% else %}#ftps_ssl_keyfile ftps_key.pem
+{% endif %}
+
+#########################################
+# ftps_ssl_certfile
+#
+# Name of the SSL certificate PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: ftps_ssl_certfile <filename>
+#
+# Default: default_cert.pem
+#
+{% if ftps_ssl_certfile is defined and ftps_ssl_certfile is not none and (ftps_ssl_certfile is number or ftps_ssl_certfile is boolean or ftps_ssl_certfile | length > 0) %}ftps_ssl_certfile {{ ftps_ssl_certfile }}
+{% else %}#ftps_ssl_certfile ftps_cert.pem
+{% endif %}
+
+#########################################
+# ftps_ssl_dhfile
+#
+# Name of the Diffie-Hellman parameter PEM file.
+#
+# The file must be placed in <data-dir>/certs/
+#
+# Syntax: ftps_ssl_dhfile <filename>
+#
+# Default: none
+#
+{% if ftps_ssl_dhfile is defined and ftps_ssl_dhfile is not none and (ftps_ssl_dhfile is number or ftps_ssl_dhfile is boolean or ftps_ssl_dhfile | length > 0) %}ftps_ssl_dhfile {{ ftps_ssl_dhfile }}
+{% else %}#ftps_ssl_dhfile ftps_dh1024.pem
+{% endif %}
+
+#############################################################
+# Service NTP
+#############################################################
+
+#########################################
+# ntp_bind_port
+#
+# Port number to bind NTP service to
+#
+# Syntax: ntp_bind_port <port number>
+#
+# Default: 123
+#
+{% if ntp_bind_port is defined and ntp_bind_port is not none and (ntp_bind_port is number or ntp_bind_port is boolean or ntp_bind_port | length > 0) %}ntp_bind_port {{ ntp_bind_port }}
+{% else %}#ntp_bind_port 123
+{% endif %}
+
+#########################################
+# ntp_server_ip
+#
+# The IP address to return in NTP replies
+#
+# Syntax: ntp_server_ip <IP address>
+#
+# Default: 127.0.0.1
+#
+{% if ntp_server_ip is defined and ntp_server_ip is not none and (ntp_server_ip is number or ntp_server_ip is boolean or ntp_server_ip | length > 0) %}ntp_server_ip {{ ntp_server_ip }}
+{% else %}#ntp_server_ip 10.15.20.30
+{% endif %}
+
+#########################################
+# ntp_strict_checks
+#
+# Turn strict checks for client packets on or off
+#
+# Syntax: ntp_strict_checks [yes|no]
+#
+# Default: yes
+#
+{% if ntp_strict_checks is defined and ntp_strict_checks is not none and (ntp_strict_checks is number or ntp_strict_checks is boolean or ntp_strict_checks | length > 0) %}ntp_strict_checks {{ ntp_strict_checks }}
+{% else %}#ntp_strict_checks no
+{% endif %}
+
+#############################################################
+# Service IRC
+#############################################################
+
+#########################################
+# irc_bind_port
+#
+# Port number to bind IRC service to
+#
+# Syntax: irc_bind_port <port number>
+#
+# Default: 6667
+#
+{% if irc_bind_port is defined and irc_bind_port is not none and (irc_bind_port is number or irc_bind_port is boolean or irc_bind_port | length > 0) %}irc_bind_port {{ irc_bind_port }}
+{% else %}#irc_bind_port 6667
+{% endif %}
+
+#########################################
+# irc_fqdn_hostname
+#
+# The FQDN hostname used for IRC
+#
+# Syntax: irc_fqdn_hostname <string>
+#
+# Default: irc.inetsim.org
+#
+{% if irc_fqdn_hostname is defined and irc_fqdn_hostname is not none and (irc_fqdn_hostname is number or irc_fqdn_hostname is boolean or irc_fqdn_hostname | length > 0) %}irc_fqdn_hostname {{ irc_fqdn_hostname }}
+{% else %}#irc_fqdn_hostname foo.bar.org
+{% endif %}
+
+#########################################
+# irc_version
+#
+# Version string to return
+#
+# Syntax: irc_version <string>
+#
+# Default: "INetSim IRC Server"
+#
+{% if irc_version is defined and irc_version is not none and (irc_version is number or irc_version is boolean or irc_version | length > 0) %}irc_version {{ irc_version }}
+{% else %}#irc_version "Unreal3.2.7"
+{% endif %}
+
+#############################################################
+# Service Time
+#############################################################
+
+#########################################
+# time_bind_port
+#
+# Port number to bind time service to
+#
+# Syntax: time_bind_port <port number>
+#
+# Default: 37
+#
+{% if time_bind_port is defined and time_bind_port is not none and (time_bind_port is number or time_bind_port is boolean or time_bind_port | length > 0) %}time_bind_port {{ time_bind_port }}
+{% else %}#time_bind_port 37
+{% endif %}
+
+#############################################################
+# Service Daytime
+#############################################################
+
+#########################################
+# daytime_bind_port
+#
+# Port number to bind daytime service to
+#
+# Syntax: daytime_bind_port <port number>
+#
+# Default: 13
+#
+{% if daytime_bind_port is defined and daytime_bind_port is not none and (daytime_bind_port is number or daytime_bind_port is boolean or daytime_bind_port | length > 0) %}daytime_bind_port {{ daytime_bind_port }}
+{% else %}#daytime_bind_port 13
+{% endif %}
+
+#############################################################
+# Service Echo
+#############################################################
+
+#########################################
+# echo_bind_port
+#
+# Port number to bind echo service to
+#
+# Syntax: echo_bind_port <port number>
+#
+# Default: 7
+#
+{% if echo_bind_port is defined and echo_bind_port is not none and (echo_bind_port is number or echo_bind_port is boolean or echo_bind_port | length > 0) %}echo_bind_port {{ echo_bind_port }}
+{% else %}#echo_bind_port 7
+{% endif %}
+
+#############################################################
+# Service Discard
+#############################################################
+
+#########################################
+# discard_bind_port
+#
+# Port number to bind discard service to
+#
+# Syntax: discard_bind_port <port number>
+#
+# Default: 9
+#
+{% if discard_bind_port is defined and discard_bind_port is not none and (discard_bind_port is number or discard_bind_port is boolean or discard_bind_port | length > 0) %}discard_bind_port {{ discard_bind_port }}
+{% else %}#discard_bind_port 9
+{% endif %}
+
+#############################################################
+# Service Quotd
+#############################################################
+
+#########################################
+# quotd_bind_port
+#
+# Port number to bind quotd service to
+#
+# Syntax: quotd_bind_port <port number>
+#
+# Default: 17
+#
+{% if quotd_bind_port is defined and quotd_bind_port is not none and (quotd_bind_port is number or quotd_bind_port is boolean or quotd_bind_port | length > 0) %}quotd_bind_port {{ quotd_bind_port }}
+{% else %}#quotd_bind_port 17
+{% endif %}
+
+#############################################################
+# Service Chargen
+#############################################################
+
+#########################################
+# chargen_bind_port
+#
+# Port number to bind chargen service to
+#
+# Syntax: chargen_bind_port <port number>
+#
+# Default: 19
+#
+{% if chargen_bind_port is defined and chargen_bind_port is not none and (chargen_bind_port is number or chargen_bind_port is boolean or chargen_bind_port | length > 0) %}chargen_bind_port {{ chargen_bind_port }}
+{% else %}#chargen_bind_port 19
+{% endif %}
+
+#############################################################
+# Service Finger
+#############################################################
+
+#########################################
+# finger_bind_port
+#
+# Port number to bind finger service to
+#
+# Syntax: finger_bind_port <port number>
+#
+# Default: 79
+#
+{% if finger_bind_port is defined and finger_bind_port is not none and (finger_bind_port is number or finger_bind_port is boolean or finger_bind_port | length > 0) %}finger_bind_port {{ finger_bind_port }}
+{% else %}#finger_bind_port 79
+{% endif %}
+
+#############################################################
+# Service Ident
+#############################################################
+
+#########################################
+# ident_bind_port
+#
+# Port number to bind ident service to
+#
+# Syntax: ident_bind_port <port number>
+#
+# Default: 113
+#
+{% if ident_bind_port is defined and ident_bind_port is not none and (ident_bind_port is number or ident_bind_port is boolean or ident_bind_port | length > 0) %}ident_bind_port {{ ident_bind_port }}
+{% else %}#ident_bind_port 113
+{% endif %}
+
+#############################################################
+# Service Syslog
+#############################################################
+
+#########################################
+# syslog_bind_port
+#
+# Port number to bind syslog service to
+#
+# Syntax: syslog_bind_port <port number>
+#
+# Default: 514
+#
+{% if syslog_bind_port is defined and syslog_bind_port is not none and (syslog_bind_port is number or syslog_bind_port is boolean or syslog_bind_port | length > 0) %}syslog_bind_port {{ syslog_bind_port }}
+{% else %}#syslog_bind_port 514
+{% endif %}
+
+#########################################
+# syslog_trim_maxlength
+#
+# Chop syslog messages at 1024 bytes.
+#
+# Syntax: syslog_trim_maxlength [yes|no]
+#
+# Default: no
+#
+{% if syslog_trim_maxlength is defined and syslog_trim_maxlength is not none and (syslog_trim_maxlength is number or syslog_trim_maxlength is boolean or syslog_trim_maxlength | length > 0) %}syslog_trim_maxlength {{ syslog_trim_maxlength }}
+{% else %}#syslog_trim_maxlength yes
+{% endif %}
+
+#########################################
+# syslog_accept_invalid
+#
+# Accept invalid syslog messages.
+#
+# Syntax: syslog_accept_invalid [yes|no]
+#
+# Default: no
+#
+{% if syslog_accept_invalid is defined and syslog_accept_invalid is not none and (syslog_accept_invalid is number or syslog_accept_invalid is boolean or syslog_accept_invalid | length > 0) %}syslog_accept_invalid {{ syslog_accept_invalid }}
+{% else %}#syslog_accept_invalid yes
+{% endif %}
+
+#############################################################
+# Service Dummy
+#############################################################
+
+#########################################
+# dummy_bind_port
+#
+# Port number to bind dummy service to
+#
+# Syntax: dummy_bind_port <port number>
+#
+# Default: 1
+#
+{% if dummy_bind_port is defined and dummy_bind_port is not none and (dummy_bind_port is number or dummy_bind_port is boolean or dummy_bind_port | length > 0) %}dummy_bind_port {{ dummy_bind_port }}
+{% else %}#dummy_bind_port 1
+{% endif %}
+
+#########################################
+# dummy_banner
+#
+# Banner string sent to client if no data has been
+# received for 'dummy_banner_wait' seconds since
+# the client has established the connection.
+# If set to an empty string (""), only CRLF will be sent.
+# This option only takes effect if 'dummy_banner_wait'
+# is not set to '0'.
+#
+# Syntax: dummy_banner <string>
+#
+# Default: "220 ESMTP FTP +OK POP3 200 OK"
+#
+{% if dummy_banner is defined and dummy_banner is not none and (dummy_banner is number or dummy_banner is boolean or dummy_banner | length > 0) %}dummy_banner {{ dummy_banner }}
+{% else %}#dummy_banner ""
+{% endif %}
+
+#########################################
+# dummy_banner_wait
+#
+# Number of seconds to wait for client sending any data
+# after establishing a new connection.
+# If no data has been received within this amount of time,
+# 'dummy_banner' will be sent to the client.
+# Setting to '0' disables sending of a banner string.
+#
+# Syntax: dummy_banner_wait [0..600]
+#
+# Default: 5
+#
+{% if dummy_banner_wait is defined and dummy_banner_wait is not none and (dummy_banner_wait is number or dummy_banner_wait is boolean or dummy_banner_wait | length > 0) %}dummy_banner_wait {{ dummy_banner_wait }}
+{% else %}#dummy_banner_wait 3
+{% endif %}
+
+#############################################################
+# Redirect
+#############################################################
+
+#########################################
+# redirect_enabled
+#
+# Turn connection redirection on or off.
+#
+# Syntax: redirect_enabled [yes|no]
+#
+# Default: no
+#
+{% if redirect_enabled is defined and redirect_enabled is not none and (redirect_enabled is number or redirect_enabled is boolean or redirect_enabled | length > 0) %}redirect_enabled {{ redirect_enabled }}
+{% else %}#redirect_enabled yes
+{% endif %}
+
+#########################################
+# redirect_unknown_services
+#
+# Redirect connection attempts to unbound ports
+# to dummy service
+#
+# Syntax: redirect_unknown_services [yes|no]
+#
+# Default: yes
+#
+{% if redirect_unknown_services is defined and redirect_unknown_services is not none and (redirect_unknown_services is number or redirect_unknown_services is boolean or redirect_unknown_services | length > 0) %}redirect_unknown_services {{ redirect_unknown_services }}
+{% else %}#redirect_unknown_services no
+{% endif %}
+
+#########################################
+# redirect_external_address
+#
+# IP address used as source address if INetSim
+# acts as a router for redirecting packets to
+# external networks.
+# This option only takes effect if static rules
+# for redirecting packets to external networks
+# are defined (see 'redirect_static_rule' below).
+#
+# Syntax: redirect_external_address <IP address>
+#
+# Default: none
+#
+redirect_external_address {{ redirect_external_address | default('10.10.10.1') }}
+
+
+#########################################
+# redirect_static_rule
+#
+# Static mappings for connection redirection.
+# Note: Currently only protocols tcp, udp and icmp are supported.
+#
+# Syntax: redirect_static_rule tcp|udp <IP address:port>      <IP address:port>
+#         redirect_static_rule tcp|udp <IP address:>          <IP address:>
+#         redirect_static_rule tcp|udp <:port>                <IP address:>
+#         redirect_static_rule tcp|udp <:port>                <:port>
+#         redirect_static_rule icmp    <IP address:icmp-type> <IP address>
+#         redirect_static_rule icmp    <IP address:>          <IP address>
+#         redirect_static_rule icmp    <:icmp-type>           <IP address>
+#
+# Default: none 
+#
+# Examples:
+#
+# WWW caching service
+#redirect_static_rule tcp             :8080   :80
+#
+# Submission [RFC4409]
+#redirect_static_rule tcp             :587   :25
+#
+# Echo-Request [RFC792]
+#redirect_static_rule icmp 10.10.10.20:echo-request 10.1.0.25
+#
+# Redirection based on IP address and/or port:
+#redirect_static_rule   tcp 10.10.10.55:88   10.10.10.1:80
+#redirect_static_rule   tcp            :99   192.168.1.1:25
+#redirect_static_rule   tcp 10.10.10.20:     172.16.1.2:
+
+
+#########################################
+# redirect_change_ttl
+#
+# Change the time-to-live header field to a random value
+# in outgoing IP packets.
+#
+# Syntax: redirect_change_ttl [yes|no]
+#
+# Default: no
+#
+{% if redirect_change_ttl is defined and redirect_change_ttl is not none and (redirect_change_ttl is number or redirect_change_ttl is boolean or redirect_change_ttl | length > 0) %}redirect_change_ttl {{ redirect_change_ttl }}
+{% else %}#redirect_change_ttl yes
+{% endif %}
+
+#########################################
+# redirect_exclude_port
+#
+# Connections to <service_bind_address> on this port
+# are not redirected
+#
+# Syntax: redirect_exclude_port <protocol:port>
+#
+# Default: none
+#
+#redirect_exclude_port tcp:22
+#redirect_exclude_port udp:111
+
+
+#########################################
+# redirect_ignore_bootp
+#
+# If set to 'yes', BOOTP (DHCP) broadcasts will not be redirected
+# (UDP packets with source address 0.0.0.0, port 68 and
+# destination address 255.255.255.255, port 67 or vice versa)
+#
+# Syntax: redirect_ignore_bootp [yes|no]
+#
+# Default: no
+#
+{% if redirect_ignore_bootp is defined and redirect_ignore_bootp is not none and (redirect_ignore_bootp is number or redirect_ignore_bootp is boolean or redirect_ignore_bootp | length > 0) %}redirect_ignore_bootp {{ redirect_ignore_bootp }}
+{% else %}#redirect_ignore_bootp yes
+{% endif %}
+
+#########################################
+# redirect_ignore_netbios
+#
+# If set to 'yes', NetBIOS broadcasts will not be redirected
+# (UDP packets with source/destination port 137/138
+# and destination address x.x.x.255 on the local network)
+#
+# Syntax: redirect_ignore_netbios [yes|no]
+#
+# Default: no
+#
+{% if redirect_ignore_netbios is defined and redirect_ignore_netbios is not none and (redirect_ignore_netbios is number or redirect_ignore_netbios is boolean or redirect_ignore_netbios | length > 0) %}redirect_ignore_netbios {{ redirect_ignore_netbios }}
+{% else %}#redirect_ignore_netbios yes
+{% endif %}
+
+#########################################
+# redirect_icmp_timestamp
+#
+# If set to 'ms', ICMP Timestamp requests will be answered
+# with number of milliseconds since midnight UTC according
+# to faketime.
+# If set to 'sec', ICMP Timestamp requests will be answered
+# with number of seconds since epoch (high order bit of the
+# timestamp will be set to indicate non-standard value).
+# Setting to 'no' disables manipulation of ICMP Timestamp
+# requests.
+#
+# Syntax: redirect_icmp_timestamp [ms|sec|no]
+#
+# Default: ms
+#
+{% if redirect_icmp_timestamp is defined and redirect_icmp_timestamp is not none and (redirect_icmp_timestamp is number or redirect_icmp_timestamp is boolean or redirect_icmp_timestamp | length > 0) %}redirect_icmp_timestamp {{ redirect_icmp_timestamp }}
+{% else %}#redirect_icmp_timestamp sec
+{% endif %}
+
+#########################################
+# Include additional config files
+#
+{% if include_directive is defined and include_directive is not none and (include_directive is number or include_directive is boolean or include_directive | length > 0) %}include {{ include_directive }}
+{% else %}#include somefile.conf
+{% endif %}
+
+#############################################################
+# End of INetSim configuration file
+#############################################################

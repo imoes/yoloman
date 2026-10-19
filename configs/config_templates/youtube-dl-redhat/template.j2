@@ -1,0 +1,1114 @@
+# ==============================================================================
+# youtube-dl Configuration Template
+# ==============================================================================
+# This template configures youtube-dl, a command-line program to download videos
+# from YouTube.com and a few other sites.
+#
+# Self-Documenting: All settings are derived from schema fields with explicit
+# defaults and descriptions.
+# ==============================================================================
+
+# [--prefer-free-formats]
+# Prefer to download the free format over the encoded one, when both are available.
+# This is a boolean flag. If true, youtube-dl will prioritize formats that do not
+# require proprietary encoding/decoding if possible (though most modern video/audio
+# is encoded). Default is usually false in raw config, but often enabled via CLI.
+{% set prefer_free_formats = (schema | default({})).prefer_free_formats | default(false) %}
+{% if prefer_free_formats is boolean and prefer_free_formats %}
+--prefer-free-formats
+{% endif %}
+
+# [--output]
+# Specify the template for output filenames.
+# Default: '%(title)s-%(id)s.%(ext)s'
+{% set output_template = (schema | default({})).output | default('%(title)s-%(id)s.%(ext)s') %}
+-o {{ output_template | quote }}
+
+# [--output-thumbnail]
+# Specify the template for thumbnail filenames.
+# Default: '%(title)s-%(id)s.%(ext)s'
+{% set output_thumbnail_template = (schema | default({})).output_thumbnail | default('%(title)s-%(id)s.%(ext)s') %}
+--output-thumbnail {{ output_thumbnail_template | quote }}
+
+# [--write-description]
+# Write the video description to a .description file.
+# Default: false
+{% set write_description = (schema | default({})).write_description | default(false) %}
+{% if write_description is boolean and write_description %}
+--write-description
+{% endif %}
+
+# [--write-info-json]
+# Write the video info.json to a .info.json file.
+# Default: false
+{% set write_info_json = (schema | default({})).write_info_json | default(false) %}
+{% if write_info_json is boolean and write_info_json %}
+--write-infojson
+{% endif %}
+
+# [--write-annotations]
+# Download video annotations to a .annotations.xml file.
+# Default: false
+{% set write_annotations = (schema | default({})).write_annotations | default(false) %}
+{% if write_annotations is boolean and write_annotations %}
+--write-annotations
+{% endif %}
+
+# [--write-thumbnail]
+# Write the thumbnail image to a file.
+# Default: false
+{% set write_thumbnail = (schema | default({})).write_thumbnail | default(false) %}
+{% if write_thumbnail is boolean and write_thumbnail %}
+--write-thumbnail
+{% endif %}
+
+# [--list-thumbnails]
+# Print list of available thumbnails along with their IDs.
+# Default: false
+{% set list_thumbnails = (schema | default({})).list_thumbnails | default(false) %}
+{% if list_thumbnails is boolean and list_thumbnails %}
+--list-thumbnails
+{% endif %}
+
+# [--simulate]
+# Do not download the video and do not write anything to disk if used with
+# --write-* options, just print the URL and filename.
+# Default: false
+{% set simulate = (schema | default({})).simulate | default(false) %}
+{% if simulate is boolean and simulate %}
+--simulate
+{% endif %}
+
+# [--skip-download]
+# Do not download the video file, but process it anyway (e.g. to extract metadata).
+# Default: false
+{% set skip_download = (schema | default({})).skip_download | default(false) %}
+{% if skip_download is boolean and skip_download %}
+--skip-download
+{% endif %}
+
+# [--format]
+# Select the video format to download.
+# Default: 'best' (YouTube-dl's internal default)
+{% set format_selection = (schema | default({})).format | default('best') %}
+-f {{ format_selection | quote }}
+
+# [--format-sort]
+# Sort the formats by the fields given.
+# Default: '' (empty, use internal default sorting)
+{% set format_sort = (schema | default({})).format_sort | default('') %}
+{% if format_sort is string and format_sort | length > 0 %}
+--format-sort {{ format_sort | quote }}
+{% endif %}
+
+# [--extract-audio]
+# Convert the video files into audio-only files (uses ffmpeg/avconv).
+# Default: false
+{% set extract_audio = (schema | default({})).extract_audio | default(false) %}
+{% if extract_audio is boolean and extract_audio %}
+--extract-audio
+{% endif %}
+
+# [--audio-format]
+# Specify audio format to convert to (e.g. mp3, flac, wav, alac, m4a, opus, webm, vorbis).
+# Default: 'best'
+{% set audio_format = (schema | default({})).audio_format | default('best') %}
+--audio-format {{ audio_format | quote }}
+
+# [--audio-quality]
+# Specify ffmpeg/avconv audio quality, insert a value between 0 (better) and 9 (worse).
+# For VBR formats, specify the desired bitrate. Default: 5
+{% set audio_quality = (schema | default({})).audio_quality | default(5) %}
+--audio-quality {{ audio_quality }}
+
+# [--recode-video]
+# Re-encode video files into a different format if necessary.
+# Default: '' (empty, no re-encoding)
+{% set recode_video = (schema | default({})).recode_video | default('') %}
+{% if recode_video is string and recode_video | length > 0 %}
+--recode-video {{ recode_video | quote }}
+{% endif %}
+
+# [--postprocessor-args]
+# Give these arguments to the postprocessors.
+# Default: ''
+{% set postprocessor_args = (schema | default({})).postprocessor_args | default('') %}
+{% if postprocessor_args is string and postprocessor_args | length > 0 %}
+--postprocessor-args {{ postprocessor_args | quote }}
+{% endif %}
+
+# [--keep-video]
+# Keep the video file on disk after the post-processing; the default is to delete it.
+# Default: false
+{% set keep_video = (schema | default({})).keep_video | default(false) %}
+{% if keep_video is boolean and keep_video %}
+--keep-video
+{% endif %}
+
+# [--no-playlist]
+# Download only the video, if the URL refers to a video and a playlist.
+# Default: false
+{% set no_playlist = (schema | default({})).no_playlist | default(false) %}
+{% if no_playlist is boolean and no_playlist %}
+--no-playlist
+{% endif %}
+
+# [--yes-playlist]
+# Download the playlist, if the URL refers to a playlist and a video.
+# Default: false
+{% set yes_playlist = (schema | default({})).yes_playlist | default(false) %}
+{% if yes_playlist is boolean and yes_playlist %}
+--yes-playlist
+{% endif %}
+
+# [--age-limit]
+# Download only videos with an age less than or equal to AGE_LIMIT years.
+# Default: 1000 (effectively no limit)
+{% set age_limit = (schema | default({})).age_limit | default(1000) %}
+--age-limit {{ age_limit }}
+
+# [--download-archive]
+# Download only videos not listed in the archive file. Record all downloaded URLs in the archive file.
+# Default: '' (empty, no archive)
+{% set download_archive = (schema | default({})).download_archive | default('') %}
+{% if download_archive is string and download_archive | length > 0 %}
+--download-archive {{ download_archive | quote }}
+{% endif %}
+
+# [--max-downloads]
+# Quit downloading after downloading MAX_DOWNLOADS files.
+# Default: '' (empty, no limit)
+{% set max_downloads = (schema | default({})).max_downloads | default('') %}
+{% if max_downloads is string and max_downloads | length > 0 %}
+--max-downloads {{ max_downloads }}
+{% endif %}
+
+# [--min-filesize]
+# Do not download any videos smaller than MIN_FILESIZE (e.g. 50M).
+# Default: '' (empty, no limit)
+{% set min_filesize = (schema | default({})).min_filesize | default('') %}
+{% if min_filesize is string and min_filesize | length > 0 %}
+--min-filesize {{ min_filesize }}
+{% endif %}
+
+# [--max-filesize]
+# Do not download any videos larger than MAX_FILESIZE (e.g. 500M).
+# Default: '' (empty, no limit)
+{% set max_filesize = (schema | default({})).max_filesize | default('') %}
+{% if max_filesize is string and max_filesize | length > 0 %}
+--max-filesize {{ max_filesize }}
+{% endif %}
+
+# [--date]
+# Download only videos uploaded in this date.
+# Default: '' (empty)
+{% set date_filter = (schema | default({})).date | default('') %}
+{% if date_filter is string and date_filter | length > 0 %}
+--date {{ date_filter | quote }}
+{% endif %}
+
+# [--datebefore]
+# Download only videos uploaded on or before this date.
+# Default: '' (empty)
+{% set date_before = (schema | default({})).date_before | default('') %}
+{% if date_before is string and date_before | length > 0 %}
+--datebefore {{ date_before | quote }}
+{% endif %}
+
+# [--dateafter]
+# Download only videos uploaded on or after this date.
+# Default: '' (empty)
+{% set date_after = (schema | default({})).date_after | default('') %}
+{% if date_after is string and date_after | length > 0 %}
+--dateafter {{ date_after | quote }}
+{% endif %}
+
+# [--min-views]
+# Do not download any videos with less than MIN_VIEWS views.
+# Default: '' (empty)
+{% set min_views = (schema | default({})).min_views | default('') %}
+{% if min_views is string and min_views | length > 0 %}
+--min-views {{ min_views }}
+{% endif %}
+
+# [--max-views]
+# Do not download any videos with more than MAX_VIEWS views.
+# Default: '' (empty)
+{% set max_views = (schema | default({})).max_views | default('') %}
+{% if max_views is string and max_views | length > 0 %}
+--max-views {{ max_views }}
+{% endif %}
+
+# [--match-title]
+# Download only matching titles (regex or case-sensitive sub-string).
+# Default: '' (empty)
+{% set match_title = (schema | default({})).match_title | default('') %}
+{% if match_title is string and match_title | length > 0 %}
+--match-title {{ match_title | quote }}
+{% endif %}
+
+# [--reject-title]
+# Reject only matching titles (regex or case-sensitive sub-string).
+# Default: '' (empty)
+{% set reject_title = (schema | default({})).reject_title | default('') %}
+{% if reject_title is string and reject_title | length > 0 %}
+--reject-title {{ reject_title | quote }}
+{% endif %}
+
+# [--max-age]
+# Do not download videos older than MAX_AGE days (formatted as YYYYMMDD).
+# Default: '' (empty)
+{% set max_age = (schema | default({})).max_age | default('') %}
+{% if max_age is string and max_age | length > 0 %}
+--max-age {{ max_age | quote }}
+{% endif %}
+
+# [--proxy]
+# Use the specified HTTP/HTTPS/SOCKS proxy.
+# Default: '' (empty, direct connection)
+{% set proxy = (schema | default({})).proxy | default('') %}
+{% if proxy is string and proxy | length > 0 %}
+--proxy {{ proxy | quote }}
+{% endif %}
+
+# [--socket-timeout]
+# Time to wait before giving up, in seconds.
+# Default: '' (empty, use internal default)
+{% set socket_timeout = (schema | default({})).socket_timeout | default('') %}
+{% if socket_timeout is string and socket_timeout | length > 0 %}
+--socket-timeout {{ socket_timeout }}
+{% endif %}
+
+# [--source-address]
+# Bind to a specific source IP address.
+# Default: '' (empty)
+{% set source_address = (schema | default({})).source_address | default('') %}
+{% if source_address is string and source_address | length > 0 %}
+--source-address {{ source_address | quote }}
+{% endif %}
+
+# [--geo-bypass]
+# Bypass geographic restriction via x-geo-bypass-header.
+# Default: false
+{% set geo_bypass = (schema | default({})).geo_bypass | default(false) %}
+{% if geo_bypass is boolean and geo_bypass %}
+--geo-bypass
+{% endif %}
+
+# [--geo-bypass-country]
+# Force bypass geographic restriction with this two-letter country code.
+# Default: '' (empty)
+{% set geo_bypass_country = (schema | default({})).geo_bypass_country | default('') %}
+{% if geo_bypass_country is string and geo_bypass_country | length > 0 %}
+--geo-bypass-country {{ geo_bypass_country | quote }}
+{% endif %}
+
+# [--geo-bypass-ip-block]
+# Force bypass geographic restriction with this IP block.
+# Default: '' (empty)
+{% set geo_bypass_ip_block = (schema | default({})).geo_bypass_ip_block | default('') %}
+{% if geo_bypass_ip_block is string and geo_bypass_ip_block | length > 0 %}
+--geo-bypass-ip-block {{ geo_bypass_ip_block | quote }}
+{% endif %}
+
+# [--login]
+# Provide username to log in with (if required).
+# Default: '' (empty)
+{% set username = (schema | default({})).username | default('') %}
+{% if username is string and username | length > 0 %}
+--username {{ username | quote }}
+{% endif %}
+
+# [--password]
+# Provide password to log in with. Note: This is insecure to put in plaintext config files.
+# Default: '' (empty)
+{% set password = (schema | default({})).password | default('') %}
+{% if password is string and password | length > 0 %}
+--password {{ password | quote }}
+{% endif %}
+
+# [--2fa-code]
+# Provide two-factor authentication code.
+# Default: '' (empty)
+{% set two_fa_code = (schema | default({})).two_fa_code | default('') %}
+{% if two_fa_code is string and two_fa_code | length > 0 %}
+--2fa-code {{ two_fa_code | quote }}
+{% endif %}
+
+# [--netrc]
+# Use .netrc authentication data.
+# Default: false
+{% set use_netrc = (schema | default({})).netrc | default(false) %}
+{% if use_netrc is boolean and use_netrc %}
+--netrc
+{% endif %}
+
+# [--netrc-location]
+# Specify the location of the .netrc file.
+# Default: '' (empty, ~/.netrc)
+{% set netrc_location = (schema | default({})).netrc_location | default('') %}
+{% if netrc_location is string and netrc_location | length > 0 %}
+--netrc-location {{ netrc_location | quote }}
+{% endif %}
+
+# [--cookies]
+# File to read browser cookies from.
+# Default: '' (empty)
+{% set cookies_file = (schema | default({})).cookies | default('') %}
+{% if cookies_file is string and cookies_file | length > 0 %}
+--cookies {{ cookies_file | quote }}
+{% endif %}
+
+# [--no-cookies]
+# DO NOT read cookies from cookiejar (incompatible with --cookies).
+# Default: false
+{% set no_cookies = (schema | default({})).no_cookies | default(false) %}
+{% if no_cookies is boolean and no_cookies %}
+--no-cookies
+{% endif %}
+
+# [--extractor-args]
+# Provide extra arguments to the extractor.
+# Default: '' (empty)
+{% set extractor_args = (schema | default({})).extractor_args | default('') %}
+{% if extractor_args is string and extractor_args | length > 0 %}
+--extractor-args {{ extractor_args | quote }}
+{% endif %}
+
+# [--extractor-descriptions]
+# Output extractors' descriptions.
+# Default: false
+{% set extractor_descriptions = (schema | default({})).extractor_descriptions | default(false) %}
+{% if extractor_descriptions is boolean and extractor_descriptions %}
+--extractor-descriptions
+{% endif %}
+
+# [--no-call-home]
+# Do not use call-home feature (analytics).
+# Default: false
+{% set no_call_home = (schema | default({})).no_call_home | default(false) %}
+{% if no_call_home is boolean and no_call_home %}
+--no-call-home
+{% endif %}
+
+# [--ignore-configs]
+# Ignore specific config files during execution.
+# Default: '' (empty, no ignored configs)
+{% set ignore_configs = (schema | default({})).ignore_configs | default('') %}
+{% if ignore_configs is string and ignore_configs | length > 0 %}
+--ignore-configs {{ ignore_configs | quote }}
+{% endif %}
+
+# [--config-location]
+# Location of the configuration file.
+# Default: '' (empty, use default paths)
+{% set config_location = (schema | default({})).config_location | default('') %}
+{% if config_location is string and config_location | length > 0 %}
+--config-location {{ config_location | quote }}
+{% endif %}
+
+# [--legacy-server-connect]
+# Explicitly allow legacy server connection (for older youtube-dl versions).
+# Default: false
+{% set legacy_server_connect = (schema | default({})).legacy_server_connect | default(false) %}
+{% if legacy_server_connect is boolean and legacy_server_connect %}
+--legacy-server-connect
+{% endif %}
+
+# [--quiet]
+# Do not print messages to stdout.
+# Default: false
+{% set quiet = (schema | default({})).quiet | default(false) %}
+{% if quiet is boolean and quiet %}
+--quiet
+{% endif %}
+
+# [--no-warnings]
+# Ignore warnings.
+# Default: false
+{% set no_warnings = (schema | default({})).no_warnings | default(false) %}
+{% if no_warnings is boolean and no_warnings %}
+--no-warnings
+{% endif %}
+
+# [--ignore-errors]
+# Ignore download and postprocessing errors.
+# Default: false
+{% set ignore_errors = (schema | default({})).ignore_errors | default(false) %}
+{% if ignore_errors is boolean and ignore_errors %}
+--ignore-errors
+{% endif %}
+
+# [--retry-sleep]
+# Amount of time to sleep between retries.
+# Default: '' (empty, use default strategy)
+{% set retry_sleep = (schema | default({})).retry_sleep | default('') %}
+{% if retry_sleep is string and retry_sleep | length > 0 %}
+--retry-sleep {{ retry_sleep | quote }}
+{% endif %}
+
+# [--force-retries]
+# Force retries even if no retries were configured.
+# Default: false
+{% set force_retries = (schema | default({})).force_retries | default(false) %}
+{% if force_retries is boolean and force_retries %}
+--force-retries
+{% endif %}
+
+# [--debug-perms]
+# Print permission debugging info.
+# Default: false
+{% set debug_perms = (schema | default({})).debug_perms | default(false) %}
+{% if debug_perms is boolean and debug_perms %}
+--debug-perms
+{% endif %}
+
+# [--verbose]
+# Print various debugging information.
+# Default: false
+{% set verbose = (schema | default({})).verbose | default(false) %}
+{% if verbose is boolean and verbose %}
+--verbose
+{% endif %}
+
+# [--dump-json]
+# JSON output with all available info.
+# Default: false
+{% set dump_json = (schema | default({})).dump_json | default(false) %}
+{% if dump_json is boolean and dump_json %}
+--dump-json
+{% endif %}
+
+# [--dump-single-json]
+# JSON output with the available info for a single URL.
+# Default: false
+{% set dump_single_json = (schema | default({})).dump_single_json | default(false) %}
+{% if dump_single_json is boolean and dump_single_json %}
+--dump-single-json
+{% endif %}
+
+# [--print-json]
+# Print the video URL and filename as JSON.
+# Default: false
+{% set print_json = (schema | default({})).print_json | default(false) %}
+{% if print_json is boolean and print_json %}
+--print-json
+{% endif %}
+
+# [--newline]
+# Output progress bar as new lines.
+# Default: false
+{% set progress_newline = (schema | default({})).progress_newline | default(false) %}
+{% if progress_newline is boolean and progress_newline %}
+--newline
+{% endif %}
+
+# [--no-progress]
+# Do not print progress bar.
+# Default: false
+{% set no_progress = (schema | default({})).no_progress | default(false) %}
+{% if no_progress is boolean and no_progress %}
+--no-progress
+{% endif %}
+
+# [--console-title]
+# Display progress in console titlebar.
+# Default: false
+{% set console_title = (schema | default({})).console_title | default(false) %}
+{% if console_title is boolean and console_title %}
+--console-title
+{% endif %}
+
+# [--progress-width]
+# Specify width of progress bar.
+# Default: '' (empty, use default)
+{% set progress_width = (schema | default({})).progress_width | default('') %}
+{% if progress_width is string and progress_width | length > 0 %}
+--progress-width {{ progress_width }}
+{% endif %}
+
+# [--progress-template]
+# Template for progress output.
+# Default: '' (empty, use default)
+{% set progress_template = (schema | default({})).progress_template | default('') %}
+{% if progress_template is string and progress_template | length > 0 %}
+--progress-template {{ progress_template | quote }}
+{% endif %}
+
+# [--sleep-interval]
+# Number of seconds to sleep before each download.
+# Default: 0
+{% set sleep_interval = (schema | default({})).sleep_interval | default(0) %}
+--sleep-interval {{ sleep_interval }}
+
+# [--max-sleep-interval]
+# Maximum number of seconds to sleep before each download.
+# Default: 0
+{% set max_sleep_interval = (schema | default({})).max_sleep_interval | default(0) %}
+--max-sleep-interval {{ max_sleep_interval }}
+
+# [--external-downloader]
+# Use an external downloader instead of built-in wget/curl.
+# Default: '' (empty, use built-in)
+{% set external_downloader = (schema | default({})).external_downloader | default('') %}
+{% if external_downloader is string and external_downloader | length > 0 %}
+--external-downloader {{ external_downloader | quote }}
+{% endif %}
+
+# [--external-downloader-args]
+# Arguments to pass to the external downloader.
+# Default: '' (empty)
+{% set external_downloader_args = (schema | default({})).external_downloader_args | default('') %}
+{% if external_downloader_args is string and external_downloader_args | length > 0 %}
+--external-downloader-args {{ external_downloader_args | quote }}
+{% endif %}
+
+# [--compat-options]
+# Options to emulate older youtube-dl behavior.
+# Default: '' (empty)
+{% set compat_options = (schema | default({})).compat_options | default('') %}
+{% if compat_options is string and compat_options | length > 0 %}
+--compat-options {{ compat_options | quote }}
+{% endif %}
+
+# [--add-metadata]
+# Add metadata to the video file.
+# Default: false
+{% set add_metadata = (schema | default({})).add_metadata | default(false) %}
+{% if add_metadata is boolean and add_metadata %}
+--add-metadata
+{% endif %}
+
+# [--metadata-from-title]
+# Parse additional metadata from title file name.
+# Default: '' (empty)
+{% set metadata_from_title = (schema | default({})).metadata_from_title | default('') %}
+{% if metadata_from_title is string and metadata_from_title | length > 0 %}
+--metadata-from-title {{ metadata_from_title | quote }}
+{% endif %}
+
+# [--match-filename]
+# Resume downloads only if the filename matches this pattern.
+# Default: '' (empty)
+{% set match_filename = (schema | default({})).match_filename | default('') %}
+{% if match_filename is string and match_filename | length > 0 %}
+--match-filename {{ match_filename | quote }}
+{% endif %}
+
+# [--rename-video]
+# Rename video files.
+# Default: '' (empty, no renaming)
+{% set rename_video = (schema | default({})).rename_video | default('') %}
+{% if rename_video is string and rename_video | length > 0 %}
+--rename-video {{ rename_video | quote }}
+{% endif %}
+
+# [--chmod]
+# Change file access permissions.
+# Default: '' (empty, no change)
+{% set chmod_mode = (schema | default({})).chmod | default('') %}
+{% if chmod_mode is string and chmod_mode | length > 0 %}
+--chmod {{ chmod_mode | quote }}
+{% endif %}
+
+# [--exec]
+# Execute a command on the file after downloading.
+# Default: '' (empty)
+{% set exec_cmd = (schema | default({})).exec | default('') %}
+{% if exec_cmd is string and exec_cmd | length > 0 %}
+--exec {{ exec_cmd | quote }}
+{% endif %}
+
+# [--prepare-only]
+# Prepare only, do not download.
+# Default: false
+{% set prepare_only = (schema | default({})).prepare_only | default(false) %}
+{% if prepare_only is boolean and prepare_only %}
+--prepare-only
+{% endif %}
+
+# [--skip-merged]
+# Skip merged audio/video files.
+# Default: false
+{% set skip_merged = (schema | default({})).skip_merged | default(false) %}
+{% if skip_merged is boolean and skip_merged %}
+--skip-merged
+{% endif %}
+
+# [--force-overwrites]
+# Force overwrites even if the file exists.
+# Default: false
+{% set force_overwrites = (schema | default({})).force_overwrites | default(false) %}
+{% if force_overwrites is boolean and force_overwrites %}
+--force-overwrites
+{% endif %}
+
+# [--restrict-filenames]
+# Restrict filenames to only ASCII characters.
+# Default: false
+{% set restrict_filenames = (schema | default({})).restrict_filenames | default(false) %}
+{% if restrict_filenames is boolean and restrict_filenames %}
+--restrict-filenames
+{% endif %}
+
+# [--no-mtime]
+# Do not use the Last-modified header to set the file modification time.
+# Default: false
+{% set no_mtime = (schema | default({})).no_mtime | default(false) %}
+{% if no_mtime is boolean and no_mtime %}
+--no-mtime
+{% endif %}
+
+# [--embed-thumbnail]
+# Embed thumbnail in the video file.
+# Default: false
+{% set embed_thumbnail = (schema | default({})).embed_thumbnail | default(false) %}
+{% if embed_thumbnail is boolean and embed_thumbnail %}
+--embed-thumbnail
+{% endif %}
+
+# [--embed-metadata]
+# Embed metadata in the video file.
+# Default: false
+{% set embed_metadata = (schema | default({})).embed_metadata | default(false) %}
+{% if embed_metadata is boolean and embed_metadata %}
+--embed-metadata
+{% endif %}
+
+# [--embed-subs]
+# Embed subtitles in the video file.
+# Default: false
+{% set embed_subs = (schema | default({})).embed_subs | default(false) %}
+{% if embed_subs is boolean and embed_subs %}
+--embed-subs
+{% endif %}
+
+# [--embed-link]
+# Embed links in the video file (not standard, specific to some extractors).
+# Default: false
+{% set embed_link = (schema | default({})).embed_link | default(false) %}
+{% if embed_link is boolean and embed_link %}
+--embed-link
+{% endif %}
+
+# [--embed-info-json]
+# Embed Info JSON metadata in the video file.
+# Default: false
+{% set embed_info_json = (schema | default({})).embed_info_json | default(false) %}
+{% if embed_info_json is boolean and embed_info_json %}
+--embed-info-json
+{% endif %}
+
+# [--sub-lang]
+# Languages of the subtitles to download (comma separated).
+# Default: '' (empty)
+{% set sub_lang = (schema | default({})).sub_lang | default('') %}
+{% if sub_lang is string and sub_lang | length > 0 %}
+--sub-lang {{ sub_lang | quote }}
+{% endif %}
+
+# [--write-subs]
+# Write subtitle file to disk.
+# Default: false
+{% set write_subs = (schema | default({})).write_subs | default(false) %}
+{% if write_subs is boolean and write_subs %}
+--write-subs
+{% endif %}
+
+# [--write-auto-subs]
+# Write automatically generated subtitles to disk.
+# Default: false
+{% set write_auto_subs = (schema | default({})).write_auto_subs | default(false) %}
+{% if write_auto_subs is boolean and write_auto_subs %}
+--write-auto-subs
+{% endif %}
+
+# [--sub-format]
+# Subtitle format (e.g. srt, vtt, lrc).
+# Default: 'best'
+{% set sub_format = (schema | default({})).sub_format | default('best') %}
+--sub-format {{ sub_format | quote }}
+
+# [--sub-header]
+# Add header to subtitle file.
+# Default: false
+{% set sub_header = (schema | default({})).sub_header | default(false) %}
+{% if sub_header is boolean and sub_header %}
+--sub-header
+{% endif %}
+
+# [--sub-headers]
+# Add headers to subtitle files.
+# Default: false
+{% set sub_headers = (schema | default({})).sub_headers | default(false) %}
+{% if sub_headers is boolean and sub_headers %}
+--sub-headers
+{% endif %}
+
+# [--list-subs]
+# List available subtitles for a video.
+# Default: false
+{% set list_subs = (schema | default({})).list_subs | default(false) %}
+{% if list_subs is boolean and list_subs %}
+--list-subs
+{% endif %}
+
+# [--all-subs]
+# Download all available subtitles (implies --write-subs).
+# Default: false
+{% set all_subs = (schema | default({})).all_subs | default(false) %}
+{% if all_subs is boolean and all_subs %}
+--all-subs
+{% endif %}
+
+# [--convert-subs]
+# Convert subtitles to another format (e.g. lrc, srt).
+# Default: '' (empty, no conversion)
+{% set convert_subs = (schema | default({})).convert_subs | default('') %}
+{% if convert_subs is string and convert_subs | length > 0 %}
+--convert-subs {{ convert_subs | quote }}
+{% endif %}
+
+# [--embed-chapters]
+# Embed chapters in the video file.
+# Default: false
+{% set embed_chapters = (schema | default({})).embed_chapters | default(false) %}
+{% if embed_chapters is boolean and embed_chapters %}
+--embed-chapters
+{% endif %}
+
+# [--ignore-no-formats-error]
+# Ignore "no formats" error instead of failing.
+# Default: false
+{% set ignore_no_formats = (schema | default({})).ignore_no_formats_error | default(false) %}
+{% if ignore_no_formats is boolean and ignore_no_formats %}
+--ignore-no-formats-error
+{% endif %}
+
+# [--force-generic-extractor]
+# Force extraction to use the generic extractor.
+# Default: false
+{% set force_generic = (schema | default({})).force_generic_extractor | default(false) %}
+{% if force_generic is boolean and force_generic %}
+--force-generic-extractor
+{% endif %}
+
+# [--extractor-retries]
+# Number of retries for extracting format info (default 3).
+# Default: 3
+{% set extractor_retries = (schema | default({})).extractor_retries | default(3) %}
+--extractor-retries {{ extractor_retries }}
+
+# [--retry-dns]
+# Retry DNS lookups.
+# Default: false
+{% set retry_dns = (schema | default({})).retry_dns | default(false) %}
+{% if retry_dns is boolean and retry_dns %}
+--retry-dns
+{% endif %}
+
+# [--dns-cache-size]
+# Size of DNS cache.
+# Default: '' (empty, use default)
+{% set dns_cache_size = (schema | default({})).dns_cache_size | default('') %}
+{% if dns_cache_size is string and dns_cache_size | length > 0 %}
+--dns-cache-size {{ dns_cache_size }}
+{% endif %}
+
+# [--no-check-certificate]
+# Suppress HTTPS certificate verification.
+# Default: false
+{% set no_check_cert = (schema | default({})).no_check_certificate | default(false) %}
+{% if no_check_cert is boolean and no_check_cert %}
+--no-check-certificate
+{% endif %}
+
+# [--prefer-insecure]
+# Use an unencrypted connection to retrieve information about the video.
+# Default: false
+{% set prefer_insecure = (schema | default({})).prefer_insecure | default(false) %}
+{% if prefer_insecure is boolean and prefer_insecure %}
+--prefer-insecure
+{% endif %}
+
+# [--user-agent]
+# Specify a custom user agent.
+# Default: '' (empty, use default)
+{% set user_agent = (schema | default({})).user_agent | default('') %}
+{% if user_agent is string and user_agent | length > 0 %}
+--user-agent {{ user_agent | quote }}
+{% endif %}
+
+# [--referer]
+# Specify a custom referer, use if the video access is restricted to one domain.
+# Default: '' (empty, no referer)
+{% set referer = (schema | default({})).referer | default('') %}
+{% if referer is string and referer | length > 0 %}
+--referer {{ referer | quote }}
+{% endif %}
+
+# [--playlist-start]
+# Playlist video to start at (default is 1).
+# Default: 1
+{% set playlist_start = (schema | default({})).playlist_start | default(1) %}
+--playlist-start {{ playlist_start }}
+
+# [--playlist-end]
+# Playlist video to end at (default is last).
+# Default: '' (empty, no limit)
+{% set playlist_end = (schema | default({})).playlist_end | default('') %}
+{% if playlist_end is string and playlist_end | length > 0 %}
+--playlist-end {{ playlist_end }}
+{% endif %}
+
+# [--playlist-items]
+# Playlist video items to download. Specify indices like 1,2,5,8.
+# Default: '' (empty, all)
+{% set playlist_items = (schema | default({})).playlist_items | default('') %}
+{% if playlist_items is string and playlist_items | length > 0 %}
+--playlist-items {{ playlist_items | quote }}
+{% endif %}
+
+# [--match-filter]
+# Generic filter to select videos to download.
+# Default: '' (empty, no filter)
+{% set match_filter = (schema | default({})).match_filter | default('') %}
+{% if match_filter is string and match_filter | length > 0 %}
+--match-filter {{ match_filter | quote }}
+{% endif %}
+
+# [--flat-playlist]
+# Do not download the playlist items, just print their URLs.
+# Default: false
+{% set flat_playlist = (schema | default({})).flat_playlist | default(false) %}
+{% if flat_playlist is boolean and flat_playlist %}
+--flat-playlist
+{% endif %}
+
+# [--playlist-random]
+# Download videos in random order.
+# Default: false
+{% set playlist_random = (schema | default({})).playlist_random | default(false) %}
+{% if playlist_random is boolean and playlist_random %}
+--playlist-random
+{% endif %}
+
+# [--live-from-start]
+# Download live streams from the start.
+# Default: false
+{% set live_from_start = (schema | default({})).live_from_start | default(false) %}
+{% if live_from_start is boolean and live_from_start %}
+--live-from-start
+{% endif %}
+
+# [--wait-for-video]
+# Wait for scheduled streams to become available.
+# Default: false
+{% set wait_for_video = (schema | default({})).wait_for_video | default(false) %}
+{% if wait_for_video is boolean and wait_for_video %}
+--wait-for-video
+{% endif %}
+
+# [--max-wait-duration]
+# Maximum time to wait for a video to become available.
+# Default: '' (empty, use default)
+{% set max_wait_duration = (schema | default({})).max_wait_duration | default('') %}
+{% if max_wait_duration is string and max_wait_duration | length > 0 %}
+--max-wait-duration {{ max_wait_duration }}
+{% endif %}
+
+# [--sleep-subinterval]
+# Subinterval for sleep between retries.
+# Default: '' (empty)
+{% set sleep_subinterval = (schema | default({})).sleep_subinterval | default('') %}
+{% if sleep_subinterval is string and sleep_subinterval | length > 0 %}
+--sleep-subinterval {{ sleep_subinterval }}
+{% endif %}
+
+# [--keep-until-not-downloaded]
+# Skip previously downloaded files in a playlist (requires --download-archive).
+# Default: false
+{% set keep_until_not_downloaded = (schema | default({})).keep_until_not_downloaded | default(false) %}
+{% if keep_until_not_downloaded is boolean and keep_until_not_downloaded %}
+--keep-until-not-downloaded
+{% endif %}
+
+# [--postprocessors]
+# List of postprocessors to run.
+# Default: '' (empty, use default postprocessors)
+{% set postprocessors = (schema | default({})).postprocessors | default('') %}
+{% if postprocessors is string and postprocessors | length > 0 %}
+--postprocessors {{ postprocessors | quote }}
+{% endif %}
+
+# [--extractor-key]
+# Prefer a specific extractor to use when multiple extractors are available.
+# Default: '' (empty, use first match)
+{% set extractor_key = (schema | default({})).extractor_key | default('') %}
+{% if extractor_key is string and extractor_key | length > 0 %}
+--extractor-key {{ extractor_key | quote }}
+{% endif %}
+
+# [--prefer-unspecified-extractor]
+# Prefer unspecified extractor.
+# Default: false
+{% set prefer_unspecified = (schema | default({})).prefer_unspecified_extractor | default(false) %}
+{% if prefer_unspecified is boolean and prefer_unspecified %}
+--prefer-unspecified-extractor
+{% endif %}
+
+# [--list-extractors]
+# List all supported extractors.
+# Default: false
+{% set list_extractors = (schema | default({})).list_extractors | default(false) %}
+{% if list_extractors is boolean and list_extractors %}
+--list-extractors
+{% endif %}
+
+# [--version]
+# Print program version.
+# Default: false
+{% set print_version = (schema | default({})).version | default(false) %}
+{% if print_version is boolean and print_version %}
+--version
+{% endif %}
+
+# [--help]
+# Print this help message and exit.
+# Default: false
+{% set print_help = (schema | default({})).help | default(false) %}
+{% if print_help is boolean and print_help %}
+--help
+{% endif %}
+
+# [--merge-output-format]
+# If a merge is required (e.g. bestvideo+bestaudio), output to this container format (e.g. mkv, mp4, m4a).
+# Default: '' (empty, do not merge if not already in one file)
+{% set merge_output_format = (schema | default({})).merge_output_format | default('') %}
+{% if merge_output_format is string and merge_output_format | length > 0 %}
+--merge-output-format {{ merge_output_format | quote }}
+{% endif %}
+
+# [--concurrent-fragments-n]
+# Number of fragments to download concurrently (for segmented formats like m3u8/dash).
+# Default: 1
+{% set concurrent_fragments = (schema | default({})).concurrent_fragments | default(1) %}
+--concurrent-fragments {{ concurrent_fragments }}
+
+# [--fragment-retries]
+# Number of retries for fragmented downloads (default 10).
+# Default: 10
+{% set fragment_retries = (schema | default({})).fragment_retries | default(10) %}
+--fragment-retries {{ fragment_retries }}
+
+# [--retry-retries]
+# Number of retries for downloading (default 10).
+# Default: 10
+{% set retry_retries = (schema | default({})).retry_retries | default(10) %}
+--retry-retries {{ retry_retries }}
+
+# [--truncate-description]
+# Truncate description to TRUNCATE_DESCRIPTION characters.
+# Default: '' (empty, no truncation)
+{% set truncate_description = (schema | default({})).truncate_description | default('') %}
+{% if truncate_description is string and truncate_description | length > 0 %}
+--truncate-description {{ truncate_description }}
+{% endif %}
+
+# [--truncate-annotations]
+# Truncate annotations to TRUNCATE_ANNOTATIONS characters.
+# Default: '' (empty, no truncation)
+{% set truncate_annotations = (schema | default({})).truncate_annotations | default('') %}
+{% if truncate_annotations is string and truncate_annotations | length > 0 %}
+--truncate-annotations {{ truncate_annotations }}
+{% endif %}
+
+# [--trim-file-names]
+# Trim whitespace from titles and IDs.
+# Default: false
+{% set trim_file_names = (schema | default({})).trim_file_names | default(false) %}
+{% if trim_file_names is boolean and trim_file_names %}
+--trim-file-names
+{% endif %}
+
+# [--title]
+# Use title in filename.
+# Default: false
+{% set use_title = (schema | default({})).title | default(false) %}
+{% if use_title is boolean and use_title %}
+--title
+{% endif %}
+
+# [--id]
+# Use ID in filename.
+# Default: false
+{% set use_id = (schema | default({})).id | default(false) %}
+{% if use_id is boolean and use_id %}
+--id
+{% endif %}
+
+# [--title-length]
+# Maximum length of title in filename.
+# Default: '' (empty, no limit)
+{% set title_length = (schema | default({})).title_length | default('') %}
+{% if title_length is string and title_length | length > 0 %}
+--title-length {{ title_length }}
+{% endif %}
+
+# [--id-length]
+# Maximum length of ID in filename.
+# Default: '' (empty, no limit)
+{% set id_length = (schema | default({})).id_length | default('') %}
+{% if id_length is string and id_length | length > 0 %}
+--id-length {{ id_length }}
+{% endif %}
+
+# [--auto-number]
+# Number the downloaded files starting from 00000.
+# Default: false
+{% set auto_number = (schema | default({})).auto_number | default(false) %}
+{% if auto_number is boolean and auto_number %}
+--auto-number
+{% endif %}
+
+# [--auto-number-start]
+# Start numbering at this number.
+# Default: 1
+{% set auto_number_start = (schema | default({})).auto_number_start | default(1) %}
+--auto-number-start {{ auto_number_start }}
+
+# [--reject-filename]
+# Reject filenames matching this pattern.
+# Default: '' (empty)
+{% set reject_filename = (schema | default({})).reject_filename | default('') %}
+{% if reject_filename is string and reject_filename | length > 0 %}
+--reject-filename {{ reject_filename | quote }}
+{% endif %}
+
+# [--output-na-placeholder]
+# Placeholder for unavailable metadata fields.
+# Default: 'NA'
+{% set output_na_placeholder = (schema | default({})).output_na_placeholder | default('NA') %}
+--output-na-placeholder {{ output_na_placeholder | quote }}
+
+# [--title-separator]
+# Separator between title and ID in filename.
+# Default: '-'
+{% set title_separator = (schema | default({})).title_separator | default('-') %}
+--title-separator {{ title_separator | quote }}
+
+# [--id-separator]
+# Separator between ID and extension in filename.
+# Default: '-'
+{% set id_separator = (schema | default({})).id_separator | default('-') %}
+--id-separator {{ id_separator | quote }}
+
+# [--ext-separator]
+# Separator between title, ID, and extension.
+# Default: '-'
+{% set ext_separator = (schema | default({})).ext_separator | default('-') %}
+--ext-separator {{ ext_separator | quote }}
+
+# ==============================================================================
+# END OF TEMPLATE
+# ==============================================================================

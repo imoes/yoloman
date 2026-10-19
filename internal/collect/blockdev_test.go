@@ -58,7 +58,7 @@ func TestScanDeviceOwnersNoTrees(t *testing.T) {
 }
 
 // fakePVE writes guest configs in Proxmox's own layout and wording, copied from
-// vpp0221's live configs — including the LINSTOR naming where the host-side DRBD
+// pve1's live configs — including the LINSTOR naming where the host-side DRBD
 // resource is only a PREFIX of the Proxmox volume name.
 func fakePVE(t *testing.T) string {
 	t.Helper()
@@ -92,7 +92,7 @@ mp0: local-zfs:subvol-131-disk-1,mp=/data,size=50G
 	write("qemu-server/notes.txt", "ignored") // not a <vmid>.conf
 	// A guest running on ANOTHER node. Its DRBD replica still lives on this host
 	// and still costs local I/O, so its config must be read too.
-	write("nodes/vpp0223/qemu-server/223104.conf", `name: host4.example.internal
+	write("nodes/pve3/qemu-server/223104.conf", `name: host4.example.internal
 scsi0: linstor:pm-121314d1_223104,iothread=1,size=100G
 `)
 	return root
@@ -107,7 +107,7 @@ func TestProxmoxGuestVolumes(t *testing.T) {
 		"vm-221101-disk-9":   "221101",
 		"subvol-131-disk-0":  "131",
 		"subvol-131-disk-1":  "131",
-		"pm-121314d1_223104": "223104", // from nodes/vpp0223 — a guest on another node
+		"pm-121314d1_223104": "223104", // from nodes/pve3 — a guest on another node
 	}
 	for vol, id := range want {
 		if got[vol] != id {
@@ -221,7 +221,7 @@ func TestLabelDeviceOwnersEmpty(t *testing.T) {
 	}
 }
 
-// A LINSTOR volume index is not a guest id. Values are the real ones from vpp0222.
+// A LINSTOR volume index is not a guest id. Values are the real ones from pve2.
 func TestVMIDFromVolumeRejectsPaddedLinstorVolumeIndex(t *testing.T) {
 	for _, tc := range []struct {
 		name, want string

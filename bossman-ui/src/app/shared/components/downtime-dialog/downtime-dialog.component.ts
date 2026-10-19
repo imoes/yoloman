@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface DowntimeDialogData {
   hostName: string;
@@ -23,7 +24,7 @@ export interface DowntimeDialogResult {
 @Component({
   selector: 'app-downtime-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [BlockedReasonDirective, ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>
       Schedule downtime for {{ data.serviceName ? data.serviceName + ' on ' : 'the whole host ' }}{{ data.hostName }}
@@ -40,7 +41,7 @@ export interface DowntimeDialogResult {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="confirm()">Schedule</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="confirm()">Schedule</button>
     </mat-dialog-actions>
   `,
   styles: [

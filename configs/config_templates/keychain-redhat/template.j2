@@ -1,0 +1,62 @@
+# /etc/profile.d/keychain.csh - calling keychain the Fedora way
+# This script initializes keychain for the current user session.
+# It reads user-specific settings from ~/.keychainrc if present,
+# applies default options from Ansible variables, and sources the
+# resulting SSH/GPG agent environment.
+
+# Determine the user's home directory from the password database.
+set userhome = `getent passwd $USER | cut -d: -f6`
+
+# Only proceed if we are in the user's actual home directory AND
+# a configuration file exists.
+if ( "$HOME" == "$userhome" && -f "$HOME/.keychainrc" ) then
+
+    # Parse ~/.keychainrc:
+    # 1. Remove comment lines (lines starting with whitespace then #).
+    # 2. Convert KEY=VALUE pairs to csh set commands.
+    # 3. Append semicolons to make them executable commands.
+    eval `grep -v '^[:blank:]*#' $HOME/.keychainrc | \
+	sed 's|\([^=]*\)=\([^=]*\)|set \1 = \2|g' | sed 's|$|;|'`
+
+    # Default options passed to keychain if KCHOPTS is not set in .keychainrc.
+    # Default value is '--quiet'.
+    if (! $?KCHOPTS) then
+	set KCHOPTS = "{{ default_kchopts | default('--quiet') }}"
+    endif
+
+    # Flag to add to KCHOPTS if prompt is not set in .keychainrc.
+    # Default value is '--noask'.
+    if (! $?prompt) then
+	set KCHOPTS = ( $KCHOPTS {{ default_kchopts_noask | default('--noask') }} )
+    endif
+
+    # Determine which SSH keys to load.
+    # Look for files in ~/.ssh/ containing standard SSH private key headers.
+    if (! $?SSHKEYS) then
+	set SSHKEYS = `grep -l -e '[DRS]S[AH] PRIVATE KEY' $HOME/.ssh/*`
+    endif
+
+    # Initialize GPG keys variable.
+    # By default, no GPG keys are specified unless set elsewhere.
+    if (! $?GPGKEYS) then
+	set GPGKEYS = ""
+    endif
+
+    # Run keychain with the configured options and identified keys.
+    keychain $KCHOPTS $SSHKEYS $GPGKEYS
+
+    # Source the environment setup scripts created by keychain.
+    # These scripts export the necessary environment variables
+    # for SSH and GPG agents to function correctly in the shell.
+    
+    set host = `uname -n`
+    
+    if (-f $HOME/.keychain/$host-csh) then
+	source $HOME/.keychain/$host-csh
+    endif
+    
+    if (-f $HOME/.keychain/$host-csh-gpg) then
+	source $HOME/.keychain/$host-csh-gpg
+    endif
+
+endif

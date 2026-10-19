@@ -1,0 +1,56 @@
+# phpSysInfo default Apache configuration
+# This template generates an Apache VirtualHost-agnostic configuration snippet for phpSysInfo.
+# It sets up the document root, secures sensitive internal directories, and optionally
+# restricts PHP execution paths via open_basedir if mod_php is present.
+
+# Alias the URL path /phpsysinfo to the server's file system document root.
+Alias /phpsysinfo {{ document_root | default('/usr/share/phpsysinfo') }}
+
+<Directory {{ document_root | default('/usr/share/phpsysinfo') }}>
+    # Enable following symbolic links only if the owner matches.
+    # This allows symlinks to other packages' assets while preventing directory traversal attacks.
+    Options SymLinksIfOwnerMatch
+
+    # Allow public access to this directory.
+    Require all granted
+
+    # Set the default entry point for the web application.
+    DirectoryIndex index.php
+
+    # Restrict PHP's open_basedir to limit file access.
+    # This prevents PHP scripts from reading/writing outside the allowed paths.
+    # Note: This directive is only effective with mod_php (PHP as an Apache module),
+    # not with PHP-FPM (where configuration is usually in the pool config or via ini_set).
+
+    {% if True %}
+    # mod_php 7.x configuration block
+    <IfModule mod_php7.c>
+        # php_admin_value open_basedir restricts the directories accessible by PHP.
+        # Includes the document root, phpsysinfo config, system info dirs, logs, and standard binaries.
+        # Adjust this path if your installation differs from the default schema.
+        php_admin_value open_basedir "{{ document_root | default('/usr/share/phpsysinfo') }}:/etc/phpsysinfo:/proc:/etc:/sys:/var/log/:/var/run:/system/bin:/var/lib/update-notifier:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    </IfModule>
+    {% endif %}
+
+    {% if True %}
+    # mod_php 8.x configuration block
+    <IfModule mod_php.c>
+        # php_admin_value open_basedir restricts the directories accessible by PHP.
+        # Identical scope to mod_php7 block above.
+        php_admin_value open_basedir "{{ document_root | default('/usr/share/phpsysinfo') }}:/etc/phpsysinfo:/proc:/etc:/sys:/var/log/:/var/run:/system/bin:/var/lib/update-notifier:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+    </IfModule>
+    {% endif %}
+
+</Directory>
+
+# Disallow web access to the data directory.
+# phpSysInfo stores temporary/cache data here; exposing it could leak system information.
+<Directory {{ data_directory | default('/usr/share/phpsysinfo/data') }}>
+    Require all denied
+</Directory>
+
+# Disallow web access to the includes directory.
+# This directory contains internal PHP classes and libraries not meant for direct execution.
+<Directory {{ includes_directory | default('/usr/share/phpsysinfo/includes') }}>
+    Require all denied
+</Directory>

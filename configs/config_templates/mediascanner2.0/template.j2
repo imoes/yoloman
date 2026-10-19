@@ -1,13 +1,12 @@
 # AppArmor profile for mediascanner-service-2.0
-# This template generates a hardened AppArmor profile for the Android
-# mediascanner service. It restricts file access to media directories,
-# cache locations, and specific system paths required for udisks and
-# hardware info. No network or database capabilities are required
-# for this leaf service.
+# This profile restricts the application's system calls and file access.
+# It is designed to run in 'attach_disconnected' mode (unconfined execution
+# with strict file/network rules), typical for Android/system services.
 
 #include <tunables/global>
 
-/usr/bin/mediascanner-service-2.0 (attach_disconnected) {
+{{ mediascanner_binary_path | default('/usr/bin/mediascanner-service-2.0') }} (attach_disconnected) {
+  # Base abstractions: Common system access patterns
   #include <abstractions/base>
   #include <abstractions/audio>
   #include <abstractions/bash>
@@ -18,13 +17,11 @@
   #include <abstractions/private-files-strict>
   #include <abstractions/user-tmp>
 
-  # Deny access to CPU controller task files to prevent manipulation
-  # of process priorities by the service itself.
+  # Prevent access to cgroup controls which are not needed for this service
   deny /dev/cpuctl/apps/tasks w,
   deny /dev/cpuctl/apps/bg_non_interactive/tasks w,
 
-  # Allow reading process status and command lines for self-monitoring
-  # or debugging, but only for the service's own PID range.
+  # Allow reading process information for debugging/monitoring
   @{PROC}/interrupts r,
   @{PROC}/cmdline r,
   owner @{PROC}/[0-9]*/auxv r,
@@ -34,59 +31,55 @@
   owner @{PROC}/[0-9]*/task/[0-9]*/ r,
   owner @{PROC}/[0-9]*/cmdline r,
 
-  # Read udev configuration for device management rules
+  # Read udev configuration
   /etc/udev/udev.conf r,
-
-  # Deny reading udev data directly; use udisks/DBus instead
   deny /run/udev/data/** r,
 
-  # Allow ptrace to debug or inspect peers with the same profile name
+  # Allow ptrace to attach to the process itself for debugging
   ptrace (read) peer=@{profile_name},
 
-  # Allow access to Android property service socket for attach_disconnected
+  # Android specific socket access
+  # attach_disconnected path
   /{,dev/}socket/property_service rw,
 
-  # Deny writing to Android logging devices; logs are triggered by
-  # the platform, not the service itself.
+  # Android logging triggers: Deny direct writes to log devices as logging
+  # is handled via logd/logcat subsystems.
+  # Can safely deny
   deny /dev/log_main w,
   deny /dev/log_radio w,
   deny /dev/log_events w,
   deny /dev/log_system w,
 
-  # Allow executing the mediascanner binary itself
-  /usr/bin/mediascanner-service-2.0 r,
+  # Allow execution of the mediascanner binary
+  {{ mediascanner_binary_path | default('/usr/bin/mediascanner-service-2.0') }} r,
 
-  # Allow reading all directory entries (needed for recursive scanning)
+  # Allow read access to all directories (structure traversal)
+  # Allow read on all directories
   /**/ r,
 
-  # Allow reading media files from standard locations:
-  # - System share directories
-  # - Removable media mounts (/media, /mnt, /opt, /srv)
-  # - Local user share data
+  # Allow read on click install directories, removable media and files in
+  # /usr/local/share.
   /usr/share/** r,
   /usr/local/share/** r,
   /{media,mnt,opt,srv}/** r,
 
-  # Allow reading and opening files in non-hidden user directories
-  # (rk = read + open)
+  # Allow reading files in non-hidden directories in the user's home
   owner @{HOME}/[^.]*    rk,
   owner @{HOME}/[^.]*/   rk,
   owner @{HOME}/[^.]*/** rk,
 
-  # Allow reading XDG user directory configuration and caches
-  # where applications are permitted to write/read data
+  # Allow reading files in XDG directories (ie, where apps are allowed to
+  # write)
   owner @{HOME}/.config/user-dirs.dirs r,
   owner @{HOME}/.cache/**       rk,
-  owner @{HOME}/.local/share/** rk
+  owner @{HOME}/.local/share/** rk,
   owner /{,var/}run/user/[0-9]*/** rk,
 
-  # Allow the service to read/write its own cache database files
-  # used for indexing media metadata
+  # Write out the database files (media cache/database)
   owner @{HOME}/.cache/mediascanner-2.0/   rw,
   owner @{HOME}/.cache/mediascanner-2.0/** rwkl,
 
-  # Allow D-Bus communication with udisksd for removable media detection
-  # and device property queries
+  # Allow communication with udisksd for storage device management
   dbus (send)
        bus=system
        path="/org/freedesktop/UDisks2*"
@@ -105,7 +98,7 @@
        interface="org.freedesktop.DBus.Properties",
   dbus (receive)
        bus=system
-       interface="org.freedesktop.DBus.Properties",
+       interface="org.freedesktop.DBus.UDisks2*",
 
   # Site-specific additions and overrides. See local/README for details.
   #include <local/usr.bin.mediascanner-service-2.0>

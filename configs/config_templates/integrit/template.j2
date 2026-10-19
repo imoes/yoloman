@@ -1,73 +1,89 @@
-#!/bin/sh
-
-# /etc/cron.daily/integrit : integrit daily cron job
-# Initially written by Andras Bali
+# /etc/integrit.conf : configuration file for integrit
 #
-# This script is managed by Ansible. Do not edit manually.
-# It orchestrates daily integrity checks for files monitored by 'integrit'.
-# Configuration files are sourced from /etc/integrit/integrit.debian.conf.
+# See integrit(1) and /usr/share/doc/integrit/examples/ 
+# for more information.
+#
+# *** WARNING ***
+#
+# This is a simple default configuration file for Debian systems.
+# It contains only comments, therefore integrit will not run with
+# it. To make integrit functional, you must edit this file according
+# to your needs.
+#
+# Please read README.Debian before running integrit.
+#
+# *** WARNING ***
 
-# Ensure the integrit binary exists and is executable.
-test -x /usr/sbin/integrit || exit 0
+# root: The root directory for integrity checks.
+{% if root is defined and root is not none and (root is number or root is boolean or root | length > 0) %}root={{ root }}
+{% else %}# root=/
+{% endif %}
+# known: Path to the known good database file.
+{% if known is defined and known is not none and (known is number or known is boolean or known | length > 0) %}known={{ known }}
+{% else %}# known=/var/lib/integrit/known.cdb
+{% endif %}
+# current: Path to the current database file.
+{% if current is defined and current is not none and (current is number or current is boolean or current | length > 0) %}current={{ current }}
+{% else %}# current=/var/lib/integrit/current.cdb
+{% endif %}
 
-# Ensure the main configuration file exists.
-test -f /etc/integrit/integrit.debian.conf || exit 0
+# always_email: Whether to always send email reports even if integrity checks passed.
+# Valid values are 'true' or 'false' (case-insensitive).
+always_email={{ always_email | default('true') | lower }}
 
-# Collect all configuration files specified in the debian config.
-CONFIGS=""
-. /etc/integrit/integrit.debian.conf
-
-# Exit if no configurations were loaded.
-test -n "$CONFIGS" || exit 0
-
-# Validate that an email recipient is configured.
-if test -z "$EMAIL_RCPT"; then
-  echo "EMAIL_RCPT must be set in /etc/integrit/integrit.debian.conf" >&2
-  exit 1
-fi
-
-# Prepare a temporary report file for this run.
-REPORT="/var/lib/integrit/current.report.$$"
-cp /dev/null "$REPORT"
-
-# Clean up the report file on exit.
-trap "rm -f \"$REPORT\"" EXIT
-
-rc=0
-for i in $CONFIGS; do
-  # Extract 'known' database path from the config.
-  known=`sed -n 's/^ *known *= *\(.*\) *$/\1/p' <$i |head -n1`
-  # Extract 'current' database path from the config.
-  current=`sed -n 's/^ *current *= *\(.*\) *$/\1/p' <$i |head -n1`
-  
-  # Skip if essential paths are missing.
-  if test -z "$known" -o -z "$current"; then
-    echo "known and/or current not set in $i, skipping." >&2; echo
-    continue
-  fi
-
-  # Determine options: -cu (check and update) if known db exists, else -u (update only).
-  OPTS='-cu'
-  test -e "$known" || OPTS='-u'
-
-  echo "start: integrit -C $i $OPTS"
-  RC=0
-  # Run the integrity check with nice priority.
-  nice integrit -C $i "$OPTS" 2>&1 || RC="$?"
-  echo "exit: $RC"; echo
-
-  # If check passed and we just created the known db, copy current to known.
-  if test "$RC" -eq 0; then
-    test -e "$known" || cp "$current" "$known"
-  else
-    # If check failed, record the error code.
-    rc="$RC"
-  fi
-
-done >>"$REPORT"
-
-# Decide whether to send email.
-# Send if: errors occurred (rc != 0) OR always_email is {{ always_email | default(True) }}.
-test "$rc" -ne 0 || test "$ALWAYS_EMAIL" = '{{ always_email | default(True) }}' || exit 0
-
-mail -s "$EMAIL_SUBJ" "$EMAIL_RCPT" <"$REPORT"
+#
+# # Here's a table of letters and the corresponding checks / options:
+# # Uppercase turns the check off, lowercase turns it on.
+# # 
+# # 	  s	checksum
+# # 	  i	inode
+# # 	  p	permissions
+# # 	  l	number of links
+# # 	  u	uid
+# # 	  g	gid
+# # 	  z	file size (redundant if checksums are on)
+# # 	  a	access time
+# # 	  m	modification time
+# # 	  c	ctime (time UN*X file info last changed)
+# # 	  r	reset access time (use with care)
+# 
+# # ignore directories that are expected to change
+# 
+# !/cdrom
+# !/dev
+# !/etc
+# !/floppy
+# !/home
+# !/lost+found
+# !/mnt
+# !/proc
+# !/root
+# !/tmp
+# !/var
+# 
+# # ignore inode, change time and modification time
+# # for ephemeral module files.
+# 
+# /lib/modules/2.4.3/modules.dep IMC
+# /lib/modules/2.4.3/modules.generic_string IMC
+# /lib/modules/2.4.3/modules.isapnpmap IMC
+# /lib/modules/2.4.3/modules.parportmap IMC
+# /lib/modules/2.4.3/modules.pcimap IMC
+# /lib/modules/2.4.3/modules.usbmap IMC
+# 
+# # to cut down on runtime and db size:
+# 
+# =/usr/include
+# =/usr/X1R6/include
+# 
+# =/usr/doc
+# =/usr/info
+# =/usr/share
+# 
+# =/usr/X1R6/man
+# =/usr/X1R6/lib/X1/fonts
+# 
+# # ignore user-dependant directories
+# 
+# !/usr/local
+# !/usr/src

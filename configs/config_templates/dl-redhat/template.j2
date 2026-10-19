@@ -1,0 +1,40 @@
+# dl-redhat: Apache configuration for the 'dl' application.
+# This template generates Apache directives to serve files from the document root
+# and restrict access to sensitive subdirectories.
+
+# Alias mapping: Maps the URL path /dl to the file system path defined by document_root.
+# Schema field: document_root (default: '/usr/share/dl')
+# Description: The document root directory for the dl application.
+Alias /dl {{ (document_root | default('/usr/share/dl')) | trim }}/
+
+# Directory configuration for the main document root.
+# Schema field: document_root
+# Description: The document root directory for the dl application.
+<Directory {{ (document_root | default('/usr/share/dl')) | trim }}>
+    # AllowOverride: Determines which directives can be overridden by .htaccess.
+    # Set to 'Options' to allow control over specific Apache features (e.g., Indexes, FollowSymLinks)
+    # via .htaccess files, while keeping other global configurations intact.
+    AllowOverride Options
+
+    # Security: Access Control for Apache 2.4+.
+    # If the mod_authz_core module is loaded, enforce access policies.
+    <IfModule mod_authz_core.c>
+        <RequireAny>
+            # Allow access from localhost (IPv4)
+            Require ip 127.0.0.1
+            # Allow access from localhost (IPv6)
+            Require ip ::1
+        </RequireAny>
+    </IfModule>
+</Directory>
+
+# Directory configuration for sensitive subdirectories (style/ and include/).
+# This prevents public access to source files, CSS, or included PHP/scripts if exposed via URL.
+# Schema field: document_root
+# Description: The document root directory for the dl application.
+<Directory ~ "{{ (document_root | default('/usr/share/dl')) | trim }}/(style/)?include">
+    <IfModule mod_authz_core.c>
+        # Deny all access to these directories by default.
+        Require all denied
+    </IfModule>
+</Directory>

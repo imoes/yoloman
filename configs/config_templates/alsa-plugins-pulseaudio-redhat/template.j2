@@ -1,0 +1,74 @@
+# ALSA Plugins - PulseAudio Configuration Template
+# This template configures ALSA to use PulseAudio as the audio backend.
+# It defines `pcm.pulse` and `ctl.pulse` plugins, allowing ALSA applications
+# to route audio through the PulseAudio server.
+
+# ==============================================================================
+# PCM Plugin: pulse
+# ==============================================================================
+# Description: Defines a PCM (audio stream) plugin that uses PulseAudio.
+# This allows standard ALSA applications to output audio to the PulseAudio daemon.
+
+pcm.pulse {
+	# Arguments
+	@args [ DEVICE ]
+	
+	# Argument Definition: DEVICE
+	# Description: Specifies the PulseAudio device name to use.
+	# Default: Empty string (uses the default PulseAudio device defined in system config).
+	@args.DEVICE {
+		type string
+		default "{{ pulse_audio_device | default('') }}"
+	}
+
+	# Plugin Type
+	# Description: The type of the ALSA plugin. 'pulse' indicates PulseAudio support.
+	type pulse
+
+	# Device Name
+	# Description: The actual PulseAudio device name to connect to.
+	# Uses the $DEVICE variable passed from the @args definition.
+	device $DEVICE
+
+	# Hint Information
+	hint {
+		# Show Hint
+		# Description: Provides a human-readable reference to the device for tools like alsamixer.
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+
+		# Description Text
+		# Description: A descriptive label shown in audio configuration tools.
+		description "PulseAudio Sound Server"
+	}
+}
+
+# ==============================================================================
+# CTL Plugin: pulse
+# ==============================================================================
+# Description: Defines a CTL (control/mixer) plugin that uses PulseAudio.
+# This allows ALSA applications to control PulseAudio streams (volume, etc.).
+
+ctl.pulse {
+	# Arguments
+	@args [ DEVICE ]
+
+	# Argument Definition: DEVICE
+	# Description: Specifies the PulseAudio device name for control operations.
+	# Default: Empty string (uses the default PulseAudio device).
+	@args.DEVICE {
+		type string
+		default "{{ pulse_audio_device | default('') }}"
+	}
+
+	# Plugin Type
+	# Description: The type of the ALSA plugin. 'pulse' indicates PulseAudio support.
+	type pulse
+
+	# Device Name
+	# Description: The actual PulseAudio device name to connect to for control.
+	# Uses the $DEVICE variable passed from the @args definition.
+	device $DEVICE
+}

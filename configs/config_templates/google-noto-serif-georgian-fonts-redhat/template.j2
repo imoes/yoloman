@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig alias and match configuration for Noto Serif Georgian.
+  This template generates a .conf file placed in /etc/fonts/conf.d/ or ~/.config/fontconfig/conf.d/.
+  It ensures that when a generic serif font is requested for the Georgian language,
+  the specific "Noto Serif Georgian" font is used, with optional auto-hinting.
+-->
+<fontconfig>
+  <!--
+    Match rule: Applies when the requested language contains the specified code
+    AND the generic family matches the configured value.
+    This prevents the font from overriding other languages or generic families.
+  -->
+  <match>
+    <!--
+      Test: Check if the 'lang' attribute of the font request contains the target language code.
+      Variable: lang_code (ISO 639-2/3 code)
+    -->
+    <test name="lang" compare="contains">
+      <!--
+        The ISO 639 language code to match (e.g., 'ka' for Georgian).
+        Defaults to 'ka'.
+      -->
+      <string>{{ lang_code | default('ka') }}</string>
+    </test>
+
+    <!--
+      Test: Check if the requested font family matches the generic family type.
+      Variable: default_family (e.g., 'serif', 'sans-serif')
+    -->
+    <test name="family">
+      <!--
+        The generic font family to match against (e.g., 'serif', 'sans-serif').
+        Defaults to 'serif'.
+      -->
+      <string>{{ default_family | default('serif') }}</string>
+    </test>
+
+    <!--
+      Edit: Prepend the specific font family name to the list of candidates.
+      This ensures "Noto Serif Georgian" is tried before generic fonts.
+      Variable: target_font_family
+    -->
+    <edit name="family" mode="prepend">
+      <!--
+        The specific font family name to insert/prepend.
+        Defaults to 'Noto Serif Georgian'.
+      -->
+      <string>{{ target_font_family | default('Noto Serif Georgian') }}</string>
+    </edit>
+
+    <!--
+      Edit: Append the auto-hinting setting for the font.
+      Variable: auto_hint_enabled (boolean string 'true' or 'false')
+    -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        Whether to append the 'false' hinting setting for the font.
+        Defaults to 'false'.
+        Note: Fontconfig expects "true" or "false" strings in XML bool tags for this specific edit mode in some versions,
+        but standard <bool> tags usually parse yes/no/true/false. We use the default as-is.
+      -->
+      <bool>{{ auto_hint_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias rule: Defines the default font fallback for the specific Noto Serif Georgian family.
+    If an application requests "Noto Serif Georgian" specifically, but it is not available,
+    it will fall back to the generic 'serif' family.
+  -->
+  <alias>
+    <!--
+      The specific font family name being aliased.
+      Variable: target_font_family
+    -->
+    <family>{{ target_font_family | default('Noto Serif Georgian') }}</family>
+    
+    <!--
+      The default fallback family if the specific font is missing.
+      Variable: default_family
+    -->
+    <default>
+      <family>{{ default_family | default('serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

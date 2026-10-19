@@ -1,0 +1,47 @@
+{#
+  man2html-redhat configuration template
+  ======================================
+  This template generates an Apache HTTPD configuration snippet for serving
+  man pages via the man2html CGI script. It handles both Apache 2.2 and 2.4
+  access control directives based on available modules.
+
+  Variables:
+    - man_alias: The URL alias path for the CGI script.
+    - man_document_root: The filesystem path to the directory served.
+#}
+
+{#
+  ScriptAlias directive: Maps a URL path to the filesystem location of the CGI script.
+  Source: man_alias (default: '/usr/lib/man2html/cgi-bin/man')
+#}
+ScriptAlias /man/ "{{ man_alias | default('/usr/lib/man2html/cgi-bin/man') }}/"
+
+{#
+  Directory block: Configures access and options for the man document root.
+  Source: man_document_root (default: '/usr/lib/man2html/cgi-bin/man')
+#}
+<Directory "{{ man_document_root | default('/usr/lib/man2html/cgi-bin/man') }}">
+    {#
+      Options directive: Disables server-side includes and CGI execution outside
+      the alias to prevent security issues.
+    #}
+    Options None
+
+    {#
+      Access Control: Apache 2.4 (mod_authz_core)
+      Restricts access to the local machine only.
+    #}
+    <IfModule mod_authz_core.c>
+        Require local
+    </IfModule>
+
+    {#
+      Access Control: Apache 2.2 (mod_access)
+      Restricts access to 127.0.0.1 if the 2.4 module is not present.
+    #}
+    <IfModule !mod_authz_core.c>
+        AllowOverride None
+        Order allow,deny
+        Allow from 127.0.0.1
+    </IfModule>
+</Directory>

@@ -1,0 +1,24 @@
+# Master configuration file for the libvirt network driver (redhat package).
+# This file controls low-level networking and firewall interactions for libvirt virtual networks.
+# All settings are optional; omitted settings fall back to sensible defaults.
+
+# firewall_backend:
+#
+# Determines which subsystem is used to set up firewall packet filtering rules
+# for virtual networks managed by libvirt.
+#
+# Supported values:
+#   iptables - Uses legacy iptables commands to construct firewall rules.
+#   nftables - Uses modern nft commands to construct firewall rules.
+#
+# Behavior:
+#   - If not configured, libvirt automatically selects the first available backend
+#     from the list [iptables, nftables].
+#   - If no backend is available on the host, the network driver fails to start
+#     and logs an error.
+#   - Switching backends while active virtual networks exist is supported.
+#     The change takes effect after restarting libvirtd or virtnetworkd.
+#     Existing virtual networks will have their old firewalls removed and
+#     reloaded using the new backend.
+#
+{% if firewall_backend is defined and firewall_backend is not none and (firewall_backend is number or firewall_backend is boolean or firewall_backend | length > 0) %}firewall_backend = "{{ firewall_backend | default('iptables') }}"{% else %}#firewall_backend = "iptables"{% endif %}

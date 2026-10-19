@@ -1,0 +1,50 @@
+# ALSA Plugin Configuration for OSS (Open Sound System) emulation
+# This template configures the ALSA OSS plugin to emulate standard OSS
+# devices (/dev/dsp and /dev/mixer) on systems where ALSA is the backend.
+#
+# Variables:
+#   device_dsp: The path to the OSS PCM device for playback/capture.
+#   device_mixer: The path to the OSS mixer device for control operations.
+
+pcm.oss {
+	# Arguments for the pcm.oss plugin
+	@args [ DEVICE ]
+	
+	# Definition of the DEVICE argument
+	@args.DEVICE {
+		type string
+		# Default OSS audio device path for PCM playback/capture
+		default "{{ device_dsp | default('/dev/dsp') }}"
+	}
+	
+	# Plugin type
+	type oss
+	# Device node to use for audio I/O
+	device $DEVICE
+	
+	# Hint information for device selection
+	hint {
+		show {
+			@func refer
+			name defaults.namehint.basic
+		}
+		description "Open Sound System"
+	}
+}
+
+ctl.oss {
+	# Arguments for the ctl.oss plugin
+	@args [ DEVICE ]
+	
+	# Definition of the DEVICE argument
+	@args.DEVICE {
+		type string
+		# Default OSS mixer device path for control operations
+		default "{{ device_mixer | default('/dev/mixer') }}"
+	}
+	
+	# Plugin type
+	type oss
+	# Device node to use for mixer controls
+	device $DEVICE
+}

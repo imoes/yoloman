@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Fontconfig snippet to inject a custom font into the sans-serif fallback chain.
+  This configuration ensures that applications requesting "sans-serif" fonts
+  will prefer the specified font before falling back to system defaults.
+-->
+<fontconfig>
+  <!--
+    Rule: Prepend the custom font to the "sans-serif" family list.
+    This makes {{ font_name | default('Noto Sans Osmanya') }} the first choice
+    for any application requesting standard sans-serif typography.
+  -->
+  <match>
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <!--
+        Variable: font_name
+        Schema Default: 'Noto Sans Osmanya'
+        Description: The name of the font to inject into the sans-serif fallback chain.
+      -->
+      <string>{{ font_name | default('Noto Sans Osmanya') }}</string>
+    </edit>
+
+    <!--
+      Rule: Disable font hash hints for this family.
+      This can prevent caching issues or incorrect hinting if the font
+      claims to be similar to others based on hash.
+    -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        Variable: fonthashint
+        Schema Default: 'false'
+        Description: Whether to disable font hash hints for this family.
+        Note: Fontconfig expects boolean values 'true' or 'false' as strings in XML.
+      -->
+      <bool>{{ fonthashint | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Alias: Define the canonical name for the font.
+    This allows other configuration files to refer to {{ font_name | default('Noto Sans Osmanya') }}
+    by name, mapping it to the system "sans-serif" family if needed.
+  -->
+  <alias>
+    <!--
+      The preferred family name for this font.
+    -->
+    <family>{{ font_name | default('Noto Sans Osmanya') }}</family>
+    <default>
+      <!--
+        The fallback family if the primary font is unavailable or not matched.
+      -->
+      <family>sans-serif</family>
+    </default>
+  </alias>
+</fontconfig>

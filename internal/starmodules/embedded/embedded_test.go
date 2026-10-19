@@ -34,6 +34,13 @@ func TestEmbeddedModulesLoad(t *testing.T) {
 	// a host with the actual tooling.
 	for _, want := range []string{
 		"yoloman.network_interface",
+		// Kernel-tuning tunables (docs/kernel-tuning.md); logic tested in tunables_test.go.
+		"yoloman.cpu_governor",
+		"yoloman.blockdev_tuning",
+		"yoloman.systemd_resource",
+		"yoloman.sched_ext",
+		"yoloman.kernel_cmdline",
+		"yoloman.benchmark",
 		"community.general.vdo",
 		"community.general.zfs",
 		"community.general.zfs_facts",

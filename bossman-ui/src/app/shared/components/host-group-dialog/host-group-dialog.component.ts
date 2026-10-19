@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { HostGroup, HostGroupInput } from '../../../core/models/host-group.model';
 import { OUNode } from '../../../core/models/ou.model';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface HostGroupDialogData {
   group?: HostGroup;
@@ -15,7 +16,7 @@ export interface HostGroupDialogData {
 @Component({
   selector: 'app-host-group-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule],
+  imports: [BlockedReasonDirective, ReactiveFormsModule, MatDialogModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>{{ data.group ? 'Edit' : 'New' }} host group</h2>
     <mat-dialog-content [formGroup]="form">
@@ -30,7 +31,7 @@ export interface HostGroupDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Save</button>
+      <button mat-raised-button color="primary" [bmBlocked]="form.invalid ? 'Fill in the required fields' : ''" (click)="save()">Save</button>
     </mat-dialog-actions>
   `,
 })

@@ -1,0 +1,431 @@
+/* Configuration file for UnrealIRCd 6
+ *
+ * This template is self-documenting. Every variable is sourced from the Ansible
+ * schema with safe defaults.
+ *
+ * Syntax reminder: all lines, except { and } end with an ;
+ */
+
+/* This is a comment, all text here is ignored (comment type #1) */
+// This is also a comment, this line is ignored (comment type #2)
+# This is also a comment, again this line is ignored (comment type #3)
+
+/* UnrealIRCd makes heavy use of modules. Modules allow you to completely
+ * customize the featureset you wish to enable in UnrealIRCd.
+ * See: https://www.unrealircd.org/docs/Modules
+ *
+ * By using the include below we instruct the IRCd to read the file
+ * 'modules.default.conf' which will load more than 150 modules
+ * shipped with UnrealIRCd.
+ */
+include "modules.default.conf";
+
+/* Now let's include some other files as well:
+ * - help/help.conf for our on-IRC /HELPOP system
+ * - badwords.conf for channel and user mode +G
+ * - operclass.default.conf contains some good operclasses
+ * - snomasks.default.conf for system notice masks
+ */
+include "help/help.conf";
+include "badwords.conf";
+//include "spamfilter.conf";
+include "operclass.default.conf";
+include "snomasks.default.conf";
+
+/* Load the default cloaking module (2021 onwards): */
+loadmodule "cloak_sha256";
+/* Or load the old module from UnrealIRCd 3.2/4/5 instead: */
+//loadmodule "cloak_md5";
+
+/* This is the me { } block which basically says who we are.
+ * It defines our server name, some information line and an unique "sid".
+ */
+me {
+	/* network_name: The name of the IRC network. */
+	name "{{ network_name | default('ExampleNET') }}";
+	/* network_info: The information line for the server. */
+	info "{{ network_info | default('ExampleNET Server') }}";
+	/* server_sid: The unique Server ID (SID) for this server instance. */
+	sid "{{ server_sid | default('001') }}";
+}
+
+/* The admin { } block defines what users will see if they type /ADMIN. */
+admin {
+	/* admin_name: Full name of the IRC network administrator. */
+	"{{ admin_name | default('Bob Smith') }}";
+	/* admin_user: Username of the IRC network administrator. */
+	"{{ admin_user | default('bob') }}";
+	/* admin_email: Email address of the IRC network administrator. */
+	"{{ admin_email | default('email@example.org') }}";
+}
+
+/* Clients and servers are put in class { } blocks. */
+/* Client class with good defaults */
+class clients
+{
+	/* class_clients_pingfreq: Ping frequency in seconds for client class. */
+	pingfreq {{ class_clients_pingfreq | default(90) }};
+	/* class_clients_maxclients: Maximum number of clients allowed in the client class. */
+	maxclients {{ class_clients_maxclients | default(1000) }};
+	/* class_clients_sendq: Send queue size limit for client class. */
+	sendq {{ class_clients_sendq | default('200k') }};
+	/* class_clients_recvq: Receive queue size limit for client class. */
+	recvq {{ class_clients_recvq | default('8000') }};
+}
+
+/* Special class for IRCOps with higher limits */
+class opers
+{
+	/* class_operators_pingfreq: Ping frequency in seconds for operator class. */
+	pingfreq {{ class_operators_pingfreq | default(90) }};
+	/* class_operators_maxclients: Maximum number of operators allowed in the operator class. */
+	maxclients {{ class_operators_maxclients | default(50) }};
+	/* class_operators_sendq: Send queue size limit for operator class. */
+	sendq {{ class_operators_sendq | default('1M') }};
+	/* class_operators_recvq: Receive queue size limit for client class. */
+	recvq {{ class_operators_recvq | default('8000') }};
+}
+
+/* Server class with good defaults */
+class servers
+{
+	/* class_servers_pingfreq: Ping frequency in seconds for server class. */
+	pingfreq {{ class_servers_pingfreq | default(60) }};
+	/* class_servers_connfreq: Connection frequency in seconds for server class. */
+	connfreq {{ class_servers_connfreq | default('15') }}; /* try to connect every 15 seconds */
+	/* class_servers_maxclients: Maximum number of servers allowed. */
+	maxclients {{ class_servers_maxclients | default('10') }}; /* max servers */
+	/* class_servers_sendq: Send queue size limit for server class. */
+	sendq {{ class_servers_sendq | default('20M') }};
+}
+
+/* Allow blocks define which clients may connect to this server. */
+/* Allow everyone in, but only 3 connections per IP */
+allow {
+	mask *;
+	class clients;
+	/* allow_maxperip: Maximum connections allowed per IP address. */
+	maxperip {{ allow_maxperip | default('3') }};
+}
+
+/* Oper blocks define your IRC Operators. */
+/* Here is an example oper block for 'bobsmith' */
+oper {{ oper_name | default('bobsmith') }} {
+	class opers;
+	mask *@*;
+
+	/* oper_password: Hashed password for the IRC operator. */
+	password "{{ oper_password | default('$argon2id..etc..') }}";
+
+	/* oper_operclass: Operclass assigned to the operator. */
+	operclass {{ oper_operclass | default('netadmin') }};
+	/* oper_swhois: WHOIS information for the operator. */
+	swhois "{{ oper_swhois | default('is a Network Administrator') }}";
+	/* oper_vhost: Virtual hostname for the operator. */
+	vhost {{ oper_vhost | default('netadmin.example.org') }};
+}
+
+/* Listen blocks define the ports where the server should listen on. */
+/* Standard IRC port 6667 */
+listen {
+	ip *;
+	/* port_irc: Port for standard IRC connections. */
+	port {{ port_irc | default(6667) }};
+}
+
+/* Standard IRC SSL/TLS port 6697 */
+listen {
+	ip *;
+	/* port_ssl: Port for SSL/TLS client connections. */
+	port {{ port_ssl | default(6697) }};
+	options { tls; }
+}
+
+/* Special SSL/TLS servers-only port for linking */
+listen {
+	ip *;
+	/* port_link: Port for server linking. */
+	port {{ port_link | default('6900') }};
+	options { tls; serversonly; }
+}
+
+/* U-lines give other servers (even) more power/commands.
+ * If you use services you MUST add them here.
+ */
+//ulines {
+//	services.example.org;
+//}
+
+/* Here you can add a password for the IRCOp-only /DIE and /RESTART commands. */
+drpass {
+	/* drpass_restart: Password for the /RESTART command. */
+	restart "{{ drpass_restart | default('restart') }}";
+	/* drpass_die: Password for the /DIE command. */
+	die "{{ drpass_die | default('die') }}";
+}
+
+/* The log block defines what should be logged and to what file. */
+/* This is a good default, it logs everything except debug stuff and join/part/kick. */
+log {
+	source {
+		all;
+		!debug;
+		!join.LOCAL_CLIENT_JOIN;
+		!join.REMOTE_CLIENT_JOIN;
+		!part.LOCAL_CLIENT_PART;
+		!part.REMOTE_CLIENT_PART;
+		!kick.LOCAL_CLIENT_KICK;
+		!kick.REMOTE_CLIENT_KICK;
+	}
+	destination {
+		file "ircd.log" { maxsize {{ log_ircd_maxsize | default('100M') }}; }
+	}
+}
+
+/* In addition to regular logging, also add a JSON log file. */
+log {
+	source {
+		all;
+		!debug;
+		!join.LOCAL_CLIENT_JOIN;
+		!join.REMOTE_CLIENT_JOIN;
+		!part.LOCAL_CLIENT_PART;
+		!part.REMOTE_CLIENT_PART;
+		!kick.LOCAL_CLIENT_KICK;
+		!kick.REMOTE_CLIENT_KICK;
+	}
+	destination {
+		file "ircd.json.log" { maxsize {{ log_json_maxsize | default('250M') }}; type json; }
+	}
+}
+
+/* With "aliases" you can create an alias like /SOMETHING to send a message to
+ * some user or bot.
+ */
+include "aliases/anope.conf";
+
+/* Ban nick names so they cannot be used by regular users */
+// ban nick {
+// 	mask "*C*h*a*n*S*e*r*v*";
+// 	reason "Reserved for Services";
+// }
+
+/* Ban ip. */
+// ban ip {
+// 	mask 195.86.232.81;
+// 	reason "Hate you";
+// }
+
+/* Ban server - if we see this server linked to someone then we delink */
+// ban server {
+// 	mask eris.berkeley.edu;
+// 	reason "Get out of here.";
+// }
+
+/* Ban user - just as an example, you normally use /KLINE or /GLINE for this */
+// ban user {
+// 	mask *tirc@*.saturn.bbn.com;
+// 	reason "Idiot";
+// }
+
+/* Ban realname allows you to ban clients based on their 'real name' */
+// ban realname {
+// 	mask "Swat Team";
+// 	reason "mIRKFORCE";
+// }
+
+/* Ban and TKL exceptions. */
+/* except ban with type 'all' protects you from GLINE, GZLINE, QLINE, SHUN */
+// except ban {
+// 	mask *@192.0.2.1;
+// 	type all;
+// }
+
+/* This allows IRCCloud connections in without maxperip restrictions */
+except ban {
+	mask *.irccloud.com;
+	type { maxperip; connect-flood; }
+}
+
+/* With deny dcc blocks you can ban filenames for DCC */
+// deny dcc {
+// 	filename "*sub7*";
+// 	reason "Possible Sub7 Virus";
+// }
+
+/* deny channel allows you to ban a channel (mask) entirely */
+// deny channel {
+// 	channel "*warez*";
+// 	reason "Warez is illegal";
+// 	class "clients";
+// }
+
+/* VHosts (Virtual Hosts) allow users to acquire a different host. */
+// vhost {
+// 	vhost i.hate.microsefrs.com;
+// 	mask *@unrealircd.com;
+// 	login "test";
+// 	password "test";
+// }
+
+/* Blacklist blocks will query an external DNS Blacklist service. */
+blacklist dronebl {
+        dns {
+                name dnsbl.dronebl.org;
+                type record;
+                reply { 3; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16; }
+        }
+        action gline;
+        ban-time 24h;
+        reason "Proxy/Drone detected. Check https://dronebl.org/lookup?ip=$ip for details.";
+}
+
+blacklist efnetrbl {
+        dns {
+                name rbl.efnetrbl.org;
+                type record;
+                reply { 1; 4; 5; }
+        }
+        action gline;
+        ban-time 24h;
+        reason "Proxy/Drone/TOR detected. Check https://rbl.efnetrbl.org/?i=$ip for details.";
+}
+
+/* You can include other configuration files */
+/* include "klines.conf"; */
+
+/* Network configuration */
+set {
+	/* network_name: The name of the IRC network. */
+	network-name 		"{{ network_name | default('ExampleNET') }}";
+	/* default_server: Default server address for new users. */
+	default-server 		"{{ default_server | default('irc.example.org') }}";
+	/* services_server: Hostname of the services server. */
+	services-server 		"{{ services_server | default('services.example.org') }}";
+	/* stats_server: Hostname of the stats server. */
+	stats-server 		"{{ stats_server | default('stats.example.org') }}";
+
+	/* Normal defaults */
+	/* help_channel: Default help channel. */
+	help-channel 		"{{ help_channel | default('#Help') }}";
+	/* cloak_prefix: Prefix used for cloaked hostnames. */
+	cloak-prefix		"{{ cloak_prefix | default('Clk') }}";
+	/* prefix_quit: Prefix shown when a user quits. */
+	prefix-quit 		"{{ prefix_quit | default('Quit') }}";
+
+	/* Cloak keys should be the same at all servers on the network. */
+	cloak-keys {
+		/* cloak_key_1: First cloak key for host masking (3 random 80+ char strings required). */
+		"{{ cloak_key_1 | default('Oozahho1raezoh0iMee4ohvegaifahv5xaepeitaich9tahdiquaid0geecipahdauVaij3zieph4ahi') }}";
+		/* cloak_key_2: Second cloak key for host masking. */
+		"{{ cloak_key_2 | default('and another one') }}";
+		/* cloak_key_3: Third cloak key for host masking. */
+		"{{ cloak_key_3 | default('and another one') }}";
+	}
+}
+
+/* Server specific configuration */
+set {
+	/* kline_address: Email or URL shown when a user is banned (kline). */
+	kline-address '{{ kline_address | default("set.this.to.email.address") }}'; /* e-mail or URL shown when a user is banned */
+
+	/* modes_on_connect: User modes applied when a user connects. */
+	modes-on-connect "{{ modes_on_connect | default('+ixw') }}"; /* when users connect, they will get these user modes */
+	/* modes_on_oper: User modes applied when a user becomes an operator. */
+	modes-on-oper "{{ modes_on_oper | default('+xws') }}"; /* when someone becomes IRCOp they'll get these modes */
+	/* modes_on_join: Default channel modes for new channels. */
+	modes-on-join "{{ modes_on_join | default('+nt') }}"; /* default channel modes when a new channel is created */
+	/* oper_auto_join: Channel operators are automatically joined to. */
+	oper-auto-join "{{ oper_auto_join | default('#opers') }}"; /* IRCOps are auto-joined to this channel */
+	options {
+		hide-ulines; /* hide U-lines in /MAP and /LINKS */
+		show-connect-info; /* show "looking up your hostname" messages on connect */
+	}
+
+	/* maxchannelsperuser: Maximum number of channels a user may join. */
+	maxchannelsperuser {{ maxchannelsperuser | default('10') }}; /* maximum number of channels a user may /JOIN */
+
+	/* anti_spam_quit_message_time: Minimum connection time before a user can use /QUIT. */
+	anti-spam-quit-message-time {{ anti_spam_quit_message_time | default('10s') }};
+
+	/* Flood protection */
+	anti-flood {
+	}
+
+	/* Settings for spam filter */
+	spamfilter {
+		/* spamfilter_ban_time: Default duration for spamfilter bans. */
+		ban-time {{ spamfilter_ban_time | default('1d') }}; /* default duration of a *LINE ban set by spamfilter */
+		/* spamfilter_ban_reason: Default reason for spamfilter bans. */
+		ban-reason "{{ spamfilter_ban_reason | default('Spam/Advertising') }}"; /* default reason */
+		/* spamfilter_virus_help_channel: Channel to use for viruschan action. */
+		virus-help-channel "{{ spamfilter_virus_help_channel | default('#help') }}"; /* channel to use for 'viruschan' action */
+	}
+
+	/* Restrict certain commands. */
+	restrict-commands {
+		list {
+			except {
+				/* restrict_commands_list_except_connect_time: Time in seconds before LIST command is allowed. */
+				connect-time {{ restrict_commands_list_except_connect_time | default('60') }}; /* after 60 seconds you can use LIST */
+				/* restrict_commands_list_except_identified: Allow LIST immediately if identified to services. */
+				identified {{ restrict_commands_list_except_identified | default('yes') }}; /* or immediately, if you are identified to services */
+				/* restrict_commands_list_except_reputation_score: Reputation score required to allow LIST. */
+				reputation-score {{ restrict_commands_list_except_reputation_score | default('24') }}; /* or if you have a reputation score of 24 or more */
+			}
+		}
+		invite {
+			except {
+				/* restrict_commands_invite_except_connect_time: Time in seconds before INVITE command is allowed. */
+				connect-time {{ restrict_commands_invite_except_connect_time | default('120') }};
+				/* restrict_commands_invite_except_identified: Allow INVITE immediately if identified to services. */
+				identified {{ restrict_commands_invite_except_identified | default('yes') }};
+				/* restrict_commands_invite_except_reputation_score: Reputation score required to allow INVITE. */
+				reputation-score {{ restrict_commands_invite_except_reputation_score | default('24') }};
+			}
+		}
+	}
+
+	/* TLS protocols and ciphers */
+	tls {
+		/* tls_ciphers: TLS cipher profile configuration. */
+		ciphers "{{ tls_ciphers | default('PROFILE=SYSTEM') }}"; /* Fedora system-wide crypto policy */
+	}
+}
+
+/*
+ * The following will configure connection throttling of "unknown users".
+ */
+set {
+	connthrottle {
+		/* First we configure which users are exempt from the restrictions. */
+		except {
+			/* connthrottle_except_reputation_score: Reputation score to exempt from connection throttling. */
+			reputation-score {{ connthrottle_except_reputation_score | default('24') }};
+			/* connthrottle_except_identified: Exempt identified users from connection throttling. */
+			identified {{ connthrottle_except_identified | default('yes') }};
+		}
+
+		/* New users are all users that do not belong in the known-users group. */
+		new-users {
+			/* connthrottle_new_users_local_throttle: Local throttle for new users (count:seconds). */
+			local-throttle {{ connthrottle_new_users_local_throttle | default('20:60') }};
+			/* connthrottle_new_users_global_throttle: Global throttle for new users (count:seconds). */
+			global-throttle {{ connthrottle_new_users_global_throttle | default('30:60') }};
+		}
+
+		/* This configures when this module will NOT be active. */
+		disabled-when {
+			/* connthrottle_disabled_when_reputation_gathering: Disable throttling if reputation gathering is less than this duration. */
+			reputation-gathering {{ connthrottle_disabled_when_reputation_gathering | default('1w') }};
+			/* connthrottle_disabled_when_start_delay: Disable throttling for this duration after server start. */
+			start-delay {{ connthrottle_disabled_when_start_delay | default('3m') }};
+		}
+	}
+}
+
+/*
+ * Problems or need more help?
+ * 1) https://www.unrealircd.org/docs/
+ * 2) https://www.unrealircd.org/docs/FAQ
+ */

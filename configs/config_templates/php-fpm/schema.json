@@ -1,149 +1,117 @@
 {
-  "global": {
-    "type": "object",
-    "description": "Global PHP-FPM daemon settings",
-    "items": {
-      "error_log": {
-        "type": "string",
-        "default": "/var/log/php7-fpm.log",
-        "description": "Path to the global error log file"
-      },
-      "log_level": {
-        "type": "string",
-        "default": "notice",
-        "description": "Log level: alert, error, warning, notice, debug"
-      }
-    }
+  "pool_name": {
+    "type": "string",
+    "default": "www",
+    "description": "Pool name (section header)."
   },
-  "pool": {
+  "user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Unix user the worker processes run as."
+  },
+  "group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Unix group the worker processes run as."
+  },
+  "listen": {
+    "type": "string",
+    "default": "/run/php/php8.4-fpm.sock",
+    "description": "Unix socket path or ip:port the pool accepts FastCGI requests on."
+  },
+  "listen_owner": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Owner of the Unix socket (empty: not set)."
+  },
+  "listen_group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Group of the Unix socket (empty: not set)."
+  },
+  "listen_mode": {
+    "type": "string",
+    "default": "",
+    "description": "Mode of the Unix socket, e.g. 0660 (empty: not set)."
+  },
+  "listen_acl_users": {
+    "type": "string",
+    "default": "",
+    "description": "Users granted socket access via POSIX ACLs, comma-separated."
+  },
+  "listen_allowed_clients": {
+    "type": "string",
+    "default": "",
+    "description": "Client addresses allowed on a TCP listen address (empty: any)."
+  },
+  "pm": {
+    "type": "string",
+    "default": "dynamic",
+    "description": "Process manager.",
+    "enum": [
+      "static",
+      "dynamic",
+      "ondemand"
+    ]
+  },
+  "pm_max_children": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of children alive at the same time."
+  },
+  "pm_start_servers": {
+    "type": "number",
+    "default": 2,
+    "description": "Children created at startup (dynamic)."
+  },
+  "pm_min_spare_servers": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum number of idle children (dynamic)."
+  },
+  "pm_max_spare_servers": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of idle children (dynamic)."
+  },
+  "pm_max_requests": {
+    "type": "number",
+    "default": 0,
+    "description": "Requests a child serves before it is respawned (0: never)."
+  },
+  "pm_status_path": {
+    "type": "string",
+    "default": "",
+    "description": "URI of the FPM status page (empty: disabled)."
+  },
+  "slowlog": {
+    "type": "string",
+    "default": "",
+    "description": "Slow-request log file (empty: not set)."
+  },
+  "request_slowlog_timeout": {
+    "type": "string",
+    "default": "",
+    "description": "Requests slower than this are logged to slowlog, e.g. 5s (written only together with slowlog \u2014 php-fpm refuses it alone)."
+  },
+  "php_admin_values": {
     "type": "object",
-    "description": "Pool-specific configuration (e.g., 'www')",
-    "items": {
-      "process_manager": {
-        "type": "string",
-        "default": "dynamic",
-        "description": "How processes are managed: 'static', 'dynamic', or 'ondemand'"
-      },
-      "start_servers": {
-        "type": "number",
-        "default": 5,
-        "description": "Number of child processes started at startup (used with 'dynamic' manager)"
-      },
-      "min_spare_servers": {
-        "type": "number",
-        "default": 2,
-        "description": "Minimum number of idle processes (used with 'dynamic' manager)"
-      },
-      "max_spare_servers": {
-        "type": "number",
-        "default": 5,
-        "description": "Maximum number of idle processes (used with 'dynamic' manager)"
-      },
-      "max_requests": {
-        "type": "number",
-        "default": 500,
-        "description": "Number of requests each child handles before being restarted (prevents memory leaks)"
-      },
-      "listen": {
-        "type": "string",
-        "default": "/run/php/php-fpm.sock",
-        "description": "Address on which to accept FastCGI requests (e.g., IP:port or path to Unix socket)"
-      },
-      "listen_allowed_clients": {
-        "type": "list",
-        "default": [
-          "127.0.0.1"
-        ],
-        "description": "List of allowed client IP addresses connecting to this pool (empty or 'none' = no restriction)"
-      },
-      "listen_backlog": {
-        "type": "number",
-        "default": -1,
-        "description": "Maximum length of the queue of pending connections; -1 means system default"
-      },
-      "listen_owner": {
-        "type": "string",
-        "default": "www-data",
-        "description": "Unix user for the socket file (when using Unix socket)"
-      },
-      "listen_group": {
-        "type": "string",
-        "default": "www-data",
-        "description": "Unix group for the socket file (when using Unix socket)"
-      },
-      "listen_mode": {
-        "type": "string",
-        "default": "0660",
-        "description": "Unix permissions for the socket file (octal string)"
-      },
-      "user": {
-        "type": "string",
-        "default": "www-data",
-        "description": "User under which PHP processes run"
-      },
-      "group": {
-        "type": "string",
-        "default": "www-data",
-        "description": "Group under which PHP processes run"
-      },
-      "php_admin_value": {
-        "type": "object",
-        "default": {
-          "error_log": "/var/log/php7-fpm-error.log"
-        },
-        "description": "PHP ini directives set via 'php_admin_value' (cannot be overridden in .htaccess or user scripts)",
-        "items": {
-          "error_log": {
-            "type": "string",
-            "default": "/var/log/php7-fpm-error.log",
-            "description": "Path to error log for this pool"
-          }
-        }
-      },
-      "php_admin_flag": {
-        "type": "object",
-        "default": {
-          "log_errors": true
-        },
-        "description": "PHP ini boolean flags set via 'php_admin_flag' (cannot be overridden)",
-        "items": {
-          "log_errors": {
-            "type": "bool",
-            "default": true,
-            "description": "Whether to log PHP errors"
-          }
-        }
-      },
-      "php_values": {
-        "type": "object",
-        "default": {
-          "memory_limit": "128M",
-          "max_execution_time": "30"
-        },
-        "description": "PHP ini settings that may be overridden in user scripts (via 'php_value' directive)"
-      },
-      "php_flags": {
-        "type": "object",
-        "default": {
-          "display_errors": false
-        },
-        "description": "PHP ini boolean flags that may be overridden (via 'php_flag' directive)"
-      },
-      "status_path": {
-        "type": "string",
-        "default": "/status",
-        "description": "Relative URI for the pool status endpoint (requires 'pm.status_path' to be enabled)"
-      },
-      "slowlog": {
-        "type": "string",
-        "default": "/var/log/php-fpm/www-slow.log",
-        "description": "Path to the slow request log file"
-      },
-      "request_slowlog_timeout": {
-        "type": "number",
-        "default": 5,
-        "description": "Timeout (in seconds) after which a request is logged to the slowlog"
-      }
-    }
+    "default": {},
+    "description": "php_admin_value[...] settings (not overridable by ini_set)."
+  },
+  "php_admin_flags": {
+    "type": "object",
+    "default": {},
+    "description": "php_admin_flag[...] settings (on/off)."
+  },
+  "php_values": {
+    "type": "object",
+    "default": {},
+    "description": "php_value[...] settings."
+  },
+  "php_flags": {
+    "type": "object",
+    "default": {},
+    "description": "php_flag[...] settings (on/off)."
   }
 }

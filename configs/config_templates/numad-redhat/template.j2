@@ -1,0 +1,27 @@
+# numad logrotate configuration
+# Manages the rotation of numad daemon logs.
+
+/var/log/numad.log {
+    # Enable gzip compression for rotated log files to save disk space.
+    compress
+
+    # Copy the log file to a new file and truncate the original,
+    # ensuring the daemon continues writing to the same file descriptor.
+    copytruncate
+
+    # maxage: Maximum age of log files in days before rotation.
+    # Logs older than this will be removed.
+    maxage {{ maxage | default('60') }}
+
+    # If the log file is missing when rotation is due, do not error out.
+    # Useful if the service hasn't started or the file was manually removed.
+    missingok
+
+    # rotate: Number of rotated log files to keep.
+    # Older files beyond this count are deleted.
+    rotate {{ rotate | default('5') }}
+
+    # size: Size at which log files are rotated (e.g., 1M, 100k).
+    # Rotation occurs if the log reaches this size, regardless of time.
+    size {{ size | default('1M') }}
+}

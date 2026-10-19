@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!-- SPDX-License-Identifier: MIT -->
+<fontconfig>
+  <!--
+    Define the preferred font family for the primary font name.
+    If a specific application requests 'primary_font', it will get this font.
+  -->
+  <alias binding="same">
+    <!-- The primary font family name to be configured. Defaults to 'Droid Sans Mono'. -->
+    <family>{{ (primary_font | default('Droid Sans Mono')) }}</family>
+    <accept>
+      <!-- The first fallback font family. Defaults to 'Noto Sans Mono'. -->
+      <family>{{ (fallback_1 | default('Noto Sans Mono')) }}</family>
+      <!-- The second fallback font family. Defaults to 'monospace'. -->
+      <family>{{ (fallback_2 | default('monospace')) }}</family>
+    </accept>
+  </alias>
+
+  <!--
+    Define the preferred font family for the first fallback font.
+    If a specific application requests 'fallback_1', it will get this font.
+  -->
+  <alias binding="same">
+    <!-- The first fallback font family. Defaults to 'Noto Sans Mono'. -->
+    <family>{{ (fallback_1 | default('Noto Sans Mono')) }}</family>
+    <accept>
+      <!-- The primary font family name to be configured. Defaults to 'Droid Sans Mono'. -->
+      <family>{{ (primary_font | default('Droid Sans Mono')) }}</family>
+    </accept>
+  </alias>
+
+  <!--
+    Map the generic 'target_family' alias to the primary font.
+    Applications asking for the generic family 'target_family' will get 'primary_font'.
+  -->
+  <alias>
+    <!-- The generic family alias to prefer the primary font. Defaults to 'monospace'. -->
+    <family>{{ (target_family | default('monospace')) }}</family>
+    <prefer>
+      <!-- The primary font family name to be configured. Defaults to 'Droid Sans Mono'. -->
+      <family>{{ (primary_font | default('Droid Sans Mono')) }}</family>
+    </prefer>
+  </alias>
+</fontconfig>

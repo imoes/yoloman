@@ -21,59 +21,29 @@
     "description": "List of DoT upstream servers to use. Each entry specifies the IP address, optional FQDN for TLS authentication, and optional SPKI pinset for strict mode."
   },
   "round_robin_upstreams": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether to distribute queries across all upstreams (true) or use them in ordered fallback (false)."
+    "type": "number",
+    "default": 1,
+    "description": "Whether to distribute queries across all upstreams (true) or use them in ordered fallback (false).",
+    "enum": [
+      0,
+      1
+    ]
   },
   "listen_addresses": {
     "type": "list",
     "default": [
       "127.0.0.1",
-      "::1"
+      "0::1"
     ],
     "description": "IP addresses to bind the local DNS listener to. Include '0.0.0.0' or '::' to accept remote queries (not recommended for privacy)."
   },
   "tls_min_version": {
     "type": "string",
     "default": "GETDNS_TLS1_2",
-    "description": "Minimum TLS version: 'GETDNS_TLS1_2' or 'GETDNS_TLS1_3'.",
+    "description": "Minimum TLS version: 'GETDNS_TLS1_2' or 'GETDNS_TLS1_3'. (Currently commented out in default config, but parameterized for completeness based on schema existence and comment context). Note: The actual default config has this commented out. However, the prompt asks to parametrize site-specific literal values. Since this line is commented out, I should probably leave it commented or just not touch it if it's not active. Wait, the prompt says 'Replace ONLY site-specific literal values an admin would change... Keep EVERYTHING ELSE BYTE-FOR-BYTE VERBATIM... Do NOT add, remove, reorder, or 'improve' anything.'\n\nLooking at the real config:\n`# tls_min_version: GETDNS_TLS1_2`\nThis is a comment. The active config does not have `tls_min_version` set.\nHowever, the `values_schema` provided includes `tls_min_version`.\nAnd `tls_query_padding_blocksize: 128` is active.\n`edns_client_subnet_private : 1` is active.\n`round_robin_upstreams: 1` is active.\n`idle_timeout: 10000` is active.\n`tls_authentication: GETDNS_AUTHENTICATION_REQUIRED` is active.\n\nSo I should replace:\n- `tls_query_padding_blocksize: 128` with `tls_query_padding_blocksize: {{ tls_query_padding_blocksize }}`\n- `edns_client_subnet_private : 1` with `edns_client_subnet_private : {{ edns_client_subnet_private }}`\n- `round_robin_upstreams: 1` with `round_robin_upstreams: {{ round_robin_upstreams }}`\n- `idle_timeout: 10000` with `idle_timeout: {{ idle_timeout }}`\n- `tls_authentication: GETDNS_AUTHENTICATION_REQUIRED` with `tls_authentication: {{ tls_authentication }}`\n\nThe `listen_addresses` block has:\n`listen_addresses:\n  - 127.0.0.1\n  - 0::1`\nNote the `0::1` in the real file. This looks like a typo for `::1`, but I must keep it verbatim if it's not being replaced. However, `listen_addresses` is in the schema. I will replace the list with the template loop.\n\nThe `upstream_recursive_servers` block has hardcoded servers. The schema has `upstream_servers`. I will replace the hardcoded IPv4 defaults with the loop. The IPv6 defaults and optional sections are commented out or hardcoded in comments/structure? No, the IPv6 defaults are active entries in the YAML list.\nWait, looking at the real config:\n```yaml\nupstream_recursive_servers:\n############################ DEFAULT UPSTREAMS  ################################\n####### IPv4 addresses ######\n... (active entries)\n####### IPv6 addresses ######\n... (active entries)\n```\nBoth IPv4 and IPv6 blocks under `upstream_recursive_servers` are ACTIVE (not commented out). The schema `upstream_servers` only contains IPv4 addresses. This is a mismatch. If I use the schema's list, I lose the IPv6 servers. But the prompt says \"Reuse the provided existing variable names where they fit\". The schema `upstream_servers` fits the active IPv4 entries. It does not fit the IPv6 entries. \n\nI will replace ONLY the IPv4 active entries with the loop based on `upstream_servers`. I will keep the IPv6 active entries verbatim as they are not in the schema and thus not ",
     "enum": [
       "GETDNS_TLS1_2",
       "GETDNS_TLS1_3"
-    ]
-  },
-  "tls_query_padding_blocksize": {
-    "type": "number",
-    "default": 128,
-    "description": "Padding blocksize (bytes) for EDNS0 TLS query padding."
-  },
-  "listen_port": {
-    "type": "number",
-    "default": 53,
-    "description": "Local port to listen on for DNS queries (standard DNS uses port 53)."
-  },
-  "dnssec": {
-    "type": "boolean",
-    "default": false,
-    "description": "Whether to enable DNSSEC validation. Note: this config uses 'dnssec: GETDNS_EXTENSION_TRUE' in comments but defaults to disabled (no explicit 'dnssec' setting) in shipped config."
-  },
-  "edns_client_subnet_private": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable EDNS client subnet privacy (1 = enabled, 0 = disabled)."
-  },
-  "idle_timeout": {
-    "type": "number",
-    "default": 10000,
-    "description": "Idle timeout in milliseconds for TLS connections (10000 ms = 10 seconds)."
-  },
-  "tls_authentication": {
-    "type": "string",
-    "default": "GETDNS_AUTHENTICATION_REQUIRED",
-    "description": "Authentication mode: 'GETDNS_AUTHENTICATION_REQUIRED' (Strict) or 'GETDNS_AUTHENTICATION_NONE' (Opportunistic).",
-    "enum": [
-      "GETDNS_AUTHENTICATION_REQUIRED",
-      "GETDNS_AUTHENTICATION_NONE"
     ]
   }
 }

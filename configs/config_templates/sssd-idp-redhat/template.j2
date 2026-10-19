@@ -1,0 +1,34 @@
+# ==============================================================================
+# SSSD OAuth2 Kerberos Preauthentication Plugin Configuration
+# ==============================================================================
+#
+# This template configures the SSSD (System Security Services Daemon) to use
+# an OAuth2 Kerberos preauthentication plugin. This allows obtaining Kerberos
+# Ticket Granting Tickets (TGTs) through OAuth2 authentication flows.
+#
+# Reference: /etc/sssd/sssd.conf (typically under the [sssd] or specific
+# domain section, though here it appears in a global [plugins] context).
+# ==============================================================================
+
+[plugins]
+    # -------------------------------------------------------------------------
+    # Client Preauthentication Module
+    # -------------------------------------------------------------------------
+    # Description: The module path for the SSSD OAuth2 Kerberos preauthentication
+    #              plugin responsible for client-side preauthentication.
+    # Default:     'idp:/usr/lib64/sssd/modules/sssd_krb5_idp_plugin.so'
+    # -------------------------------------------------------------------------
+    clpreauth = {
+        module = {{ sssd_oauth2_krb5_plugin_module | default('idp:/usr/lib64/sssd/modules/sssd_krb5_idp_plugin.so') }}
+    }
+
+    # -------------------------------------------------------------------------
+    # KDC Preauthentication Module
+    # -------------------------------------------------------------------------
+    # Description: The module path for the SSSD OAuth2 Kerberos preauthentication
+    #              plugin responsible for KDC-side preauthentication interactions.
+    # Default:     'idp:/usr/lib64/sssd/modules/sssd_krb5_idp_plugin.so'
+    # -------------------------------------------------------------------------
+    kdcpreauth = {
+        module = {{ sssd_oauth2_krb5_plugin_module | default('idp:/usr/lib64/sssd/modules/sssd_krb5_idp_plugin.so') }}
+    }

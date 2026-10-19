@@ -47,7 +47,7 @@ public sealed class DhcpServerModule : IModule
                 ["type"] = "string", ["enum"] = Objects,
                 ["description"] = "What a write targets: scope or reservation.",
             },
-            ["scope"] = P("string", "The scope id (its network address, e.g. 10.32.28.0). Alone it READS that "
+            ["scope"] = P("string", "The scope id (its network address, e.g. 192.0.2.0). Alone it READS that "
                                     + "scope's leases and reservations."),
             ["start_range"] = P("string", "First address the scope hands out. Required when creating."),
             ["end_range"] = P("string", "Last address the scope hands out. Required when creating."),

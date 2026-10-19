@@ -1,47 +1,101 @@
 {
-  "init_provides": {
+  "prefix": {
     "type": "string",
-    "default": "courier-mta",
-    "description": "Service name provided by this init script"
+    "default": "/usr",
+    "description": "Installation prefix directory"
   },
-  "init_required_start": {
+  "exec_prefix": {
     "type": "string",
-    "default": "courier-authdaemon courier courierfilter $remote_fs $syslog",
-    "description": "Dependencies required to start before this service"
+    "default": "/usr",
+    "description": "Executable installation prefix directory"
   },
-  "init_required_stop": {
+  "syslocale": {
     "type": "string",
-    "default": "$remote_fs $syslog",
-    "description": "Dependencies required to stop after this service"
+    "default": ". /etc/environment",
+    "description": "Source command to set system locale environment"
   },
-  "init_default_start": {
+  "path": {
     "type": "string",
-    "default": "2 3 4 5",
-    "description": "Runlevels in which the service should start"
+    "default": "/usr/bin:/bin:/usr/bin:/usr/local/bin",
+    "description": "Default PATH for Courier processes"
   },
-  "init_default_stop": {
+  "shell": {
     "type": "string",
-    "default": "0 1 6",
-    "description": "Runlevels in which the service should stop"
+    "default": "/bin/sh",
+    "description": "Default shell for Courier processes"
   },
-  "init_short_description": {
+  "dsntoauthaddr": {
     "type": "string",
-    "default": "Courier MTA server",
-    "description": "Short description of the service"
+    "default": "0",
+    "description": "Send bounces to authenticated address (0 or 1)"
   },
-  "init_author": {
+  "dynamicdeliveries": {
     "type": "string",
-    "default": "Ond\u0159ej Sur\u00fd <ondrej@debian.org>",
-    "description": "Author/maintainer of the init script"
+    "default": "1",
+    "description": "Enable dynamic delivery instructions (0 or 1)"
   },
-  "daemon_path": {
+  "defaultdelivery": {
     "type": "string",
-    "default": "/usr/sbin/esmtpd",
-    "description": "Path to the Courier MTA daemon binary"
+    "default": "./Maildir",
+    "description": "Default local mail delivery instruction"
   },
-  "desc": {
+  "maildropdefault": {
     "type": "string",
-    "default": "Courier MTA server",
-    "description": "Human-readable description of the daemon"
+    "default": "./Maildir",
+    "description": "Default mailbox location for maildrop"
+  },
+  "esmtp_cork": {
+    "type": "string",
+    "default": "1",
+    "description": "Enable ESMTP corking for Linux kernels >2.2 (0 or 1)"
+  },
+  "esmtp_blockbackscatter": {
+    "type": "string",
+    "default": "smtp/dsn",
+    "description": "Backscatter bounces handling setting",
+    "enum": [
+      "smtp/dsn",
+      "smtp/dsn,authsmtp/dsn"
+    ]
+  },
+  "uuxflags": {
+    "type": "string",
+    "default": "-j -g C",
+    "description": "Additional flags to pass to uux"
+  },
+  "esmtp_use_starttls": {
+    "type": "string",
+    "default": "1",
+    "description": "Use STARTTLS for ESMTP client connections (0 or 1)"
+  },
+  "courier_tls_path": {
+    "type": "string",
+    "default": "/usr/bin/couriertls",
+    "description": "Path to the couriertls binary"
+  },
+  "esmtp_tls_verify_domain": {
+    "type": "string",
+    "default": "0",
+    "description": "Verify domain in remote server's certificate (0 or 1)"
+  },
+  "esmtp_prefer_ipv6_mx": {
+    "type": "string",
+    "default": "1",
+    "description": "Prefer IPv6 MX hosts over IPv4 (0 or 1)"
+  },
+  "tls_trustcerts": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to trusted certificate authorities file"
+  },
+  "tls_verifypeer": {
+    "type": "string",
+    "default": "NONE",
+    "description": "TLS verification mode for server certificates (NONE, PEER, REQUIREPEER)",
+    "enum": [
+      "NONE",
+      "PEER",
+      "REQUIREPEER"
+    ]
   }
 }

@@ -17,76 +17,136 @@
 ## more information. Default values are commented out.  Use either ; or # for
 ## commenting.
 
-; daemonize = {{ daemonize | lower }}
-; fail = {{ fail | lower }}
-; allow-module-loading = {{ allow_module_loading | lower }}
-; allow-exit = {{ allow_exit | lower }}
-; use-pid-file = {{ use_pid_file | lower }}
-; system-instance = {{ system_instance | lower }}
-; local-server-type = {{ local_server_type }}
-; enable-shm = {{ enable_shm | lower }}
-; enable-memfd = {{ enable_memfd | lower }}
-; shm-size-bytes = {{ shm_size_bytes }} # setting this 0 will use the system-default, usually 64 MiB
-; lock-memory = {{ lock_memory | lower }}
-; cpu-limit = {{ cpu_limit | lower }}
-
-; high-priority = {{ high_priority | lower }}
-; nice-level = {{ nice_level }}
-
-; realtime-scheduling = {{ realtime_scheduling | lower }}
-; realtime-priority = {{ realtime_priority }}
-
-; exit-idle-time = {{ exit_idle_time }}
-; scache-idle-time = {{ scache_idle_time }}
-
+{% if daemonize is defined and daemonize is not none and (daemonize is number or daemonize is boolean or daemonize | length > 0) %}daemonize = {{ daemonize | lower }}
+{% else %}; daemonize = no
+{% endif %}{% if fail is defined and fail is not none and (fail is number or fail is boolean or fail | length > 0) %}fail = {{ fail | lower }}
+{% else %}; fail = yes
+{% endif %}{% if allow_module_loading is defined and allow_module_loading is not none and (allow_module_loading is number or allow_module_loading is boolean or allow_module_loading | length > 0) %}allow-module-loading = {{ allow_module_loading | lower }}
+{% else %}; allow-module-loading = yes
+{% endif %}{% if allow_exit is defined and allow_exit is not none and (allow_exit is number or allow_exit is boolean or allow_exit | length > 0) %}allow-exit = {{ allow_exit | lower }}
+{% else %}; allow-exit = yes
+{% endif %}{% if use_pid_file is defined and use_pid_file is not none and (use_pid_file is number or use_pid_file is boolean or use_pid_file | length > 0) %}use-pid-file = {{ use_pid_file | lower }}
+{% else %}; use-pid-file = yes
+{% endif %}{% if system_instance is defined and system_instance is not none and (system_instance is number or system_instance is boolean or system_instance | length > 0) %}system-instance = {{ system_instance | lower }}
+{% else %}; system-instance = no
+{% endif %}{% if local_server_type is defined and local_server_type is not none and (local_server_type is number or local_server_type is boolean or local_server_type | length > 0) %}local-server-type = {{ local_server_type }}
+{% else %}; local-server-type = user
+{% endif %}{% if enable_shm is defined and enable_shm is not none and (enable_shm is number or enable_shm is boolean or enable_shm | length > 0) %}enable-shm = {{ enable_shm | lower }}
+{% else %}; enable-shm = yes
+{% endif %}{% if enable_memfd is defined and enable_memfd is not none and (enable_memfd is number or enable_memfd is boolean or enable_memfd | length > 0) %}enable-memfd = {{ enable_memfd | lower }}
+{% else %}; enable-memfd = yes
+{% endif %}{% if shm_size_bytes is defined and shm_size_bytes is not none and (shm_size_bytes is number or shm_size_bytes is boolean or shm_size_bytes | length > 0) %}shm-size-bytes = {{ shm_size_bytes }} # setting this 0 will use the system-default, usually 64 MiB
+{% else %}; shm-size-bytes = 0 # setting this 0 will use the system-default, usually 64 MiB
+{% endif %}{% if lock_memory is defined and lock_memory is not none and (lock_memory is number or lock_memory is boolean or lock_memory | length > 0) %}lock-memory = {{ lock_memory | lower }}
+{% else %}; lock-memory = no
+{% endif %}{% if cpu_limit is defined and cpu_limit is not none and (cpu_limit is number or cpu_limit is boolean or cpu_limit | length > 0) %}cpu-limit = {{ cpu_limit | lower }}
+{% else %}; cpu-limit = no
+{% endif %}
+{% if high_priority is defined and high_priority is not none and (high_priority is number or high_priority is boolean or high_priority | length > 0) %}high-priority = {{ high_priority | lower }}
+{% else %}; high-priority = yes
+{% endif %}{% if nice_level is defined and nice_level is not none and (nice_level is number or nice_level is boolean or nice_level | length > 0) %}nice-level = {{ nice_level }}
+{% else %}; nice-level = -11
+{% endif %}
+{% if realtime_scheduling is defined and realtime_scheduling is not none and (realtime_scheduling is number or realtime_scheduling is boolean or realtime_scheduling | length > 0) %}realtime-scheduling = {{ realtime_scheduling | lower }}
+{% else %}; realtime-scheduling = yes
+{% endif %}{% if realtime_priority is defined and realtime_priority is not none and (realtime_priority is number or realtime_priority is boolean or realtime_priority | length > 0) %}realtime-priority = {{ realtime_priority }}
+{% else %}; realtime-priority = 5
+{% endif %}
+{% if exit_idle_time is defined and exit_idle_time is not none and (exit_idle_time is number or exit_idle_time is boolean or exit_idle_time | length > 0) %}exit-idle-time = {{ exit_idle_time }}
+{% else %}; exit-idle-time = 20
+{% endif %}{% if scache_idle_time is defined and scache_idle_time is not none and (scache_idle_time is number or scache_idle_time is boolean or scache_idle_time | length > 0) %}scache-idle-time = {{ scache_idle_time }}
+{% else %}; scache-idle-time = 20
+{% endif %}
 ; dl-search-path = (depends on architecture)
 
-; load-default-script-file = {{ load_default_script_file | lower }}
-; default-script-file = {{ default_script_file }}
-
-; log-target = {{ log_target }}
-; log-level = {{ log_level }}
-; log-meta = {{ log_meta | lower }}
-; log-time = {{ log_time | lower }}
-; log-backtrace = {{ log_backtrace }}
-
-; resample-method = {{ resample_method }}
-; avoid-resampling = {{ avoid_resampling | lower }}
-; enable-remixing = {{ enable_remixing | lower }}
-; remixing-use-all-sink-channels = {{ remixing_use_all_sink_channels | lower }}
-; remixing-produce-lfe = {{ remixing_produce_lfe | lower }}
-; remixing-consume-lfe = {{ remixing_consume_lfe | lower }}
-; lfe-crossover-freq = {{ lfe_crossover_freq }}
-
-; flat-volumes = {{ flat_volumes | lower }}
-
-; rescue-streams = {{ rescue_streams | lower }}
-
-; rlimit-fsize = {{ rlimit_fsize }}
-; rlimit-data = {{ rlimit_data }}
-; rlimit-stack = {{ rlimit_stack }}
-; rlimit-core = {{ rlimit_core }}
-; rlimit-as = {{ rlimit_as }}
-; rlimit-rss = {{ rlimit_rss }}
-; rlimit-nproc = {{ rlimit_nproc }}
-; rlimit-nofile = {{ rlimit_nofile }}
-; rlimit-memlock = {{ rlimit_memlock }}
-; rlimit-locks = {{ rlimit_locks }}
-; rlimit-sigpending = {{ rlimit_sigpending }}
-; rlimit-msgqueue = {{ rlimit_msgqueue }}
-; rlimit-nice = {{ rlimit_nice }}
-; rlimit-rtprio = {{ rlimit_rtprio }}
-; rlimit-rttime = {{ rlimit_rttime }}
-
-; default-sample-format = {{ default_sample_format }}
-; default-sample-rate = {{ default_sample_rate }}
-; alternate-sample-rate = {{ alternate_sample_rate }}
-; default-sample-channels = {{ default_sample_channels }}
-; default-channel-map = {{ default_channel_map }}
-
-; default-fragments = {{ default_fragments }}
-; default-fragment-size-msec = {{ default_fragment_size_msec }}
-
-; enable-deferred-volume = {{ enable_deferred_volume | lower }}
-; deferred-volume-safety-margin-usec = {{ deferred_volume_safety_margin_usec }}
-; deferred-volume-extra-delay-usec = {{ deferred_volume_extra_delay_usec }}
+{% if load_default_script_file is defined and load_default_script_file is not none and (load_default_script_file is number or load_default_script_file is boolean or load_default_script_file | length > 0) %}load-default-script-file = {{ load_default_script_file | lower }}
+{% else %}; load-default-script-file = yes
+{% endif %}{% if default_script_file is defined and default_script_file is not none and (default_script_file is number or default_script_file is boolean or default_script_file | length > 0) %}default-script-file = {{ default_script_file }}
+{% else %}; default-script-file = /etc/pulse/default.pa
+{% endif %}
+{% if log_target is defined and log_target is not none and (log_target is number or log_target is boolean or log_target | length > 0) %}log-target = {{ log_target }}
+{% else %}; log-target = auto
+{% endif %}{% if log_level is defined and log_level is not none and (log_level is number or log_level is boolean or log_level | length > 0) %}log-level = {{ log_level }}
+{% else %}; log-level = notice
+{% endif %}{% if log_meta is defined and log_meta is not none and (log_meta is number or log_meta is boolean or log_meta | length > 0) %}log-meta = {{ log_meta | lower }}
+{% else %}; log-meta = no
+{% endif %}{% if log_time is defined and log_time is not none and (log_time is number or log_time is boolean or log_time | length > 0) %}log-time = {{ log_time | lower }}
+{% else %}; log-time = no
+{% endif %}{% if log_backtrace is defined and log_backtrace is not none and (log_backtrace is number or log_backtrace is boolean or log_backtrace | length > 0) %}log-backtrace = {{ log_backtrace }}
+{% else %}; log-backtrace = 0
+{% endif %}
+{% if resample_method is defined and resample_method is not none and (resample_method is number or resample_method is boolean or resample_method | length > 0) %}resample-method = {{ resample_method }}
+{% else %}; resample-method = speex-float-1
+{% endif %}{% if avoid_resampling is defined and avoid_resampling is not none and (avoid_resampling is number or avoid_resampling is boolean or avoid_resampling | length > 0) %}avoid-resampling = {{ avoid_resampling | lower }}
+{% else %}; avoid-resampling = false
+{% endif %}{% if enable_remixing is defined and enable_remixing is not none and (enable_remixing is number or enable_remixing is boolean or enable_remixing | length > 0) %}enable-remixing = {{ enable_remixing | lower }}
+{% else %}; enable-remixing = yes
+{% endif %}{% if remixing_use_all_sink_channels is defined and remixing_use_all_sink_channels is not none and (remixing_use_all_sink_channels is number or remixing_use_all_sink_channels is boolean or remixing_use_all_sink_channels | length > 0) %}remixing-use-all-sink-channels = {{ remixing_use_all_sink_channels | lower }}
+{% else %}; remixing-use-all-sink-channels = yes
+{% endif %}{% if remixing_produce_lfe is defined and remixing_produce_lfe is not none and (remixing_produce_lfe is number or remixing_produce_lfe is boolean or remixing_produce_lfe | length > 0) %}remixing-produce-lfe = {{ remixing_produce_lfe | lower }}
+{% else %}; remixing-produce-lfe = no
+{% endif %}{% if remixing_consume_lfe is defined and remixing_consume_lfe is not none and (remixing_consume_lfe is number or remixing_consume_lfe is boolean or remixing_consume_lfe | length > 0) %}remixing-consume-lfe = {{ remixing_consume_lfe | lower }}
+{% else %}; remixing-consume-lfe = no
+{% endif %}{% if lfe_crossover_freq is defined and lfe_crossover_freq is not none and (lfe_crossover_freq is number or lfe_crossover_freq is boolean or lfe_crossover_freq | length > 0) %}lfe-crossover-freq = {{ lfe_crossover_freq }}
+{% else %}; lfe-crossover-freq = 0
+{% endif %}
+{% if flat_volumes is defined and flat_volumes is not none and (flat_volumes is number or flat_volumes is boolean or flat_volumes | length > 0) %}flat-volumes = {{ flat_volumes | lower }}
+{% else %}; flat-volumes = no
+{% endif %}
+{% if rescue_streams is defined and rescue_streams is not none and (rescue_streams is number or rescue_streams is boolean or rescue_streams | length > 0) %}rescue-streams = {{ rescue_streams | lower }}
+{% else %}; rescue-streams = yes
+{% endif %}
+{% if rlimit_fsize is defined and rlimit_fsize is not none and (rlimit_fsize is number or rlimit_fsize is boolean or rlimit_fsize | length > 0) %}rlimit-fsize = {{ rlimit_fsize }}
+{% else %}; rlimit-fsize = -1
+{% endif %}{% if rlimit_data is defined and rlimit_data is not none and (rlimit_data is number or rlimit_data is boolean or rlimit_data | length > 0) %}rlimit-data = {{ rlimit_data }}
+{% else %}; rlimit-data = -1
+{% endif %}{% if rlimit_stack is defined and rlimit_stack is not none and (rlimit_stack is number or rlimit_stack is boolean or rlimit_stack | length > 0) %}rlimit-stack = {{ rlimit_stack }}
+{% else %}; rlimit-stack = -1
+{% endif %}{% if rlimit_core is defined and rlimit_core is not none and (rlimit_core is number or rlimit_core is boolean or rlimit_core | length > 0) %}rlimit-core = {{ rlimit_core }}
+{% else %}; rlimit-core = -1
+{% endif %}{% if rlimit_as is defined and rlimit_as is not none and (rlimit_as is number or rlimit_as is boolean or rlimit_as | length > 0) %}rlimit-as = {{ rlimit_as }}
+{% else %}; rlimit-as = -1
+{% endif %}{% if rlimit_rss is defined and rlimit_rss is not none and (rlimit_rss is number or rlimit_rss is boolean or rlimit_rss | length > 0) %}rlimit-rss = {{ rlimit_rss }}
+{% else %}; rlimit-rss = -1
+{% endif %}{% if rlimit_nproc is defined and rlimit_nproc is not none and (rlimit_nproc is number or rlimit_nproc is boolean or rlimit_nproc | length > 0) %}rlimit-nproc = {{ rlimit_nproc }}
+{% else %}; rlimit-nproc = -1
+{% endif %}{% if rlimit_nofile is defined and rlimit_nofile is not none and (rlimit_nofile is number or rlimit_nofile is boolean or rlimit_nofile | length > 0) %}rlimit-nofile = {{ rlimit_nofile }}
+{% else %}; rlimit-nofile = 256
+{% endif %}{% if rlimit_memlock is defined and rlimit_memlock is not none and (rlimit_memlock is number or rlimit_memlock is boolean or rlimit_memlock | length > 0) %}rlimit-memlock = {{ rlimit_memlock }}
+{% else %}; rlimit-memlock = -1
+{% endif %}{% if rlimit_locks is defined and rlimit_locks is not none and (rlimit_locks is number or rlimit_locks is boolean or rlimit_locks | length > 0) %}rlimit-locks = {{ rlimit_locks }}
+{% else %}; rlimit-locks = -1
+{% endif %}{% if rlimit_sigpending is defined and rlimit_sigpending is not none and (rlimit_sigpending is number or rlimit_sigpending is boolean or rlimit_sigpending | length > 0) %}rlimit-sigpending = {{ rlimit_sigpending }}
+{% else %}; rlimit-sigpending = -1
+{% endif %}{% if rlimit_msgqueue is defined and rlimit_msgqueue is not none and (rlimit_msgqueue is number or rlimit_msgqueue is boolean or rlimit_msgqueue | length > 0) %}rlimit-msgqueue = {{ rlimit_msgqueue }}
+{% else %}; rlimit-msgqueue = -1
+{% endif %}{% if rlimit_nice is defined and rlimit_nice is not none and (rlimit_nice is number or rlimit_nice is boolean or rlimit_nice | length > 0) %}rlimit-nice = {{ rlimit_nice }}
+{% else %}; rlimit-nice = 31
+{% endif %}{% if rlimit_rtprio is defined and rlimit_rtprio is not none and (rlimit_rtprio is number or rlimit_rtprio is boolean or rlimit_rtprio | length > 0) %}rlimit-rtprio = {{ rlimit_rtprio }}
+{% else %}; rlimit-rtprio = 9
+{% endif %}{% if rlimit_rttime is defined and rlimit_rttime is not none and (rlimit_rttime is number or rlimit_rttime is boolean or rlimit_rttime | length > 0) %}rlimit-rttime = {{ rlimit_rttime }}
+{% else %}; rlimit-rttime = 200000
+{% endif %}
+{% if default_sample_format is defined and default_sample_format is not none and (default_sample_format is number or default_sample_format is boolean or default_sample_format | length > 0) %}default-sample-format = {{ default_sample_format }}
+{% else %}; default-sample-format = s16le
+{% endif %}{% if default_sample_rate is defined and default_sample_rate is not none and (default_sample_rate is number or default_sample_rate is boolean or default_sample_rate | length > 0) %}default-sample-rate = {{ default_sample_rate }}
+{% else %}; default-sample-rate = 44100
+{% endif %}{% if alternate_sample_rate is defined and alternate_sample_rate is not none and (alternate_sample_rate is number or alternate_sample_rate is boolean or alternate_sample_rate | length > 0) %}alternate-sample-rate = {{ alternate_sample_rate }}
+{% else %}; alternate-sample-rate = 48000
+{% endif %}{% if default_sample_channels is defined and default_sample_channels is not none and (default_sample_channels is number or default_sample_channels is boolean or default_sample_channels | length > 0) %}default-sample-channels = {{ default_sample_channels }}
+{% else %}; default-sample-channels = 2
+{% endif %}{% if default_channel_map is defined and default_channel_map is not none and (default_channel_map is number or default_channel_map is boolean or default_channel_map | length > 0) %}default-channel-map = {{ default_channel_map }}
+{% else %}; default-channel-map = front-left,front-right
+{% endif %}
+{% if default_fragments is defined and default_fragments is not none and (default_fragments is number or default_fragments is boolean or default_fragments | length > 0) %}default-fragments = {{ default_fragments }}
+{% else %}; default-fragments = 4
+{% endif %}{% if default_fragment_size_msec is defined and default_fragment_size_msec is not none and (default_fragment_size_msec is number or default_fragment_size_msec is boolean or default_fragment_size_msec | length > 0) %}default-fragment-size-msec = {{ default_fragment_size_msec }}
+{% else %}; default-fragment-size-msec = 25
+{% endif %}
+{% if enable_deferred_volume is defined and enable_deferred_volume is not none and (enable_deferred_volume is number or enable_deferred_volume is boolean or enable_deferred_volume | length > 0) %}enable-deferred-volume = {{ enable_deferred_volume | lower }}
+{% else %}; enable-deferred-volume = yes
+{% endif %}{% if deferred_volume_safety_margin_usec is defined and deferred_volume_safety_margin_usec is not none and (deferred_volume_safety_margin_usec is number or deferred_volume_safety_margin_usec is boolean or deferred_volume_safety_margin_usec | length > 0) %}deferred-volume-safety-margin-usec = {{ deferred_volume_safety_margin_usec }}
+{% else %}; deferred-volume-safety-margin-usec = 8000
+{% endif %}{% if deferred_volume_extra_delay_usec is defined and deferred_volume_extra_delay_usec is not none and (deferred_volume_extra_delay_usec is number or deferred_volume_extra_delay_usec is boolean or deferred_volume_extra_delay_usec | length > 0) %}deferred-volume-extra-delay-usec = {{ deferred_volume_extra_delay_usec }}
+{% else %}; deferred-volume-extra-delay-usec = 0
+{% endif %}

@@ -1,0 +1,102 @@
+#!/usr/bin/sh
+
+# ============================================================================
+# qemu-guest-agent fsfreeze-hook script
+# ============================================================================
+# This script is executed when a guest agent receives fsfreeze-freeze and
+# fsfreeze-thaw commands. It is specified via the --fsfreeze-hook (-F) option
+# of qemu-ga or placed in the default path (/etc/qemu/fsfreeze-hook).
+#
+# When the agent receives an fsfreeze-freeze request, this script is invoked
+# with the "freeze" argument before the filesystem is frozen.
+# When the agent receives an fsfreeze-thaw request, this script is invoked
+# with the "thaw" argument after the filesystem is thawed.
+#
+# The script iterates over executable files in a hook directory and logs
+# their execution output to a configurable logfile or falls back to syslog.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Path to the log file for the fsfreeze hook script.
+# ----------------------------------------------------------------------------
+LOGFILE={{ qga_fsfreeze_hook_logfile | default('/var/log/qemu-ga/qga-fsfreeze-hook.log') }}
+
+# Directory containing additional hook scripts, relative to the script's location.
+FSFREEZE_D=$(dirname -- "$(realpath $0)")/fsfreeze-hook.d
+
+# ----------------------------------------------------------------------------
+# Helper: Check whether file $1 is a backup or rpm-generated file and should be ignored.
+# Returns 0 if the file should be ignored, 1 otherwise.
+# ----------------------------------------------------------------------------
+is_ignored_file() {
+    case "$1" in
+        *~ | *.bak | *.orig | *.rpmnew | *.rpmorig | *.rpmsave | *.sample | *.dpkg-old | *.dpkg-new | *.dpkg-tmp | *.dpkg-dist | *.dpkg-bak | *.dpkg-backup | *.dpkg-remove)
+            return 0 ;;
+    esac
+    return 1
+}
+
+# ----------------------------------------------------------------------------
+# Log destination configuration.
+# Uses the logfile by default; falls back to syslog if the logfile is not
+# writable or cannot be created.
+# ----------------------------------------------------------------------------
+USE_SYSLOG=0
+
+# Check if the log file is writable
+[ ! -w "$LOGFILE" ] && USE_SYSLOG=1
+
+# Try to create/update the log file; if it fails, fallback to syslog
+touch "$LOGFILE" &>/dev/null || USE_SYSLOG=1
+
+# ----------------------------------------------------------------------------
+# Helper: Log a message to either the logfile or syslog.
+# Arguments: $1 - Message text
+# ----------------------------------------------------------------------------
+log_message() {
+    local message="$1"
+    if [ "$USE_SYSLOG" -eq 0 ]; then
+        printf "%s: %s\n" "$(date)" "$message" >>"$LOGFILE"
+    else
+        logger -t qemu-ga-freeze-hook "$message"
+    fi
+}
+
+# ----------------------------------------------------------------------------
+# Execute all executable hook scripts in the FSFREEZE_D directory.
+# Ignores backup files and non-executable scripts.
+# Passes all arguments ($@) to the hook scripts.
+# ----------------------------------------------------------------------------
+
+# Exit early if the hook directory does not exist
+[ ! -d "$FSFREEZE_D" ] && exit 0
+
+for file in "$FSFREEZE_D"/* ; do
+    # Skip ignored files (backups, temp files, etc.)
+    is_ignored_file "$file" && continue
+
+    # Skip non-executable files
+    [ -x "$file" ] || continue
+
+    # Log the execution
+    log_message "Executing $file $@"
+
+    if [ "$USE_SYSLOG" -eq 0 ]; then
+        # Log to file, capturing stdout and stderr
+        "$file" "$@" >>"$LOGFILE" 2>&1
+        STATUS=$?
+    else
+        # Log to syslog via logger, capturing exit status via PIPESTATUS
+        "$file" "$@" 2>&1 | logger -t qemu-ga-freeze-hook
+        STATUS=${PIPESTATUS[0]}
+    fi
+
+    # Log success or error based on exit status
+    if [ $STATUS -ne 0 ]; then
+        log_message "Error: $file finished with status=$STATUS"
+    else
+        log_message "$file finished successfully"
+    fi
+done
+
+exit 0

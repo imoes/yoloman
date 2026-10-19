@@ -1,0 +1,588 @@
+##### Primary configuration settings #####
+##########################################
+# Per default, the master will automatically include all config files
+# from master.d/*.conf (master.d is a directory in the same directory
+# as the main master config file).
+default_include: {{ default_include | default('master.d/*.conf') }}
+
+# The address of the interface to bind to.
+interface: {{ interface | default('0.0.0.0') }}
+
+# Whether the master should listen for IPv6 connections.
+ipv6: {{ ipv6 | default('False') }}
+
+# The tcp port used by the publisher.
+publish_port: {{ publish_port | default('4505') }}
+
+# The user under which the salt master will run.
+user: {{ user | default('root') }}
+
+# Tell the master to also use salt-ssh when running commands against minions.
+enable_ssh_minions: {{ enable_ssh_minions | default('False') }}
+
+# The port used by the communication interface (ret port).
+ret_port: {{ ret_port | default('4506') }}
+
+# Specify the location of the daemon process ID file.
+pidfile: {{ pidfile | default('/var/run/salt-master.pid') }}
+
+# The root directory prepended to these options: pki_dir, cachedir, sock_dir, log_file, autosign_file, autoreject_file, extension_modules, key.
+root_dir: {{ root_dir | default('/') }}
+
+# The path to the master's configuration file.
+conf_file: {{ conf_file | default('/etc/salt/master') }}
+
+# Directory used to store public key data.
+pki_dir: {{ pki_dir | default('/etc/salt/pki/master') }}
+
+# Key cache. Increases master speed for large numbers of accepted keys.
+key_cache: {{ key_cache | default('') }}
+
+# Directory to store job and cache data.
+cachedir: {{ cachedir | default('/var/cache/salt/master') }}
+
+# Directory for custom modules.
+extension_modules: {{ extension_modules | default('/var/cache/salt/master/extmods') }}
+
+# Like 'extension_modules' but can take an array of paths.
+module_dirs: {{ module_dirs | default('[]') }}
+
+# Verify and set permissions on configuration directories at startup.
+verify_env: {{ verify_env | default('True') }}
+
+# Set the number of hours to keep old job information in the job cache.
+keep_jobs: {{ keep_jobs | default('24') }}
+
+# The number of seconds to wait when the client is requesting information about running jobs.
+gather_job_timeout: {{ gather_job_timeout | default('10') }}
+
+# Set the default timeout for the salt command and api.
+timeout: {{ timeout | default('5') }}
+
+# The loop_interval option controls the seconds for the master's maintenance process check cycle.
+loop_interval: {{ loop_interval | default('60') }}
+
+# Set the default outputter used by the salt command.
+output: {{ output | default('nested') }}
+
+# Set a list of additional directories to search for salt outputters.
+outputter_dirs: {{ outputter_dirs | default('[]') }}
+
+# Set the default output file used by the salt command.
+output_file: {{ output_file | default('None') }}
+
+# Return minions that timeout when running commands like test.ping.
+show_timeout: {{ show_timeout | default('True') }}
+
+# Tell the client to display the jid when a job is published.
+show_jid: {{ show_jid | default('False') }}
+
+# By default, output is colored.
+color: {{ color | default('True') }}
+
+# Do not strip off the colored output from nested results and state outputs.
+strip_colors: {{ strip_colors | default('False') }}
+
+# To display a summary of the number of minions targeted, the number of minions returned, and the number of minions that did not return.
+cli_summary: {{ cli_summary | default('False') }}
+
+# Set the directory used to hold unix sockets.
+sock_dir: {{ sock_dir | default('/var/run/salt/master') }}
+
+# Enable if you want to see GPU hardware data for your master.
+enable_gpu_grains: {{ enable_gpu_grains | default('False') }}
+
+# The master maintains a job cache.
+job_cache: {{ job_cache | default('True') }}
+
+# Cache minion grains, pillar and mine data via the cache subsystem in the cachedir or a database.
+minion_data_cache: {{ minion_data_cache | default('True') }}
+
+# Cache subsystem module to use for minion data cache.
+cache: {{ cache | default('localfs') }}
+
+# Enables a fast in-memory cache booster and sets the expiration time.
+memcache_expire_seconds: {{ memcache_expire_seconds | default('0') }}
+
+# Set a memcache limit in items (bank + key) per cache storage (driver + driver_opts).
+memcache_max_items: {{ memcache_max_items | default('1024') }}
+
+# Each time a cache storage got full cleanup all the expired items not just the oldest one.
+memcache_full_cleanup: {{ memcache_full_cleanup | default('False') }}
+
+# Enable collecting the memcache stats and log it on `debug` log level.
+memcache_debug: {{ memcache_debug | default('False') }}
+
+# Store all returns in the given returner.
+event_return: {{ event_return | default('mysql') }}
+
+# On busy systems, enabling event_returns can cause a considerable load on the storage system for returners.
+event_return_queue: {{ event_return_queue | default('0') }}
+
+# Setting this to a reasonable value (1-30 seconds) will cause the queue to be flushed when the oldest event is older than `event_return_queue_max_seconds`.
+event_return_queue_max_seconds: {{ event_return_queue_max_seconds | default('0') }}
+
+# Passing very large events can cause the minion to consume large amounts of memory.
+max_event_size: {{ max_event_size | default('1048576') }}
+
+# Windows platforms lack posix IPC and must rely on slower TCP based inter-process communications.
+ipc_mode: {{ ipc_mode | default('ipc') }}
+
+# Overwrite the default tcp ports used by the minion when ipc_mode is set to 'tcp'.
+tcp_master_pub_port: {{ tcp_master_pub_port | default('4510') }}
+
+# Overwrite the default tcp ports used by the minion when ipc_mode is set to 'tcp'.
+tcp_master_pull_port: {{ tcp_master_pull_port | default('4511') }}
+
+# To tell the master to ping all minions immediately after an AES key refresh.
+ping_on_rotate: {{ ping_on_rotate | default('False') }}
+
+# By default, the master deletes its cache of minion data when the key for that minion is removed.
+preserve_minion_cache: {{ preserve_minion_cache | default('False') }}
+
+# Allow or deny minions from requesting their own key revocation.
+allow_minion_key_revoke: {{ allow_minion_key_revoke | default('True') }}
+
+# If max_minions is used in large installations, the master might experience high-load situations.
+con_cache: {{ con_cache | default('False') }}
+
+# The master can include configuration from other files.
+include: {{ include | default('/etc/salt/extra_config') }}
+
+# Max open files.
+max_open_files: {{ max_open_files | default('100000') }}
+
+# The number of worker threads to start.
+worker_threads: {{ worker_threads | default('5') }}
+
+# The listen queue size / backlog.
+zmq_backlog: {{ zmq_backlog | default('1000') }}
+
+# The publisher interface ZeroMQPubServerChannel.
+pub_hwm: {{ pub_hwm | default('1000') }}
+
+# Value: In bytes. Set to 'dynamic' to have Salt select a value for you. Default is disabled.
+ipc_write_buffer: {{ ipc_write_buffer | default('dynamic') }}
+
+# These two batch settings, batch_safe_limit and batch_safe_size, are used to automatically switch to a batch mode execution.
+batch_safe_limit: {{ batch_safe_limit | default('100') }}
+
+# These two batch settings, batch_safe_limit and batch_safe_size, are used to automatically switch to a batch mode execution.
+batch_safe_size: {{ batch_safe_size | default('8') }}
+
+# Master stats enables stats events to be fired from the master at close to the defined interval.
+master_stats: {{ master_stats | default('False') }}
+
+# Master stats enables stats events to be fired from the master at close to the defined interval.
+master_stats_event_iter: {{ master_stats_event_iter | default('60') }}
+
+
+#####        Security settings       #####
+##########################################
+# Enable passphrase protection of the Master signing_key.
+master_sign_pubkey: {{ master_sign_pubkey | default('True') }}
+
+# Enable "open mode", this mode still maintains encryption, but turns off authentication.
+open_mode: {{ open_mode | default('False') }}
+
+# Enable auto_accept, this setting will automatically accept all incoming public keys from the minions.
+auto_accept: {{ auto_accept | default('False') }}
+
+# The size of key that should be generated when creating new keys.
+keysize: {{ keysize | default('2048') }}
+
+# Time in minutes that an incoming public key with a matching name found in pki_dir/minion_autosign/keyid is automatically accepted.
+autosign_timeout: {{ autosign_timeout | default('120') }}
+
+# If the autosign_file is specified, incoming keys specified in the autosign_file will be automatically accepted.
+autosign_file: {{ autosign_file | default('/etc/salt/autosign.conf') }}
+
+# Works like autosign_file, but instead allows you to specify minion IDs for which keys will automatically be rejected.
+autoreject_file: {{ autoreject_file | default('/etc/salt/autoreject.conf') }}
+
+# If the autosign_grains_dir is specified, incoming keys from minions with grain values matching those defined in files in this directory will be accepted automatically.
+autosign_grains_dir: {{ autosign_grains_dir | default('/etc/salt/autosign_grains') }}
+
+# Enable permissive access to the salt keys.
+permissive_pki_access: {{ permissive_pki_access | default('False') }}
+
+# Check the list of configured users in client ACL against users on the system and throw errors if they do not exist.
+client_acl_verify: {{ client_acl_verify | default('True') }}
+
+# Enforce publisher_acl & publisher_acl_blacklist when users have sudo access to the salt command.
+sudo_acl: {{ sudo_acl | default(False) }}
+
+# Time (in seconds) for a newly generated token to live. Default: 12 hours.
+token_expire: {{ token_expire | default('43200') }}
+
+# Allow eauth users to specify the expiry time of the tokens they generate.
+token_expire_user_override: {{ token_expire_user_override | default('False') }}
+
+# Set to True to enable keeping the calculated user's auth list in the token file.
+keep_acl_in_token: {{ keep_acl_in_token | default('False') }}
+
+# Auth subsystem module to use to get authorized access list for a user.
+eauth_acl_module: {{ eauth_acl_module | default('django') }}
+
+# Allow minions to push files to the master.
+file_recv: {{ file_recv | default('False') }}
+
+# Set a hard-limit on the size of the files that can be pushed to the master.
+file_recv_max_size: {{ file_recv_max_size | default('100') }}
+
+# Signature verification on messages published from the master.
+sign_pub_messages: {{ sign_pub_messages | default('False') }}
+
+# Signature verification on messages published from minions.
+require_minion_sign_messages: {{ require_minion_sign_messages | default('False') }}
+
+# The below will drop messages when their signatures do not validate.
+drop_messages_signature_fail: {{ drop_messages_signature_fail | default('False') }}
+
+
+#####     Salt-SSH Configuration     #####
+##########################################
+# Define the default salt-ssh roster module to use.
+roster: {{ roster | default('flat') }}
+
+# Pass in an alternative location for the salt-ssh `flat` roster file.
+roster_file: {{ roster_file | default('/etc/salt/roster') }}
+
+# The ssh password to log in with.
+ssh_passwd: {{ ssh_passwd | default('') }}
+
+# The target system's ssh port number.
+ssh_port: {{ ssh_port | default('22') }}
+
+# Comma-separated list of ports to scan.
+ssh_scan_ports: {{ ssh_scan_ports | default('22') }}
+
+# Scanning socket timeout for salt-ssh.
+ssh_scan_timeout: {{ ssh_scan_timeout | default('0.01') }}
+
+# Boolean to run command via sudo.
+ssh_sudo: {{ ssh_sudo | default('False') }}
+
+# Boolean to run ssh_pre_flight script defined in roster.
+ssh_run_pre_flight: {{ ssh_run_pre_flight | default('True') }}
+
+# Number of seconds to wait for a response when establishing an SSH connection.
+ssh_timeout: {{ ssh_timeout | default('60') }}
+
+# The user to log in as.
+ssh_user: {{ ssh_user | default('root') }}
+
+# The log file of the salt-ssh command.
+ssh_log_file: {{ ssh_log_file | default('/var/log/salt/ssh') }}
+
+# Set this to True to default to using ~/.ssh/id_rsa for salt-ssh authentication with minions.
+ssh_use_home_key: {{ ssh_use_home_key | default('False') }}
+
+# Set this to True to default salt-ssh to run with ``-o IdentitiesOnly=yes``.
+ssh_identities_only: {{ ssh_identities_only | default('False') }}
+
+# List-only nodegroups for salt-ssh.
+ssh_list_nodegroups: {{ ssh_list_nodegroups | default('{}') }}
+
+# salt-ssh has the ability to update the flat roster file if a minion is not found in the roster.
+ssh_update_roster: {{ ssh_update_roster | default('False') }}
+
+
+#####    Master Module Management    #####
+##########################################
+# Add any additional locations to look for master runners.
+runner_dirs: {{ runner_dirs | default('[]') }}
+
+# Add any additional locations to look for master utils.
+utils_dirs: {{ utils_dirs | default('[]') }}
+
+# Enable Cython for master side modules.
+cython_enable: {{ cython_enable | default('False') }}
+
+
+#####      State System settings     #####
+##########################################
+# The state system uses a "top" file to tell the minions what environment to use.
+state_top: {{ state_top | default('top.sls') }}
+
+# The master_tops option replaces the external_nodes option.
+master_tops: {{ master_tops | default('{}') }}
+
+# The renderer to use on the minions to render the state data.
+renderer: {{ renderer | default('jinja|yaml') }}
+
+# The failhard option tells the minions to stop immediately after the first failure detected in the state execution.
+failhard: {{ failhard | default('False') }}
+
+# The state_verbose and state_output settings can be used to change the way state system data is printed.
+state_verbose: {{ state_verbose | default('True') }}
+
+# The state_output setting controls which results will be output full multi line.
+state_output: {{ state_output | default('full') }}
+
+# The state_output_diff setting changes whether or not the output from successful states is returned.
+state_output_diff: {{ state_output_diff | default('False') }}
+
+# The state_output_profile setting changes whether profile information will be shown for each state run.
+state_output_profile: {{ state_output_profile | default('True') }}
+
+# The state_output_pct setting changes whether success and failure information as a percent of total actions will be shown for each state run.
+state_output_pct: {{ state_output_pct | default('False') }}
+
+# The state_compress_ids setting aggregates information about states which have multiple "names" under the same state ID in the highstate output.
+state_compress_ids: {{ state_compress_ids | default('False') }}
+
+# Automatically aggregate all states that have support for mod_aggregate.
+state_aggregate: {{ state_aggregate | default('False') }}
+
+# Send progress events as each function in a state run completes execution.
+state_events: {{ state_events | default('False') }}
+
+# When using multiple environments, each with their own top file, the default behaviour is an unordered merge.
+top_file_merging_strategy: {{ top_file_merging_strategy | default('merge') }}
+
+# To specify the order in which environments are merged.
+env_order: {{ env_order | default("['base', 'dev', 'prod']") }}
+
+# If top_file_merging_strategy is set to 'same' and an environment does not contain a top file, the top file in the environment specified by default_top will be used instead.
+default_top: {{ default_top | default('base') }}
+
+# The hash_type is the hash to use when discovering the hash of a file on the master server.
+hash_type: {{ hash_type | default('sha256') }}
+
+# The buffer size in the file server can be adjusted here.
+file_buffer_size: {{ file_buffer_size | default('1048576') }}
+
+# Uncomment the line below if you do not want the file_server to follow symlinks when walking the filesystem tree.
+fileserver_followsymlinks: {{ fileserver_followsymlinks | default('False') }}
+
+# Uncomment the line below if you do not want symlinks to be treated as the files they are pointing to.
+fileserver_ignoresymlinks: {{ fileserver_ignoresymlinks | default('True') }}
+
+# The fileserver can fire events off every time the fileserver is updated.
+fileserver_events: {{ fileserver_events | default('False') }}
+
+# Optional parameter used to specify the provider to be used for gitfs.
+gitfs_provider: {{ gitfs_provider | default('pygit2') }}
+
+# Along with gitfs_password, is used to authenticate to HTTPS remotes.
+gitfs_user: {{ gitfs_user | default('') }}
+
+# Along with gitfs_user, is used to authenticate to HTTPS remotes.
+gitfs_password: {{ gitfs_password | default('') }}
+
+# By default, Salt will not authenticate to an HTTP (non-HTTPS) remote.
+gitfs_insecure_auth: {{ gitfs_insecure_auth | default('False') }}
+
+# Along with gitfs_privkey (and optionally gitfs_passphrase), is used to authenticate to SSH remotes.
+gitfs_pubkey: {{ gitfs_pubkey | default('') }}
+
+# Along with gitfs_pubkey (and optionally gitfs_passphrase), is used to authenticate to SSH remotes.
+gitfs_privkey: {{ gitfs_privkey | default('') }}
+
+# This parameter is optional, required only when the SSH key being used to authenticate is protected by a passphrase.
+gitfs_passphrase: {{ gitfs_passphrase | default('') }}
+
+# The gitfs_ssl_verify option specifies whether to ignore ssl certificate errors when contacting the gitfs backend.
+gitfs_ssl_verify: {{ gitfs_ssl_verify | default('True') }}
+
+# The gitfs_root option gives the ability to serve files from a subdirectory within the repository.
+gitfs_root: {{ gitfs_root | default('somefolder/otherfolder') }}
+
+# The delimiter used to distinguish nested data structures in the decrypt_pillar option.
+decrypt_pillar_delimiter: {{ decrypt_pillar_delimiter | default(':') }}
+
+# The default renderer used for decryption.
+decrypt_pillar_default: {{ decrypt_pillar_default | default('gpg') }}
+
+# If this is `True` and the ciphertext could not be decrypted, then an error is raised.
+gpg_decrypt_must_succeed: {{ gpg_decrypt_must_succeed | default('False') }}
+
+# The ext_pillar_first option allows for external pillar sources to populate before file system pillar.
+ext_pillar_first: {{ ext_pillar_first | default('False') }}
+
+# The pillar_gitfs_ssl_verify option specifies whether to ignore ssl certificate errors when contacting the pillar gitfs backend.
+pillar_gitfs_ssl_verify: {{ pillar_gitfs_ssl_verify | default('True') }}
+
+# The pillar_opts option adds the master configuration file data to a dict in the pillar called "master".
+pillar_opts: {{ pillar_opts | default('False') }}
+
+# The pillar_safe_render_error option prevents the master from passing pillar render errors to the minion.
+pillar_safe_render_error: {{ pillar_safe_render_error | default('True') }}
+
+# The pillar_source_merging_strategy option allows you to configure merging strategy between different sources.
+pillar_source_merging_strategy: {{ pillar_source_merging_strategy | default('smart') }}
+
+# Recursively merge lists by aggregating them instead of replacing them.
+pillar_merge_lists: {{ pillar_merge_lists | default('False') }}
+
+# Set this option to True to force the pillarenv to be the same as the effective saltenv when running states.
+pillarenv_from_saltenv: {{ pillarenv_from_saltenv | default('False') }}
+
+# Set this option to 'True' to force a 'KeyError' to be raised whenever an attempt to retrieve a named value from pillar fails.
+pillar_raise_on_missing: {{ pillar_raise_on_missing | default('False') }}
+
+# Specify the provider to be used for git_pillar.
+git_pillar_provider: {{ git_pillar_provider | default('pygit2') }}
+
+# If the desired branch matches this value, and the environment is omitted from the git_pillar configuration, then the environment for that git_pillar remote will be base.
+git_pillar_base: {{ git_pillar_base | default('master') }}
+
+# If the branch is omitted from a git_pillar remote, then this branch will be used instead.
+git_pillar_branch: {{ git_pillar_branch | default('master') }}
+
+# Environment to use for git_pillar remotes.
+git_pillar_env: {{ git_pillar_env | default('') }}
+
+# Path relative to the root of the repository where the git_pillar top file and SLS files are located.
+git_pillar_root: {{ git_pillar_root | default('') }}
+
+# Specifies whether or not to ignore SSL certificate errors when contacting the remote repository.
+git_pillar_ssl_verify: {{ git_pillar_ssl_verify | default('False') }}
+
+# When set to False, if there is an update/checkout lock for a git_pillar remote and the pid written to it is not running on the master, the lock file will be automatically cleared and a new lock will be obtained.
+git_pillar_global_lock: {{ git_pillar_global_lock | default('True') }}
+
+# Along with git_pillar_password, is used to authenticate to HTTPS remotes.
+git_pillar_user: {{ git_pillar_user | default('') }}
+
+# Along with git_pillar_user, is used to authenticate to HTTPS remotes.
+git_pillar_password: {{ git_pillar_password | default('') }}
+
+# By default, Salt will not authenticate to an HTTP (non-HTTPS) remote.
+git_pillar_insecure_auth: {{ git_pillar_insecure_auth | default('False') }}
+
+# Along with git_pillar_privkey (and optionally git_pillar_passphrase), is used to authenticate to SSH remotes.
+git_pillar_pubkey: {{ git_pillar_pubkey | default('') }}
+
+# Along with git_pillar_pubkey (and optionally git_pillar_passphrase), is used to authenticate to SSH remotes.
+git_pillar_privkey: {{ git_pillar_privkey | default('') }}
+
+# This parameter is optional, required only when the SSH key being used to authenticate is protected by a passphrase.
+git_pillar_passphrase: {{ git_pillar_passphrase | default('') }}
+
+# A master can cache pillars locally to bypass the expense of having to render them for each minion on every request.
+pillar_cache: {{ pillar_cache | default('False') }}
+
+# If and only if a master has set ``pillar_cache: True``, the cache TTL controls the amount of time, in seconds, before the cache is considered invalid.
+pillar_cache_ttl: {{ pillar_cache_ttl | default('3600') }}
+
+# If and only if a master has set `pillar_cache: True`, one of several storage providers can be utilized.
+pillar_cache_backend: {{ pillar_cache_backend | default('disk') }}
+
+# A master can also cache GPG data locally to bypass the expense of having to render them for each minion on every request.
+gpg_cache: {{ gpg_cache | default('False') }}
+
+# If and only if a master has set ``gpg_cache: True``, the cache TTL controls the amount of time, in seconds, before the cache is considered invalid.
+gpg_cache_ttl: {{ gpg_cache_ttl | default('86400') }}
+
+# If and only if a master has set `gpg_cache: True`, one of several storage providers can be utilized.
+gpg_cache_backend: {{ gpg_cache_backend | default('disk') }}
+
+# Define a salt reactor.
+reactor: {{ reactor | default('[]') }}
+
+# Set the TTL for the cache of the reactor configuration.
+reactor_refresh_interval: {{ reactor_refresh_interval | default('60') }}
+
+# Configure the number of workers for the runner/wheel in the reactor.
+reactor_worker_threads: {{ reactor_worker_threads | default('10') }}
+
+# Define the queue size for workers in the reactor.
+reactor_worker_hwm: {{ reactor_worker_hwm | default('10000') }}
+
+
+#####          Syndic settings       #####
+##########################################
+# Set the order_masters setting to True if this master will command lower masters' syndic interfaces.
+order_masters: {{ order_masters | default('False') }}
+
+# If this master will be running a salt syndic daemon, syndic_master tells this master where to receive commands from.
+syndic_master: {{ syndic_master | default('masterofmasters') }}
+
+# This is the 'ret_port' of the MasterOfMaster.
+syndic_master_port: {{ syndic_master_port | default('4506') }}
+
+# PID file of the syndic daemon.
+syndic_pidfile: {{ syndic_pidfile | default('/var/run/salt-syndic.pid') }}
+
+# The log file of the salt-syndic daemon.
+syndic_log_file: {{ syndic_log_file | default('/var/log/salt/syndic') }}
+
+# The behaviour of the multi-syndic when connection to a master of masters failed.
+syndic_failover: {{ syndic_failover | default('random') }}
+
+# The number of seconds for the salt client to wait for additional syndics to check in with their lists of expected minions before giving up.
+syndic_wait: {{ syndic_wait | default('5') }}
+
+
+#####         Logging settings       #####
+##########################################
+# The location of the master log file.
+log_file: {{ log_file | default('/var/log/salt/master') }}
+
+# The key log file location.
+key_logfile: {{ key_logfile | default('/var/log/salt/key') }}
+
+# The level of messages to send to the console.
+log_level: {{ log_level | default('warning') }}
+
+# The level of messages to send to the log file.
+log_level_logfile: {{ log_level_logfile | default('warning') }}
+
+# The date and time format used in log messages.
+log_datefmt: {{ log_datefmt | default('%H:%M:%S') }}
+
+# The date and time format used in log messages for logfile.
+log_datefmt_logfile: {{ log_datefmt_logfile | default('%Y-%m-%d %H:%M:%S') }}
+
+# The format of the console logging messages.
+log_fmt_console: {{ log_fmt_console | default('%(colorlevel)s %(colormsg)s') }}
+
+# The format of the logfile logging messages.
+log_fmt_logfile: {{ log_fmt_logfile | default('%(asctime)s,%(msecs)03d [%(name)-17s][%(levelname)-8s] %(message)s') }}
+
+# This can be used to control logging levels more specifically.
+log_granular_levels: {{ log_granular_levels | default('{}') }}
+
+# The range server (and optional port) that serves your cluster information.
+range_server: {{ range_server | default('range:80') }}
+
+# Location of the repo on the master for Windows Software Repo.
+winrepo_dir_ng: {{ winrepo_dir_ng | default("'/srv/salt/win/repo-ng'" ) }}
+
+# Location of the repo on the master for pre-2015.8 Windows minions.
+winrepo_dir: {{ winrepo_dir | default("'/srv/salt/win/repo'" ) }}
+
+# Location of the master's repo cache file for pre-2015.8 Windows minions.
+winrepo_mastercachefile: {{ winrepo_mastercachefile | default("'/srv/salt/win/repo/winrepo.p'" ) }}
+
+# Which returner(s) will be used for minion's result.
+return: {{ return | default('mysql') }}
+
+# Default match type for filtering events tags.
+event_match_type: {{ event_match_type | default('startswith') }}
+
+# Save runner returns to the job cache.
+runner_returns: {{ runner_returns | default('True') }}
+
+# Permanently include any available Python 3rd party modules into thin and minimal Salt when they are generated.
+thin_extra_mods: {{ thin_extra_mods | default('foo,bar') }}
+
+# Permanently include any available Python 3rd party modules into thin and minimal Salt when they are generated.
+min_extra_mods: {{ min_extra_mods | default('foo,bar,baz') }}
+
+# Overall state of TCP Keepalives.
+tcp_keepalive: {{ tcp_keepalive | default('True') }}
+
+# How long before the first keepalive should be sent in seconds.
+tcp_keepalive_idle: {{ tcp_keepalive_idle | default('300') }}
+
+# How many lost probes are needed to consider the connection lost.
+tcp_keepalive_cnt: {{ tcp_keepalive_cnt | default('-1') }}
+
+# How often, in seconds, to send keepalives after the first one.
+tcp_keepalive_intvl: {{ tcp_keepalive_intvl | default('-1') }}
+
+# Allow the raw_shell parameter to be used when calling Salt SSH client via API.
+netapi_allow_raw_shell: {{ netapi_allow_raw_shell | default('True') }}

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- -*- XML -*- -->
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!--
+    D-Bus Bus Configuration for Flatpak System Helper.
+    
+    This file configures the security policies required for the
+    `flatpak` system helper daemon to operate correctly on the
+    system message bus. It grants the helper ownership of its
+    service name and allows clients to interact with it.
+  -->
+
+  <!--
+    Policy for the root user.
+    Grants the 'own' permission, allowing the entity to claim
+    the specific D-Bus service name on the bus.
+  -->
+  <policy user="root">
+    <!--
+      The D-Bus service name owned by the flatpak system helper.
+      Default: org.freedesktop.Flatpak.SystemHelper
+    -->
+    <allow own="{{ flatpak_service_name | default('org.freedesktop.Flatpak.SystemHelper') }}"/>
+  </policy>
+
+  <!--
+    Default policy context.
+    Controls access for all other users/clients not matching
+    specific earlier rules.
+  -->
+  <policy context="default">
+    
+    <!--
+      Allow sending method calls to the Flatpak System Helper.
+      Restricts the destination to the helper's service name
+      and the interface exposed by the helper.
+      
+      We reject unauthorized callers using PolicyKit separately;
+      this rule ensures valid API access is permitted.
+    -->
+    <allow send_destination="{{ flatpak_service_name | default('org.freedesktop.Flatpak.SystemHelper') }}"
+           send_interface="{{ flatpak_service_interface | default('org.freedesktop.Flatpak.SystemHelper') }}"/>
+
+    <!--
+      Allow introspection of the Flatpak System Helper service.
+      Standard D-Bus introspection interface allows clients to
+      discover available methods and objects.
+    -->
+    <allow send_destination="{{ flatpak_service_name | default('org.freedesktop.Flatpak.SystemHelper') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+
+    <!--
+      Allow peer communication (ping/pong) with the Flatpak System Helper.
+      Standard D-Bus peer interface for connection status checks.
+    -->
+    <allow send_destination="{{ flatpak_service_name | default('org.freedesktop.Flatpak.SystemHelper') }}"
+           send_interface="org.freedesktop.DBus.Peer"/>
+
+  </policy>
+
+</busconfig>

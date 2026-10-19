@@ -1,0 +1,27 @@
+#
+#  Web-based tool for managing LDAP servers (phpldapadmin)
+#
+#  This template configures Apache aliases and directory access controls
+#  for the phpldapadmin web interface.
+#
+
+# The filesystem path alias for the phpldapadmin htdocs directory.
+Alias /phpldapadmin {{ phpldapadmin_alias_path | default('/usr/share/phpldapadmin/htdocs') }}
+
+# The filesystem path alias for the ldapadmin htdocs directory.
+Alias /ldapadmin {{ ldapadmin_alias_path | default('/usr/share/phpldapadmin/htdocs') }}
+
+# The filesystem path for the Directory block protection.
+<Directory {{ phpldapadmin_directory_path | default('/usr/share/phpldapadmin/htdocs') }}>
+  <IfModule mod_authz_core.c>
+    # Apache 2.4
+    Require local
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    # Apache 2.2
+    Order Deny,Allow
+    Deny from all
+    Allow from 127.0.0.1
+    Allow from ::1
+  </IfModule>
+</Directory>

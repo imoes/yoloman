@@ -83,9 +83,9 @@ import { ForecastService, CapacityRow } from '../../core/services/forecast.servi
     .bm-pill--critical { background: color-mix(in srgb, var(--bm-red, #c62828) 22%, transparent); }
     .bm-pill--warning { background: color-mix(in srgb, #f9a825 32%, transparent); }
     .bm-table-wrap { overflow-x: auto; }
-    .bm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bm-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); font-size: 11px; text-transform: uppercase; opacity: 0.6; }
-    .bm-table td { padding: 8px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
+    .bm-table { width: 100%; border-collapse: collapse; font-size: var(--bm-font-table); }
+    .bm-table th { text-align: left; padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); font-size: 11px; text-transform: uppercase; opacity: 0.6; }
+    .bm-table td { padding: var(--bm-cell-py) var(--bm-cell-px); border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
     .bm-mono { font-family: ui-monospace, monospace; }
     .bm-bar { display: inline-block; width: 90px; height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); vertical-align: middle; overflow: hidden; margin-right: 7px; }
     .bm-bar-fill { height: 100%; background: var(--bm-green, #2e7d32); }

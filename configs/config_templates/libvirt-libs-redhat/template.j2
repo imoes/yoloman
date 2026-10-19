@@ -1,0 +1,33 @@
+# ============================================================================
+# Libvirt Library Configuration
+# ============================================================================
+# This file configures URI aliases and the default connection URI for libvirt clients.
+# It is intended for use with libvirt libraries (e.g., virt-install, virsh) that
+# read configuration from this path or environment.
+
+# ----------------------------------------------------------------------------
+# URI Aliases
+# ----------------------------------------------------------------------------
+# Description: List of URI aliases in key-value pairs.
+# Example: admin=libvirtd:///system
+# Format: The output is a JSON array of strings "alias=uri".
+# Note: Aliases may contain only characters a-Z, 0-9, _, -.
+# Default: Empty list (commented out)
+
+# Always comment out the default structure to indicate it is disabled if no aliases are provided
+{% if uri_aliases is defined and uri_aliases is not none and (uri_aliases is number or uri_aliases is boolean or uri_aliases | length > 0) %}uri_aliases = {{ uri_aliases }}
+{% else %}#uri_aliases = [
+{% endif %}{% for alias_entry in (uri_aliases | default([])) | default([]) %}
+  "{{ alias_entry.key }}={{ alias_entry.value }}",
+{% endfor %}
+#]
+
+# ----------------------------------------------------------------------------
+# Default Connection URI
+# ----------------------------------------------------------------------------
+# Description: The default connection URI used by clients if no specific URI
+# is provided by the application.
+# Default: 'libvirtd:///system'
+# Note: If set to an empty string, the default behavior of the client library applies.
+
+{% if uri_default is defined and uri_default is not none and (uri_default is number or uri_default is boolean or uri_default | length > 0) %}uri_default = "{{ uri_default | default('libvirtd:///system') }}"{% else %}#uri_default = "libvirtd:///system"{% endif %}

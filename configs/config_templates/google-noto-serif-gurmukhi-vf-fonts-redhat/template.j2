@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {#
+    Font substitution configuration for Google Noto Serif Gurmukhi.
+    This template generates a Fontconfig XML file that:
+    1. Substitutes fonts for a specific language and generic family.
+    2. Aliases the specific font family to a generic family.
+  #}
+
+  {#
+    Match block: Intercepts requests for a specific language code
+    and generic font family, prepending the specific Noto Serif Gurmukhi font.
+  #}
+  <match>
+    {# Test if the requested language matches the configured BCP 47 code. #}
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('pa') }}</string>
+    </test>
+    {# Test if the requested generic family matches the configured type (e.g., serif). #}
+    <test name="family">
+      <string>{{ generic_family | default('serif') }}</string>
+    </test>
+    {# Prepend the specific font family name to the list of available fonts. #}
+    <edit name="family" mode="prepend">
+      <string>{{ font_family_name | default('Noto Serif Gurmukhi') }}</string>
+    </edit>
+    {# Enable font hinting for improved rendering on low-resolution screens. #}
+    <edit name="fonthashint" mode="append">
+      <bool>{{ enable_font_hinting | default(true) }}</bool>
+    </edit>
+  </match>
+
+  {#
+    Alias block: Defines an alias so that applications requesting the generic
+    family can explicitly find the specific Noto Serif Gurmukhi font.
+  #}
+  <alias>
+    {# The specific font family name that is being aliased. #}
+    <family>{{ font_family_name | default('Noto Serif Gurmukhi') }}</family>
+    {# The generic family to which this specific font is mapped. #}
+    <default>
+      <family>{{ generic_family | default('serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

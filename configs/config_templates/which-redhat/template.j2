@@ -1,0 +1,35 @@
+# ==============================================================================
+# Package: which-redhat
+# Description: Customization of the 'which' command behavior for Red Hat Enterprise Linux (and derivatives).
+#
+# This template manages the initialization script for the 'which' command.
+# The 'which' command is used to locate executables in the PATH.
+#
+# Note: The 'which' command is often considered legacy in favor of 'command -v' or 'type'.
+# However, for compatibility with older scripts, this package configures its output format.
+#
+# Variables: None. This is a static configuration script with no dynamic schema fields.
+# ==============================================================================
+
+# Initialize csh aliases for the 'which' command if the shell is csh/tcsh.
+# This ensures that when 'which' is invoked, it behaves consistently with
+# the GNU which options specified, providing alias expansion, dot-file inclusion,
+# and tilde expansion.
+
+# The alias definition below replaces the default 'which' behavior.
+# It pipes the alias list to the external /usr/bin/which executable with specific flags:
+#   --tty-only : Only search paths for terminals (standard security practice).
+#   --read-alias : Expand aliases in the command name lookup.
+#   --show-dot : Include '.' (current directory) in the PATH search if present.
+#   --show-tilde : Display '~' as '~' instead of the full home directory path.
+
+# If the running shell is not csh, this block is ignored, ensuring cross-shell safety.
+
+if ($?TERM) then
+    # Define the 'which' alias only if the TERM variable is set (interactive shell)
+    # This prevents non-interactive scripts from inheriting potentially slow alias expansions.
+    
+    # Re-alias 'which' to use the system GNU which with specific options for Red Hat compatibility.
+    alias which 'alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde'
+
+endif

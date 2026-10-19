@@ -220,7 +220,6 @@ async def delete_agent(
     deleted — deleting a proxy must not silently take its satellites with it.
     All in one transaction, so a mid-delete failure leaves the host intact."""
     agent = await _get_agent_or_404(session, agent_id)
-    params = {"id": str(agent_id)}
     # TimescaleDB caps how many rows one DML statement may decompress
     # (max_tuples_decompressed_per_dml_transaction, default 100000). A host with a few
     # weeks of compressed metrics blows straight through it — measured on this fleet:
@@ -229,14 +228,30 @@ async def delete_agent(
     # acceptable state for a basic operation. 0 disables the cap, and SET LOCAL scopes it
     # to this transaction so nothing else inherits an unbounded delete budget.
     await session.execute(text("SET LOCAL timescaledb.max_tuples_decompressed_per_dml_transaction = 0"))
+    await purge_agent_rows(session, agent_id)
+    await session.delete(agent)  # cascade clears the ON DELETE CASCADE tables
+    await session.commit()
+
+
+async def purge_agent_rows(session: AsyncSession, agent_id: UUID) -> None:
+    """Lock the host's row, then clear every child table whose FK to `agents` does not cascade.
+
+    The lock comes FIRST. Inserting a row that references an agent takes a KEY SHARE lock on that agent's
+    row, which FOR UPDATE excludes — so the monitoring poller cannot record one more state change between
+    the deletes below and the agent's own delete. Without it, deleting a host that has JUST gone away (its
+    services turn CRIT on that very poll) failed with "violates foreign key constraint
+    service_state_history_agent_id_fkey" and a 500: the DELETE here had run, the poller's insert committed
+    after it, and the agent delete then found a fresh row. Measured removing a kept e2e test host right
+    after its pod was deleted, twice. The poller's late insert now waits and then fails on the missing
+    agent, which is the truth: the host is gone."""
+    params = {"id": str(agent_id)}
+    await session.execute(text("SELECT 1 FROM agents WHERE id = :id FOR UPDATE"), params)
     # Orphan any satellites polled through this agent (self-referential FK).
     await session.execute(
         text("UPDATE agents SET parent_agent_id = NULL WHERE parent_agent_id = :id"), params
     )
     for stmt in _AGENT_CHILD_DELETES:
         await session.execute(text(stmt), params)
-    await session.delete(agent)  # cascade clears the ON DELETE CASCADE tables
-    await session.commit()
 
 
 class UpdateGroupsRequest(BaseModel):
@@ -535,27 +550,17 @@ async def update_agent_bundled(
 ) -> dict:
     """Push the package Bossman ships to an enrolled host — no upload needed. The
     right one is chosen by the host's OS family: RHEL/Fedora/SUSE get the .rpm
-    (BOSSMAN_AGENT_RPM_PATH), everything else the .deb (BOSSMAN_AGENT_DEB_PATH).
-    The agent installs whichever it receives (dpkg / rpm)."""
-    from bossman.api.package_wizard import _family
+    (BOSSMAN_AGENT_RPM_PATH), Debian/Ubuntu the .deb (BOSSMAN_AGENT_DEB_PATH); an
+    unknown family is refused (409) instead of being sent the .deb. The agent installs
+    whichever it receives (dpkg / rpm). Same implementation as the MCP tool update_agent
+    (services/agent_update.py)."""
+    from bossman.services.agent_update import AgentUpdateRefused, push_bundled
 
     agent = await _get_agent_or_404(session, agent_id)
-    if not agent.address:
-        raise HTTPException(status_code=409, detail="agent has no direct address — cannot push an update to it directly")
-    family = _family(agent.facts or {})
-    path = settings.agent_rpm_path if family in ("redhat", "suse") else settings.agent_deb_path
-    kind = "rpm" if family in ("redhat", "suse") else "deb"
-    if not path:
-        raise HTTPException(status_code=409, detail=f"no bundled {kind} configured (set BOSSMAN_AGENT_{kind.upper()}_PATH)")
-    if not Path(path).is_file():
-        raise HTTPException(status_code=409, detail=f"bundled {kind} not found at {path}")
-    data = Path(path).read_bytes()
-    client = client_factory(agent, settings)
     try:
-        result = await client.self_update(data)
-    except AgentClientError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"agent_id": str(agent.id), "family": family, "package": kind, "result": result}
+        return await push_bundled(agent, settings, client_factory)
+    except AgentUpdateRefused as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
 class CollectConfigRequest(BaseModel):

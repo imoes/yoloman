@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity, require_admin
@@ -36,6 +36,11 @@ _SEV_RANK = {
     "critical": 6, "important": 5, "moderate": 4, "low": 3,
     "untriaged": 2, "unimportant": 1, "": 0,
 }
+
+
+def _rank(severity: str | None) -> int:
+    """Case-insensitive: MSRC writes "Critical", RHEL "critical" — the same word, ranked once (plan B13)."""
+    return _SEV_RANK.get(str(severity or "").lower(), 0)
 
 
 @router.get("/api/v1/security/feed-status")
@@ -89,7 +94,7 @@ async def fleet_cves(
     the affected hosts. Filterable by severity / distro / host / text / fix."""
     stmt = select(HostCve, Agent.name).join(Agent, Agent.id == HostCve.agent_id)
     if severity:
-        stmt = stmt.where(HostCve.severity == severity)
+        stmt = stmt.where(func.lower(HostCve.severity) == severity.lower())
     if distro:
         stmt = stmt.where(HostCve.distro == distro)
     if agent_id:
@@ -104,13 +109,13 @@ async def fleet_cves(
     by_cve: dict[str, dict[str, Any]] = {}
     for hc, host_name in rows:
         agg = by_cve.setdefault(hc.cve, {"cve": hc.cve, "severity": hc.severity, "distro": hc.distro, "hosts": []})
-        if _SEV_RANK.get(hc.severity, 0) > _SEV_RANK.get(agg["severity"], 0):
+        if _rank(hc.severity) > _rank(agg["severity"]):
             agg["severity"] = hc.severity
         agg["hosts"].append({
             "agent_id": str(hc.agent_id), "host": host_name, "package": hc.package,
             "current_version": hc.current_version, "fixed_version": hc.fixed_version,
         })
-    out = sorted(by_cve.values(), key=lambda a: (-_SEV_RANK.get(a["severity"], 0), a["cve"]))
+    out = sorted(by_cve.values(), key=lambda a: (-_rank(a["severity"]), a["cve"]))
     for a in out:
         a["host_count"] = len(a["hosts"])
         a["description"] = cve_description(a["cve"])
@@ -129,7 +134,8 @@ async def fleet_summary(
     cves: set[str] = set()
     hosts: set[str] = set()
     for sev, distro, cve, agent_id in rows:
-        by_sev[sev or "unknown"] = by_sev.get(sev or "unknown", 0) + 1
+        sev = (sev or "unknown").lower()      # one bucket per word, whatever case the source writes it in
+        by_sev[sev] = by_sev.get(sev, 0) + 1
         by_distro[distro or "unknown"] = by_distro.get(distro or "unknown", 0) + 1
         cves.add(cve)
         hosts.add(str(agent_id))
@@ -146,6 +152,8 @@ class BulkUpdateRequest(BaseModel):
     agent_ids: list[UUID]
     security_only: bool = True
     dry_run: bool = True
+    # Windows hosts: the KBs to install. Empty + security_only = the KBs that close the host's CVEs (host_cves).
+    kbs: list[str] = []
 
 
 @router.post("/api/v1/security/bulk-update")
@@ -179,9 +187,25 @@ async def bulk_update_hosts(
             results.append(entry)
             continue
         client = client_factory(agent, settings)
-        params = {"state": "apply", "security_only": body.security_only, "dry_run": body.dry_run}
+        tool, params = "yoloman.package_updates", {"state": "apply", "security_only": body.security_only, "dry_run": body.dry_run}
+        if str((agent.facts or {}).get("os_family") or "").lower() == "windows":
+            # plan B13: Windows installs KBs through windows_update. With security_only, the KBs are the ones
+            # that close this host's CVEs — the rows the security view shows — so the button does what it says.
+            kbs = sorted({k.strip().upper() for k in body.kbs if k.strip()})
+            if not kbs and body.security_only:
+                kbs = sorted({r for (r,) in (await session.execute(
+                    select(HostCve.package).where(HostCve.agent_id == agent.id, HostCve.distro == "windows"))).all()})
+                if not kbs:
+                    entry["status"] = "nothing_to_do"
+                    entry["reason"] = "no pending update of this host closes a known CVE (see the security view)"
+                    results.append(entry)
+                    continue
+            tool = "windows_update"
+            params = {"state": "installed", "category_names": ["*"], "reboot": "never", "dry_run": body.dry_run,
+                      **({"accept_list": kbs} if kbs else {})}
         try:
-            entry["result"] = await client.call_tool("yoloman.package_updates", params)
+            entry["result"] = await client.call_tool(tool, params)
+            entry["tool"] = tool
             entry["status"] = "ok"
         except AgentClientError as exc:
             entry["status"] = "error"

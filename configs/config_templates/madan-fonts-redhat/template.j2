@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  {# ============================================================================= #}
+  {# Font Remapping: Rename 'madan_font_original_name' to 'madan_font_name'       #}
+  {# ============================================================================= #}
+
+  {# Match any font being scanned by fontconfig that has the original family name #}
+  <match target="scan">
+    {# The original family name to match for renaming/remapping. #}
+    <test name="family">
+      <string>{{ madan_font_original_name | default('Madan2') }}</string>
+    </test>
+    {# The target family name to rename/alias to. #}
+    <edit name="family">
+      <string>{{ madan_font_name | default('Madan') }}</string>
+    </edit>
+    {# The full name of the font. #}
+    <edit name="fullname">
+      <string>{{ madan_font_fullname | default('Madan') }}</string>
+    </edit>
+  </match>
+
+  {# Set up an alias so applications requesting the original name get the new one #}
+  <alias binding="same">
+    {# The original family name to match for renaming/remapping. #}
+    <family>{{ madan_font_original_name | default('Madan2') }}</family>
+    <accept>
+      {# The target family name to rename/alias to. #}
+      <family>{{ madan_font_name | default('Madan') }}</family>
+    </accept>
+  </alias>
+
+  {# ============================================================================= #}
+  {# Locale-Specific Overrides: Prepend font to sans-serif for the locale          #}
+  {# ============================================================================= #}
+
+  {# Match fonts based on language and family preference #}
+  <match>
+    {# The locale code for which to prepend the font to sans-serif. #}
+    <test name="lang">
+      <string>{{ madan_locale | default('ne') }}</string>
+    </test>
+    {# Target the generic sans-serif family #}
+    <test name="family">
+      <string>sans-serif</string>
+    </test>
+    {# The target family name to rename/alias to. #}
+    <edit name="family" mode="prepend">
+      <string>{{ madan_font_name | default('Madan') }}</string>
+    </edit>
+  </match>
+
+  {# ============================================================================= #}
+  {# Font Rendering: Enable auto-hinting for the font family                      #}
+  {# ============================================================================= #}
+
+  {# Match the specific font family for rendering tweaks #}
+  <match target="font">
+    {# Test if the family matches the renamed target name #}
+    <test name="family" compare="eq">
+      <string>{{ madan_font_name | default('Madan') }}</string>
+    </test>
+    {# Whether to enable auto-hinting for the font. #}
+    <edit name="autohint" mode="assign">
+      <bool>{{ madan_font_autohint | default('true') }}</bool>
+    </edit>
+  </match>
+
+</fontconfig>

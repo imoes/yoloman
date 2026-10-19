@@ -1,20 +1,32 @@
 # Defaults for the virtuoso initscript, from virtuoso-opensource
-# This file is used by the init system to pass defaults to the Virtuoso SPARQL server.
-# It is primarily consumed by the systemd service or SysV init script.
+#
+# This file configures the basic startup environment for Virtuoso Open Source.
+# Most functional tuning is done in /etc/virtuoso-opensource-7/virtuoso.ini.
 
-# # The directory from where the database files are placed, defined by a relative path in the configfile.
-# # Schema field: db_path (string)
-# # Default: /var/lib/virtuoso-opensource-7/db
+# ==============================================================================
+# Database Path Configuration
+# ==============================================================================
+# Description: The directory from where the database files are placed.
+#              Note: The underlying virtuoso.ini treats this as a relative path
+#              from the configuration file's directory, but in this init script
+#              context, it is often used to define the working directory or
+#              absolute base path for data storage depending on the wrapper.
+#              Default: /var/lib/virtuoso-opensource-7/db
 DBPATH={{ db_path | default('/var/lib/virtuoso-opensource-7/db') }}
 
-# # Daemonic options for the Virtuoso server.
-# # The +wait flag ensures the daemon waits for database initialization.
-# # The +configfile flag points to the main configuration file (virtuoso.ini).
-# # WARNING: Removing the +wait flag breaks the init script!
-# # This is a static configuration derived from package defaults; users should edit
-# # /etc/virtuoso-opensource-7/virtuoso.ini for runtime configuration.
-DAEMON_OPTS="+wait +configfile /etc/virtuoso-opensource-7/virtuoso.ini"
+# ==============================================================================
+# Daemon Startup Options
+# ==============================================================================
+# Description: Options passed to the Virtuoso daemon at startup.
+#              +wait: Ensures the daemon waits for connections before exiting
+#                       (critical for init scripts to detect startup success).
+#              +configfile: Explicitly points to the main INI configuration file.
+DAEMON_OPTS="{{ '+wait +configfile /etc/virtuoso-opensource-7/virtuoso.ini' }}"
 
-# # Security Reminder:
-# # Remember to change passwords right after startup.
-# # Read README.Debian for information on how to do so.
+# ==============================================================================
+# Security and Maintenance Notes
+# ==============================================================================
+# WARNING: Remember to change passwords right after startup.
+#          Default credentials are often weak.
+#          Read /usr/share/doc/virtuoso-opensource-7/README.Debian for
+#          detailed information on security hardening and password changes.

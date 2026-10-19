@@ -1,0 +1,64 @@
+# ==============================================================================
+# Carbon-C-Relay Configuration
+# ==============================================================================
+# This file is managed by Ansible. Do not edit manually.
+# Generated for: carbon-c-relay-redhat
+
+# --------------------------------------------------------------------------
+# Cluster Definition
+# --------------------------------------------------------------------------
+# Defines the destination cluster to which metrics are forwarded.
+# The name of this cluster is referenced by 'match' statements.
+cluster {{ cluster_name | default('local_carbon') }}
+  forward
+    # Host and port of the Carbon collector (e.g., Carbon-Relay, Graphite-Carbon).
+    # Format: <hostname_or_ip>:<port>
+    {{ carbon_host | default('127.0.0.1') }}:{{ carbon_port | default(2013) }}
+  ;
+
+# --------------------------------------------------------------------------
+# Matching Rules
+# --------------------------------------------------------------------------
+# Defines how received metrics are routed.
+# 'match *' applies to all metrics not matched by earlier rules.
+# 'send to <cluster>' forwards the metric to the specified cluster.
+# 'stop' prevents the metric from matching further rules.
+match *
+  send to {{ cluster_name | default('local_carbon') }}
+  stop
+  ;
+
+# --------------------------------------------------------------------------
+# Example Rewrites (Commented Out)
+# --------------------------------------------------------------------------
+# The following rewrites are provided as examples to clean up the Graphite
+# tree structure. They assume specific hostname formats (e.g., 5-element FQDN).
+# Uncomment and adjust as needed for your environment.
+
+## Rewrite carbon-c-relay internal statistics
+## Original: carbon.relays.twiki501.back.test.bc.local.metricsQueued
+## Target:   bc.test.twiki.twiki501.relay.metricsQueued
+#rewrite ^carbon\.relays\.([a-zA-Z]+)([0-9]+)_([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_([a-zA-Z0-9]+)_([a-zA-Z0-9]+)\.(.*)
+#  into \5.\4.\1.\1\2.relay.\7
+#  ;
+
+## Rewrite metrics to reverse hostname
+## Original: twiki501.back.test.bc.local.haggar.agent.0.metrics.0
+## Target:   bc.test.twiki.twiki501.haggar.agent.0.metrics.0
+#rewrite ^([a-zA-Z]+)([0-9]+)\.back\.([a-zA-Z0-9]+)\.([a-zA-Z0-9]+)\.local(.*)
+#  into \4.\3.\1\.\1\2\5
+#  ;
+
+## Rewrite metrics from statsite
+## Original: sandbox.test.twiki.twiki001.statsite.gauges.gunicorn.workers
+## Target:   sandbox.test.twiki.twiki001.statsite.gunicorn.gauges.workers
+#rewrite ^([a-zA-Z0-9]+)\.([a-zA-Z0-9]+)\.([a-zA-Z0-9]+)\.([a-zA-Z]+)([0-9]+)\.statsite\.([a-zA-Z]+)\.([a-zA-Z]+)\.(.*)
+#  into \1.\2.\3.\4\5.statsite.\7.\6.\8
+#  ;
+
+## Clean up statsite numstats metric
+## Original: sandbox.test.twiki.twiki001.statsite.counts.numStats
+## Target:   sandbox.test.twiki.twiki001.statsite.numStats
+#rewrite ^([a-zA-Z0-9]+)\.([a-zA-Z0-9]+)\.([a-zA-Z0-9]+)\.([a-zA-Z]+)([0-9]+)\.statsite\.counts\.(.*)
+#  into \1.\2.\3.\4\5.statsite.\6
+#  ;

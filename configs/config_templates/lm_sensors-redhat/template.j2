@@ -1,0 +1,936 @@
+# ==============================================================================
+# lm_sensors-redhat: libsensors Configuration
+# ==============================================================================
+# This template configures the lm-sensors library to provide human-readable
+# labels and default voltage thresholds for various Super-I/O and hardware
+# monitoring chips found on motherboards.
+#
+# Self-documenting: All variables are annotated with their defaults.
+# Custom overrides should be placed in separate files within the directory
+# specified by `sensors_custom_dir` (or `/etc/sensors.d` if not set).
+
+# --------------------------------------------------------------------------
+# Custom Configuration Directory
+# --------------------------------------------------------------------------
+# If defined and non-empty, instructions in the header will point to this
+# directory for custom sensor configuration files.
+{% if sensors_custom_dir is defined and sensors_custom_dir is not none and (sensors_custom_dir is number or sensors_custom_dir is boolean or sensors_custom_dir | length > 0) %}
+# Custom configurations should be placed in {{ sensors_custom_dir }}.
+{% else %}
+# Custom configurations should be placed in /etc/sensors.d.
+{% endif %}
+
+# ==============================================================================
+# Chip: National Semiconductor / Analog Devices (LM78, LM79, LM80, LM96080)
+# ==============================================================================
+chip "lm78-*" "lm79-*" "lm80-*" "lm96080-*"
+
+    # Label for Motherboard Temperature sensor
+    label temp1 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+
+
+# ==============================================================================
+# Chip: Winbond W83792D
+# ==============================================================================
+chip "w83792d-*"
+
+    # Label for Vcore A sensor
+    label in0 "{{ sensor_label_vcore_a | default('VcoreA') }}"
+    # Label for Vcore B sensor
+    label in1 "{{ sensor_label_vcore_b | default('VcoreB') }}"
+    # Label for +5V rail sensor
+    label in6 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for 5V Standby sensor
+    label in7 "{{ sensor_label_5vsb | default('5VSB') }}"
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Minimum threshold for 5V rail (applied to in6, in7)
+    set in6_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    set in7_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (applied to in6, in7)
+    set in6_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    set in7_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for Vbat (in8)
+    set in8_min {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in8)
+    set in8_max {{ sensor_voltage_vbat_max | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond W83793
+# ==============================================================================
+chip "w83793-*"
+
+    # Label for Vcore A sensor
+    label in0 "{{ sensor_label_vcore_a | default('VcoreA') }}"
+    # Label for Vcore B sensor
+    label in1 "{{ sensor_label_vcore_b | default('VcoreB') }}"
+    # Label for +5V rail sensor
+    label in7 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for 5V Standby sensor
+    label in8 "{{ sensor_label_5vsb | default('5VSB') }}"
+    # Label for Battery Voltage sensor
+    label in9 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Minimum threshold for 5V rail (applied to in7, in8)
+    set in7_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    set in8_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (applied to in7, in8)
+    set in7_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    set in8_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for Vbat (in9)
+    set in9_min {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in9)
+    set in9_max {{ sensor_voltage_vbat_max | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond W83795G, W83795ADG
+# ==============================================================================
+chip "w83795g-*" "w83795adg-*"
+
+    # Label for +3.3V rail sensor
+    label in12 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in13 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in14 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Minimum threshold for 3.3V rail (applied to in12, in13)
+    set in12_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    set in13_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (applied to in12, in13)
+    set in12_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    set in13_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in14)
+    set in14_min {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in14) - Note: Schema uses 3v3_max here? Preserving original logic.
+    set in14_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: VIA VT8231 / VT8235 / VIA686A
+# ==============================================================================
+chip "via686a-*"
+
+    # Label for Vcore sensor
+    label in0 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 12V rail (in4)
+    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    # Maximum threshold for 12V rail (in4)
+    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Dallas/Maxim ADM1025, Nuvoton NE1619
+# ==============================================================================
+chip "adm1025-*" "ne1619-*"
+
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for VCC sensor
+    label in5 "{{ sensor_label_vcc | default('VCC') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for VCC (in5)
+    set in5_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for VCC (in5)
+    set in5_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+    # Depending on how your chip is hardwired, you may or may not have +12V readings.
+    #    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    #    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+
+    # Label for CPU Temperature sensor
+    label temp1 "{{ sensor_label_cpu_temp | default('CPU Temp') }}"
+    # Label for Motherboard Temperature sensor
+    label temp2 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+
+
+# ==============================================================================
+# Chip: Analog Devices LM87, ADM1024
+# ==============================================================================
+chip "lm87-*" "adm1024-*"
+
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 12V rail (in4)
+    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    # Maximum threshold for 12V rail (in4)
+    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+
+    # Label for Motherboard Temperature sensor
+    label temp1 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+    # Label for CPU Temperature sensor
+    label temp2 "{{ sensor_label_cpu_temp | default('CPU Temp') }}"
+
+
+# ==============================================================================
+# Chip: ITE IT87 Series (IT87, IT8712, IT8716, IT8718, IT8720)
+# ==============================================================================
+chip "it87-*" "it8712-*" "it8716-*" "it8718-*" "it8720-*"
+
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+
+
+# ==============================================================================
+# Chip: FSC Hermes (FSCPOS, FSCHER)
+# ==============================================================================
+chip "fscpos-*" "fscher-*"
+
+    # Label for +12V rail sensor
+    label in0 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for +5V rail sensor
+    label in1 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for Battery Voltage sensor
+    label in2 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Label for CPU Temperature sensor
+    label temp1 "{{ sensor_label_cpu_temp | default('CPU Temp') }}"
+    # Label for Motherboard Temperature sensor
+    label temp2 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+    # Label for Auxiliary Temperature sensor
+    label temp3 "{{ sensor_label_aux_temp | default('Aux Temp') }}"
+
+
+# ==============================================================================
+# Chip: FSC Scylla (FSCSCY)
+# ==============================================================================
+chip "fscscy-*"
+
+    # Label for +12V rail sensor
+    label in0 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for +5V rail sensor
+    label in1 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+
+    # Label for CPU0 Temperature sensor
+    label temp1 "{{ sensor_label_cpu0_temp | default('CPU0 Temp') }}"
+    # Label for CPU1 Temperature sensor
+    label temp2 "{{ sensor_label_cpu1_temp | default('CPU1 Temp') }}"
+    # Label for Motherboard Temperature sensor
+    label temp3 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+    # Label for Auxiliary Temperature sensor
+    label temp4 "{{ sensor_label_aux_temp | default('Aux Temp') }}"
+
+
+# ==============================================================================
+# Chip: Fujitsu Hades (FSCHDS)
+# ==============================================================================
+chip "fschds-*"
+
+    # Temperatures
+    # Label for CPU Temperature sensor
+    label temp1 "{{ sensor_label_cpu_temp | default('CPU Temp') }}"
+    # Label for Super I/O Temperature sensor
+    label temp2 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+    # Label for System Temperature sensor
+    label temp3 "{{ sensor_label_system_temp | default('System Temp') }}"
+
+    # Fans
+    # Label for PSU Fan
+    label fan1 "{{ sensor_label_psu_fan | default('PSU Fan') }}"
+    # Label for CPU Fan
+    label fan2 "{{ sensor_label_cpu_fan | default('CPU Fan') }}"
+    # Label for System Fan 2
+    label fan3 "{{ sensor_label_system_fan2 | default('System FAN2') }}"
+    # Label for System Fan 3
+    label fan4 "{{ sensor_label_system_fan3 | default('System FAN3') }}"
+    # Label for System Fan 4
+    label fan5 "{{ sensor_label_system_fan4 | default('System FAN4') }}"
+
+    # Voltages
+    # Label for +12V rail sensor
+    label in0 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for +5V rail sensor
+    label in1 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for Battery Voltage sensor
+    label in2 "{{ sensor_label_vbat | default('Vbat') }}"
+
+
+# ==============================================================================
+# Chip: Fujitsu Syleus (FSCSYL)
+# ==============================================================================
+chip "fscsyl-*"
+
+    # Temperatures
+    # Label for CPU Temperature sensor
+    label temp1 "{{ sensor_label_cpu_temp | default('CPU Temp') }}"
+    # Label for Super I/O Temperature sensor
+    label temp4 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+    # Label for Northbridge Temperature sensor
+    label temp5 "{{ sensor_label_northbridge_temp | default('Northbridge Temp') }}"
+
+    # Fans
+    # Label for CPU Fan
+    label fan1 "{{ sensor_label_cpu_fan | default('CPU Fan') }}"
+    # Label for System Fan 2
+    label fan2 "{{ sensor_label_system_fan2 | default('System FAN2') }}"
+    # Label for System Fan 3
+    label fan3 "{{ sensor_label_system_fan3 | default('System FAN3') }}"
+    # Label for System Fan 4
+    label fan4 "{{ sensor_label_system_fan4 | default('System FAN4') }}"
+    # Label for PSU Fan
+    label fan7 "{{ sensor_label_psu_fan | default('PSU Fan') }}"
+
+    # Voltages
+    # Label for +12V rail sensor
+    label in0 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for +5V rail sensor
+    label in1 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for Battery Voltage sensor
+    label in2 "{{ sensor_label_vbat | default('Vbat') }}"
+    # Label for +3.3V rail sensor
+    label in3 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for Auxiliary +3.3V sensor
+    label in5 "{{ sensor_label_3v3_aux | default('+3.3V-Aux') }}"
+
+
+# ==============================================================================
+# Chip: VIA VT1211
+# ==============================================================================
+chip "vt1211-*"
+
+    # Label for +3.3V rail sensor
+    label in5 "{{ sensor_label_3v3 | default('+3.3V') }}"
+
+    # Label for Super I/O Temperature sensor
+    label temp2 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+
+
+# ==============================================================================
+# Chip: VIA VT8231
+# ==============================================================================
+chip "vt8231-*"
+
+    # Label for +3.3V rail sensor
+    label in5 "{{ sensor_label_3v3 | default('+3.3V') }}"
+
+
+# ==============================================================================
+# Chip: SMSC LPC47M192
+# ==============================================================================
+chip "smsc47m192-*"
+
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for VCC sensor
+    label in5 "{{ sensor_label_vcc | default('VCC') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 12V rail (in4)
+    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    # Maximum threshold for 12V rail (in4)
+    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+    # Minimum threshold for VCC (in5)
+    set in5_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for VCC (in5)
+    set in5_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+    # Label for Super I/O Temperature sensor
+    label temp1 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+
+
+# ==============================================================================
+# Chip: National Semiconductor / Analog Devices (LM85 Series, ADM1027, ADT7463/7468, EMC6D100/102/103)
+# ==============================================================================
+chip "lm85-*" "lm85b-*" "lm85c-*" "adm1027-*" "adt7463-*" "adt7468-*" \
+     "emc6d100-*" "emc6d102-*" "emc6d103-*" "emc6d103s-*"
+
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+
+    # Depending on how your chip is hardwired, you may or may not have +12V readings.
+    #    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    #    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+
+    # Label for Motherboard Temperature sensor
+    label temp2 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+
+
+# ==============================================================================
+# Chip: Nuvoton EMC6W201
+# ==============================================================================
+chip "emc6w201-*"
+
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+
+    # Label for Motherboard Temperature sensor
+    label temp6 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+
+
+# ==============================================================================
+# Chip: National Semiconductor PC87365 / PC87366
+# ==============================================================================
+chip "pc87365-*" "pc87366-*"
+
+# Voltage inputs
+    # Label for 3.3V Standby sensor
+    label in7 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for VDD sensor
+    label in8 "{{ sensor_label_vdd | default('VDD') }}"
+    # Label for Battery Voltage sensor
+    label in9 "{{ sensor_label_vbat | default('Vbat') }}"
+    # Label for AVDD sensor
+    label in10 "{{ sensor_label_avdd | default('AVDD') }}"
+
+    # Compute formula for in7 (voltage divider correction)
+    compute in7   @*2, @/2
+    # Compute formula for in8 (voltage divider correction)
+    compute in8   @*2, @/2
+    # Compute formula for in10 (voltage divider correction)
+    compute in10  @*2, @/2
+
+# These are the operating conditions as recommended by National Semiconductor
+    # Minimum threshold for 3V standard sensors (in7)
+    set in7_min   {{ sensor_voltage_3v_std_min | default('3.0') }}
+    # Maximum threshold for 3V standard sensors (in7)
+    set in7_max   {{ sensor_voltage_3v_std_max | default('3.6') }}
+    # Minimum threshold for 3V standard sensors (in8)
+    set in8_min   {{ sensor_voltage_3v_std_min | default('3.0') }}
+    # Maximum threshold for 3V standard sensors (in8)
+    set in8_max   {{ sensor_voltage_3v_std_max | default('3.6') }}
+    # Minimum threshold for 3V standard sensors (in10)
+    set in10_min  {{ sensor_voltage_3v_std_min | default('3.0') }}
+    # Maximum threshold for 3V standard sensors (in10)
+    set in10_max  {{ sensor_voltage_3v_std_max | default('3.6') }}
+
+# Depending on the hardware setup, the battery voltage may or may not be monitored.
+#    set in9_min   {{ sensor_voltage_vbat_hard_min | default('2.4') }}
+#    set in9_max   {{ sensor_voltage_3v_std_max | default('3.6') }}
+
+    # Label for Super I/O Temperature sensor
+    label temp3 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+
+    # Minimum temperature for SIO Temp
+    set temp3_min    0
+    # Maximum temperature for SIO Temp
+    set temp3_max   70
+    # Critical temperature threshold for SIO Temp
+    set temp3_crit  85
+
+
+# ==============================================================================
+# Chip: Analog Devices ADM1030 / ADM1031
+# ==============================================================================
+chip "adm1030-*" "adm1031-*"
+
+    # Label for Motherboard Temperature sensor
+    label temp1 "{{ sensor_label_mb_temp | default('M/B Temp') }}"
+
+
+# ==============================================================================
+# Chip: Winbond W83627THF
+# ==============================================================================
+chip "w83627thf-*"
+
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for 5V Standby sensor
+    label in7 "{{ sensor_label_5vsb | default('5VSB') }}"
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Internal resistors
+    # Compute formula for in3 (voltage divider correction)
+    compute in3  @ * (1 + 34/51), @ / (1 + 34/51)
+    # Compute formula for in7 (voltage divider correction)
+    compute in7  @ * (1 + 34/51), @ / (1 + 34/51)
+
+    # Minimum threshold for 5V rail (in3)
+    set in3_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 5V rail (in7)
+    set in7_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in7)
+    set in7_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+
+# The battery voltage may or may not be monitored.
+#    set in8_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+#    set in8_max  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond W83627EHF/DHG, NCT6775/6776/6779/6791/6795/6796
+# ==============================================================================
+chip "w83627ehf-*" "w83627dhg-*" "w83667hg-*" "nct6775-*" "nct6776-*" \
+     "nct6779-*" "nct6791-*" "nct6795-*" "nct6796-*"
+
+    # Label for Vcore sensor
+    label in0 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for AVCC sensor
+    label in2 "{{ sensor_label_avcc | default('AVCC') }}"
+    # Label for +3.3V rail sensor
+    label in3 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in7 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Minimum threshold for AVCC (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for AVCC (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 3.3V rail (in3)
+    set in3_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in3)
+    set in3_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 3.3V Standby (in7)
+    set in7_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V Standby (in7)
+    set in7_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in8)
+    set in8_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in8) - Note: Schema uses 3v3_max here? Preserving original logic.
+    set in8_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond W83627UHG
+# ==============================================================================
+chip "w83627uhg-*"
+
+    # Label for AVCC sensor
+    label in2 "{{ sensor_label_avcc | default('AVCC') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for 5V Standby sensor
+    label in7 "{{ sensor_label_5vsb | default('5VSB') }}"
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Minimum threshold for AVCC (in2)
+    set in2_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for AVCC (in2)
+    set in2_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 5V Standby (in7)
+    set in7_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V Standby (in7)
+    set in7_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for Vbat (in8)
+    set in8_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in8) - Note: Schema uses 3v3_max here? Preserving original logic.
+    set in8_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Faraday F71805F
+# ==============================================================================
+chip "f71805f-*"
+
+    # Label for +3.3V rail sensor
+    label in0 "{{ sensor_label_3v3 | default('+3.3V') }}"
+
+    # Minimum threshold for 3.3V rail (in0)
+    set in0_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in0)
+    set in0_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Faraday F71872F
+# ==============================================================================
+chip "f71872f-*"
+
+    # Label for +3.3V rail sensor
+    label in0 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for Battery Voltage sensor
+    label in9 "{{ sensor_label_vbat | default('Vbat') }}"
+    # Label for 3.3V Standby sensor
+    label in10 "{{ sensor_label_3vsb | default('3VSB') }}"
+
+    # Minimum threshold for 3.3V rail (in0)
+    set in0_min   {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in0)
+    set in0_max   {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in9)
+    set in9_min   {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in9)
+    set in9_max   {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Minimum threshold for 3.3V Standby (in10)
+    set in10_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V Standby (in10)
+    set in10_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: AMD K8 Temp (CPU Core Temp)
+# ==============================================================================
+chip "k8temp-*"
+
+    # Label for Core 0 Temperature sensor
+    label temp1 "{{ sensor_label_core0_temp | default('Core0 Temp') }}"
+    label temp2 "{{ sensor_label_core0_temp | default('Core0 Temp') }}"
+    # Label for Core 1 Temperature sensor
+    label temp3 "{{ sensor_label_core1_temp | default('Core1 Temp') }}"
+    label temp4 "{{ sensor_label_core1_temp | default('Core1 Temp') }}"
+
+
+# ==============================================================================
+# Chip: Nuvoton DME1737
+# ==============================================================================
+chip "dme1737-*"
+
+    # Label for 5V Standby sensor
+    label in0 "{{ sensor_label_5vsb | default('5VSB') }}"
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for 3.3V Standby sensor
+    label in5 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in6 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Label for Super I/O Temperature sensor
+    label temp2 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+
+    # Minimum threshold for 5V Standby (in0)
+    set in0_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V Standby (in0)
+    set in0_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 12V rail (in4)
+    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    # Maximum threshold for 12V rail (in4)
+    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+    # Minimum threshold for 3.3V Standby (in5)
+    set in5_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V Standby (in5)
+    set in5_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in6)
+    set in6_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in6)
+    set in6_max  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond SCH311x
+# ==============================================================================
+chip "sch311x-*"
+
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+    # Label for 3.3V Standby sensor
+    label in5 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in6 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Label for Super I/O Temperature sensor
+    label temp2 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 12V rail (in4)
+    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+    # Maximum threshold for 12V rail (in4)
+    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+    # Minimum threshold for 3.3V Standby (in5)
+    set in5_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V Standby (in5)
+    set in5_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in6)
+    set in6_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in6)
+    set in6_max  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond SCH5027
+# ==============================================================================
+chip "sch5027-*"
+
+    # Label for 5V Standby sensor
+    label in0 "{{ sensor_label_5vsb | default('5VSB') }}"
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in5 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in6 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Label for Super I/O Temperature sensor
+    label temp2 "{{ sensor_label_sio_temp | default('SIO Temp') }}"
+
+    # Minimum threshold for 5V Standby (in0)
+    set in0_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V Standby (in0)
+    set in0_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 3.3V Standby (in5)
+    set in5_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V Standby (in5)
+    set in5_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in6)
+    set in6_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in6)
+    set in6_max  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Winbond SCH5127
+# ==============================================================================
+chip "sch5127-*"
+
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in5 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in6 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 3.3V Standby (in5)
+    set in5_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V Standby (in5)
+    set in5_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for Vbat (in6)
+    set in6_min  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+    # Maximum threshold for Vbat (in6)
+    set in6_max  {{ sensor_voltage_vbat_min | default('3.0 * 1.10') }}
+
+
+# ==============================================================================
+# Chip: Faraday F71808E/A, F71862FG, F71869/A, F71882FG, F71889FG/ED/A
+# ==============================================================================
+chip "f71808e-*" "f71808a-*" "f71862fg-*" "f71869-*" "f71869a-*" "f71882fg-*" \
+     "f71889fg-*" "f71889ed-*" "f71889a-*"
+
+    # Label for +3.3V rail sensor
+    label in0 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in7 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Compute formula for in0 (voltage divider correction)
+    compute in0  @*2, @/2
+    # Compute formula for in7 (voltage divider correction)
+    compute in7  @*2, @/2
+    # Compute formula for in8 (voltage divider correction)
+    compute in8  @*2, @/2
+
+
+# ==============================================================================
+# Chip: Faraday F71858FG, F8000
+# ==============================================================================
+chip "f71858fg-*" "f8000-*"
+
+    # Label for +3.3V rail sensor
+    label in0 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in1 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in2 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Compute formula for in0 (voltage divider correction)
+    compute in0  @*2, @/2
+    # Compute formula for in1 (voltage divider correction)
+    compute in1  @*2, @/2
+    # Compute formula for in2 (voltage divider correction)
+    compute in2  @*2, @/2
+
+
+# ==============================================================================
+# Chip: Faraday F71868A
+# ==============================================================================
+chip "f71868a-*"
+
+    # Label for +3.3V rail sensor
+    label in0 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in7 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in8 "{{ sensor_label_vbat | default('Vbat') }}"
+    # Label for 5V Standby sensor
+    label in9 "{{ sensor_label_5vsb | default('5VSB') }}"
+
+    # Compute formula for in0 (voltage divider correction)
+    compute in0  @*2, @/2
+    # Compute formula for in7 (voltage divider correction)
+    compute in7  @*2, @/2
+    # Compute formula for in8 (voltage divider correction)
+    compute in8  @*2, @/2
+    # Compute formula for in9 (voltage divider correction)
+    compute in9  @*3, @/3
+
+
+# ==============================================================================
+# Chip: Faraday F81865F
+# ==============================================================================
+chip "f81865f-*"
+
+    # Label for +3.3V rail sensor
+    label in0 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for 3.3V Standby sensor
+    label in5 "{{ sensor_label_3vsb | default('3VSB') }}"
+    # Label for Battery Voltage sensor
+    label in6 "{{ sensor_label_vbat | default('Vbat') }}"
+
+    # Compute formula for in0 (voltage divider correction)
+    compute in0  @*2, @/2
+    # Compute formula for in5 (voltage divider correction)
+    compute in5  @*2, @/2
+    # Compute formula for in6 (voltage divider correction)
+    compute in6  @*2, @/2
+
+
+# ==============================================================================
+# Chip: Analog Devices ADT7473/7475
+# ==============================================================================
+chip "adt7473-*" "adt7475-*"
+
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+
+    # Label for Board Temperature sensor
+    label temp2 "{{ sensor_label_board_temp | default('Board Temp') }}"
+
+
+# ==============================================================================
+# Chip: Analog Devices ADT7476, ADT7490
+# ==============================================================================
+chip "adt7476-*" "adt7490-*"
+
+    # Label for Vcore sensor
+    label in1 "{{ sensor_label_vcore | default('Vcore') }}"
+    # Label for +3.3V rail sensor
+    label in2 "{{ sensor_label_3v3 | default('+3.3V') }}"
+    # Label for +5V rail sensor
+    label in3 "{{ sensor_label_5v | default('+5V') }}"
+    # Label for +12V rail sensor
+    label in4 "{{ sensor_label_12v | default('+12V') }}"
+
+    # Minimum threshold for 3.3V rail (in2)
+    set in2_min  {{ sensor_voltage_3v3_min | default('3.3 * 0.90') }}
+    # Maximum threshold for 3.3V rail (in2)
+    set in2_max  {{ sensor_voltage_3v3_max | default('3.3 * 1.10') }}
+    # Minimum threshold for 5V rail (in3)
+    set in3_min  {{ sensor_voltage_5v_min | default('5.0 * 0.90') }}
+    # Maximum threshold for 5V rail (in3)
+    set in3_max  {{ sensor_voltage_5v_max | default('5.0 * 1.10') }}
+
+# Depending on how your ADT7476 is hardwired, you may or may not have +12V readings.
+#    set in4_min {{ sensor_voltage_12v_min | default('12.0 * 0.90') }}
+#    set in4_max {{ sensor_voltage_12v_max | default('12.0 * 1.10') }}
+
+    # Label for Motherboard Temperature sensor
+    label temp2 "{{ sensor_label_mb_temp | default('M/B Temp') }}"

@@ -1,23 +1,29 @@
-# ==============================================================================
-# Victoria Metrics Configuration Template
-# ==============================================================================
-# This template generates command-line arguments for the Victoria Metrics server.
-# It is intended to be used in conjunction with a systemd unit file or a wrapper
-# script that passes these ARGS to the `victoria-metrics` binary.
-#
-# Self-Documentation:
-# - Each directive is prefixed with a comment derived from the schema description.
-# - Variables use the `| default()` filter to ensure safe rendering even if undefined.
-# - No arbitrary Python or non-standard filters are used.
+# Victoria Metrics Server Configuration Template
+# This template configures the command-line arguments for the Victoria Metrics server.
+# It is designed to be self-documenting and safe for reuse within an Ansible role.
 
-# ------------------------------------------------------------------------------
-# ARGS: The base set of command-line arguments for the Victoria Metrics server.
-# ------------------------------------------------------------------------------
-# Due to shell escaping rules, backslashes for regexes must be doubled (\\d for \d).
-# If running under systemd, escaping may need to be quadrupled depending on
-# how the service file interprets the ExecStart line.
+# -----------------------------------------------------------------------------
+# Storage Configuration
+# -----------------------------------------------------------------------------
+# storage_data_path: The path to the directory where Victoria Metrics stores its data.
+# Default: /var/lib/victoria-metrics
 #
-# Variable: storage_data_path
-# Description: The path to the directory where Victoria Metrics stores its data.
-# ------------------------------------------------------------------------------
-ARGS="-storageDataPath={{ (storage_data_path | default('/var/lib/victoria-metrics')) | string }}"
+# The -storageDataPath argument tells the Victoria Metrics server where to persist
+# its time-series data on disk. Ensure this directory exists and has sufficient
+# permissions for the Victoria Metrics process to read and write.
+
+# Construct the ARGS string safely.
+# We use a Jinja raw block to prevent Jinja from interpreting the literal
+# double curly braces in the command-line argument syntax if the variable
+# values were to contain them (though unlikely for paths), and to ensure
+# the output format `-storageDataPath=<value>` is preserved exactly.
+# However, since the value itself is a simple string path, standard interpolation
+# is sufficient and safer for escaping. We wrap it in quotes to handle spaces in paths.
+
+{% set _storage_data_path = storage_data_path | default('/var/lib/victoria-metrics') %}
+
+# Command-line arguments passed to the Victoria Metrics server.
+# These arguments control the runtime behavior and configuration of the server.
+# When running under systemd, special care must be taken with shell escaping
+# for regexes (double backslashes) and newlines.
+ARGS="-storageDataPath={{ _storage_data_path | quote }}"

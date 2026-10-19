@@ -28,7 +28,7 @@ FallbackDNS=') if fallback_dns_servers | count > 0 else '' }}
 Domains={{ domains | join(',') | default('') | replace(',','
 Domains=') if domains | count > 0 else '' }}
 DNSSEC={{ 'yes' if dnssec else 'no' }}
-DNSOverTLS={{ dns_over_tls }}
+{% if dns_over_tls is defined and dns_over_tls is not none and dns_over_tls != '' %}DNSOverTLS={{ dns_over_tls }}{% else %}#DNSOverTLS=no{% endif %}
 MulticastDNS={{ 'yes' if use_mdns else 'no' }}
 LLMNR={{ 'yes' if use_llmnr else 'no' }}
 Cache={{ 'yes' if caching else 'no' }}

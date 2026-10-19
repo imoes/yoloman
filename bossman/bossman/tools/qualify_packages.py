@@ -38,6 +38,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+
+import httpx
 from contextvars import ContextVar
 from pathlib import Path
 
@@ -46,16 +49,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))       # bossman/ �
 
 from bossman.tools._jsonio import write_catalog  # noqa: E402
 from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
+from bossman.tools.batch_verify import fix_dict2items_unpack  # noqa: E402
 import enrich_gates as EG  # noqa: E402
 from mine_directive_values import mine_one  # noqa: E402 — the per-directive value miner, reused as a stage
 from bossman.services.chat_client import ChatClient, ChatClientError  # noqa: E402
 from bossman.services.websearch import SearxngClient  # noqa: E402
+from bossman.tools import rpm_source  # noqa: E402
+from bossman.tools.template_invariants import render_with_defaults, same_file  # noqa: E402
+from bossman.tools.template_repair_chain import repair_template  # noqa: E402
 
 QWEN79B = (os.environ.get("YOLOMAN_LLM_BASE", "") + "/qwen79b", "qwen3next-79b")
 LAGUNA = (os.environ.get("YOLOMAN_LLM_BASE", "") + "/laguna", "laguna")
 # Qwen3.6-35B: the enrich pilot winner (10/10, ~73s/template) — the default for the v6 enrich pass.
 QWEN35B = (os.environ.get("YOLOMAN_LLM_BASE", "") + "/qwen35b", "Qwen3.6-35B-A3B-UD-Q4_K_XL")
-MODELS = {"qwen79b": QWEN79B, "laguna": LAGUNA, "qwen35b": QWEN35B}
+# qwen3.8-27b: the candidate measured against qwen35b by benchmark_qualify_models before the RedHat run.
+QWEN27B = (os.environ.get("YOLOMAN_LLM_BASE", "") + "/qwen27b", "qwen3.8-27b")
+MODELS = {"qwen79b": QWEN79B, "laguna": LAGUNA, "qwen35b": QWEN35B, "qwen27b": QWEN27B}
 
 # qwen79b is a reasoning model. Without this it spends the budget thinking: one package decoded 26 180
 # tokens at ~29 t/s, which is about 15 minutes, tripped the 900 s client timeout below, and surfaced as
@@ -70,8 +79,25 @@ SEARXNG = os.environ.get("YOLOMAN_SEARX_BASE", "")
 # Hand-authored templates the batch must not regenerate (maintained + verified
 # by hand; the LLM would clobber them). The web-server vhost/config templates
 # drive the Management snapins.
+#: Suffix of a template made from an RPM. The Debian and RedHat file of one software are different files
+#: (/etc/httpd/conf/httpd.conf is not /etc/apache2/apache2.conf), so they are different templates.
+REDHAT_SUFFIX = "-redhat"
+
+
+def _fam(entry: dict) -> dict:
+    """The entry's branch for the family being processed. `_family` is set by whoever built the entry for a
+    RedHat pass; everything else is the Debian pass, so Debian stays the default."""
+    if not isinstance(entry, dict):
+        return {}
+    return (entry.get("families") or {}).get(entry.get("_family") or "debian") or {}
+
 _CURATED = frozenset({"nginx-vhost", "apache-vhost", "caddy", "haproxy", "traefik",
-                      "apt-proxy", "suse-proxy"})
+                      "apt-proxy", "suse-proxy",
+                      # Fixed by hand on 2026-10-10 and each verified by the package's own checker on the family
+                      # it targets (chronyd -p, redis-server, dockerd --validate, containerd config dump,
+                      # dnsdist --check-config, php-fpm -t, oidentd -S, inspircd --nofork, testparm -s, fail2ban-client -t, stubby -i, munin-node, knockd -D, ipmiseld, e2guardian -N, sogod, freeradius -C, radvd --configtest, mopidy config, pygopherd, nsd-checkconf, clamd); a regeneration would throw that away.
+                      "chrony.conf", "redis", "docker-daemon", "config.toml", "dnsdist",
+                      "php-fpm", "php-fpm-redhat", "oidentd", "inspircd", "smb.conf", "fail2ban-jail", "stubby", "munin-node.conf", "knockd.conf", "ipmiseld.conf", "e2guardian.conf", "sogo", "freeradius", "radvd", "mopidy", "pygopherd", "nsd", "clamav", "clamd-scan-redhat"})
 # FOUND, not counted: parents[2] is the repo root in the container and one level short in a checkout,
 # which is why a patched duplicate of this file used to live in bossman/scripts/. See _paths.
 ROOT = repo_root(__file__)
@@ -82,6 +108,42 @@ ROOT = repo_root(__file__)
 # the .state files together, so an in-container run shares the host's state.
 _CONFIGS = configs_dir(__file__)
 TEMPLATES_DIR = _CONFIGS / "config_templates"
+
+
+def _curated(name: str) -> bool:
+    """A template the batch must not regenerate: listed above, or marked `source: hand` in its meta.json.
+
+    The list alone was not enough. Every template directory counts as an "existing package" for the pass, so a
+    hand-built one that nobody added to the list was taken for a new package and regenerated: radicale-config
+    (built from the shipped file, verified with radicale) was overwritten by a model draft on 2026-10-11, the
+    first pass after it was committed. The meta mark travels with the template; nobody has to remember the list."""
+    if name in _CURATED or name in _catalog_templates():
+        return True
+    try:
+        meta = json.loads((TEMPLATES_DIR / name / "meta.json").read_text())
+    except (OSError, ValueError):
+        return False
+    # `repaired`: a mechanical repair verified against the shipped file (repair_from_shipped) — regenerating it
+    # threw the verified state away: the 2026-10-14 Debian worklist pass rewrote 17 fixed templates, among them
+    # charon-systemd, which then failed to render with its own defaults again.
+    return isinstance(meta, dict) and (meta.get("source") == "hand" or bool(meta.get("repaired")))
+
+
+_CATALOG_TEMPLATES: set[str] | None = None
+
+
+def _catalog_templates() -> set[str]:
+    """Templates a catalog role renders. A role's template is run for real and its runtime checked; the batch must
+    not swap it for a fresh model draft (flim and xrdp.ini were regenerated by the 2026-10-14 worklist pass)."""
+    global _CATALOG_TEMPLATES
+    if _CATALOG_TEMPLATES is None:
+        try:
+            cat = json.loads((_CONFIGS / "package_catalog.json").read_text())
+        except (OSError, ValueError):
+            cat = {}
+        _CATALOG_TEMPLATES = {e["template"] for e in cat.values() if isinstance(e, dict) and e.get("template")}
+    return _CATALOG_TEMPLATES
+
 CATALOG = _CONFIGS / "package_catalog.json"
 UNIVERSE = _CONFIGS / "package_universe_real.json"
 STATE = _CONFIGS / ".schema_enum_state.json"
@@ -104,6 +166,12 @@ DIRECTIVES_STATE = _CONFIGS / ".qualify_directives_state.json"
 # process_package's set([]) isolates that package's failures — a plain shared list
 # would cross-attribute failures between packages running at the same time.
 _LLM_FAILURES: ContextVar[list[str]] = ContextVar("llm_failures", default=[])
+
+
+#: Enum values the model PROPOSED and how many no source contained, per package — the hallucination rate before
+#: the grounding gate. The gate makes the output safe either way; this number says how hard it had to work, which
+#: is what tells two models apart when both outputs look clean.
+_ENUM_STATS: ContextVar[dict[str, int]] = ContextVar("enum_stats", default={})
 
 
 def _note_llm_failure(where: str, exc: object) -> None:
@@ -363,6 +431,14 @@ _MAN_MIN_CHARS = 6000
 #: Length alone separates them — the stubs measured 1.5-4.7 kB and the real pages 12-165 kB.
 
 
+#: Mirrors that did not ANSWER (timeout, connection refused) during this run. Measured 2026-10-16: man7.org hung
+#: behind the proxy (40 s, no response) while manpages.debian.org answered in 0.2 s — and every candidate waited
+#: out the 20 s timeout on man7.org first, so one package took 199 s to be skipped and no request reached the LLM
+#: for minutes. A host that does not answer is skipped for the rest of the process, and said so once. A 404 is an
+#: answer and does not count.
+_DEAD_MAN_HOSTS: set[str] = set()
+
+
 async def _online_manpage(searx: SearxngClient, name: str, *extra: str) -> str | None:
     """Fetch a section-5 man page from the public mirrors when it isn't
     installed locally (most universe packages aren't). man7.org has a
@@ -378,8 +454,16 @@ async def _online_manpage(searx: SearxngClient, name: str, *extra: str) -> str |
         for url in (f"https://man7.org/linux/man-pages/man5/{c}.5.html",
                     f"https://manpages.debian.org/{c}.5",
                     f"https://manpages.debian.org/{c}"):
+            host = url.split("/")[2]
+            if host in _DEAD_MAN_HOSTS:
+                continue
             try:
                 txt = await searx.fetch(url, max_chars=200000)
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ProxyError) as exc:
+                _DEAD_MAN_HOSTS.add(host)
+                print(f"  man pages: {host} does not answer ({type(exc).__name__}) — skipped for this run",
+                      flush=True)
+                continue
             except Exception:  # noqa: BLE001 — 404/network → next candidate
                 continue
             head = txt[:400].lower()
@@ -497,6 +581,12 @@ def _pick_primary_config(
             tier = 2                                    # conventional name, unambiguous suffix
         elif base == name and not _NOT_A_CONFIG_DIR.match(c):
             tier = 3                                    # bare name, but not the PAM/init trap
+        elif _NOT_A_CONFIG_DIR.match(c):
+            # The PAM stack, the init script, the sysconfig/defaults snippet — LAST, not merely "some other
+            # file". Without a catalog path (every RedHat universe package) openssh-server's candidates all
+            # land in the fallback tier, /etc/pam.d/sshd ties /etc/ssh/sshd_config on depth and wins on order:
+            # the same trap the docstring describes, reached by a different road.
+            tier = 6
         else:
             tier = 5 if fragment else 4                 # fall back to a real file before a fragment
         return (tier, c.count("/"))                     # shallowest wins inside a tier
@@ -529,6 +619,32 @@ def _read_maybe_gzipped(path: Path, limit: int = 200000) -> str:
         return ""
 
 
+def _doc_samples(root: Path, limit: int = 200000) -> str:
+    """The commented sample configs under an unpacked package's /usr/share/doc, concatenated. Shared by the .deb
+    and the .rpm source: where the sample lives is a packaging convention both distributions follow."""
+    parts: list[str] = []
+    total = 0
+    for base in _DOC_SAMPLE_DIRS:
+        top = root / base
+        if not top.is_dir():
+            continue
+        # Sorted so the result is the same on every run: a source that shuffles makes a grounding
+        # decision depend on directory order.
+        for f in sorted(top.rglob("*")):
+            if not f.is_file() or not f.name.endswith(_DOC_SAMPLE_SUFFIXES):
+                continue
+            text = _read_maybe_gzipped(f, limit - total)
+            if len(text) < 200:
+                continue
+            parts.append(f"=== {f.relative_to(root)} ===\n{text}")
+            total += len(text)
+            if total >= limit:
+                break
+        if total >= limit:
+            break
+    return "\n\n".join(parts)
+
+
 def deb_doc_samples(pkg: str, limit: int = 200000) -> str:
     """The commented sample configs a package ships under /usr/share/doc, concatenated.
 
@@ -547,27 +663,7 @@ def deb_doc_samples(pkg: str, limit: int = 200000) -> str:
             return ""
         root = work / "root"
         subprocess.run(["dpkg-deb", "-x", str(debs[0]), str(root)], capture_output=True, timeout=60)
-        parts: list[str] = []
-        total = 0
-        for base in _DOC_SAMPLE_DIRS:
-            top = root / base
-            if not top.is_dir():
-                continue
-            # Sorted so the result is the same on every run: a source that shuffles makes a grounding
-            # decision depend on directory order.
-            for f in sorted(top.rglob("*")):
-                if not f.is_file() or not f.name.endswith(_DOC_SAMPLE_SUFFIXES):
-                    continue
-                text = _read_maybe_gzipped(f, limit - total)
-                if len(text) < 200:
-                    continue
-                parts.append(f"=== {f.relative_to(root)} ===\n{text}")
-                total += len(text)
-                if total >= limit:
-                    break
-            if total >= limit:
-                break
-        return "\n\n".join(parts)
+        return _doc_samples(root, limit)
     except (OSError, subprocess.SubprocessError):
         return ""
     finally:
@@ -667,7 +763,7 @@ def _config_path(name: str, entry: dict, man_text: str | None, codecs: dict | No
     basename matches (so we update the canonical /etc/<pkg>/<file> entry
     instead of writing a duplicate at /etc/<file>) → first /etc path named in
     the man page → best-effort /etc/<name>."""
-    fam = (entry.get("families") or {}).get("debian") or {}
+    fam = _fam(entry)
     cfg = fam.get("config_path", "")
     if cfg:
         return cfg
@@ -788,7 +884,7 @@ def _flatten_schema_defaults(schema: dict) -> dict:
     return schema
 
 
-def _record_target(name: str, path: str, from_deb: bool) -> None:
+def _record_target(name: str, path: str, from_deb: bool, family: str = "debian") -> None:
     """Write down WHICH FILE this template renders — configs/config_templates/<name>/meta.json.
 
     The pipeline has always known this and always thrown it away. `_deb_config` extracts the package and
@@ -807,12 +903,73 @@ def _record_target(name: str, path: str, from_deb: bool) -> None:
     """
     if not path or not path.startswith("/") or path.endswith("/") or "*" in path:
         return
+    meta: dict = {"target_path": path, "source": "qualify",
+                  "witness": ("rpm" if family == "redhat" else "deb") if from_deb else "derived"}
+    if family != "debian":
+        # The index prefers a template whose family matches the host; without this key a RedHat template
+        # would be offered to a Debian host editing the same path.
+        meta["family"] = family
     try:
-        (TEMPLATES_DIR / name / "meta.json").write_text(
-            json.dumps({"target_path": path, "source": "qualify",
-                        "witness": "deb" if from_deb else "derived"}, indent=2) + "\n")
+        (TEMPLATES_DIR / name / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
     except OSError:
-        pass
+        return
+    _targets_index().setdefault(path, {})[name] = family
+
+
+_TARGETS: dict[str, dict[str, str]] | None = None
+
+
+def _targets_index() -> dict[str, dict[str, str]]:
+    """target path -> {template name: family} from every template's meta.json, read once per process and kept
+    current by _record_target. What the RedHat pass asks before writing a template: does one exist for this file?"""
+    global _TARGETS
+    if _TARGETS is None:
+        _TARGETS = {}
+        for d in TEMPLATES_DIR.iterdir() if TEMPLATES_DIR.is_dir() else []:
+            meta = _load(d / "meta.json", {}) if d.is_dir() else {}
+            target = meta.get("target_path") if isinstance(meta, dict) else None
+            if target:
+                _TARGETS.setdefault(target, {})[d.name] = meta.get("family") or "debian"
+    return _TARGETS
+
+
+def _rpm_sources(
+    pkgs: list[str], cfg_base: str, name: str, cfg_path: str, known_paths: list[str],
+) -> tuple[str | None, bool, str | None, str, str | None, str | None]:
+    """The RedHat twin of _deb_config + deb_doc_samples, from ONE download per package:
+    (primary config text, ships /etc, primary path, documented samples, own man5 page, fetch failure).
+
+    Candidates are the RPM's own %config list plus the universe's measured /etc paths that really are in the
+    unpacked tree (a package may ship a config it does not flag %config, as on Debian). `fetch failure` is
+    the reason when NO candidate package could be fetched — a fetch that failed is not a package without
+    config, and the caller must not record it as one."""
+    failure = None
+    for pkg in pkgs:
+        tree = rpm_source.fetch(pkg)
+        try:
+            if not tree.ok:
+                failure = f"{pkg}: {tree.status}"
+                continue
+            failure = None
+            etc = tree.root / "etc"
+            ships_etc = etc.is_dir() and any(p.is_file() for p in etc.rglob("*"))
+            cands = list(tree.declared)
+            for p in known_paths:
+                if p not in cands and (tree.root / p.lstrip("/")).is_file():
+                    cands.append(p)
+            if cfg_path and cfg_path not in cands and (tree.root / cfg_path.lstrip("/")).is_file():
+                cands.append(cfg_path)
+            primary = _pick_primary_config(cands, cfg_base, name, cfg_path)
+            text = None
+            if primary and (tree.root / primary.lstrip("/")).is_file():
+                text = (tree.root / primary.lstrip("/")).read_text(errors="replace")[:60000]
+            base = (primary or "").rsplit("/", 1)[-1]
+            man = rpm_source.man5_text(tree, base, cfg_base, name)
+            if text or ships_etc:
+                return text, ships_etc, primary, _doc_samples(tree.root), man, None
+        finally:
+            tree.cleanup()
+    return None, False, None, "", None, failure
 
 
 async def _generate_template(name: str, man_text: str | None, web_text: str, qwen: ChatClient) -> bool:
@@ -845,7 +1002,7 @@ async def _generate_template(name: str, man_text: str | None, web_text: str, qwe
         return False
 
     tdir.mkdir(parents=True, exist_ok=True)
-    (tdir / "template.j2").write_text(out["template"])
+    (tdir / "template.j2").write_text(fix_dict2items_unpack(out["template"]))
     (tdir / "schema.json").write_text(json.dumps(_flatten_schema_defaults(out.get("values_schema", {})), indent=2) + "\n")
     (tdir / "sample.json").write_text(json.dumps(out.get("sample_values", {}), indent=2) + "\n")
     print(f"  {name}: generated template+schema+sample", flush=True)
@@ -904,7 +1061,7 @@ async def _parametrize_config(
     if not tpl.strip():
         return False
     tdir.mkdir(parents=True, exist_ok=True)
-    (tdir / "template.j2").write_text(tpl)
+    (tdir / "template.j2").write_text(fix_dict2items_unpack(tpl))
     (tdir / "schema.json").write_text(json.dumps(_flatten_schema_defaults(out.get("values_schema", {})), indent=2) + "\n")
     (tdir / "sample.json").write_text(json.dumps(out.get("sample_values", {}), indent=2) + "\n")
     print(f"  {name}: template from shipped config ({len(real_config)} bytes)", flush=True)
@@ -991,7 +1148,7 @@ async def _review_template(name: str, man_text: str | None, web_text: str, qwen:
     new_tpl = out.get("template")
     new_schema = out.get("values_schema")
     if new_tpl:
-        (tdir / "template.j2").write_text(new_tpl)
+        (tdir / "template.j2").write_text(fix_dict2items_unpack(new_tpl))
     if isinstance(new_schema, dict) and new_schema:
         (tdir / "schema.json").write_text(json.dumps(new_schema, indent=2) + "\n")
     removed = out.get("removed") or []
@@ -1052,7 +1209,7 @@ async def _mine_enums(
         return 0
 
     label = entry.get("label", name)
-    fam = (entry.get("families") or {}).get("debian") or {}
+    fam = _fam(entry)
     cfg = fam.get("config_path", "")
 
     # Combine sources — man page first (most authoritative). Show the FULL man
@@ -1136,6 +1293,9 @@ async def _mine_enums(
             continue
         if not values or props[field].get("enum"):
             continue
+        # A value the model proposed twice is ONE choice (firebird-redhat AuthServer listed Srp twice — a
+        # duplicate in a value set is an invariant violation, tests/test_catalog_fit_holds).
+        values = list(dict.fromkeys(values))
         grounded = _grounded_in(values, source_blob)
         # Gap → one targeted per-field search (capped per package), re-ground.
         searched = False
@@ -1146,6 +1306,9 @@ async def _mine_enums(
             if extra:
                 grounded = _grounded_in(values, source_blob + "\n" + extra)
         dropped += len(values) - len(grounded)
+        stats = _ENUM_STATS.get()
+        stats["proposed"] = stats.get("proposed", 0) + len(values)
+        stats["ungrounded"] = stats.get("ungrounded", 0) + len(values) - len(grounded)
         # A 1-value "enum" is not a choice — it means grounding kept only the
         # default (e.g. a y/n boolean where docs mention 'n' but not a bare
         # 'y'). Reject: better free-text than a nonsensical single-option
@@ -1280,7 +1443,7 @@ async def _enrich_template(name: str, qwen: ChatClient) -> dict:
 
     # run_all_gates shells out to render-check (gonja) and renders jinja — blocking; keep it off the loop.
     async def _gates(tmpl: str, craw: str) -> tuple:
-        return await asyncio.to_thread(EG.run_all_gates, name, tmpl, craw, props, sample)
+        return await asyncio.to_thread(EG.run_all_gates, name, tmpl, craw, props, sample, template_src)
 
     try:
         template, caps_raw = await _call(EG.build_user(name, template_src, props))
@@ -1298,7 +1461,7 @@ async def _enrich_template(name: str, qwen: ChatClient) -> dict:
         return {"enriched": False, "gate_fail": "; ".join(problems[:3])}
 
     # All gates green: write the three artifacts back atomically-ish (template + caps + normalised schema).
-    (tdir / "template.j2").write_text(template)
+    (tdir / "template.j2").write_text(fix_dict2items_unpack(template))
     (tdir / "capabilities.json").write_text(json.dumps(caps, indent=2) + "\n")
     if schema_changed:
         if isinstance(raw_schema, dict) and "properties" in raw_schema:
@@ -1346,9 +1509,188 @@ async def _mine_directives(
         return 0
     if not mined:
         return 0
+    mined = _drop_single_value_sets(mined)
     async with (lock or contextlib.nullcontext()):
-        directives[path] = mined
+        directives[path] = merge_remined(directives.get(path), mined)
     return len(mined)
+
+
+def merge_remined(old: dict | None, mined: dict) -> dict:
+    """A re-mine of a path that already has directives MERGES; it does not replace the entry.
+
+    The miner owns type, description, default, values, min and max. Later stages own the marks they added —
+    `enum_open` and `value_labels` (sync_value_sets, settle_value_disagreements) and a curated description with its
+    `description_source` — and a plain `directives[path] = mined` erased them. Measured 2026-10-10: the RedHat
+    pass re-mined /etc/ddclient.conf (the same path as Debian's) and dropped `enum_open` from `protocol`, and
+    check_catalog_fit then failed ("open on one side and closed on the other"; 27 one-sided value sets).
+
+    Marks travel only with the set they describe: `enum_open`/`value_labels` are kept when the re-mined value set is
+    the same set. A key the re-mine no longer reports is kept, not dropped — nothing vanishes silently."""
+    if not isinstance(old, dict):
+        return mined
+    merged = dict(old)
+    for key, spec in mined.items():
+        prev = old.get(key)
+        if not isinstance(spec, dict) or not isinstance(prev, dict):
+            merged[key] = spec
+            continue
+        spec = dict(spec)
+        if prev.get("description_source"):
+            spec["description"], spec["description_source"] = prev.get("description"), prev["description_source"]
+        same_set = ({str(v) for v in prev.get("values") or []} == {str(v) for v in spec.get("values") or []})
+        if same_set:
+            for mark in ("enum_open", "value_labels"):
+                if mark in prev:
+                    spec[mark] = prev[mark]
+        merged[key] = spec
+    return merged
+
+
+def _drop_single_value_sets(mined: dict) -> dict:
+    """A value set with fewer than two entries is not a choice — the same rule the template enum stage applies.
+
+    The directive miner recorded `master = ['0']` (accel-ppp), `keyUsage = ['digitalSignature']`: the one value the
+    shipped file happens to set, offered as the only option, which would turn the field into a dropdown that cannot
+    change anything. check_catalog_fit counts these as an invariant violation. The value moves to `default` when
+    none is recorded; the field stays a free field."""
+    for spec in mined.values():
+        if isinstance(spec, dict) and isinstance(spec.get("values"), list) and len(spec["values"]) < 2:
+            only = spec.pop("values")
+            if only and spec.get("default") in (None, ""):
+                spec["default"] = only[0]
+            if spec.get("type") == "enum":
+                spec["type"] = "string"
+    return mined
+
+
+async def _process_redhat(
+    name: str, entry: dict, searx: SearxngClient, qwen: ChatClient,
+    codecs: dict, state: dict, directives: dict, run_full: bool, run_directives: bool,
+    lock: asyncio.Lock | None,
+) -> dict:
+    """The same stages as the Debian path, grounded on the RPM instead of the .deb.
+
+    `name` is the template name `<pkg>-redhat`; the package is `entry["name"]`. Codecs for RedHat paths were
+    already decided at the bytes (rh_harvest + codec probe), so the codec LLM call runs only for a path the
+    registry does not know. Before writing a template it asks whether one already renders THIS file:
+      * a RedHat template does (bind9-redhat for /etc/named.conf) → it is the owner, nothing new is written;
+      * a Debian template does, and rendered with its own defaults it IS the RPM's file → the twin is reused;
+      * otherwise this package gets its own `<pkg>-redhat`, marked family=redhat so the index offers it to
+        RedHat hosts only.
+    """
+    tdir = TEMPLATES_DIR / name
+    fam = _fam(entry)
+    pkg_name = entry.get("name") or name.removesuffix(REDHAT_SUFFIX)
+    cfg = fam.get("config_path", "")
+    pkgs = fam.get("packages") if isinstance(fam.get("packages"), list) and fam.get("packages") else [pkg_name]
+    shipped, ships_etc, real_path, doc_text, own_man, failure = await asyncio.to_thread(
+        _rpm_sources, pkgs, cfg.rsplit("/", 1)[-1] if cfg else "", pkg_name, cfg, fam.get("config_paths") or [])
+    if failure and failure.endswith("not-in-repos"):
+        # The repos (BaseOS/AppStream/CRB/EPEL) do not have it — e.g. adminer, which the universe lists from
+        # another repo's filelists. A named skip, not a retry every pass.
+        return {"status": "skip", "reason": f"not in the EL9 repos ({failure})"}
+    if failure:
+        # Not "no config": the package could not be looked at. Recorded as failed so a later pass retries.
+        return {"status": "failed", "llm_errors": [f"rpm fetch: {failure}"]}
+    cfg_base = (real_path or cfg).rsplit("/", 1)[-1]
+    label = entry.get("label") or pkg_name
+    man_text = own_man or await _resolve_man(searx, pkg_name, cfg_base)
+    web_text = await _web_docs(searx, label, pkg_name, cfg_base)
+    path = real_path or _config_path(name, entry, man_text, codecs)
+    sample_text = shipped or ""
+    if doc_text:
+        sample_text = (sample_text + "\n\n=== documented sample ===\n" + doc_text)[:120000]
+
+    if not run_full:
+        result = {"status": "ok"}
+        if run_directives:
+            result["directives"] = await _mine_directives(
+                name, path, codecs, _doc_text(man_text, web_text, sample_text), directives, qwen, lock)
+        failures = _LLM_FAILURES.get()
+        if failures:
+            result.update(status="failed", llm_errors=list(failures))
+        return result
+
+    if not (ships_etc or man_text):
+        return {"status": "skip", "reason": "no config (no /etc in .rpm, no man5)"}
+
+    result: dict = {"status": "ok", "codec": None, "template": False, "enums": 0, "path": path}
+    if path not in codecs:
+        cls = await _classify_codec(man_text or "", sample_text[:8000], qwen)
+        if cls and cls.get("codec"):
+            async with (lock or contextlib.nullcontext()):
+                prev = codecs.get(path) or {}
+                codecs[path] = {
+                    "codec": cls.get("codec"), "separator": cls.get("separator", ""),
+                    "comment": cls.get("comment", "#"), "sections": bool(cls.get("sections")),
+                    "confidence": cls.get("confidence", "low"), "notes": cls.get("notes", ""),
+                    "packages": sorted(set(prev.get("packages", []) + [pkg_name])),
+                    "paths": [path], "family": "redhat",
+                }
+                result["codec"] = codecs[path]["codec"]
+    else:
+        result["codec"] = (codecs.get(path) or {}).get("codec")
+
+    codec_none = (codecs.get(path) or {}).get("codec") in (None, "none") or bool(entry.get("_force_template"))
+    if codec_none and shipped:
+        owners = {t: f for t, f in _targets_index().get(path, {}).items() if t != name}
+        rh_owner = next((t for t, f in owners.items() if f == "redhat"), None)
+        twin = None
+        if not rh_owner:
+            for t in owners:
+                rendered = await asyncio.to_thread(render_with_defaults, TEMPLATES_DIR / t)
+                if rendered is not None and same_file(rendered, shipped):
+                    twin = t
+                    break
+        if rh_owner:
+            result["template_owner"] = rh_owner
+        elif twin:
+            result["twin_of"] = twin
+        else:
+            existing_schema = _load(tdir / "schema.json", {}) if _check(tdir)["schema"] else {}
+            if await _parametrize_config(name, shipped, existing_schema, qwen):
+                result["template"] = True
+                result["repairs"] = await asyncio.to_thread(repair_template, tdir, shipped)
+            # Recorded only once a template exists: a meta.json in an otherwise empty dir would bind the path to
+            # a template the index cannot render.
+            if _check(tdir)["template"]:
+                _record_target(name, path, True, "redhat")
+            schema = _load(tdir / "schema.json", {})
+            if schema and _has_unenumerated_strings(schema):
+                result["enums"] = await _mine_enums(name, entry, man_text, web_text, sample_text, searx, qwen)
+            complete = _check(tdir)
+            if complete["template"] and complete["schema"] and complete["sample"]:
+                enr = await _enrich_template(name, qwen)
+                result["enriched"] = enr.get("enriched", False)
+                if enr.get("caps"):
+                    result["capabilities"] = enr["caps"]
+                if enr.get("gate_fail"):
+                    result["enrich_gate_fail"] = enr["gate_fail"]
+
+    if run_directives:
+        result["directives"] = await _mine_directives(
+            name, path, codecs, _doc_text(man_text, web_text, sample_text), directives, qwen, lock)
+
+    _normalize_schema_file(tdir)
+    async with (lock or contextlib.nullcontext()):
+        state[name] = _hash(_load(tdir / "schema.json", {}))
+    failures = _LLM_FAILURES.get()
+    if failures:
+        result.update(status="failed", llm_errors=list(failures))
+    return result
+
+
+def _normalize_schema_file(tdir: Path) -> None:
+    """Defaults and enum values in the field's declared type (services.schema_defaults.normalize_types), and a
+    final newline on the template (template_invariants.ensure_final_newline) — once per package, after every stage
+    that writes them, so no stage can leave "2" in a number field or a config file without its last LF."""
+    from bossman.services.schema_defaults import normalize_types
+    from bossman.tools.template_invariants import ensure_final_newline
+    ensure_final_newline(tdir)
+    f = tdir / "schema.json"
+    schema = _load(f, {}) if f.is_file() else {}
+    if isinstance(schema, dict) and normalize_types(schema.get("properties", schema) if "properties" in schema else schema):
+        f.write_text(json.dumps(schema, indent=2) + "\n")
 
 
 async def process_package(
@@ -1365,12 +1707,17 @@ async def process_package(
     PascalCase names + malformed defaults). Existing templates still get their
     codec fixed and enums (re-)mined. Mutates codecs/state in memory."""
     _LLM_FAILURES.set([])   # per-package; a non-empty list at the end ⇒ "failed"
+    _ENUM_STATS.set({})
     tdir = TEMPLATES_DIR / name
-    fam = (entry.get("families") or {}).get("debian") or {}
+    family = entry.get("_family") or "debian"
+    fam = _fam(entry)
     cfg = fam.get("config_path", "")
     cfg_base = cfg.rsplit("/", 1)[-1] if cfg else ""
     label = entry.get("label", name)
     is_new = not tdir.is_dir()
+    if family == "redhat":
+        return await _process_redhat(name, entry, searx, qwen, codecs, state, directives,
+                                     run_full, run_directives, lock)
 
     # ── Qualify from the Debian package + man page. ──
     # Download the Debian .deb ONCE: it yields the real config (template/codec/
@@ -1468,7 +1815,10 @@ async def process_package(
     # freeform (codec == none) path only — this is what stops the ~764-file
     # template/directive overlap from ever regrowing. (An unclassifiable file —
     # no codec written — falls through as freeform, which is the right fallback.)
-    codec_none = (codecs.get(path) or {}).get("codec") in (None, "none")
+    # A --repair of a ROLE's template forces the template stage even for a parseable file: the wizard renders that
+    # template whole-file, so leaving a broken one in place because "INI files are edited per key" leaves the wizard
+    # broken (avahi-daemon.conf, NetworkManager.conf, my.cnf).
+    codec_none = (codecs.get(path) or {}).get("codec") in (None, "none") or bool(entry.get("_force_template"))
     if codec_none:
         # Recorded BEFORE the generators run and regardless of which one wins: the fact "this template is
         # for that file" is true either way, and a failed LLM stage should not cost us the one piece of
@@ -1481,6 +1831,9 @@ async def process_package(
             existing_schema = _load(tdir / "schema.json", {}) if st["schema"] else {}
             if await _parametrize_config(name, shipped, existing_schema, qwen):
                 result["template"] = True
+                # The mechanical repairs, right after parametrizing and BEFORE enum/enrich: the enrich stage adds
+                # `{# … #}` comments and `| default(...)` filters that the repairs would misread (measured).
+                result["repairs"] = await asyncio.to_thread(repair_template, tdir, shipped)
         if not result["template"]:
             if not (st["template"] and st["schema"] and st["sample"]):
                 result["template"] = await _generate_template(name, man_text, web_text, qwen)
@@ -1512,6 +1865,7 @@ async def process_package(
             name, path, codecs, _doc_text(man_text, web_text, sample_text), directives, qwen, lock,
         )
 
+    _normalize_schema_file(tdir)
     async with (lock or contextlib.nullcontext()):
         state[name] = _hash(_load(tdir / "schema.json", {}))
     # LLM was down for one or more steps → don't record as done; retry next pass.
@@ -1522,7 +1876,7 @@ async def process_package(
     return result
 
 
-def build_entry_map(catalog: dict) -> dict[str, dict]:
+def build_entry_map(catalog: dict, family: str = "debian") -> dict[str, dict]:
     """name → the catalog entry that describes it, keyed by TEMPLATE and by PACKAGE.
 
     Extracted from main() so the on-demand path resolves a package exactly the way the batch does. It is
@@ -1544,7 +1898,37 @@ def build_entry_map(catalog: dict) -> dict[str, dict]:
         for dep in ((pkg_info.get("families") or {}).get("debian") or {}).get("packages") or []:
             if isinstance(dep, str) and dep:
                 entry_by_name.setdefault(dep, {"name": pkg_name, **pkg_info})
+    if family == "redhat":
+        return redhat_entry_map(catalog)
     return entry_by_name
+
+
+def redhat_entry_map(catalog: dict) -> dict[str, dict]:
+    """`<pkg>-redhat` -> the entry the RedHat pass processes, for every package of the measured RedHat universe
+    plus every package a catalog role names for RedHat.
+
+    The universe gives each package its /etc paths (measured from the repo's filelists); a catalog role adds
+    the curated config_path, which ranks first. `name` is the PACKAGE — the template name carries the suffix
+    because the RedHat and the Debian file of one software are different files."""
+    universe_rh: dict[str, dict] = _load(UNIVERSE, {}).get("redhat", {})
+    out: dict[str, dict] = {}
+    for pkg, info in universe_rh.items():
+        out[pkg + REDHAT_SUFFIX] = {
+            "name": pkg, "label": pkg, "desc": info.get("desc", ""), "_family": "redhat",
+            "families": {"redhat": {"packages": [pkg], "config_paths": info.get("config_paths") or []}},
+        }
+    for role, info in catalog.items():
+        branch = ((info.get("families") or {}).get("redhat") or {}) if isinstance(info, dict) else {}
+        for pkg in branch.get("packages") or []:
+            if not isinstance(pkg, str) or not pkg:
+                continue
+            e = out.setdefault(pkg + REDHAT_SUFFIX, {
+                "name": pkg, "label": pkg, "_family": "redhat",
+                "families": {"redhat": {"packages": [pkg], "config_paths": []}}})
+            if branch.get("config_path"):
+                e["families"]["redhat"]["config_path"] = branch["config_path"]
+                e["role"] = role
+    return out
 
 
 class SharedCatalogs:
@@ -1605,9 +1989,9 @@ def llm_client(llm_url: str = "", llm_model: str = "", llm_token: str = "",
     a caller that forgot to would silently talk to whatever host the preset names.
     """
     if llm_url and llm_model:
-        return ChatClient(llm_url, llm_model, token=llm_token, timeout=900.0)
+        return ChatClient(llm_url, llm_model, token=llm_token, timeout=None, max_attempts=None)
     base_url, model_id = MODELS[preset]
-    return ChatClient(base_url, model_id, token="", timeout=900.0)
+    return ChatClient(base_url, model_id, token="", timeout=None, max_attempts=None)
 
 
 async def qualify_one(
@@ -1686,6 +2070,19 @@ async def main() -> int:
                     help="LLM model name for --llm-url. Env: QUALIFY_LLM_MODEL")
     ap.add_argument("--llm-token", default=os.environ.get("QUALIFY_LLM_TOKEN", ""),
                     help="optional bearer token for --llm-url. Env: QUALIFY_LLM_TOKEN")
+    ap.add_argument("--family", choices=("debian", "redhat"), default="debian",
+                    help="which distribution's packages to qualify: debian (.deb, the original pass) or redhat "
+                         "(.rpm via the agentic-rh-fetch EL9 container, templates named <pkg>-redhat)")
+    ap.add_argument("--repair", default="",
+                    help="comma-separated TEMPLATE=PACKAGE pairs: regenerate each template from the package's shipped "
+                         "file (its meta.json target), through the repair chain — for templates the package e2e "
+                         "found broken. Debian by default; --family redhat for -redhat templates")
+    ap.add_argument("--from-worklist", action="store_true",
+                    help="process the `unrouted` packages of configs/package_e2e_worklist.json for --family: each with "
+                         "the exact config file the worklist measured (Contents/filelists), tracked in "
+                         ".qualify_worklist_state.json so the pass is resumable")
+    ap.add_argument("--results-jsonl", default="",
+                    help="append one JSON line per processed package (outcome, seconds, enum stats) to this file")
     ap.add_argument("--concurrency", type=int,
                     default=int(os.environ.get("QUALIFY_CONCURRENCY", "1")),
                     help="packages processed in parallel (the llamacpp endpoint has parallel slots). "
@@ -1731,14 +2128,35 @@ async def main() -> int:
     # meanwhile. See TrackedDict and SharedCatalogs.flush for the measurement — the flush MERGES
     # rather than overwriting, and it is the same object the on-demand endpoint uses.
     shared = SharedCatalogs()
-    state, codecs, directives = shared.state, shared.codecs, shared.directives
-    pipeline_done, directives_done, skip_set = shared.pipeline_done, shared.directives_done, shared.skip_set
+    skip_set = shared.skip_set
 
     # Package entry map: catalog templates + universe metadata (section/desc).
-    entry_by_name = build_entry_map(catalog)
+    entry_by_name = build_entry_map(catalog, args.family)
+
+    if args.repair:
+        return await _run_repair_pass(args, shared)
+    if args.from_worklist:
+        return await _run_worklist_pass(args, catalog, shared)
+
+    if args.family == "redhat":
+        # The RedHat universe IS the worklist: membership was measured (ships a file under /etc), so there is
+        # no section filter to apply. A `-redhat` dir that this pipeline did not write (rh-parametrize, hand-
+        # verified) is curated: never regenerated unless named with --only.
+        curated_rh = {d.name for d in TEMPLATES_DIR.iterdir()
+                      if d.is_dir() and d.name.endswith(REDHAT_SUFFIX)
+                      and (_load(d / "meta.json", {}) or {}).get("source") != "qualify"}
+        worklist = sorted(entry_by_name)
+        if only:
+            worklist = [n for n in worklist if n in only or n.removesuffix(REDHAT_SUFFIX) in only]
+        else:
+            worklist = [n for n in worklist if n not in curated_rh]
+        return await _run_pass(args, worklist, entry_by_name, {}, shared, f"{len(worklist)} RedHat packages")
 
     # Work list: existing template dirs first (fix/regrade), then universe.
-    existing_names = sorted(d.name for d in TEMPLATES_DIR.iterdir() if d.is_dir())
+    # The Debian pass owns Debian templates only. A `<pkg>-redhat` dir was made from an RPM; feeding it to
+    # this loop downloads a .deb of that name (there is none) and was what kept 14 names "pending" forever.
+    existing_names = sorted(d.name for d in TEMPLATES_DIR.iterdir()
+                            if d.is_dir() and not d.name.endswith(REDHAT_SUFFIX))
     worklist: list[str] = list(existing_names)
     for pkg_name, pkg_info in universe_deb.items():
         if pkg_name in existing_names:
@@ -1765,7 +2183,109 @@ async def main() -> int:
     # maintained by hand + verified, e.g. the web-server vhost templates). --only
     # can still target them explicitly for a deliberate rebuild.
     if not only:
-        worklist = [n for n in worklist if n not in _CURATED]
+        worklist = [n for n in worklist if not _curated(n)]
+    return await _run_pass(args, worklist, entry_by_name, universe_deb, shared,
+                           f"{len(worklist)} packages ({len(existing_names)} existing + universe)")
+
+
+WORKLIST_STATE = _CONFIGS / ".qualify_worklist_state.json"
+WORKLIST_VERSION = "wl-v1"
+
+
+async def _run_repair_pass(args, shared: SharedCatalogs) -> int:
+    """Regenerate templates the package e2e found broken — from the file the package ships, never from a man page.
+
+    A template directory is often not named like its package (`network_manager` renders network-manager's file), so
+    the package and the target are passed explicitly: the target from the template's own meta.json (a recorded
+    fact), the package from the e2e row. The existing schema's field names are kept by _parametrize_config, and the
+    repair chain runs before enum/enrich as for any new template."""
+    pairs = [p.split("=", 1) for p in args.repair.split(",") if "=" in p]
+    qwen = llm_client(args.llm_url, args.llm_model, args.llm_token, args.model)
+    searx = SearxngClient(SEARXNG)
+    EG.render_check_bin()
+    lock = asyncio.Lock()
+    for i, (tname, pkg) in enumerate(pairs, 1):
+        meta = _load(TEMPLATES_DIR / tname / "meta.json", {})
+        target = (meta or {}).get("target_path") or ""
+        if not target:
+            print(f"[{i}/{len(pairs)}] {tname}: no recorded target — refused (regenerating against a guess is "
+                  "how the broken ones were made)", flush=True)
+            continue
+        entry = {"name": pkg, "label": pkg, "_family": args.family, "_force_template": True,
+                 "families": {args.family: {"packages": [pkg], "config_path": target, "config_paths": [target]}}}
+        shared.clear(tname)
+        t0 = time.monotonic()
+        try:
+            r = await process_package(tname, entry, searx, qwen, shared.codecs, shared.state, shared.directives,
+                                      True, True, lock)
+        except Exception as exc:  # noqa: BLE001
+            r = {"status": "failed", "llm_errors": [f"{type(exc).__name__}: {str(exc)[:200]}"]}
+        if r.get("status") not in ("failed", "skip"):
+            shared.mark_done(tname)
+        shared.flush()
+        print(f"[{i}/{len(pairs)}] {tname} ← {pkg} ({target}): {r.get('status')} template={r.get('template')} "
+              f"repairs={r.get('repairs')} ({round(time.monotonic() - t0, 1)}s)", flush=True)
+    return 0
+
+
+async def _run_worklist_pass(args, catalog: dict, shared: SharedCatalogs) -> int:
+    """The `unrouted` packages of the e2e worklist: they ship a config file that no route reaches.
+
+    The ordinary pass already marked them done — it qualified the package, but against a file its own picker chose
+    from the declared conffiles, which is often not the file the archive's Contents index measured (an init script,
+    a fragment). Here each is processed against the worklist's file, given as the entry's config_path (tier 0 of the
+    picker), so the codec, template and directives are for THAT file. Its own state file keeps the pass resumable
+    without touching the PIPELINE_VERSION markers."""
+    rows = (_load(_CONFIGS / "package_e2e_worklist.json", {}).get("families") or {}).get(args.family) or {}
+    only = {s.strip() for s in args.only.split(",") if s.strip()}
+    done = _load(WORKLIST_STATE, {})
+    suffix = REDHAT_SUFFIX if args.family == "redhat" else ""
+    entries: dict[str, dict] = {}
+    for pkg, row in sorted(rows.items()):
+        if row.get("route") != "unrouted" or not row.get("path") or (only and pkg not in only) \
+                or (not only and _curated(pkg)):
+            continue
+        entries[pkg + suffix] = {"name": pkg, "label": pkg, "_family": args.family,
+                                 "families": {args.family: {"packages": [pkg], "config_path": row["path"],
+                                                            "config_paths": [row["path"]]}}}
+    pending = [n for n in entries if done.get(f"{args.family}:{n}") != WORKLIST_VERSION]
+    print(f"worklist pass [{args.family}]: {len(entries)} unrouted — {len(pending)} pending", flush=True)
+    if args.check_only:
+        return 0
+    if args.limit:
+        pending = pending[: args.limit]
+    qwen = llm_client(args.llm_url, args.llm_model, args.llm_token, args.model)
+    searx = SearxngClient(SEARXNG)
+    EG.render_check_bin()
+    lock = asyncio.Lock()
+    for i, name in enumerate(pending, 1):
+        t0 = time.monotonic()
+        try:
+            r = await process_package(name, entries[name], searx, qwen, shared.codecs, shared.state,
+                                      shared.directives, True, True, lock)
+        except Exception as exc:  # noqa: BLE001 — one package must not stop the pass
+            r = {"status": "failed", "llm_errors": [f"{type(exc).__name__}: {str(exc)[:200]}"]}
+        r["seconds"] = round(time.monotonic() - t0, 1)
+        if r.get("status") != "failed":
+            done[f"{args.family}:{name}"] = WORKLIST_VERSION
+            if r.get("status") != "skip":
+                shared.mark_done(name)
+        _write_json(WORKLIST_STATE, done, sort=True)
+        shared.flush()
+        if args.results_jsonl:
+            with open(args.results_jsonl, "a") as fh:
+                fh.write(json.dumps({"name": name, "family": args.family, "worklist": True, **r}, default=str) + "\n")
+        print(f"[{i}/{len(pending)}] {name}: {r.get('status')} codec={r.get('codec')} "
+              f"template={r.get('template')} dirs={r.get('directives')} ({r['seconds']}s)", flush=True)
+    return 0
+
+
+async def _run_pass(args, worklist: list[str], entry_by_name: dict, universe_deb: dict,
+                    shared: SharedCatalogs, what: str) -> int:
+    """Pending selection, --check-only report and the worker loop — shared by both families, so "pending",
+    "done" and the resume rule mean the same thing for a .deb and an .rpm."""
+    state, codecs, directives = shared.state, shared.codecs, shared.directives
+    pipeline_done, directives_done, skip_set = shared.pipeline_done, shared.directives_done, shared.skip_set
 
     # Resume: process a package if its codec/template pipeline is behind
     # PIPELINE_VERSION OR its (separately versioned) directive catalog is behind
@@ -1784,8 +2304,7 @@ async def main() -> int:
     )
 
     print(
-        f"qualify pipeline {PIPELINE_VERSION} / directives {DIRECTIVES_VERSION}: {len(worklist)} packages "
-        f"({len(existing_names)} existing + universe) — "
+        f"qualify pipeline {PIPELINE_VERSION} / directives {DIRECTIVES_VERSION} [{args.family}]: {what} — "
         f"{len(pending)} pending ({dir_only} directives-only), {len(worklist) - len(pending)} done, "
         f"{len(skip_set)} skipped (no config)",
         flush=True,
@@ -1856,7 +2375,11 @@ async def main() -> int:
                                 f"req={len(caps.get('requires', []))})")
                 elif r.get("enrich_gate_fail"):
                     bits.append(f"enrich-skip[{r['enrich_gate_fail'][:60]}]")
-                print(f"[{i}/{total}] {name}: {', '.join(bits) or 'ok'}", flush=True)
+                if r.get("twin_of"):
+                    bits.append(f"twin_of={r['twin_of']}")
+                if r.get("template_owner"):
+                    bits.append(f"owner={r['template_owner']}")
+                print(f"[{i}/{total}] {name}: {', '.join(bits) or 'ok'} ({r.get('seconds', '?')}s)", flush=True)
             if counter["n"] % 5 == 0:
                 flush()
 
@@ -1866,9 +2389,15 @@ async def main() -> int:
         run_directives = directives_done.get(name) != DIRECTIVES_VERSION
         async with sem:
             try:
+                t0 = time.monotonic()
                 r = await process_package(
                     name, entry, searx, qwen, codecs, state, directives, run_full, run_directives, lock,
                 )
+                r["seconds"] = round(time.monotonic() - t0, 1)
+                r["enum_stats"] = dict(_ENUM_STATS.get())
+                if args.results_jsonl:
+                    with open(args.results_jsonl, "a") as fh:
+                        fh.write(json.dumps({"name": name, "family": args.family, **r}, default=str) + "\n")
             except Exception as exc:  # noqa: BLE001 — one bad package must not kill the batch
                 async with lock:
                     counter["n"] += 1

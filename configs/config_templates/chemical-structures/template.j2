@@ -1,0 +1,71 @@
+# ==============================================================================
+# chemical-structures Apache Configuration
+# ==============================================================================
+# This template configures an Apache virtual-host-less environment for the
+# chemical-structures web application.
+#
+# Schema Fields Used:
+#   - alias_path:        The URL path alias for the application (default: /usr/share/chemical-structures/).
+#   - document_root:     The filesystem path to the document root (default: /usr/share/chemical-structures/).
+#
+# Capabilities:
+#   - Requires: web_server (nginx) - typically used if Apache is replaced by Nginx, though this template
+#     generates Apache directives. If integrating with Nginx as a reverse proxy, see reverse_proxy capability.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Alias Directive
+# --------------------------------------------------------------------------
+# Maps a URL path to a filesystem directory.
+# Schema Field: alias_path
+# Description: The URL path alias for the chemical-structures application.
+Alias /chemical-structures {{ alias_path | default('/usr/share/chemical-structures/') }}
+
+# --------------------------------------------------------------------------
+# Directory Block
+# --------------------------------------------------------------------------
+# Configures access and options for the physical document root.
+# Schema Field: document_root
+# Description: The filesystem path to the chemical-structures document root.
+<Directory {{ document_root | default('/usr/share/chemical-structures/') }}>
+
+    # ----------------------------------------------------------------------
+    # AllowOverride
+    # ----------------------------------------------------------------------
+    # Prevents .htaccess files from overriding configuration.
+    AllowOverride None
+
+    # ----------------------------------------------------------------------
+    # DirectoryIndex
+    # ----------------------------------------------------------------------
+    # Specifies the default file to serve when a directory is requested.
+    DirectoryIndex index.html
+
+    # ----------------------------------------------------------------------
+    # Options
+    # ----------------------------------------------------------------------
+    # Enables CGI execution and other standard directory options.
+    # Note: +ExecCGI allows CGI scripts to run.
+    Options +ExecCGI
+
+    # ----------------------------------------------------------------------
+    # AddHandler
+    # ----------------------------------------------------------------------
+    # Associates the .cgi extension with the CGI script handler.
+    AddHandler cgi-script .cgi
+
+    # ----------------------------------------------------------------------
+    # AddDefaultCharset
+    # ----------------------------------------------------------------------
+    # Sets the default character encoding for responses.
+    # Note: The original template used a semicolon here which is invalid in Apache; removed.
+    AddDefaultCharset UTF-8
+
+    # ----------------------------------------------------------------------
+    # Require
+    # ----------------------------------------------------------------------
+    # Access control directive (Apache 2.4+).
+    # Grants access to all clients.
+    Require all granted
+
+</Directory>

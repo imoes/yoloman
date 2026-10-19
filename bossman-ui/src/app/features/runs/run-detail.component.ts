@@ -4,8 +4,7 @@ import { DatePipe, JsonPipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { RunService } from '../../core/services/run.service';
 import { PlanRunDetail } from '../../core/models/run.model';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
-import { runStatusBadge } from '../../shared/status.util';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 /**
  * One run, step by step: what a plan did on one host, and what came back.
@@ -21,13 +20,13 @@ import { runStatusBadge } from '../../shared/status.util';
 @Component({
   selector: 'app-run-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, JsonPipe, MatCardModule, HostStatusBadgeComponent],
+  imports: [StatusPillComponent, RouterLink, DatePipe, JsonPipe, MatCardModule],
   template: `
     @if (run(); as run) {
       <div class="bm-page">
         <div class="bm-header-row">
           <h1>{{ run.plan_name }}</h1>
-          <app-status-badge [status]="statusOf(run)" [label]="run.status" />
+          <bm-status-pill [status]="run.status" />
         </div>
 
         <dl class="bm-facts">
@@ -160,7 +159,4 @@ export class RunDetailComponent implements OnInit {
     this.runService.get(id).subscribe((run) => this.run.set(run));
   }
 
-  statusOf(run: PlanRunDetail) {
-    return runStatusBadge(run.status);
-  }
 }

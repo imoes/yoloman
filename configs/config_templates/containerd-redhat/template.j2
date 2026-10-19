@@ -1,0 +1,23 @@
+# containerd CNI (Container Network Interface) and Opt plugin configuration
+# This file configures how containerd integrates with CNI for network plugins
+# and the containerd internal opt plugin.
+
+version = 2
+
+[plugins]
+  # CRI (Container Runtime Interface) plugin configuration
+  [plugins."io.containerd.grpc.v1.cri"]
+    # CNI plugin configuration within the CRI plugin
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      # The directory where the CNI network plugins are installed.
+      # Plugins in this directory are executed to set up pod networking.
+      bin_dir = "{{ (bin_dir | default('/usr/libexec/cni')) | trim('/') }}/"
+
+      # The directory where CNI configuration files are stored.
+      # These .conf files define the network plugins and their parameters.
+      conf_dir = "{{ (conf_dir | default('/etc/cni/net.d')) | trim('/') }}"
+  # Internal opt plugin configuration
+  [plugins."io.containerd.internal.v1.opt"]
+    # The path to the containerd opt directory.
+    # This directory is used for storing arbitrary plugin data or extensions.
+    path = "{{ (opt_path | default('/var/lib/containerd/opt')) | trim('/') }}"

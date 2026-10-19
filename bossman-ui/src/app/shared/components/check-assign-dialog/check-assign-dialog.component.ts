@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { CheckCatalogEntry, CheckOption } from '../../../core/models/check.model';
 import { CheckService } from '../../../core/services/check.service';
 import { ConditionsEditorComponent } from '../conditions-editor/conditions-editor.component';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 export interface CheckAssignDialogData {
   scopeLabel: string; // e.g. "OU /Databases" or "group web-servers"
@@ -24,7 +25,7 @@ export interface CheckAssignResult {
 @Component({
   selector: 'app-check-assign-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, ConditionsEditorComponent],
+  imports: [BlockedReasonDirective, FormsModule, MatDialogModule, MatButtonModule, ConditionsEditorComponent],
   template: `
     <h2 mat-dialog-title>Assign a check to {{ data.scopeLabel }}</h2>
     <mat-dialog-content>
@@ -68,7 +69,7 @@ export interface CheckAssignResult {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="!pick()" (click)="save()">Assign</button>
+      <button mat-raised-button color="primary" [bmBlocked]="!pick() ? 'Pick a check first' : ''" (click)="save()">Assign</button>
     </mat-dialog-actions>
   `,
   styles: [`

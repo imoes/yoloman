@@ -1,0 +1,37 @@
+# Configuration for oidc-agent-desktop-redhat integration with Xsession.
+# This file is sourced by Xsession(5), not executed directly as a script.
+
+# =============================================================================
+# Global Defaults
+# =============================================================================
+
+# Set OIDC_SOCK to override the default socket path if needed.
+# Default: '' (empty, letting the agent use its default location)
+OIDC_SOCK={{ oidc_sock | default('', true) }}
+
+# Set OIDC_AGENT_OPTS to pass additional arguments to the oidc-agent-service.
+# Default: '' (empty, no extra arguments)
+OIDC_AGENT_OPTS={{ oidc_agent_opts | default('', true) }}
+
+# =============================================================================
+# Service Binary Path
+# =============================================================================
+
+# Path to the oidc-agent-service binary executable.
+# This variable tells the session script where to find the agent service binary.
+# Schema: name='oidc_agent_service', default='/usr/bin/oidc-agent-service'
+OIDC_AGENT_SERVICE={{ oidc_agent_service | default('/usr/bin/oidc-agent-service', true) }}
+
+# =============================================================================
+# Initialization Logic
+# =============================================================================
+
+# Check if the OIDC_AGENT_SERVICE binary exists and is executable,
+# AND if the OIDC_SOCK environment variable is not already set (to avoid conflicts
+# with manually started agents or other session managers).
+# If both conditions are met, start the agent from the X session.
+if [ -x "$OIDC_AGENT_SERVICE" ] && [ -z "$OIDC_SOCK" ]; then
+  eval `$OIDC_AGENT_SERVICE start-from-x`
+fi
+
+# vim:set ai et sts=2 sw=2 tw=80:

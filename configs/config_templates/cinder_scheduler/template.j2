@@ -152,7 +152,7 @@ volume_backend_name = {{ backend.name }}
 
 # Backend-specific configuration options
 # These are passed directly to the volume driver
-{% for key, value in backend.options | default({}) | dict2items %}{{ key }} = {{ value }}
+{% for key, value in backend.options | default({}) | dictsort %}{{ key }} = {{ value }}
 {% endfor %}{% endfor %}
 
 # ============================================================================
@@ -168,7 +168,7 @@ volume_backend_name = {{ backend.name }}
 # sections or from the [DEFAULT] zone_name. This section provides a mapping
 # for the scheduler's internal zone-to-backend affinity logic.
 
-{% for zone, backend_names in availability_zones | default({'nova': ['lvm']}) | dict2items %}
+{% for zone, backend_names in availability_zones | default({'nova': ['lvm']}) | dictsort %}
 [availability_zones:{{ zone }}]
 # Assign backends to availability zone {{ zone }}
 {% for name in backend_names %}

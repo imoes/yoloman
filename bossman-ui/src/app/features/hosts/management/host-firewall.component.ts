@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgentService } from '../../../core/services/agent.service';
+import { BlockedReasonDirective } from '../../../shared/blocked-reason/blocked-reason.directive';
 
 interface FwState {
   backend: string;
@@ -23,7 +24,7 @@ interface FwState {
 @Component({
   selector: 'app-host-firewall',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [BlockedReasonDirective, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-fw">
       <div class="bm-topbar">
@@ -51,8 +52,8 @@ interface FwState {
             <input placeholder="service (e.g. ssh, https, dns)" [value]="service()" (input)="service.set($any($event.target).value)" />
             <input placeholder="from source CIDR (optional)" [value]="source()" (input)="source.set($any($event.target).value)" />
             <div class="bm-actions">
-              <button mat-stroked-button (click)="allowDeny('allow')" [disabled]="busy() || (!port().trim() && !service().trim())"><mat-icon>check</mat-icon> Allow</button>
-              <button mat-button (click)="allowDeny('deny')" [disabled]="busy() || (!port().trim() && !service().trim())"><mat-icon>block</mat-icon> Deny</button>
+              <button mat-stroked-button (click)="allowDeny('allow')" [disabled]="busy()" [bmBlocked]="!port().trim() && !service().trim() ? 'Enter a port or a service' : ''" bmBlockedMode="tip"><mat-icon>check</mat-icon> Allow</button>
+              <button mat-button (click)="allowDeny('deny')" [disabled]="busy()" [bmBlocked]="!port().trim() && !service().trim() ? 'Enter a port or a service' : ''"><mat-icon>block</mat-icon> Deny</button>
             </div>
           </div>
         </section>
@@ -78,7 +79,7 @@ interface FwState {
             <input placeholder="source CIDR (optional)" [value]="snatSource()" (input)="snatSource.set($any($event.target).value)" />
             <input placeholder="to-source: IP or 'masquerade'" [value]="toSource()" (input)="toSource.set($any($event.target).value)" />
             <input placeholder="out interface (e.g. eth0)" [value]="snatOut()" (input)="snatOut.set($any($event.target).value)" />
-            <div class="bm-actions"><button mat-stroked-button (click)="snat()" [disabled]="busy() || !toSource().trim()"><mat-icon>swap_horiz</mat-icon> Add SNAT</button></div>
+            <div class="bm-actions"><button mat-stroked-button (click)="snat()" [disabled]="busy()" [bmBlocked]="!toSource().trim() ? 'Enter the source address to translate to' : ''"><mat-icon>swap_horiz</mat-icon> Add SNAT</button></div>
           </div>
         </section>
 
@@ -89,7 +90,7 @@ interface FwState {
             <input placeholder="protocol (tcp/udp)" [value]="dnatProto()" (input)="dnatProto.set($any($event.target).value)" />
             <input placeholder="incoming port (e.g. 443)" [value]="dnatPort()" (input)="dnatPort.set($any($event.target).value)" />
             <input placeholder="to destination ip:port" [value]="toDest()" (input)="toDest.set($any($event.target).value)" />
-            <div class="bm-actions"><button mat-stroked-button (click)="dnat()" [disabled]="busy() || !dnatPort().trim() || !toDest().trim()"><mat-icon>login</mat-icon> Add DNAT</button></div>
+            <div class="bm-actions"><button mat-stroked-button (click)="dnat()" [disabled]="busy()" [bmBlocked]="!dnatPort().trim() || !toDest().trim() ? 'Enter a port and a destination' : ''"><mat-icon>login</mat-icon> Add DNAT</button></div>
           </div>
         </section>
       </div>

@@ -96,7 +96,14 @@ async def fire_due_jobs(
         try:
             if not cron_matches(job.cron, now):
                 continue
-        except Exception:  # noqa: BLE001 — a malformed cron must not stall others
+        except Exception as exc:  # noqa: BLE001 — a malformed cron must not stall others
+            # …but it must not vanish either: a job stored before validation was strict would otherwise sit
+            # "enabled" forever and never fire, with no row saying why. Recorded once (not every tick).
+            reason = f"never fires — invalid cron: {exc}"[:2000]
+            if job.last_detail != reason:
+                job.last_status = "failed"
+                job.last_detail = reason
+                await session.commit()
             continue
         # Already ran this minute? (loop may tick more than once per minute)
         if job.last_run_at is not None and job.last_run_at >= minute_start:

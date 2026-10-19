@@ -1,130 +1,715 @@
-#! /bin/sh
+#####################################################################
 #
-# Init.d file for Samhain, based on the example init.d file written by
-# Miquel van Smoorenburg and modified for Debian GNU/Linux by Ian Murdock
+# Configuration file for samhain in Debian GNU/Linux
+# Enriched with Ansible variable defaults and self-documentation.
 #
-### BEGIN INIT INFO
-# Provides:          samhain
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:      2 3 4 5
-# Default-Stop:       0 1 6
-# Short-Description: Starting Samhain data integrity and host intrusion alert system
-### END INIT INFO
+#####################################################################
+# 
+# -- empty lines and lines starting with '#', ';' or '//' are ignored
+# -- boolean options can be Yes/No or True/False or 1/0 
+# -- you can PGP clearsign this file -- samhain will check (if compiled
+#    with support) or otherwise ignore the signature
+# -- CHECK mail address
 #
+# To each log facility, you can assign a threshold severity. Only
+# reports with at least the threshold severity will be logged
+# to the respective facility (even further below).
+#
+#####################################################################
+#
+# SETUP for file system checking:
+# 
+# (i)   There are several policies, each has its own section. Put files
+#       into the section for the appropriate policy (see below).
+# (ii)  Section [EventSeverity]: 
+#       To each policy, you can assign a severity (further below).
+# (iii) Section [Log]: 
+#       To each log facility, you can assign a threshold severity. Only
+#       reports with at least the threshold severity will be logged
+#       to the respective facility (even further below).
+#
+#####################################################################
 
-# Installation prefix directory for Samhain binaries and libraries.
-prefix="{{ prefix | default('/usr') }}"
-exec_prefix="${prefix}"
+#####################################################################
+#
+# Files are defined with: file = /absolute/path
+#
+# Directories are defined with:                  dir = /absolute/path
+# or with an optional recursion depth (N <= 99): dir = N/absolute/path
+#
+# Directory inodes are checked. If you only want to check files
+# in a directory, but not the directory inode itself, use (e.g.):
+#
+# [ReadOnly]
+# dir = /some/directory
+# [IgnoreAll]
+# file = /some/directory
+#
+# You can use shell-style globbing patterns, like: file = /path/foo*
+# 
+######################################################################
 
-# System PATH definition
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+[Misc]
+##
+## Add or subtract tests from the policies
+## - if you want to change their definitions,
+##   you need to do that before using the policies
+##
+# RedefReadOnly = (no default)
+# RedefAttributes=(no default)
+# RedefLogFiles=(no default)
+# RedefGrowingLogFiles=(no default)
+# RedefIgnoreAll=(no default)
+# RedefIgnoreNone=(no default)
+# RedefUser0=(no default)
+# RedefUser1=(no default)
 
-# Path to the Samhain daemon executable, derived from the prefix.
-DAEMON=${exec_prefix}/sbin/samhain
+[Attributes]
+##
+## for these files, only changes in permissions and ownership are checked
+##
+file=/etc/mtab
+file=/etc/ssh_random_seed
+file=/etc/asound.conf
+file=/etc/resolv.conf
+file=/etc/localtime
+file=/etc/ioctl.save
+file=/etc/passwd.backup
+file=/etc/shadow.backup
+file=/etc/postfix/prng_exch
+file=/etc/adjtime
+file=/etc/network/run/ifstate
+file=/etc/lvm/.cache
+file=/etc/ld.so.cache
 
-# Name of the service/daemon used for PID files and log messages.
-NAME={{ name | default('samhain') }}
+#
+# There are files in /etc that might change, thus changing the directory
+# timestamps. Put it here as 'file', and in the ReadOnly section as 'dir'.
+#
+file=/etc
 
-# Description of the service.
-DESC="file integrity checker"
+[LogFiles]
+##
+## for these files, changes in signature, timestamps, and size are ignored 
+##
+file=/var/run/utmp
+file=/etc/motd
 
-# PID file location, derived from the service name.
-PIDFILE=/var/run/${NAME}/${NAME}.pid
 
-test -x $DAEMON || exit 0
 
-. /lib/lsb/init-functions
+#####################################################################
+#
+# This would be the proper syntax for parts that should only be
+#    included for certain hosts.
+# You may enclose anything in a @HOSTNAME/@end bracket, as long as the
+#    result still has the proper syntax for the config file.
+# You may have any number of @HOSTNAME/@end brackets.
+# HOSTNAME should be the fully qualified 'official' name 
+#    (e.g. 'nixon.watergate.com', not 'nixon'), no aliases. 
+#    No IP number - except if samhain cannot determine the 
+#    fully qualified hostname.
+#
+# @HOSTNAME
+# file=/foo/bar
+# @end
+#
+# These are two examples for conditional inclusion/exclusion
+# of a machine based on the output from 'uname -srm'
+#
+# $Linux:2.*.7:i666
+# file=/foo/bar3
+# $end
+#
+# !$Linux:2.*.7:i686
+# file=/foo/bar2
+# $end
+#
+#####################################################################
 
-set -e
+[GrowingLogFiles]
+##
+## for these files, changes in signature, timestamps, and increase in size
+##                  are ignored 
+##
+file=/var/log/warn
+file=/var/log/messages
+file=/var/log/wtmp
+file=/var/log/faillog
+file=/var/log/auth.log
+file=/var/log/daemon.log
+file=/var/log/user.log
+file=/var/log/kern.log
+file=/var/log/syslog
 
-# Check if a daemon is running
-running()
-{
-# Check with pidfile first, if available
-    if [ -r "$PIDFILE" ] ; then
-	    pid=`cat $PIDFILE`
-# No pid, probably no daemon present
-	    if [ -n "$pid" ] ; then
-		    pidofproc -p $PIDFILE $DAEMON
-		    return $?
-	    fi
-    fi
-# Try to find the daemon by name
-    pidof $DAEMON >/dev/null
-    return $?
-}
 
-# Initialize the Samhain integrity database
-# The database directory is where Samhain stores its integrity checks.
-init_db()
-{
-# Initialize the database only if does not exist yet, abort if
-# it cannot be created
-     [  -f {{ database_path | default('/var/lib/samhain') }}/samhain_file ] && return
-     log_progress_msg "Creating integrity database (this can take some minutes)."
-     samhain -t init >/var/log/samhain/samhain-init.log 2>&1
-     if [  ! -f {{ database_path | default('/var/lib/samhain') }}/samhain_file ] ; then
-        log_failure_msg "Database could not be created. Review /var/log/samhain/samhain-init.log"
-        log_end_msg 1
-        exit 1
-    fi
-    log_progress_msg "Database created."
-}
+[IgnoreAll]
+##
+## for these files, no modifications are reported
+##
+## This file might be created or removed by the system sometimes.
+##
+file=/etc/resolv.conf.pcmcia.save
+file=/etc/nologin
+file=/etc/network/run
 
-case "$1" in
-  start)
-        [ ! -e /var/run/${NAME} ] && mkdir -p /var/run/${NAME}
-        log_begin_msg "Starting $DESC: $NAME"
-        init_db
-        start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --exec $DAEMON
-        log_end_msg $?
-        ;;
-  stop)
-        log_begin_msg "Stopping $DESC: $NAME"
-        start-stop-daemon --stop --quiet --retry 5 --oknodo --pidfile $PIDFILE  --name  $NAME
-        log_end_msg $?
-        ;;
-  reload)
-	log_begin_msg "Reloading $DESC configuration files: $NAME"
-	if running ; then
-		start-stop-daemon --stop --signal 1 --quiet --exec $DAEMON
-		log_end_msg $?
-	else
-            	log_daemon_msg " ERROR: $DAEMON is not running."
-		log_end_msg 1
-	fi
 
-  	;;
-  restart|force-reload)
-        log_begin_msg "Restarting $DESC: $NAME"
-	if running; then
-	        start-stop-daemon --stop --quiet --retry 5 --oknodo --pidfile $PIDFILE  --name  $NAME
-	        for i in 1 2 3 ; do
-	            if ! running; then break ; fi
-	            sleep 1
-	        done
-	fi
-        if  ! running  ; then
-            start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON
-            log_end_msg $?
-        else
-            log_daemon_msg " ERROR: $DAEMON did not die in the expected time, will not restart/force-reload"
-            log_end_msg 1
-        fi
-        ;;
-   status)
-	if [ -e $PIDFILE ] ; then
-	    	status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
-	else
-	    	status_of_proc $DAEMON $NAME && exit 0 || exit $?
-	fi
-        ;;
-  *)
-        N=/etc/init.d/${0##*/}
-        echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
-        exit 1
-        ;;
-esac
+[IgnoreNone]
+##
+## for these files, all modifications (even access time) are reported
+##    - you may create some interesting-looking file (like /etc/safe_passwd),
+##      just to watch whether someone will access it ...
+##
 
-exit 0
+[Prelink]
+##
+## Use for prelinked files or directories holding them
+##
+
+
+[ReadOnly]
+##
+## for these files, only access time is ignored
+##
+dir=/usr/bin
+dir=/bin
+dir=/boot
+#
+# SuSE (old) has the boot init scripts in /sbin/init.d/*, 
+# so we go 3 levels deep
+#
+dir=3/sbin
+dir=/usr/sbin
+dir=/lib
+#
+# RedHat and Debian have the bootinit scripts in /etc/init.d/* or /etc/rc.d/*, 
+#        so we go 3 levels deep there too
+#
+dir=3/etc
+
+# Various directories / files that may include / be SUID/SGID binaries
+#
+#
+file=/usr/lib/pt_chown
+# X11, in Debian X7 this is now a symlink
+#dir=/usr/X11R6/bin
+#dir=/usr/X11R6/lib/X11/xmcd/bin
+# Apache:
+#file=/usr/lib/apache/suexec
+#file=/usr/lib/apache/suexec.disabled
+# Extra directories:
+#dir=/opt/gnome/bin
+#dir=/opt/kde/bin
+
+[User0]
+[User1]
+## User0 and User1 are sections for files/dirs with user-definable checking
+## (see the manual) 
+ 
+
+[EventSeverity]
+##
+## Here you can assign severities to policy violations.
+## If this severity exceeds the treshold of a log facility (see below),
+## a policy violation will be logged to that facility.
+##
+## Severity for verification failures.
+##
+# SeverityReadOnly=crit
+# SeverityLogFiles=crit
+# SeverityGrowingLogs=crit
+# SeverityIgnoreNone=crit
+# SeverityAttributes=crit
+# SeverityUser0=crit
+# SeverityUser1=crit
+
+# Default behaviour
+SeverityReadOnly=crit
+SeverityLogFiles=crit
+SeverityGrowingLogs=warn
+SeverityIgnoreNone=crit
+SeverityAttributes=crit
+
+
+##
+## We have a file in IgnoreAll that might or might not be present.
+## Setting the severity to 'info' prevents messages about deleted/new file.
+##
+# SeverityIgnoreAll=crit
+SeverityIgnoreAll=info
+
+## Files : file access problems
+# SeverityFiles=crit
+
+## Dirs  : directory access problems
+# SeverityDirs=crit
+
+## Names : suspect (non-printable) characters in a pathname
+# SeverityNames=crit
+
+# Default behaviour
+SeverityFiles=crit
+SeverityDirs=crit
+SeverityNames=warn
+
+
+[Log]
+##
+## Switch on/OFF log facilities and set their threshold severity
+##
+## Values: debug, info, notice, warn, mark, err, crit, alert, none.
+## 'mark' is used for timestamps.
+##
+##
+## Use 'none' to SWITCH OFF a log facility
+## 
+## By default, everything equal to and above the threshold is logged.
+## The specifiers '*', '!', and '=' are interpreted as  
+## 'all', 'all but', and 'only', respectively (like syslogd(8) does, 
+## at least on Linux). Examples:
+## MailSeverity=*
+## MailSeverity=!warn
+## MailSeverity==crit
+
+## E-mail
+##
+# MailSeverity=none
+
+## Console
+##
+# PrintSeverity=info
+
+## Logfile
+##
+# LogSeverity=mark
+
+## Syslog
+##
+# SyslogSeverity=none
+
+## Remote server (yule)
+##
+# ExportSeverity=none
+
+## External script or program
+##
+# ExternalSeverity = none
+
+## Logging to a database
+##
+# DatabaseSeverity = none
+
+# Default behaviour
+MailSeverity=crit
+PrintSeverity=none
+LogSeverity=info
+SyslogSeverity=alert
+ExportSeverity=none
+
+
+
+
+
+#####################################################
+#
+# Optional modules
+#
+#####################################################
+
+# [SuidCheck]
+##
+## --- Check the filesystem for SUID/SGID binaries
+## 
+
+## Switch on
+#
+# SuidCheckActive = yes
+
+## Interval for check (seconds)
+#
+# SuidCheckInterval = 7200
+
+## Alternative: crontab-like schedule
+#
+# SuidCheckSchedule = NULL 
+ 
+## Directory to exclude 
+#
+# SuidCheckExclude = NULL
+
+## Limit on files per second (0 == no limit)
+#
+# SuidCheckFps = 0
+
+## Alternative: yield after every file
+#
+# SuidCheckYield = no
+
+## Severity of a detection
+#
+# SeveritySuidCheck = crit
+
+## Quarantine SUID/SGID files if found
+#
+# SuidCheckQuarantineFiles = yes
+
+## Method for Quarantining files:
+##  0 - Delete or truncate the file.
+##  1 - Remove SUID/SGID permissions from file.
+##  2 - Move SUID/SGID file to quarantine dir.
+##
+# SuidCheckQuarantineMethod = 0
+
+## For method 1 and 3, really delete instead of truncating
+# 
+# SuidCheckQuarantineDelete = yes
+
+# [Kernel]
+##
+## --- Check for loadable kernel module rootkits (Linux/FreeBSD only) 
+##
+
+## Switch on/off
+#
+# KernelCheckActive = True
+
+## Check interval (seconds); btw., the check is VERY fast
+#
+# KernelCheckInterval = 300
+
+## Severity
+#
+# SeverityKernel = crit
+
+
+# [Utmp]
+##
+## --- Logging of login/logout events
+##
+
+## Switch on/off
+#
+# LoginCheckActive = True
+
+## Severity for logins, multiple logins, logouts
+# 
+# SeverityLogin=info
+# SeverityLoginMulti=warn
+# SeverityLogout=info
+
+## Interval for login/logout checks
+#
+# LoginCheckInterval = 300
+
+
+# [Database]
+##
+## --- Logging to a relational database
+##
+
+## Database name
+#
+# SetDBName = samhain
+
+## Database table
+#
+# SetDBTable = log
+
+## Database user
+#
+# SetDBUser = samhain
+
+## Database password
+#
+# SetDBPassword = (default: none)
+
+## Database host
+#
+# SetDBHost = localhost
+
+## Log the server timestamp for received messages
+#
+# SetDBServerTstamp = True
+
+## Use a persistent connection
+#
+# UsePersistent = True
+
+# [External]
+##
+## Interface to call external scripts/programs for logging
+##
+
+## The absolute path to the command
+## - Each invocation of this directive will end the definition of the
+##   preceding command, and start the definition of 
+##   an additional, new command
+#
+# OpenCommand = (no default)
+
+## Type (log or rv)
+## - log for log messages, srv for messages received by the server
+#
+# SetType = log
+
+## The command (full command line) to execute
+#
+# SetCommandLine = (no default)
+
+## The environment (KEY=value; repeat for more)
+#
+# SetEnviron = TZ=(your timezone)
+
+## The TIGER192 checksum (optional)
+#
+# SetChecksum = (no default)
+
+## User who runs the command
+#
+# SetCredentials = (default: samhain process uid)
+
+## Words not allowed in message
+#
+# SetFilterNot = (none)
+
+## Words required (ALL of them)
+#
+# SetFilterAnd = (none)
+
+## Words required (at least one)
+#
+# SetFilterOr = (none)
+
+## Deadtime between consecutive calls
+#
+# SetDeadtime = 0
+
+## Add default environment (HOME, PATH, SHELL)
+#
+# SetDefault = no
+
+
+
+
+#####################################################
+#
+# Miscellaneous configuration options
+#
+#####################################################
+
+[Misc]
+
+## whether to become a daemon process
+## (this is not honoured on database initialisation)
+##
+# Daemon = no
+Daemon = yes
+
+## whether to test signature of files (init/check/none)
+## - if 'none', then we have to decide this on the command line -
+##
+# ChecksumTest = none
+ChecksumTest=check
+
+## whether to drop linux capabilities that are not required
+## - will make a root process a 'mere mortal' in many respects
+##
+# UseCaps = yes
+
+## Set nice level (-19 to 19, see 'man nice'),
+## and I/O limit (kilobytes per second; 0 == off)
+## to reduce load on host.
+##
+# SetNiceLevel = 0
+# SetIOLimit = 0
+
+## The version string to embed in file signature databases
+##
+# VersionString = NULL
+
+## Interval between time stamp messages
+##
+# SetLoopTime = 60
+SetLoopTime = 600
+
+## Interval between file checks 
+##
+# SetFileCheckTime = 600
+SetFileCheckTime = 7200
+
+## Alternative: crontab-like schedule
+##
+# FileCheckScheduleOne = NULL
+
+## Alternative: crontab-like schedule(2)
+##
+# FileCheckScheduleTwo = NULL
+
+## Report only once on modified fles 
+## Setting this to 'FALSE' will generate a report for any policy 
+## violation (old and new ones) each time the daemon checks the file system.
+##
+# ReportOnlyOnce = True
+
+## Report in full detail
+##
+# ReportFullDetail = False
+
+## Report file timestamps in local time rather than GMT
+##
+# UseLocalTime = No
+
+## The console device (can also be a file or named pipe)
+## - There are two console devices. Accordingly, you can use
+##   this directive a second time to set the second console device.
+##   If you have not defined the second device at compile time,
+##   and you don't want to use it, then:
+##   setting it to /dev/null is less effective than just leaving
+##   it alone (setting to /dev/null will waste time by opening
+##   /dev/null and writing to it)
+##
+# SetConsole = /dev/console
+
+## Activate the SysV IPC message queue
+##
+# MessageQueueActive = False
+
+
+## If false, skip reverse lookup when connecting to a host known 
+## by name rather than IP address (i.e. trust the DNS)
+##
+# SetReverseLookup = True
+
+## --- E-Mail ---
+
+# Only highest-level (alert) reports will be mailed immediately,
+# others will be queued. Here you can define, when the queue will
+# be flushed (Note: the queue is automatically flushed after
+# completing a file check).
+#
+SetMailTime = 86400
+
+## Maximum number of mails to queue
+##
+SetMailNum = 10
+
+## Recipient (max. 8)
+##
+# SetMailAddress={{ SetMailAddress | default('root@localhost') }}
+SetMailAddress={{ SetMailAddress | default('root@localhost') }}
+
+## Mail relay (IP address)
+##
+# SetMailRelay = {{ SetMailRelay | default('localhost') }}
+SetMailRelay = {{ SetMailRelay | default('localhost') }}
+
+## Custom subject format
+##
+MailSubject = [Samhain at %H] %T: %S
+
+## --- end E-Mail ---
+
+## Path to the prelink executable
+##
+# SetPrelinkPath = /usr/sbin/prelink
+
+## TIGER192 checksum of the prelink executable
+##
+# SetPrelinkChecksum = (no default)
+
+
+## Path to the executable. If set, will be checksummed after startup
+## and before exit.
+##
+# SamhainPath = (no default)
+
+
+## The IP address of the log server
+##
+# SetLogServer = (default: compiled-in)
+
+## The IP address of the time server
+##
+# SetTimeServer = (default: compiled-in)
+
+## Trusted Users (comma delimited list of user names) 
+##
+# TrustedUser = (no default; this adds to the compiled-in list)
+
+## Path to the file signature database
+##
+# SetDatabasePath = (default: compiled-in)
+
+## Path to the log file
+##
+# SetLogfilePath = (default: compiled-in)
+
+## Path to the PID file
+##
+# SetLockPath = (default: compiled-in)
+
+
+## The digest/checksum/hash algorithm
+##
+# DigestAlgo = TIGER192
+
+
+## Custom format for message header. 
+## CAREFUL if you use XML logfile format.
+##
+## %S severity
+## %T timestamp
+## %C class
+##
+## %F source file
+## %L source line
+##
+# MessageHeader="%S %T "
+
+
+## Don't log path to config/database file on startup
+##
+# HideSetup = False
+
+## The syslog facility, if you log to syslog
+##
+# SyslogFacility = LOG_AUTHPRIV
+SyslogFacility=LOG_LOCAL2
+
+## The message authentication method
+## - If you change this, you *must* change it
+##   on client *and* server
+##
+# MACType = HMAC-TIGER
+
+
+
+## everything below is ignored
+[EOF]
+
+#####################################################################
+# This would be the proper syntax for parts that should only be
+#    included for certain hosts.
+# You may enclose anything in a @HOSTNAME/@end bracket, as long as the
+#    result still has the proper syntax for the config file.
+# You may have any number of @HOSTNAME/@end brackets.
+# HOSTNAME should be the fully qualified 'official' name 
+#    (e.g. 'nixon.watergate.com', not 'nixon'), no aliases. 
+#    No IP number - except if samhain cannot determine the 
+#    fully qualified hostname.
+#
+# @HOSTNAME
+# file=/foo/bar
+# @end
+#
+# These are two examples for conditional inclusion/exclusion
+# of a machine based on the output from 'uname -srm'
+#
+# $Linux:2.*.7:i666
+# file=/foo/bar3
+# $end
+#
+# !$Linux:2.*.7:i686
+# file=/foo/bar2
+# $end
+#
+#####################################################################

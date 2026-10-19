@@ -1,172 +1,269 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          pandorafms-agent
-# Required-Start:    $network $local_fs $remote_fs
-# Required-Stop:     $remote_fs
-# Default-Start:      2 3 4 5
-# Default-Stop:       0 1 6
-# Short-Description:  Pandora FMS agent
-# Description:        Pandora FMS agent (linux)
-### END INIT INFO
+# ============================================================================
+# Pandora FMS Agent Configuration Template
+# ============================================================================
+# This file configures the Pandora FMS agent. It is self-documenting:
+# every setting is preceded by its description and uses schema defaults.
+# ============================================================================
 
-# Author: Taku YASUI <tach@debian.org>
+# General Parameters
+# ==================
 
-# Pandora FMS Configuration
-# The base path for the Pandora FMS agent data and configuration.
-PANDORA_PATH={{ pandorafms_agent_path | default('/var/lib/pandorafms/agent') }}
+# IP address of the Pandora FMS server.
+# The agent will send data to this host.
+server_ip {{ pandorafms_server_ip | default('localhost') }}
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# Path on the server where agent data files are dropped.
+# This directory on the PANDORA SERVER is used for local transfer modes.
+server_path {{ pandorafms_server_path | default('/var/spool/pandorafms/data_in') }}
 
-# Introduce a short description here
-DESC=pandorafms-agent
+# Temporary directory used by the agent for processing.
+# Ensure this directory is writable by the user running the agent.
+temporal {{ pandorafms_temporal | default('/tmp') }}
 
-# Introduce the short server's name here
-# The short name of the Pandora FMS agent service.
-NAME={{ pandorafms_agent_name | default('pandorafms-agent') }}
+# Path to the agent log file.
+logfile {{ pandorafms_logfile | default('/var/log/pandorafms/pandora_agent.log') }}
 
-# Introduce the server's location here
-DAEMON=/usr/sbin/pandora_agent
+#include /etc/pandora/pandora_agent_alt.conf
+#broker_agent name_agent
 
-# Arguments to run the daemon with
-DAEMON_ARGS="$PANDORA_PATH"
+# Interval in seconds.
+# Execution interval in seconds. Defines how often the agent runs.
+interval {{ pandorafms_interval | default('300') }}
 
-PIDFILE=/var/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/$NAME
+# Debug mode flag (0=disabled, 1=enabled).
+# Debug mode only generate XML, and stop after first execution,
+# and does not copy XML to server.
+debug {{ pandorfms_debug | default(0) }}
 
-# Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
+# Optional. UDP Server to receive orders from outside.
+# By default is disabled, set 1 to enable.
+# Set port (41122 by default).
+# Set address to restrict who can order a agent restart (0.0.0.0 = anybody).
+udp_server {{ pandorfms_udp_server | default('0') }}
+udp_server_port {{ pandorfms_udp_server_port | default('41122') }}
+udp_server_auth_address {{ pandorfms_udp_server_auth_address | default('0.0.0.0') }}
 
-# Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+#process_xeyes_start xeyes
+#process_xeyes_stop killall xeyes
 
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
+# By default, agent takes machine name
+#agent_name     adama
 
-#
-# Function that starts the daemon/service
-#
-do_start()
-{
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	pidof -x $DAEMON > /dev/null && return 1
-	start-stop-daemon --start --quiet \
-		--background --pidfile $PIDFILE --make-pidfile \
-		--exec $DAEMON -- $DAEMON_ARGS \
-		|| return 2
-	# Add code here, if necessary, that waits for the process to be ready
-	# to handle requests from services started subsequently which depend
-	# on this one. As a last resort, sleep for some time.
-}
+# To define agent name by specific command, define 'agent_name_cmd'.
+# (In the following example, agent name is 'hostname_IP')
+#agent_name_cmd  LANG=C; /bin/echo -n `hostname`; /bin/echo -n "_"; /bin/echo `/sbin/ifconfig eth0 | /bin/grep 'inet addr' | /usr/bin/awk '{print $2;}' | /usr/bin/cut -d: -f2`
 
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	pidof -x $DAEMON > /dev/null || return 1
+#Parent agent_name
+#parent_agent_name caprica
 
-	kill `pidof -x $DAEMON`
-	for i in `seq 1 5`; do
-		if pidof -x $DAEMON > /dev/null; then
-			sleep 1
-		else
-			rm -f $PIDFILE
-			return 0
-		fi
-	done
+# Agent description
+#description This is a demo agent for Linux
 
-	kill -9 `pidof -x $DAEMON`
-	for i in `seq 1 5`; do
-		if pidof -x $DAEMON > /dev/null; then
-			sleep 1
-		else
-			rm -f $PIDFILE
-			return 0
-		fi
-	done
+# Group assigned for this agent (descriptive, p.e: Servers).
+group {{ pandorfms_group | default('Servers') }}
 
-	return 2
-}
+# address: Enforce to server a ip address to this agent.
+# You can also try to detect the first IP using "auto", for example.
+address {{ pandorfms_agent_address | default('auto') }}
+# or setting a fixed IP address, like for example:
+#address 192.168.36.73
 
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-do_reload() {
-	#
-	# If the daemon can reload its configuration without
-	# restarting (for example, when it is sent a SIGHUP),
-	# then implement that here.
-	#
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
-	return 0
-}
+# Autotime: Enforce to server to ignore timestamp coming from this
+# agent, used when agents has no timer or it's inestable. 1 to enable
+#autotime 1
 
-case "$1" in
-  start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
-    do_start
-    case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-  ;;
-  stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  status)
-       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-       ;;
-  #reload|force-reload)
-	#
-	# If do_reload() is not implemented then leave this commented out
-	# and leave 'force-reload' as an alias for 'restart'.
-	#
-	#log_daemon_msg "Reloading $DESC" "$NAME"
-	#do_reload
-	#log_end_msg $?
-	#;;
-  restart|force-reload)
-	#
-	# If the "reload" option is implemented then remove the
-	# 'force-reload' alias
-	#
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case "$?" in
-	  0|1)
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-		# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
-  *)
-	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
-	exit 3
-	;;
-esac
+# Timezone offset: Difference with the server timezone
+#timezone_offset 0
 
-:
+# Agent position paramters
+# Those parameters define the geographical position of the agent
+
+# gis_exec: Call a script that returns a string with a fixed
+# format of latitude,longitude,altitude
+# i.e.: 41.377,-5.105,2.365
+
+#gis_exec /tmp/gis.sh
+
+# This sets the GIS coordinates as fixed values:
+# latitude
+#latitude 0
+# longitude
+#longitude 0
+# altitude
+#altitude 0
+
+#GPS Position description
+#position_description Madrid, centro
+
+# By default agent try to take default encoding defined in host.
+#encoding 	UTF-8
+
+# Listening TCP port for remote server. By default is 41121 (for tentacle)
+# if you want to use SSH use 22, and FTP uses 21.
+server_port {{ pandorfms_server_port | default('41121') }}
+
+# Transfer mode: tentacle, ftp, ssh or local.
+transfer_mode {{ pandorfms_transfer_mode | default('tentacle') }}
+
+# timeout in seconds for file transfer programs execution (30 by default)
+#transfer_timeout 30
+
+# Server password (Tentacle or FTP). Leave empty for no password (default).
+#server_pwd mypassword
+
+# Set to yes/no to enable/disable OpenSSL support for Tentacle (disabled by default).
+#server_ssl no
+
+# Extra options for the Tentacle client (for example, server_opts "-v -r 5").
+#server_opts
+
+# delayed_startup defines number of seconds before start execution
+# for first time when startup Pandora FMS Agent
+#delayed_startup 10
+
+# Pandora nice defines priority of execution. Less priority means more intensive execution
+# A recommended value is 10. 0 priority means no Pandora CPU protection enabled (default)
+#pandora_nice 0
+
+# Cron mode replace Pandora FMS own task schedule each XX interval seconds by the use
+# of old style cron. You should add to crontab Pandora FMS agent script to use this mode.
+# This is disabled by default, and is not recommended.  Use Pandora FMS internal scheduler
+# is much more safe
+#cron_mode
+
+# If set to 1 allows the agent to be configured via the web console (Only Enterprise version).
+remote_config {{ pandorfms_remote_config | default('0') }}
+
+# If set to 1 start Drone Agent's Proxy Mode
+# proxy_mode 1
+
+# Max number of simmultaneus connection for proxy (by default 10)
+# proxy_max_connection 10
+
+# Proxy timeout (by default 1s)
+# proxy_timeout 1
+
+# Number of threads to execute modules in parallel
+#agent_threads 1
+
+# User the agent will run as
+#pandora_user pandora
+
+# Enable or disable XML buffer.
+# If you are in a secured environment and want to enable the XML buffer you
+# should consider changing the temporal directory, since /tmp is world writable.
+xml_buffer {{ pandorfms_xml_buffer | default('1') }}
+
+# Minimum available bytes in the temporal directory to enable the XML buffer.
+temporal_min_size {{ pandorfms_temporal_min_size | default('1024') }}
+
+# Secondary server configuration
+# ==============================
+
+# If secondary_mode is set to on_error, data files are copied to the secondary
+# server only if the primary server fails. If set to always, data files are
+# always copied to the secondary server.
+#secondary_mode on_error
+#secondary_server_ip localhost
+#secondary_server_path /var/spool/pandorafms/data_in
+#secondary_server_port 41121
+#secondary_transfer_mode tentacle
+#secondary_transfer_timeout 30
+#secondary_server_pwd mypassword
+#secondary_server_ssl no
+#secondary_server_opts
+
+# Module Definition
+# =================
+
+# System information
+
+# vmstat syntax depends on linux distro and vmstat command version, please check before use it
+module_begin
+module_name CPU Load
+module_type generic_data
+module_interval 1
+module_exec vmstat 1 2 | tail -1 | awk '{ print $13 }'
+module_max 100
+module_min 0
+module_description User CPU Usage (%)
+module_min_warning 70
+module_max_warning 90
+module_min_critical 91
+module_max_critical 100
+module_unit %
+module_end
+
+# vmstat syntax depends on linux distro and vmstat command version, please check before use it
+module_begin
+module_name CPU IOWait
+module_type generic_data
+module_interval 1
+module_exec vmstat 1 2 | tail -1 | awk '{ print $16 }'
+module_min 10
+module_min_critical 16
+module_unit %
+module_end
+
+#Get load average
+module_begin
+module_name Load Average
+module_type generic_data
+module_exec cat /proc/loadavg | cut -d' ' -f1
+module_description Average process in CPU (Last minute)
+module_end
+
+#IO Wait CPU ticks /sec
+module_begin
+module_name IOWaitCPU
+module_type generic_data_inc
+module_exec vmstat -s | grep "IO-wait cpu ticks" | awk '{ print $1 }'
+module_unit ticks/sec
+module_description Too much IOwait means IO bottleneck and performance problems. Check also LoadAVG.
+module_end
+
+#Connected users
+module_begin
+module_name Connected users
+module_type generic_data
+module_exec who | wc -l
+module_end
+
+#Count total number of processes
+module_begin
+module_name Number processes
+module_type generic_data
+module_exec ps aux | wc -l
+module_description Total processes
+module_unit processes
+module_end
+
+# Async data example
+
+module_begin
+module_name LastLogin
+module_type async_string
+module_exec last | head -1
+module_description Monitor last user loggin
+module_end
+
+
+# This plugin detects all disk and report free space (%)
+module_plugin pandora_df_free
+
+# This plugin detects system free memory and free swap (in %)
+module_plugin pandora_mem
+
+# This plugin will get the network usage (bytes/sec)
+module_plugin pandora_netusage
+
+# This parses /var/log/syslog file, under the module name "Syslog_error"
+# And search for "ERROR" string into it, sending only that information.
+module_plugin grep_log /var/log/syslog Syslog_error ERROR
+
+# Plugin for inventory on the agent (Only Enterprise)
+# module_plugin inventory 1 cpu ram video nic hd cdrom software init_services filesystem users route
+
+# Log collection modules. Only for enterprise version, this will collect log files for forensic analysis.
+# This is for LOG monitoring, only on enterprise version
+#module_plugin grep_log_module /var/log/messages Syslog \..*

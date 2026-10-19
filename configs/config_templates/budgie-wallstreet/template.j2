@@ -1,29 +1,33 @@
-# Desktop Entry for Budgie WallStreet autostart
-# Manages wallpaper changes via the wallstreet executable.
-# This file is placed in a desktop autostart directory (e.g., ~/.config/autostart/).
+# Desktop Entry for Budgie-Wallstreet Autostart
+# This file configures the automatic launch of the WallStreet wallpaper manager
+# within the Budgie desktop environment via the standard XDG autostart mechanism.
 
 [Desktop Entry]
-# Entry type; must be Application for executable launchers.
+
+# Application type; must be Application for executable programs.
 Type=Application
 
-# Display name used by the desktop environment.
+# Display name of the application as shown in session settings.
 Name=WallStreet
 
 # Brief description of the application's function.
 Comment=Kick starts the wallstreet process to manage wallpaper changes
 
-# Full path to the executable that runs the application.
+# Path to the WallStreet executable.
+# Default: /usr/lib/budgie-wallstreet/wallstreet
 Exec={{ exec_path | default('/usr/lib/budgie-wallstreet/wallstreet') }}
 
-# Hide from application menus; only show in session startup settings.
+# Prevent the application from appearing in application menus or taskbars.
+# It runs silently in the background.
 NoDisplay=true
 
-# Autostart condition based on a GSettings boolean key.
-# The DE will check if the key exists and is true before launching.
+# Autostart condition: uses GSettings to control whether the application starts.
+# The value of the specified key determines if the launch is permitted.
+# Schema: {{ gsettings_schema | default('org.ubuntubudgie.budgie-wallstreet') }}
+# Key: {{ gsettings_key | default('runwallstreet') }}
 AutostartCondition=GSettings {{ gsettings_schema | default('org.ubuntubudgie.budgie-wallstreet') }} {{ gsettings_key | default('runwallstreet') }}
 
-# Hint for MATE desktop to automatically restart the process if it crashes.
+# Compatibility flags for other desktop environments.
+# Ensures the process restarts if it crashes unexpectedly.
 X-MATE-AutoRestart=true
-
-# Hint for GNOME desktop to automatically restart the process if it crashes.
 X-GNOME-AutoRestart=true

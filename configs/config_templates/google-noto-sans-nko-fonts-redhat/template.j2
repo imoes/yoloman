@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Noto Sans NKo Font Configuration
+  --------------------------------
+  This configuration file (typically placed in /etc/fonts/local.conf or
+  /usr/share/fontconfig/conf.avail/) configures the Fontconfig engine to:
+  1. Alias the generic 'sans-serif' family to the 'Noto Sans NKo' font.
+  2. Prioritize 'Noto Sans NKo' for text identified as NKo (N'Ko) script.
+  3. Enable font hinting for better rendering on low-resolution displays.
+-->
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!--
+    Match rule: When the user requests the generic 'sans-serif' family,
+    inject 'Noto Sans NKo' as the primary choice.
+  -->
+  <alias>
+    <!-- The generic family name to target (e.g., sans-serif, serif, monospace) -->
+    <family>{{ sans_serif_family_name | default('sans-serif') }}</family>
+    <default>
+      <!-- The preferred font family name to serve this generic alias -->
+      <family>{{ noto_font_name | default('Noto Sans NKo') }}</family>
+    </default>
+  </alias>
+
+  <!--
+    Match rule: Apply specific rendering instructions for the NKo script.
+  -->
+  <match>
+    <!--
+      Check if the text being rendered has a language tag containing the
+      specified BCP 47 language code for N'Ko.
+    -->
+    <test name="lang" compare="contains">
+      <string>{{ nko_language_code | default('nqo') }}</string>
+    </test>
+
+    <!--
+      Check if the requested font family is the generic sans-serif family.
+      This ensures we only override the specific font for this generic alias
+      when dealing with NKo text.
+    -->
+    <test name="family">
+      <string>{{ sans_serif_family_name | default('sans-serif') }}</string>
+    </test>
+
+    <!--
+      Prepend 'Noto Sans NKo' to the list of candidate fonts for this match.
+      This makes it the top preference for NKo sans-serif text.
+    -->
+    <edit name="family" mode="prepend">
+      <string>{{ noto_font_name | default('Noto Sans NKo') }}</string>
+    </edit>
+
+    <!--
+      Enable font hinting for this specific font match.
+      Hinting adjusts glyph outlines to fit the pixel grid, improving readability
+      at small sizes.
+    -->
+    <edit name="fonthashint" mode="append">
+      <!--
+        Boolean flag to enable (true) or disable (false) font hinting.
+        Set to 'true' for better screen rendering, 'false' for original design intent.
+      -->
+      <bool>{{ hinting_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+</fontconfig>

@@ -1,0 +1,99 @@
+# -------------------------------------
+# IcedTea-Web Jigsaw Module Arguments (JDK9+)
+# -------------------------------------
+# This configuration file provides the command-line flags required to enable
+# IcedTea-Web (Java Web Start/Applets) to function correctly under Java 9+
+# module systems (Jigsaw). These flags grant necessary read/export access to
+# internal JDK modules that IcedTea-Web relies upon.
+
+# -- Add Reads: java.base
+# Allows java.base to read from unnamed modules.
+# Required for basic class loading and reflection operations used by IcedTea.
+{{ icedtea_web_jigsaw_add_reads_java_base | default('--add-reads=java.base=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Reads: java.desktop
+# Allows java.desktop to read from unnamed modules and java.naming.
+# Required for GUI components and desktop integration.
+{{ icedtea_web_jigsaw_add_reads_java_desktop | default('--add-reads=java.desktop=ALL-UNNAMED,java.naming') }}
+
+# -- Add Reads: java.naming
+# Allows java.naming to read from unnamed modules and java.desktop.
+# Required for JNDI lookups performed by IcedTea-Web during applet initialization.
+{{ icedtea_web_jigsaw_add_reads_java_naming | default('--add-reads=java.naming=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.desktop/sun.awt
+# Exports the sun.awt package from java.desktop to unnamed modules and java.desktop.
+# Required for low-level AWT/Swing interaction with the windowing system.
+{{ icedtea_web_jigsaw_add_exports_java_desktop_sun_aws | default('--add-exports=java.desktop/sun.awt=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.desktop/javax.jnlp
+# Exports the javax.jnlp package from java.desktop to unnamed modules and java.desktop.
+# Critical for the Java Network Launch Protocol (JNLP) implementation.
+{{ icedtea_web_jigsaw_add_exports_java_desktop_javax_jnlp | default('--add-exports=java.desktop/javax.jnlp=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/com.sun.net.ssl.internal.ssl
+# Exports internal SSL implementation from java.base.
+# Required for legacy SSL/TLS handling in older IcedTea-Web versions.
+{{ icedtea_web_jigsaw_add_exports_java_base_com_sun_net_ssl_internal_ssl | default('--add-exports=java.base/com.sun.net.ssl.internal.ssl=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.net.www.protocol.jar
+# Exports JAR protocol handler from java.base.
+# Allows IcedTea-Web to load resources directly from JAR files.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_net_www_protocol_jar | default('--add-exports=java.base/sun.net.www.protocol.jar=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.security.action
+# Exports security actions from java.base.
+# Required for privileged security operations during applet execution.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_security_action | default('--add-exports=java.base/sun.security.action=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.security.provider
+# Exports security providers from java.base.
+# Required for cryptographic provider initialization.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_security_provider | default('--add-exports=java.base/sun.security.provider=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.security.util
+# Exports security utility classes from java.base.
+# Required for general security utility functions.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_security_util | default('--add-exports=java.base/sun.security.util=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.security.validator
+# Exports SSL certificate validators from java.base.
+# Required for certificate chain validation.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_security_validator | default('--add-exports=java.base/sun.security.validator=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.security.x509
+# Exports X.509 certificate classes from java.base.
+# Required for parsing and handling X.509 certificates.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_security_x509 | default('--add-exports=java.base/sun.security.x509=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/jdk.internal.util.jar
+# Exports internal JAR utilities from java.base.
+# Required for advanced JAR file manipulation.
+{{ icedtea_web_jigsaw_add_exports_java_base_jdk_internal_util_jar | default('--add-exports=java.base/jdk.internal.util.jar=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.base/sun.net.www.protocol.http
+# Exports HTTP protocol handler from java.base.
+# Required for HTTP communication with JNLP launchers.
+{{ icedtea_web_jigsaw_add_exports_java_base_sun_net_www_protocol_http | default('--add-exports=java.base/sun.net.www.protocol.http=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.desktop/sun.awt.X11
+# Exports X11-specific AWT classes from java.desktop.
+# Required for X11 windowing system support on Linux.
+{{ icedtea_web_jigsaw_add_exports_java_desktop_sun_aws_X11 | default('--add-exports=java.desktop/sun.awt.X11=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.desktop/sun.applet
+# Exports the sun.applet package from java.desktop to unnamed modules.
+# Targets java.desktop (standard desktop environment).
+# Required for core applet lifecycle management.
+{{ icedtea_web_jigsaw_add_exports_java_desktop_sun_applet | default('--add-exports=java.desktop/sun.applet=ALL-UNNAMED,java.desktop') }}
+
+# -- Add Exports: java.desktop/sun.applet (JDK JSObject)
+# Exports the sun.applet package from java.desktop to jdk.jsobject.
+# Targets jdk.jsobject.
+# Required for JavaScript-to-Java interoperability (LiveConnect).
+{{ icedtea_web_jigsaw_add_exports_java_desktop_sun_applet_jdk_jsobject | default('--add-exports=java.desktop/sun.applet=ALL-UNNAMED,jdk.jsobject') }}
+
+# -- Add Exports: java.naming/com.sun.jndi.toolkit.url
+# Exports JNDI toolkit URL classes from java.naming.
+# Required for JNDI URL parsing and resource resolution.
+{{ icedtea_web_jigsaw_add_exports_java_naming_com_sun_jndi_toolkit_url | default('--add-exports=java.naming/com.sun.jndi.toolkit.url=ALL-UNNAMED,java.desktop') }}

@@ -1,12 +1,340 @@
 {
-  "system_user": {
+  "listen_host": {
     "type": "string",
-    "default": "root",
-    "description": "The system user under which the ironic-python-agent daemon runs."
+    "default": null,
+    "description": "The IP address to listen on."
   },
-  "system_group": {
+  "listen_port": {
     "type": "string",
-    "default": "root",
-    "description": "The system group under which the ironic-python-agent daemon runs."
+    "default": null,
+    "description": "The port to listen on."
+  },
+  "listen_tls": {
+    "type": "string",
+    "default": null,
+    "description": "When true, IPA will host API behind TLS."
+  },
+  "enable_auto_tls": {
+    "type": "string",
+    "default": null,
+    "description": "Enables auto-generating TLS parameters when listen_tls is False."
+  },
+  "auto_tls_allowed_clock_skew": {
+    "type": "string",
+    "default": null,
+    "description": "Clock skew (in seconds) allowed in the generated TLS certificate."
+  },
+  "advertise_host": {
+    "type": "string",
+    "default": null,
+    "description": "The host to tell Ironic to reply and send commands to."
+  },
+  "advertise_port": {
+    "type": "string",
+    "default": null,
+    "description": "The port to tell Ironic to reply and send commands to."
+  },
+  "advertise_protocol": {
+    "type": "string",
+    "default": null,
+    "description": "Protocol to use for the callback URL.",
+    "enum": [
+      "http",
+      "https"
+    ]
+  },
+  "ip_lookup_attempts": {
+    "type": "string",
+    "default": null,
+    "description": "The number of times to try and automatically determine the agent IPv4 address."
+  },
+  "ip_lookup_sleep": {
+    "type": "string",
+    "default": null,
+    "description": "The amount of time to sleep between attempts to determine IP address."
+  },
+  "network_interface": {
+    "type": "string",
+    "default": null,
+    "description": "The interface to use when looking for an IP address."
+  },
+  "lookup_timeout": {
+    "type": "string",
+    "default": null,
+    "description": "The amount of time to retry the initial lookup call to Ironic."
+  },
+  "lookup_interval": {
+    "type": "string",
+    "default": null,
+    "description": "The initial interval for retries on the initial lookup call to Ironic."
+  },
+  "lldp_timeout": {
+    "type": "string",
+    "default": null,
+    "description": "The amount of seconds to wait for LLDP packets."
+  },
+  "collect_lldp": {
+    "type": "string",
+    "default": null,
+    "description": "DEPRECATED: Whether IPA should attempt to receive LLDP packets for each network interface."
+  },
+  "inspection_callback_url": {
+    "type": "string",
+    "default": null,
+    "description": "Endpoint(s) to send inspection data to."
+  },
+  "inspection_collectors": {
+    "type": "string",
+    "default": null,
+    "description": "Comma-separated list of plugins providing additional hardware data for inspection."
+  },
+  "inspection_dhcp_wait_timeout": {
+    "type": "string",
+    "default": null,
+    "description": "Maximum time (in seconds) to wait for the PXE NIC to get its IP address via DHCP before inspection."
+  },
+  "inspection_dhcp_all_interfaces": {
+    "type": "string",
+    "default": null,
+    "description": "Whether to wait for all interfaces to get their IP addresses before inspection."
+  },
+  "hardware_initialization_delay": {
+    "type": "string",
+    "default": null,
+    "description": "How much time (in seconds) to wait for hardware to initialize before proceeding with any actions."
+  },
+  "disk_wait_attempts": {
+    "type": "string",
+    "default": null,
+    "description": "The number of times to try and check to see if at least one suitable disk has appeared in inventory."
+  },
+  "disk_wait_delay": {
+    "type": "string",
+    "default": null,
+    "description": "How much time (in seconds) to wait between attempts to check if at least one suitable disk has appeared."
+  },
+  "insecure": {
+    "type": "string",
+    "default": null,
+    "description": "Verify HTTPS connections."
+  },
+  "cafile": {
+    "type": "string",
+    "default": null,
+    "description": "Path to PEM encoded Certificate Authority file to use when verifying HTTPS connections."
+  },
+  "certfile": {
+    "type": "string",
+    "default": null,
+    "description": "Path to PEM encoded client certificate cert file."
+  },
+  "keyfile": {
+    "type": "string",
+    "default": null,
+    "description": "Path to PEM encoded client certificate key file."
+  },
+  "introspection_daemon": {
+    "type": "string",
+    "default": null,
+    "description": "When the ``ironic-collect-introspection-data`` command is executed, continue running as a background process."
+  },
+  "introspection_daemon_post_interval": {
+    "type": "string",
+    "default": null,
+    "description": "The interval in seconds by which to transmit data to the bare metal introspection service in daemon mode."
+  },
+  "ntp_server": {
+    "type": "string",
+    "default": null,
+    "description": "Address of a single NTP server against which the agent should sync the system software clock."
+  },
+  "fail_if_clock_not_set": {
+    "type": "string",
+    "default": null,
+    "description": "If operations should fail if the clock time sync fails to complete successfully."
+  },
+  "agent_token": {
+    "type": "string",
+    "default": null,
+    "description": "Pre-shared token to use when working with the ironic API."
+  },
+  "image_server_user": {
+    "type": "string",
+    "default": null,
+    "description": "Pre-shared username used in Basic Auth process against the http(s) server that hosts the disk image."
+  },
+  "image_server_password": {
+    "type": "string",
+    "default": null,
+    "description": "Pre-shared password used in Basic Auth process against the http(s) server that hosts the disk image."
+  },
+  "image_server_auth_strategy": {
+    "type": "string",
+    "default": null,
+    "description": "Option to select authentication strategy used during communication with the server that hosts the disk images.",
+    "enum": [
+      "noauth",
+      "basic"
+    ]
+  },
+  "agent_token_required": {
+    "type": "string",
+    "default": null,
+    "description": "Control to enforce if API command requests should enforce token validation."
+  },
+  "image_download_connection_timeout": {
+    "type": "string",
+    "default": null,
+    "description": "The connection timeout (in seconds) when downloading an image."
+  },
+  "image_download_connection_retries": {
+    "type": "string",
+    "default": null,
+    "description": "How many times to retry the connection when downloading an image."
+  },
+  "image_download_connection_retry_interval": {
+    "type": "string",
+    "default": null,
+    "description": "Interval (in seconds) between two attempts to establish connection when downloading an image."
+  },
+  "ironic_api_version": {
+    "type": "string",
+    "default": null,
+    "description": "Ironic API version in format \"x.x\"."
+  },
+  "enable_vlan_interfaces": {
+    "type": "string",
+    "default": null,
+    "description": "Comma-separated list of VLAN interfaces to enable."
+  },
+  "ignore_bootloader_failure": {
+    "type": "string",
+    "default": null,
+    "description": "If the agent should ignore failures to install a bootloader configuration into UEFI NVRAM."
+  },
+  "inject_files_priority": {
+    "type": "string",
+    "default": null,
+    "description": "Priority of the inject_files deploy step."
+  },
+  "guard_special_filesystems": {
+    "type": "string",
+    "default": null,
+    "description": "Guard \"special\" shared device filesystems from cleaning by the stock hardware manager's cleaning methods."
+  },
+  "md5_enabled": {
+    "type": "string",
+    "default": null,
+    "description": "If the MD5 algorithm is enabled for file checksums."
+  },
+  "http_request_timeout": {
+    "type": "string",
+    "default": null,
+    "description": "Time in seconds to wait for an HTTP request TCP socket used by an API request."
+  },
+  "config_drive_rebuild": {
+    "type": "string",
+    "default": null,
+    "description": "If the agent should rebuild the configuration drive using a local filesystem."
+  },
+  "disable_deep_image_inspection": {
+    "type": "string",
+    "default": null,
+    "description": "This disables the additional deep image inspection the agent does before converting and writing an image."
+  },
+  "permitted_image_formats": {
+    "type": "string",
+    "default": null,
+    "description": "The supported list of image formats which are permitted for deployment with Ironic Python Agent.",
+    "enum": [
+      "raw",
+      "qcow2",
+      "gpt"
+    ]
+  },
+  "disable_bootc_deploy": {
+    "type": "string",
+    "default": null,
+    "description": "This disables bootc deployment methods in the ramdisk."
+  },
+  "check_device_interval": {
+    "type": "string",
+    "default": null,
+    "description": "After Ironic has completed creating the partition table, it continues to check for activity on the attached iSCSI device status at this interval."
+  },
+  "check_device_max_retries": {
+    "type": "string",
+    "default": null,
+    "description": "The maximum number of times to check that the device is not accessed by another process."
+  },
+  "efi_system_partition_size": {
+    "type": "string",
+    "default": null,
+    "description": "Size of EFI system partition in MiB when configuring UEFI systems for local boot."
+  },
+  "bios_boot_partition_size": {
+    "type": "string",
+    "default": null,
+    "description": "Size of BIOS Boot partition in MiB when configuring GPT partitioned systems for local boot in BIOS."
+  },
+  "dd_block_size": {
+    "type": "string",
+    "default": null,
+    "description": "Block size to use when writing to the nodes disk."
+  },
+  "partition_detection_attempts": {
+    "type": "string",
+    "default": null,
+    "description": "Maximum attempts to detect a newly created partition."
+  },
+  "partprobe_attempts": {
+    "type": "string",
+    "default": null,
+    "description": "Maximum number of attempts to try to read the partition."
+  },
+  "image_convert_memory_limit": {
+    "type": "string",
+    "default": null,
+    "description": "Memory limit for \"qemu-img convert\" in MiB."
+  },
+  "image_convert_attempts": {
+    "type": "string",
+    "default": null,
+    "description": "Number of attempts to convert an image."
+  },
+  "metrics_backend": {
+    "type": "string",
+    "default": null,
+    "description": "Backend to use for the metrics system.",
+    "enum": [
+      "noop",
+      "statsd",
+      "collector"
+    ]
+  },
+  "metrics_prepend_host": {
+    "type": "string",
+    "default": null,
+    "description": "Prepend the hostname to all metric names."
+  },
+  "metrics_prepend_host_reverse": {
+    "type": "string",
+    "default": null,
+    "description": "Split the prepended host value by \".\" and reverse it."
+  },
+  "metrics_global_prefix": {
+    "type": "string",
+    "default": null,
+    "description": "Prefix all metric names with this value."
+  },
+  "metrics_statsd_host": {
+    "type": "string",
+    "default": null,
+    "description": "Host for use with the statsd backend."
+  },
+  "metrics_statsd_port": {
+    "type": "string",
+    "default": null,
+    "description": "Port to use with the statsd backend."
   }
 }

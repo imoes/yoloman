@@ -25,14 +25,13 @@
 #
 # See Postgresql's documenation for PQconnectdb(), for other options that
 # you can use here.
-#
-# PostgreSQL server hostname or IP address
+
 PGSQL_CONNECTION        \
-          host={{ (pgsql_host | default('localhost')) }} \
-	  port={{ (pgsql_port | default(5432)) }}              \
-	  dbname={{ (pgsql_dbname | default('auth')) }}       \
-	  user={{ (pgsql_user | default('authuser')) }}             \
-	  password={{ (pgsql_password | default('secret')) }}
+          host={{ pgsql_host | default('pgsql.example.com') }} \
+	  port={{ pgsql_port | default('5400') }}              \
+	  dbname={{ pgsql_dbname | default('template1') }}       \
+	  user={{ pgsql_user | default('admin') }}             \
+	  password={{ pgsql_password | default('admin') }}
 
 ##NAME: PGSQL_CHARACTER_SET:0
 #
@@ -46,9 +45,8 @@ PGSQL_CONNECTION        \
 # The name of the table containing your user data.  See README.authmysqlrc
 # for the required fields in this table (both MySQL and Postgress use the
 # same suggested layout.
-#
-# Name of the table containing user data
-PGSQL_USER_TABLE	{{ (pgsql_user_table | default('passwd')) }}
+
+PGSQL_USER_TABLE	{{ pgsql_user_table | default('passwd') }}
 
 ##NAME: PGSQL_CRYPT_PWFIELD:0
 #
@@ -56,17 +54,13 @@ PGSQL_USER_TABLE	{{ (pgsql_user_table | default('passwd')) }}
 # are OK too. crypted passwords go into PGSQL_CRYPT_PWFIELD, cleartext
 # passwords go into PGSQL_CLEAR_PWFIELD.  Cleartext passwords allow
 # CRAM-MD5 authentication to be implemented.
-#
-# Field name for encrypted passwords
-PGSQL_CRYPT_PWFIELD	{{ (pgsql_crypt_pwfield | default('crypt')) }}
+
+PGSQL_CRYPT_PWFIELD	{{ pgsql_crypt_pwfield | default('crypt') }}
 
 ##NAME: PGSQL_CLEAR_PWFIELD:0
 #
 #
-# PGSQL_CLEAR_PWFIELD	
-#
-# Field name for clear-text passwords (optional)
-PGSQL_CLEAR_PWFIELD	{{ (pgsql_clear_pwfield | default('')) }}
+# PGSQL_CLEAR_PWFIELD	{{ pgsql_clear_pwfield | default('') }}
 
 ##NAME: PGSQL_DEFAULT_DOMAIN:0
 #
@@ -74,10 +68,7 @@ PGSQL_CLEAR_PWFIELD	{{ (pgsql_clear_pwfield | default('')) }}
 # we will look up 'user@DEFAULT_DOMAIN' instead.
 #
 #
-# DEFAULT_DOMAIN		{{ (pgsql_default_domain | default('')) }}
-#
-# Default domain to append to usernames without domain
-PGSQL_DEFAULT_DOMAIN	{{ (pgsql_default_domain | default('')) }}
+# DEFAULT_DOMAIN		example.com
 
 ##NAME: PGSQL_UID_FIELD:0
 #
@@ -85,15 +76,13 @@ PGSQL_DEFAULT_DOMAIN	{{ (pgsql_default_domain | default('')) }}
 #
 # PGSQL_UID_FIELD - contains the numerical userid of the account
 #
-# Field containing numeric user ID
-PGSQL_UID_FIELD		{{ (pgsql_uid_field | default('uid')) }}
+PGSQL_UID_FIELD		{{ pgsql_uid_field | default('uid') }}
 
 ##NAME: PGSQL_GID_FIELD:0
 #
 # Numerical groupid of the account
-#
-# Field containing numeric group ID
-PGSQL_GID_FIELD		{{ (pgsql_gid_field | default('gid')) }}
+
+PGSQL_GID_FIELD		{{ pgsql_gid_field | default('gid') }}
 
 ##NAME: PGSQL_LOGIN_FIELD:0
 #
@@ -102,20 +91,17 @@ PGSQL_GID_FIELD		{{ (pgsql_gid_field | default('gid')) }}
 #  SELECT PGSQL_UID_FIELD, PGSQL_GID_FIELD, ... WHERE id='loginid'
 #
 
-# Field used as login identifier
-PGSQL_LOGIN_FIELD	{{ (pgsql_login_field | default('id')) }}
+PGSQL_LOGIN_FIELD	{{ pgsql_login_field | default('id') }}
 
 ##NAME: PGSQL_HOME_FIELD:0
-#
-# Field containing user's home directory
-PGSQL_HOME_FIELD	{{ (pgsql_home_field | default('home')) }}
+
+PGSQL_HOME_FIELD	{{ pgsql_home_field | default('home') }}
 
 ##NAME: PGSQL_NAME_FIELD:0
 #
 # The user's name (optional)
-#
-# Field containing user's full name (optional)
-PGSQL_NAME_FIELD	{{ (pgsql_name_field | default('name')) }}
+
+PGSQL_NAME_FIELD	{{ pgsql_name_field | default('name') }}
 
 ##NAME: PGSQL_MAILDIR_FIELD:0
 #
@@ -126,10 +112,7 @@ PGSQL_NAME_FIELD	{{ (pgsql_name_field | default('name')) }}
 # You still need to provide a PGSQL_HOME_FIELD, even if you uncomment this
 # out.
 #
-# PGSQL_MAILDIR_FIELD	
-#
-# Field containing maildir path override (optional)
-PGSQL_MAILDIR_FIELD	{{ (pgsql_maildir_field | default('')) }}
+# PGSQL_MAILDIR_FIELD	maildir
 
 ##NAME: PGSQL_DEFAULTDELIVERY:0
 #
@@ -137,20 +120,14 @@ PGSQL_MAILDIR_FIELD	{{ (pgsql_maildir_field | default('')) }}
 # instructions for this account (if defined) -- essentially overrides
 # DEFAULTDELIVERY from ${sysconfdir}/courierd
 #
-# PGSQL_DEFAULTDELIVERY	
-#
-# Field for custom mail delivery instructions (Courier only)
-PGSQL_DEFAULTDELIVERY	{{ (pgsql_defaultdelivery | default('')) }}
+# PGSQL_DEFAULTDELIVERY defaultDelivery
 
 ##NAME: PGSQL_QUOTA_FIELD:0
 #
 # Define PGSQL_QUOTA_FIELD to be the name of the field that can optionally
 # specify a maildir quota.  See README.maildirquota for more information
 #
-# PGSQL_QUOTA_FIELD	
-#
-# Field containing maildir quota (optional)
-PGSQL_QUOTA_FIELD	{{ (pgsql_quota_field | default('')) }}
+# PGSQL_QUOTA_FIELD	quota
 
 ##NAME: PGSQL_AUXOPTIONS:0
 #
@@ -160,7 +137,7 @@ PGSQL_QUOTA_FIELD	{{ (pgsql_quota_field | default('')) }}
 # "options", as given in  INSTALL's description of the "Account OPTIONS"
 # setting.
 #
-# PGSQL_AUXOPTIONS_FIELD	
+# PGSQL_AUXOPTIONS_FIELD	auxoptions
 #
 # You might want to try something like this, if you'd like to use a bunch
 # of individual fields, instead of a single text blob:
@@ -169,19 +146,13 @@ PGSQL_QUOTA_FIELD	{{ (pgsql_quota_field | default('')) }}
 #
 # This will let you define fields called "disableimap", etc, with the end result
 # being something that the OPTIONS parser understands.
-#
-# Field containing auxiliary options string (optional)
-PGSQL_AUXOPTIONS_FIELD	{{ (pgsql_auxoptions_field | default('')) }}
 
 ##NAME: PGSQL_WHERE_CLAUSE:0
 #
 # This is optional, PGSQL_WHERE_CLAUSE can be basically set to an arbitrary
 # fixed string that is appended to the WHERE clause of our query
 #
-# PGSQL_WHERE_CLAUSE	
-#
-# Domain name to use in WHERE clause (if used)
-PGSQL_WHERE_CLAUSE	{{ (pgsql_where_clause_domain | default('')) }}
+# PGSQL_WHERE_CLAUSE	server='mailhost.example.com'
 
 ##NAME: PGSQL_SELECT_CLAUSE:0
 #
@@ -199,7 +170,7 @@ PGSQL_WHERE_CLAUSE	{{ (pgsql_where_clause_domain | default('')) }}
 # There are two variables, which you can use. Substitution will be made
 # for them, so you can put entered username (local part) and domain name
 # in the right place of your query. These variables are:
-# 		$(local_part), $(domain), and $(service)
+#	 	$(local_part), $(domain), and $(service)
 #
 # If a $(domain) is empty (not given by the remote user) the default domain
 # name is used in its place.
@@ -214,19 +185,20 @@ PGSQL_WHERE_CLAUSE	{{ (pgsql_where_clause_domain | default('')) }}
 # This example is a little bit modified adaptation of vmail-sql
 # database scheme:
 #
-# PGSQL_SELECT_CLAUSE	SELECT popbox.local_part,                        \
-#			'{MD5}' || popbox.password_hash,                \
-#			popbox.clearpw,                               \
-#			domain.uid,                               \
-#			domain.gid,                               \
-#			domain.path || '/' || popbox.mbox_name),    \
-#			'',                               \
-#			domain.quota,                               \
-#			'',                               \
-#			FROM popbox, domain                   \
-#			WHERE popbox.local_part = '$(local_part)'    \
-#			AND popbox.domain_name = '$(domain)'         \
+# PGSQL_SELECT_CLAUSE	SELECT popbox.local_part,                        \\
+#			'{MD5}' || popbox.password_hash,                \\
+#			popbox.clearpw,					\
+#			domain.uid,					\
+#			domain.gid,					\
+#			domain.path || '/' || popbox.mbox_name),    \\
+#			'',						\
+#			domain.quota,					\
+#			'',						\
+#			FROM popbox, domain                        \\
+#			WHERE popbox.local_part = '$(local_part)'    \\
+#			AND popbox.domain_name = '$(domain)'            \\
 #			AND popbox.domain_name = domain.domain_name
+
 
 ##NAME: PGSQL_ENUMERATE_CLAUSE:1
 #
@@ -236,16 +208,17 @@ PGSQL_WHERE_CLAUSE	{{ (pgsql_where_clause_domain | default('')) }}
 # should return the following fields: name, uid, gid, homedir, maildir, options
 #
 # Example:
-# PGSQL_ENUMERATE_CLAUSE	SELECT popbox.local_part || '@' || popbox.domain_name,  \
-#			domain.uid,                               \
-#			domain.gid,                               \
-#			domain.path || '/' || popbox.mbox_name,     \
-#			'',                               \
-#			'sharedgroup=' || sharedgroup           \
-#			FROM popbox, domain                   \
-#			WHERE popbox.local_part = '$(local_part)'    \
-#			AND popbox.domain_name = '$(domain)'         \
+# PGSQL_ENUMERATE_CLAUSE	SELECT popbox.local_part || '@' || popbox.domain_name,   \\
+#			domain.uid,					\
+#			domain.gid,					\
+#			domain.path || '/' || popbox.mbox_name,            \\
+#			'',						\
+#			'sharedgroup=' || sharedgroup                    \\
+#			FROM popbox, domain                        \\
+#			WHERE popbox.local_part = '$(local_part)'    \\
+#			AND popbox.domain_name = '$(domain)'            \\
 #			AND popbox.domain_name = domain.domain_name
+
 
 ##NAME: PGSQL_CHPASS_CLAUSE:0
 #
@@ -265,14 +238,15 @@ PGSQL_WHERE_CLAUSE	{{ (pgsql_where_clause_domain | default('')) }}
 # $(newpass) contains plain password
 # $(newpass_crypt) contains its crypted form
 #
-# PGSQL_CHPASS_CLAUSE	UPDATE	popbox                          \
-#			SET	clearpw='$(newpass)',                        \
-#					password_hash='$(newpass_crypt)'    \
-#			WHERE	local_part='$(local_part)'            \
+# PGSQL_CHPASS_CLAUSE	UPDATE	popbox                                    \\
+#			SET	clearpw='$(newpass)',            \\
+#					password_hash='$(newpass_crypt)'    \\
+#			WHERE	local_part='$(local_part)'        \\
 #			AND	domain_name='$(domain)'
+#
 
 
 ##NAME: MARKER:0
 #
 # Do not remove this section from this configuration file. This section
-# must be present at the end of this configuration file.
+# must be present at the end of this file.

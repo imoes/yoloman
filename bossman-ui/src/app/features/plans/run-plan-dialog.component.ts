@@ -14,9 +14,9 @@ import { Agent } from '../../core/models/agent.model';
 import { PlanDetail, PlanParam } from '../../core/models/plan.model';
 import { PlanRunDetail } from '../../core/models/run.model';
 import { HostPickerComponent } from '../../shared/components/host-picker/host-picker.component';
-import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { MarkdownViewComponent } from '../../shared/components/markdown-view/markdown-view.component';
-import { runStatusBadge } from '../../shared/status.util';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
+import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
 
 export interface RunPlanDialogData {
   plan: PlanDetail;
@@ -38,7 +38,7 @@ interface ParamEntry {
 @Component({
   selector: 'app-run-plan-dialog',
   standalone: true,
-  imports: [
+  imports: [StatusPillComponent, BlockedReasonDirective,
     ReactiveFormsModule,
     RouterLink,
     MatDialogModule,
@@ -48,7 +48,6 @@ interface ParamEntry {
     MatButtonModule,
     MatProgressSpinnerModule,
     HostPickerComponent,
-    HostStatusBadgeComponent,
     MarkdownViewComponent,
   ],
   template: `
@@ -95,7 +94,7 @@ interface ParamEntry {
 
       @if (stage() === 'previewed' && previewResult(); as preview) {
         <h3>Preview result (dry run)</h3>
-        <app-status-badge [status]="statusOf(preview.status)" [label]="preview.status" />
+        <bm-status-pill [status]="preview.status" />
         <ul class="bm-step-list">
           @for (step of preview.steps; track step.step_index) {
             <li>
@@ -112,7 +111,7 @@ interface ParamEntry {
 
       @if (stage() === 'applied' && applyResult(); as result) {
         <h3>Applied</h3>
-        <app-status-badge [status]="statusOf(result.status)" [label]="result.status" />
+        <bm-status-pill [status]="result.status" />
       }
 
       @if (error()) {
@@ -123,9 +122,11 @@ interface ParamEntry {
       @if (stage() === 'form') {
         <button mat-button (click)="dialogRef.close()">Cancel</button>
         @if (!agentsLoaded() || agents().length > 0) {
-          <button mat-raised-button color="primary" [disabled]="!canPreview()" (click)="preview()">
-            Preview (dry run)
-          </button>
+          <span class="bm-why">
+            <button mat-raised-button color="primary" [bmBlocked]="previewBlocked()" (click)="preview()">
+              Preview (dry run)
+            </button>
+          </span>
         }
       }
       @if (stage() === 'previewed') {
@@ -244,7 +245,17 @@ export class RunPlanDialogComponent implements OnInit {
   }
 
   canPreview(): boolean {
-    return !!this.selectedHost() && this.form.valid;
+    return !this.previewBlocked();
+  }
+
+  /** Why the dry run cannot start yet, or '' when it can — the one reason the greyed-out button shows. */
+  previewBlocked(): string {
+    if (!this.selectedHost()) return 'Pick a target host first';
+    if (!this.form.valid) {
+      const missing = Object.entries(this.form.controls).filter(([, c]) => c.invalid).map(([k]) => k);
+      return missing.length ? `Fill in the required parameter(s): ${missing.join(', ')}` : 'The parameters are not valid yet';
+    }
+    return '';
   }
 
   preview(): void {
@@ -278,10 +289,6 @@ export class RunPlanDialogComponent implements OnInit {
         this.stage.set('form');
       },
     });
-  }
-
-  statusOf(status: string) {
-    return runStatusBadge(status);
   }
 
   viewRun(): void {

@@ -10,7 +10,7 @@
 # directory under which the server's configuration, error,
 # and log files are kept.
 # Schema Field: server_root
-ServerRoot "{{ server_root | default('/etc/apache2') }}"
+{% if server_root is defined and server_root is not none and (server_root is number or server_root is boolean or server_root | length > 0) %}ServerRoot "{{ server_root | default('/etc/apache2') }}"{% else %}#ServerRoot "/etc/apache2"{% endif %}
 
 # Timeout: The number of seconds before receives and sends
 # time out.
@@ -52,6 +52,11 @@ Group {{ group | default('www-data') }}
 # info, notice, warn, error, crit, alert, emerg.
 # Schema Field: log_level
 LogLevel {{ log_level | default('warn') }}
+
+# ErrorLog: where the server-wide error log goes. As shipped by Debian: under ${APACHE_LOG_DIR} (set in
+# /etc/apache2/envvars). Without this line Apache falls back to its compiled-in logs/error_log relative to
+# ServerRoot — /etc/apache2/logs/, which does not exist, and `apachectl configtest` fails (package e2e).
+ErrorLog {{ error_log | default('${APACHE_LOG_DIR}/error.log') }}
 
 # Include module configuration
 IncludeOptional mods-enabled/*.load

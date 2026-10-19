@@ -1,0 +1,201 @@
+# Master libvirt daemon configuration file for virtnodedevd
+#
+# This file is managed by Ansible. Do not edit manually.
+#
+# The daemon exposes a UNIX socket for node device management.
+# Security is handled primarily via UNIX socket permissions and
+# PolicyKit (polkit) or SASL authentication.
+
+#################################################################
+#
+# UNIX socket access controls
+#
+
+# UNIX domain socket group ownership for management access.
+# Setting this allows members of the group to manage VMs without root.
+# If empty, uses default (commented out) or system defaults.
+{% if libvirt_unix_sock_group is defined and libvirt_unix_sock_group is not none and (libvirt_unix_sock_group is number or libvirt_unix_sock_group is boolean or libvirt_unix_sock_group | length > 0) %}unix_sock_group = "{{ libvirt_unix_sock_group | default('') }}"{% else %}#unix_sock_group = "libvirt"{% endif %}
+
+# Permissions for the read-only UNIX socket.
+# Used for monitoring VM status only.
+{% if libvirt_unix_sock_ro_perms is defined and libvirt_unix_sock_ro_perms is not none and (libvirt_unix_sock_ro_perms is number or libvirt_unix_sock_ro_perms is boolean or libvirt_unix_sock_ro_perms | length > 0) %}unix_sock_ro_perms = "{{ libvirt_unix_sock_ro_perms | default('') }}"{% else %}#unix_sock_ro_perms = "0777"{% endif %}
+
+# Permissions for the read-write UNIX socket.
+# Used for full management of VMs.
+# Default allows only root. If PolicyKit is enabled, default changes.
+{% if libvirt_unix_sock_rw_perms is defined and libvirt_unix_sock_rw_perms is not none and (libvirt_unix_sock_rw_perms is number or libvirt_unix_sock_rw_perms is boolean or libvirt_unix_sock_rw_perms | length > 0) %}unix_sock_rw_perms = "{{ libvirt_unix_sock_rw_perms | default('') }}"{% else %}#unix_sock_rw_perms = "0770"{% endif %}
+
+# Permissions for the admin interface UNIX socket.
+# Default allows only owner (root).
+{% if libvirt_unix_sock_admin_perms is defined and libvirt_unix_sock_admin_perms is not none and (libvirt_unix_sock_admin_perms is number or libvirt_unix_sock_admin_perms is boolean or libvirt_unix_sock_admin_perms | length > 0) %}unix_sock_admin_perms = "{{ libvirt_unix_sock_admin_perms | default('') }}"{% else %}#unix_sock_admin_perms = "0700"{% endif %}
+
+# Directory where UNIX sockets are created.
+{% if libvirt_unix_sock_dir is defined and libvirt_unix_sock_dir is not none and (libvirt_unix_sock_dir is number or libvirt_unix_sock_dir is boolean or libvirt_unix_sock_dir | length > 0) %}unix_sock_dir = "{{ libvirt_unix_sock_dir | default('/run/libvirt') }}"{% else %}#unix_sock_dir = "/run/libvirt"{% endif %}
+
+
+#################################################################
+#
+# Authentication.
+#
+# Available schemes:
+#   - none: No auth checks. Trust socket permissions or lower-layer auth (TLS).
+#   - sasl: Use SASL infrastructure (gssapi, digest-md5 for TCP; any for non-TCP).
+#   - polkit: Use PolicyKit for UNIX sockets. Requires user password for RW access.
+#
+
+# Authentication scheme for UNIX read-only sockets.
+{% if libvirt_auth_unix_ro is defined and libvirt_auth_unix_ro is not none and (libvirt_auth_unix_ro is number or libvirt_auth_unix_ro is boolean or libvirt_auth_unix_ro | length > 0) %}auth_unix_ro = "{{ libvirt_auth_unix_ro | default('polkit') }}"{% else %}#auth_unix_ro = "polkit"{% endif %}
+
+# Authentication scheme for UNIX read-write sockets.
+# If polkit is disabled here, ensure systemd SocketMode=0600 is set to avoid insecurity.
+{% if libvirt_auth_unix_rw is defined and libvirt_auth_unix_rw is not none and (libvirt_auth_unix_rw is number or libvirt_auth_unix_rw is boolean or libvirt_auth_unix_rw | length > 0) %}auth_unix_rw = "{{ libvirt_auth_unix_rw | default('polkit') }}"{% else %}#auth_unix_rw = "polkit"{% endif %}
+
+# Access control driver for API access.
+# 'nop' performs no checks after authentication. 'polkit' can be used here too.
+{% if libvirt_access_drivers is defined and libvirt_access_drivers is not none and (libvirt_access_drivers is number or libvirt_access_drivers is boolean or libvirt_access_drivers | length > 0) %}access_drivers = [ "{{ libvirt_access_drivers | default('nop') }}" ]{% else %}#access_drivers = [ "polkit" ]{% endif %}
+
+
+#################################################################
+#
+# Authorization controls
+#
+
+# Allowed SASL username list.
+# Format depends on mechanism (e.g., username@REALM for Kerberos).
+# Supports wildcards (e.g., "*@EXAMPLE.COM").
+# If empty, no client can connect; comment out to disable checks.
+# If providing a single user, it will be a single-entry list.
+{% if libvirt_sasl_allowed_username_list | default('') | trim | length > 0 %}
+{% if libvirt_sasl_allowed_username_list is defined and libvirt_sasl_allowed_username_list is not none and (libvirt_sasl_allowed_username_list is number or libvirt_sasl_allowed_username_list is boolean or libvirt_sasl_allowed_username_list | length > 0) %}sasl_allowed_username_list = [ "{{ libvirt_sasl_allowed_username_list | default('') | trim }}" ]{% else %}#sasl_allowed_username_list = ["joe@EXAMPLE.COM", "fred@EXAMPLE.COM" ]{% endif %}
+{% else %}
+# sasl_allowed_username_list = [ "joe@EXAMPLE.COM", "fred@EXAMPLE.COM" ]
+{% endif %}
+
+
+#################################################################
+#
+# Processing controls
+#
+
+# Maximum concurrent client connections to allow over all sockets.
+{% if libvirt_max_clients is defined and libvirt_max_clients is not none and (libvirt_max_clients is number or libvirt_max_clients is boolean or libvirt_max_clients | length > 0) %}max_clients = {{ libvirt_max_clients | default('') }}{% else %}#max_clients = 5000{% endif %}
+
+# Maximum length of queue of connections waiting to be accepted.
+{% if libvirt_max_queued_clients is defined and libvirt_max_queued_clients is not none and (libvirt_max_queued_clients is number or libvirt_max_queued_clients is boolean or libvirt_max_queued_clients | length > 0) %}max_queued_clients = {{ libvirt_max_queued_clients | default('') }}{% else %}#max_queued_clients = 1000{% endif %}
+
+# Maximum length of queue of accepted but not yet authenticated clients.
+{% if libvirt_max_anonymous_clients is defined and libvirt_max_anonymous_clients is not none and (libvirt_max_anonymous_clients is number or libvirt_max_anonymous_clients is boolean or libvirt_max_anonymous_clients | length > 0) %}max_anonymous_clients = {{ libvirt_max_anonymous_clients | default('') }}{% else %}#max_anonymous_clients = 20{% endif %}
+
+# Initial number of worker threads.
+{% if libvirt_min_workers is defined and libvirt_min_workers is not none and (libvirt_min_workers is number or libvirt_min_workers is boolean or libvirt_min_workers | length > 0) %}min_workers = {{ libvirt_min_workers | default('') }}{% else %}#min_workers = 5{% endif %}
+
+# Maximum number of worker threads.
+{% if libvirt_max_workers is defined and libvirt_max_workers is not none and (libvirt_max_workers is number or libvirt_max_workers is boolean or libvirt_max_workers | length > 0) %}max_workers = {{ libvirt_max_workers | default('') }}{% else %}#max_workers = 20{% endif %}
+
+# Number of priority worker threads for stuck-pool fallback (e.g., domainDestroy).
+{% if libvirt_prio_workers is defined and libvirt_prio_workers is not none and (libvirt_prio_workers is number or libvirt_prio_workers is boolean or libvirt_prio_workers | length > 0) %}prio_workers = {{ libvirt_prio_workers | default('') }}{% else %}#prio_workers = 5{% endif %}
+
+# Limit on concurrent requests per client connection.
+{% if libvirt_max_client_requests is defined and libvirt_max_client_requests is not none and (libvirt_max_client_requests is number or libvirt_max_client_requests is boolean or libvirt_max_client_requests | length > 0) %}max_client_requests = {{ libvirt_max_client_requests | default('') }}{% else %}#max_client_requests = 5{% endif %}
+
+# --- Admin Interface Processing Controls ---
+
+# Minimum admin interface worker threads.
+{% if libvirt_admin_min_workers is defined and libvirt_admin_min_workers is not none and (libvirt_admin_min_workers is number or libvirt_admin_min_workers is boolean or libvirt_admin_min_workers | length > 0) %}admin_min_workers = {{ libvirt_admin_min_workers | default('') }}{% else %}#admin_min_workers = 1{% endif %}
+
+# Maximum admin interface worker threads.
+{% if libvirt_admin_max_workers is defined and libvirt_admin_max_workers is not none and (libvirt_admin_max_workers is number or libvirt_admin_max_workers is boolean or libvirt_admin_max_workers | length > 0) %}admin_max_workers = {{ libvirt_admin_max_workers | default('') }}{% else %}#admin_max_workers = 5{% endif %}
+
+# Maximum admin interface client connections.
+{% if libvirt_admin_max_clients is defined and libvirt_admin_max_clients is not none and (libvirt_admin_max_clients is number or libvirt_admin_max_clients is boolean or libvirt_admin_max_clients | length > 0) %}admin_max_clients = {{ libvirt_admin_max_clients | default('') }}{% else %}#admin_max_clients = 5{% endif %}
+
+# Maximum admin interface connection queue.
+{% if libvirt_admin_max_queued_clients is defined and libvirt_admin_max_queued_clients is not none and (libvirt_admin_max_queued_clients is number or libvirt_admin_max_queued_clients is boolean or libvirt_admin_max_queued_clients | length > 0) %}admin_max_queued_clients = {{ libvirt_admin_max_queued_clients | default('') }}{% else %}#admin_max_queued_clients = 5{% endif %}
+
+# Limit on concurrent requests per admin client.
+{% if libvirt_admin_max_client_requests is defined and libvirt_admin_max_client_requests is not none and (libvirt_admin_max_client_requests is number or libvirt_admin_max_client_requests is boolean or libvirt_admin_max_client_requests | length > 0) %}admin_max_client_requests = {{ libvirt_admin_max_client_requests | default('') }}{% else %}#admin_max_client_requests = 5{% endif %}
+
+
+#################################################################
+#
+# Logging controls
+#
+
+# Global logging level: 4 (errors), 3 (warnings), 2 (info), 1 (debug).
+# WARNING: Debug level (1) is strongly discouraged in production.
+{% if libvirt_log_level is defined and libvirt_log_level is not none and (libvirt_log_level is number or libvirt_log_level is boolean or libvirt_log_level | length > 0) %}log_level = {{ libvirt_log_level | default('') }}{% else %}#log_level = 3{% endif %}
+
+# Logging filters string.
+# Format: "level:category". Categories use shell wildcards.
+# Example: "1:qemu 1:libvirt 4:object 4:json 4:event 1:util"
+{% if libvirt_log_filters is defined and libvirt_log_filters is not none and (libvirt_log_filters is number or libvirt_log_filters is boolean or libvirt_log_filters | length > 0) %}log_filters="{{ libvirt_log_filters | default('') }}"{% else %}#log_filters="1:qemu 1:libvirt 4:object 4:json 4:event 1:util"{% endif %}
+
+# Logging outputs string.
+# Format: "level:destination:args".
+# Destinations: stderr, syslog:name, file:path, journald.
+# Example: "3:syslog:virtnodedevd"
+{% if libvirt_log_outputs is defined and libvirt_log_outputs is not none and (libvirt_log_outputs is number or libvirt_log_outputs is boolean or libvirt_log_outputs | length > 0) %}log_outputs="{{ libvirt_log_outputs | default('') }}"{% else %}#log_outputs="3:syslog:virtnodedevd"{% endif %}
+
+
+##################################################################
+#
+# Auditing
+#
+
+# Auditing level: 0 (disable), 1 (enable if supported), 2 (enable or exit).
+{% if libvirt_audit_level is defined and libvirt_audit_level is not none and libvirt_audit_level != '' %}audit_level = {{ libvirt_audit_level }}{% else %}#audit_level = 2{% endif %}
+
+# Enable audit messages in libvirt logging infrastructure (0 or 1).
+{% if libvirt_audit_logging is defined and libvirt_audit_logging is not none and (libvirt_audit_logging is number or libvirt_audit_logging is boolean or libvirt_audit_logging | length > 0) %}audit_logging = {{ libvirt_audit_logging | default('') }}{% else %}#audit_logging = 1{% endif %}
+
+
+###################################################################
+#
+# Host UUID
+#
+
+# Host UUID. Must be valid UUID format.
+# If commented out, libvirt may generate a temporary one if source doesn't provide one.
+{% if libvirt_host_uuid | default('') | trim | length > 0 %}
+{% if libvirt_host_uuid is defined and libvirt_host_uuid is not none and (libvirt_host_uuid is number or libvirt_host_uuid is boolean or libvirt_host_uuid | length > 0) %}host_uuid = "{{ libvirt_host_uuid | default('') }}"{% else %}#host_uuid = "00000000-0000-0000-0000-000000000000"{% endif %}
+{% else %}
+# host_uuid = "00000000-0000-0000-0000-000000000000"
+{% endif %}
+
+# Source for fetching host UUID: 'smbios' (dmidecode) or 'machine-id'.
+{% if libvirt_host_uuid_source is defined and libvirt_host_uuid_source is not none and (libvirt_host_uuid_source is number or libvirt_host_uuid_source is boolean or libvirt_host_uuid_source | length > 0) %}host_uuid_source = "{{ libvirt_host_uuid_source | default('smbios') }}"{% else %}#host_uuid_source = "smbios"{% endif %}
+
+
+###################################################################
+#
+# Keepalive protocol
+#
+
+# Keepalive interval in seconds.
+# -1 disables sending keepalives. 0 closes connection on inactivity immediately.
+{% if libvirt_keepalive_interval is defined and libvirt_keepalive_interval is not none and (libvirt_keepalive_interval is number or libvirt_keepalive_interval is boolean or libvirt_keepalive_interval | length > 0) %}keepalive_interval = {{ libvirt_keepalive_interval | default('') }}{% else %}#keepalive_interval = 5{% endif %}
+
+# Keepalive count before disconnect.
+# Connection closed after interval * (count + 1) seconds of inactivity.
+{% if libvirt_keepalive_count is defined and libvirt_keepalive_count is not none and (libvirt_keepalive_count is number or libvirt_keepalive_count is boolean or libvirt_keepalive_count | length > 0) %}keepalive_count = {{ libvirt_keepalive_count | default('') }}{% else %}#keepalive_count = 5{% endif %}
+
+# Legacy keepalive required setting.
+{% if libvirt_keepalive_required is defined and libvirt_keepalive_required is not none and (libvirt_keepalive_required is number or libvirt_keepalive_required is boolean or libvirt_keepalive_required | length > 0) %}keepalive_required = {{ libvirt_keepalive_required | default('') }}{% else %}#keepalive_required = 1{% endif %}
+
+# Legacy admin keepalive required setting.
+{% if libvirt_admin_keepalive_required is defined and libvirt_admin_keepalive_required is not none and (libvirt_admin_keepalive_required is number or libvirt_admin_keepalive_required is boolean or libvirt_admin_keepalive_required | length > 0) %}admin_keepalive_required = {{ libvirt_admin_keepalive_required | default('') }}{% else %}#admin_keepalive_required = 1{% endif %}
+
+# Admin interface keepalive interval.
+{% if libvirt_admin_keepalive_interval is defined and libvirt_admin_keepalive_interval is not none and (libvirt_admin_keepalive_interval is number or libvirt_admin_keepalive_interval is boolean or libvirt_admin_keepalive_interval | length > 0) %}admin_keepalive_interval = {{ libvirt_admin_keepalive_interval | default('') }}{% else %}#admin_keepalive_interval = 5{% endif %}
+
+# Admin interface keepalive count.
+{% if libvirt_admin_keepalive_count is defined and libvirt_admin_keepalive_count is not none and (libvirt_admin_keepalive_count is number or libvirt_admin_keepalive_count is boolean or libvirt_admin_keepalive_count | length > 0) %}admin_keepalive_count = {{ libvirt_admin_keepalive_count | default('') }}{% else %}#admin_keepalive_count = 5{% endif %}
+
+
+###################################################################
+#
+# Open vSwitch timeout
+#
+
+# Timeout in seconds for openvswitch calls (ovs-vsctl).
+{% if libvirt_ovs_timeout is defined and libvirt_ovs_timeout is not none and (libvirt_ovs_timeout is number or libvirt_ovs_timeout is boolean or libvirt_ovs_timeout | length > 0) %}ovs_timeout = {{ libvirt_ovs_timeout | default('') }}{% else %}#ovs_timeout = 5{% endif %}

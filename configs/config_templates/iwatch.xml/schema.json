@@ -1,74 +1,55 @@
 {
-  "email_to": {
+  "guard_email": {
     "type": "string",
-    "default": "root@localhost",
-    "description": "Email address to receive security alerts (e.g., 'admin@example.com')."
+    "default": "iwatch@localhost",
+    "description": "Email address for the iWatch guard component."
   },
-  "log_level": {
+  "guard_name": {
     "type": "string",
-    "default": "notice",
-    "description": "Logging verbosity level (debug, info, notice, warning, error, critical, alert, emergency)."
+    "default": "iWatch",
+    "description": "Name of the guard component."
   },
-  "log_file": {
+  "watchlist_title": {
     "type": "string",
-    "default": "/var/log/iwatch.log",
-    "description": "Path to the iwatch log file."
+    "default": "Operating System",
+    "description": "Title for the watchlist section."
   },
-  "worker_count": {
-    "type": "number",
-    "default": 0,
-    "description": "Number of worker processes. Set to 0 to auto-detect based on CPU cores."
-  },
-  "timeout_seconds": {
-    "type": "number",
-    "default": 30,
-    "description": "Timeout (seconds) for inotify event processing before forcing a scan."
-  },
-  "use_kernel": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable kernel-based inotify monitoring (recommended; always true on modern Linux)."
-  },
-  "watch_dirs": {
+  "contacts": {
     "type": "list",
-    "default": [],
-    "description": "List of directories to monitor for file changes.",
-    "items": {
-      "path": {
-        "type": "string",
-        "default": "/etc",
-        "description": "Absolute path of the directory to monitor."
-      },
-      "mode": {
-        "type": "string",
-        "default": "realtime",
-        "description": "Monitoring mode: 'realtime' (default), 'batch', or 'mixed'."
-      },
-      "recursive": {
-        "type": "bool",
-        "default": true,
-        "description": "Monitor subdirectories recursively."
-      },
-      "include_pattern": {
-        "type": "string",
-        "default": ".*",
-        "description": "Regular expression pattern of files to include (default: all files)."
-      },
-      "exclude_pattern": {
-        "type": "string",
-        "default": "\\.swp$",
-        "description": "Regular expression pattern of files/directories to exclude (e.g., editor temp files)."
-      },
-      "alert": {
-        "type": "string",
-        "default": "changewatch",
-        "description": "Type of alert to send: 'changewatch', 'modwatch', 'deletewatch', or 'accesswatch'."
-      },
-      "alert_to": {
-        "type": "string",
-        "default": "",
-        "description": "Override email recipient for this directory\u2019s alerts (optional; defaults to global email_to)."
+    "default": [
+      {
+        "email": "root@localhost",
+        "name": "Administrator"
       }
-    }
+    ],
+    "description": "List of contact points for the watchlist."
+  },
+  "paths": {
+    "type": "list",
+    "default": [
+      {
+        "type": "single",
+        "syslog": "on",
+        "value": "/bin"
+      },
+      {
+        "type": "single",
+        "syslog": "on",
+        "value": "/sbin"
+      },
+      {
+        "type": "single",
+        "value": "/etc"
+      },
+      {
+        "type": "recursive",
+        "value": "/lib"
+      },
+      {
+        "type": "exception",
+        "value": "/lib/modules"
+      }
+    ],
+    "description": "List of directories to monitor. Each item has 'type' (single, recursive, exception), optional 'syslog' ('on'/'off'), and 'value' (the path)."
   }
 }

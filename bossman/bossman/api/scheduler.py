@@ -55,12 +55,12 @@ class ScheduledJobOut(ScheduledJobIn):
 
 
 def _validate(body: ScheduledJobIn) -> None:
-    from bossman.services.cron import is_valid_cron
+    from bossman.services.cron import cron_error
 
     if body.scope_type not in _SCOPES:
         raise HTTPException(422, f"scope_type must be one of {'|'.join(_SCOPES)}")
-    if not is_valid_cron(body.cron):
-        raise HTTPException(422, f"invalid cron expression: {body.cron!r} (need 5 fields)")
+    if (reason := cron_error(body.cron)) is not None:
+        raise HTTPException(422, f"invalid cron expression {body.cron!r}: {reason}")
     target = {"host": body.agent_id, "group": body.host_group_id, "ou": body.ou_id}[body.scope_type]
     if target is None:
         raise HTTPException(422, f"scope_type={body.scope_type} needs its target id")
@@ -86,7 +86,7 @@ async def create_job(body: ScheduledJobIn, session: AsyncSession = Depends(get_s
     """Schedule a runbook. Nothing runs on creation.
 
     The scope is resolved **at fire time**, not now — a host that joins the group later is included,
-    which is usually the point of a recurring job and occasionally a surprise. Use `.../run` to fire
+    which is usually the point of a recurring job and occasionally a surprise. Use `.../run-now` to fire
     it once by hand without touching the schedule.
     """
     _validate(body)

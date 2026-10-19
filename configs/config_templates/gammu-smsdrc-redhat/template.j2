@@ -1,0 +1,104 @@
+# This is a sample Gammu SMSD configuration file. It's required for gammu-smsd,
+# see gammu-smsdrc(5) for documentation.
+
+# Gammu configuration, this section is like section "gammu" in "gammurc" file,
+# see gammurc(5) for documentation.
+[gammu]
+{% if device is defined and device is not none and (device is number or device is boolean or device | length > 0) %}device = {{ device }}
+{% else %}#device = /dev/ttyS1
+{% endif %}{% if model is defined and model is not none and (model is number or model is boolean or model | length > 0) %}model = {{ model }}
+{% else %}#model = 6110
+{% endif %}{% if connection is defined and connection is not none and (connection is number or connection is boolean or connection | length > 0) %}connection = {{ connection }}
+{% else %}#connection = dlr3
+{% endif %}{% if synchronizetime is defined and synchronizetime is not none and (synchronizetime is number or synchronizetime is boolean or synchronizetime | length > 0) %}synchronizetime = {{ synchronizetime }}
+{% else %}#synchronizetime = yes
+{% endif %}#logfile = gammulog # this is not used at all in SMSD mode
+{% if logformat is defined and logformat is not none and (logformat is number or logformat is boolean or logformat | length > 0) %}logformat = {{ logformat }}
+{% else %}#logformat = textall
+{% endif %}{% if use_locking is defined and use_locking is not none and (use_locking is number or use_locking is boolean or use_locking | length > 0) %}use_locking = {{ use_locking }}
+{% else %}#use_locking = yes
+{% endif %}{% if gammuloc is defined and gammuloc is not none and (gammuloc is number or gammuloc is boolean or gammuloc | length > 0) %}gammuloc = {{ gammuloc }}
+{% else %}#gammuloc = gammu.us
+{% endif %}{% if startinfo is defined and startinfo is not none and (startinfo is number or startinfo is boolean or startinfo | length > 0) %}startinfo = {{ startinfo }}
+{% else %}#startinfo = yes
+{% endif %}
+# When uncomment this section and insert numbers here, smsd will process
+# incoming sms only from numbers written here (incoming sms from all other
+# numbers will be deleted)
+#[include_numbers]
+#number1 = 1234
+
+# When uncomment this section and insert numbers here, smsd will process
+# incoming sms from all numbers not written here (incoming sms from numbers
+# written here will be deleted). This is "black" list.
+# Note: after using "include_numbers" section this one will be ignored
+#[exclude_numbers]
+#number1 = 1234
+
+# General SMSD settings, see gammu-smsdrc(5) for detailed description.
+[smsd]
+# SMSD service to use, one of FILES, MYSQL, PGSQL, DBI
+service = {{ service | default('files') }}
+# PIN for SIM card
+PIN = {{ pin | default('1234') }}
+# File (or stderr, syslog, eventlog) where information will be logged
+logfile = {{ logfile | default('smsdlog') }}
+# Amount of information being logged, each bit mean one level
+debuglevel = {{ debuglevel | default('0') }}
+# Configuration for using more phones on same database
+{% if phoneid is defined and phoneid is not none and (phoneid is number or phoneid is boolean or phoneid | length > 0) %}phoneid = {{ phoneid }}
+{% else %}#phoneid = MyPhone1
+{% endif %}# Script to be executed when new message has been received
+{% if runonreceive is defined and runonreceive is not none and (runonreceive is number or runonreceive is boolean or runonreceive | length > 0) %}runonreceive = {{ runonreceive }}
+{% else %}#runonreceive = /some/script
+{% endif %}# Commication frequency settings
+commtimeout = {{ commtimeout | default('30') }}
+sendtimeout = {{ sendtimeout | default('30') }}
+{% if receivefrequency is defined and receivefrequency is not none and (receivefrequency is number or receivefrequency is boolean or receivefrequency | length > 0) %}receivefrequency = {{ receivefrequency }}
+{% else %}#receivefrequency = 0
+{% endif %}
+# Phone communication settings
+{% if checksecurity is defined and checksecurity is not none and (checksecurity is number or checksecurity is boolean or checksecurity | length > 0) %}checksecurity = {{ checksecurity }}
+{% else %}#checksecurity = 1
+{% endif %}{% if resetfrequency is defined and resetfrequency is not none and (resetfrequency is number or resetfrequency is boolean or resetfrequency | length > 0) %}resetfrequency = {{ resetfrequency }}
+{% else %}#resetfrequency = 0
+{% endif %}
+# Delivery report configuration
+{% if deliveryreport is defined and deliveryreport is not none and (deliveryreport is number or deliveryreport is boolean or deliveryreport | length > 0) %}deliveryreport = {{ deliveryreport }}
+{% else %}#deliveryreport = no
+{% endif %}{% if deliveryreportdelay is defined and deliveryreportdelay is not none and (deliveryreportdelay is number or deliveryreportdelay is boolean or deliveryreportdelay | length > 0) %}deliveryreportdelay = {{ deliveryreportdelay }}
+{% else %}#deliveryreportdelay = 10
+{% endif %}
+# Ignoring broken SMSC
+{% if skipsmscnumber is defined and skipsmscnumber is not none and (skipsmscnumber is number or skipsmscnumber is boolean or skipsmscnumber | length > 0) %}skipsmscnumber = {{ skipsmscnumber }}
+{% else %}#skipsmscnumber = +48602123456
+{% endif %}
+# Database backends congfiguration
+user = {{ user | default('gammu') }}
+password = {{ password | default('gammupassword') }}
+pc = {{ pc | default('localhost') }}
+# pc can also contain port or socket path after colon (eg. localhost:/path/to/socket)
+database = {{ database | default('sms') }}
+
+# DBI configuration
+driver = {{ driver | default('sqlite') }}
+# driverspath = /usr/lib/dbd/
+# Database directory for sqlite
+# dbdir = /var/lib/smsd
+
+# Files backend configuration
+{% if inboxpath is defined and inboxpath is not none and (inboxpath is number or inboxpath is boolean or inboxpath | length > 0) %}inboxpath = {{ inboxpath }}
+{% else %}#inboxpath = /var/spool/sms/inbox/
+{% endif %}{% if outboxpath is defined and outboxpath is not none and (outboxpath is number or outboxpath is boolean or outboxpath | length > 0) %}outboxpath = {{ outboxpath }}
+{% else %}#outboxpath = /var/spool/sms/outbox/
+{% endif %}{% if sentsmspath is defined and sentsmspath is not none and (sentsmspath is number or sentsmspath is boolean or sentsmspath | length > 0) %}sentsmspath = {{ sentsmspath }}
+{% else %}#sentsmspath = /var/spool/sms/sent/
+{% endif %}{% if errorsmspath is defined and errorsmspath is not none and (errorsmspath is number or errorsmspath is boolean or errorsmspath | length > 0) %}errorsmspath = {{ errorsmspath }}
+{% else %}#errorsmspath = /var/spool/sms/error/
+{% endif %}{% if inboxformat is defined and inboxformat is not none and (inboxformat is number or inboxformat is boolean or inboxformat | length > 0) %}inboxformat = {{ inboxformat }}
+{% else %}#inboxformat = unicode
+{% endif %}{% if transmitformat is defined and transmitformat is not none and (transmitformat is number or transmitformat is boolean or transmitformat | length > 0) %}transmitformat = {{ transmitformat }}
+{% else %}#transmitformat = auto
+{% endif %}{% if outboxformat is defined and outboxformat is not none and (outboxformat is number or outboxformat is boolean or outboxformat | length > 0) %}outboxformat = {{ outboxformat }}
+{% else %}#outboxformat = detail
+{% endif %}

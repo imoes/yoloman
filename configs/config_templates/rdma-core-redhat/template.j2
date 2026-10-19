@@ -1,0 +1,46 @@
+# ==============================================================================
+# rdma-core: Mellanox ConnectX-3/4/5 (mlx4) Port Configuration
+# ==============================================================================
+#
+# This configuration file is read by the mlx4_core kernel module upon loading.
+# It allows administrators to override the default port types for specific
+# Mellanox hardware devices.
+#
+# FORMAT:
+#   <PCI_ADDRESS> <PORT1_TYPE> [<PORT2_TYPE>]
+#
+# PCI ADDRESS:
+#   The full PCI BDF address of the NIC (e.g., 0000:0b:00.0).
+#   Use `lspci` or check /sys/bus/pci/drivers/mlx4_core to identify devices.
+#
+# PORT TYPES:
+#   Supported values are:
+#     - auto: Let the driver/hardware negotiate the mode (default behavior).
+#     - ib:   Force InfiniBand mode.
+#     - eth:  Force Ethernet mode.
+#
+# CONSTRAINTS:
+#   - Port 1 is always required.
+#   - Port 2 is required only for dual-port cards.
+#   - Some hardware combinations may be invalid (e.g., mixing ib and eth on
+#     ports that don't support independent mode). The driver will not set the
+#     port if the combination is invalid, but will not fail the module load.
+#
+# EXAMPLES:
+#   # Force both ports on card 0000:0b:00.0 to Ethernet
+#   0000:0b:00.0 eth eth
+#
+#   # Force Port 1 to InfiniBand, Port 2 to Ethernet (if hardware supports)
+#   0000:0b:00.0 ib eth
+#
+#   # Use default auto-negotiation for all ports
+#   0000:0b:00.0 auto auto
+
+{% if mlx4_ports is defined and mlx4_ports is iterable %}
+    {% for entry in mlx4_ports %}
+        # Configuring PCI device: {{ entry.pci_address | default('unknown') }}
+        {{ entry.pci_address | default('0000:00:00.0') }} {{ entry.port1 | default('auto') }} {% if entry.port2 is defined %}{{ entry.port2 }}{% endif %}
+    {% endfor %}
+{% else %}
+    # No mlx4 port configurations provided. Using kernel defaults.
+{% endif %}

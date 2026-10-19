@@ -1,0 +1,49 @@
+# fence-virtd configuration template
+# This file configures fence-virtd, the virtualization fencing daemon used in Pacemaker clusters.
+# It defines how fencing agents communicate with cluster nodes via a multicast listener
+# and which virtualization backend to use for executing fence operations.
+
+fence_virtd {
+    # listener: The type of listener to use for fence-virtd communication.
+    # Supported values typically include 'multicast', 'link', or 'udp'.
+    # Default: multicast
+    listener = "{{ listener | default('multicast') }}";
+
+    # backend: The backend driver to use for fencing operations.
+    # Supported values depend on the installed backends (e.g., 'libvirt', 'qemu').
+    # Default: libvirt
+    backend = "{{ backend | default('libvirt') }}";
+}
+
+listeners {
+    # multicast: Configuration block for the multicast listener.
+    # This allows fencing messages to be broadcast to multiple cluster nodes.
+    multicast {
+        # key_file: Path to the shared secret key file for multicast authentication.
+        # This key must be identical on all cluster nodes and readable by the fence_virtd process.
+        # Default: /etc/cluster/fence_xvm.key
+        key_file = "{{ key_file | default('/etc/cluster/fence_xvm.key') }}";
+
+        # address: Multicast group address for fence-virtd communication.
+        # All cluster nodes must listen on and send to this same address.
+        # Default: 225.0.0.12
+        address = "{{ address | default('225.0.0.12') }}";
+
+        # interface: Network interface to bind the multicast listener to.
+        # Ensures multicast traffic stays within the specific network segment.
+        # Default: virbr0
+        interface = "{{ interface | default('virbr0') }}";
+    }
+}
+
+backends {
+    # libvirt: Configuration block for the libvirt backend.
+    # This enables fence-virtd to interact with libvirt-managed virtual machines.
+    libvirt {
+        # uri: Libvirt connection URI for the backend.
+        # Defines how fence-virtd connects to the libvirt daemon.
+        # 'qemu:///system' accesses the system-wide QEMU/KVM hypervisor.
+        # Default: qemu:///system
+        uri = "{{ uri | default('qemu:///system') }}";
+    }
+}

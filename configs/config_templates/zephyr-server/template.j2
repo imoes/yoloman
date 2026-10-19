@@ -1,11 +1,16 @@
-# Zephyr Server Configuration
-# This file defines message routing zones for the Zephyr Instant Messaging system.
+# Zephyr Server Operations Configuration
+#
+# This file configures how the Zephyr server handles specific types of message
+# routing based on zones. The format is:
+#   operation,category,directive_value
+#
+# The 'operations' line defines the default zone for general message operations.
+operations, message, {{ (personal_zone | default('%me%')) | trim }}
 
-# Zone for personal messages.
-# Default: %me%
-operations,message,*
-message,personal,{{ personal_zone | default('%me%') }}
+# The 'message' line with 'personal' category specifies the zone used for
+# personal messages. This is typically set to the user's own zone.
+message, personal, {{ (personal_zone | default('%me%')) | trim }}
 
-# Zone for urgent messages.
-# Default: %me%
-message,urgent{{ urgent_zone | default('%me%') }}
+# The 'message' line with 'urgent' category specifies the zone used for
+# urgent messages. This is typically set to the user's own zone.
+message, urgent, {{ (urgent_zone | default('%me%')) | trim }}

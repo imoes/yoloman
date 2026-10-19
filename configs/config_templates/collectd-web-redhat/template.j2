@@ -1,0 +1,66 @@
+{# collectd-web-redhat configuration template #}
+{# This template generates the Apache configuration for collectd-web. #}
+{# It requires the collectd-web package and Apache httpd. #}
+
+{# Directory for RRD database files. #}
+{% if data_dir is defined and data_dir %}
+# Directory for RRD database files.
+DataDir {{ data_dir }}
+{% else %}
+# Directory for RRD database files.
+#DataDir "/var/lib/collectd/rrd"
+{% endif %}
+
+{# Width of generated graphs in pixels. #}
+GraphWidth {{ graph_width | default('400') }}
+
+{# Unix socket path for collectd. #}
+{% if unix_sock_addr is defined and unix_sock_addr %}
+# Unix socket path for collectd.
+UnixSockAddr "{{ unix_sock_addr }}"
+{% else %}
+# Unix socket path for collectd.
+#UnixSockAddr "/var/run/collectd-unixsock"
+{% endif %}
+
+{# Apache VirtualHost configuration for collectd-web #}
+<VirtualHost *:80>
+    {# Server name for the collectd-web interface #}
+    ServerName collectd-web
+
+    {# Document root for the web interface #}
+    DocumentRoot /usr/share/collectd
+
+    {# Alias for the rrd directory #}
+    Alias /rrd /var/lib/collectd/rrd
+
+    {# Directory configuration for the document root #}
+    <Directory /usr/share/collectd>
+        {# Enable directory listing if index files are not present #}
+        Options +Indexes +SymLinksIfOwnerMatch
+        {# Allow access from localhost #}
+        Require local
+    </Directory>
+
+    {# Directory configuration for the rrd data #}
+    <Directory /var/lib/collectd/rrd>
+        {# Enable directory listing if index files are not present #}
+        Options +Indexes +SymLinksIfOwnerMatch
+        {# Allow access from localhost #}
+        Require local
+    </Directory>
+
+    {# CGI configuration #}
+    ScriptAlias /cgi-bin/ /usr/libexec/collectd/
+    <Directory /usr/libexec/collectd>
+        {# Enable CGI execution #}
+        Options +ExecCGI
+        {# Set handler for CGI scripts #}
+        SetHandler cgi-script
+        {# Allow access from localhost #}
+        Require local
+    </Directory>
+</VirtualHost>
+
+{# Vim settings for syntax highlighting and indentation #}
+# vim: set sw=2 sts=2 et syntax=apache fileencoding=utf-8 :

@@ -1,63 +1,74 @@
-# phpLDAPadmin Apache configuration
+# ==============================================================================
+# phpldapadmin Apache VirtualHost Configuration Template
+# ==============================================================================
+# This template configures Apache for phpLDAPadmin. It provides both an Alias
+# (default) and an optional VirtualHost block.
 #
-# This template configures the Apache Web Server to host the phpLDAPadmin web application.
-# It defines the URL alias, sets up the directory permissions, and configures PHP-specific
-# security directives (open_basedir) to restrict PHP file access to the necessary paths.
-#
-# Variables used:
-#   - ldap_server_hostname: Used in VirtualHost examples (commented out by default)
-#   - admin_email: Used in VirtualHost examples (commented out by default)
+# Schema Variables:
+#   - ldap_server_hostname: Hostname for the LDAP server (used in VHost and logs)
+#   - admin_email:          Administrator email for the VirtualHost
+# ==============================================================================
 
-# Define /phpldapadmin alias, this is the default
-# Maps the URL path /phpldapadmin to the physical directory where phpLDAPadmin is installed.
+# --- Alias Configuration ---
+# Define /phpldapadmin alias, this is the default.
+# This allows access to phpldapadmin at http://<host>/phpldapadmin
 <IfModule mod_alias.c>
+    # Alias directive mapping the URL path to the physical directory.
     Alias /phpldapadmin /usr/share/phpldapadmin/htdocs
 </IfModule>
 
-# You can also use phpLDAPadmin as a VirtualHost
-# Uncomment the block below to run phpLDAPadmin as a dedicated VirtualHost.
-# Note: Ensure the 'ldap_server_hostname' and 'admin_email' variables are set correctly.
+# --- VirtualHost Configuration (Optional/Commented Out) ---
+# You can also use phpLDAPadmin as a dedicated VirtualHost.
+# Uncomment the block below and adjust ServerName to enable this mode.
 # <VirtualHost *:*>
-#     # The hostname used in the VirtualHost block and log filenames (e.g., ldap.example.com)
+#     # The hostname used in this VirtualHost and log filenames.
+#     # Defaults to 'ldap.example.com' if not specified in variables.
 #     ServerName {{ ldap_server_hostname | default('ldap.example.com') }}
 #
-#     # Administrator email address for the VirtualHost
+#     # Administrator email address for server alerts.
+#     # Defaults to 'root@example.com' if not specified in variables.
 #     ServerAdmin {{ admin_email | default('root@example.com') }}
 #
-#     # The document root for the phpLDAPadmin application
+#     # Document root for phpLDAPadmin.
 #     DocumentRoot /usr/share/phpldapadmin
 #
-#     # Error log filename, incorporating the hostname for easy identification
+#     # Error log filename, incorporating the hostname for differentiation.
+#     # Example: ldap.example.com-error.log
 #     ErrorLog logs/{{ ldap_server_hostname | default('ldap.example.com') }}-error.log
 #
-#     # Access log filename, incorporating the hostname for easy identification
+#     # Access log filename, incorporating the hostname for differentiation.
+#     # Example: ldap.example.com-access.log
 #     CustomLog logs/{{ ldap_server_hostname | default('ldap.example.com') }}-access.log common
 # </VirtualHost>
 
-# Directory configuration for the phpLDAPadmin htdocs folder
+# --- Directory Security and PHP Configuration ---
+# Secure the phpLDAPadmin htdocs directory.
 <Directory /usr/share/phpldapadmin/htdocs/>
 
-    # Specify the index file to serve when a directory is requested
+    # Specify the default index file.
     DirectoryIndex index.php
 
-    # Follow symbolic links within this directory
+    # Enable symbolic link following for better flexibility in asset linking.
     Options +FollowSymLinks
 
-    # Disable .htaccess overrides for security and performance
+    # Disable .htaccess overrides for security and performance.
     AllowOverride None
 
-    # limit libapache2-mod-php to the necessary files and directories
-    # Restricts PHP's open_basedir to prevent script access to sensitive system files.
+    # ------------------------------------------------------------------
+    # Limit PHP execution to necessary paths for security.
+    # We restrict open_basedir to prevent PHP scripts from reading
+    # arbitrary files on the system outside of these allowed paths.
+    # ------------------------------------------------------------------
 
-    # PHP 7 specific configuration
+    # PHP 7 Configuration Block
+    # Activates only if mod_php7 is loaded by Apache.
     <IfModule mod_php7.c>
-        # Set open_basedir for PHP 7: allows access only to tmp, the application directory, docs, and config
         php_admin_value open_basedir /tmp:/usr/share/phpldapadmin/:/usr/share/doc/phpldapadmin:/etc/phpldapadmin/
     </IfModule>
 
-    # PHP 8+ specific configuration
+    # PHP 8+ Configuration Block
+    # Activates only if mod_php (generic/mod_php8) is loaded by Apache.
     <IfModule mod_php.c>
-        # Set open_basedir for PHP 8+: allows access only to tmp, the application directory, docs, and config
         php_admin_value open_basedir /tmp:/usr/share/phpldapadmin/:/usr/share/doc/phpldapadmin:/etc/phpldapadmin/
     </IfModule>
 

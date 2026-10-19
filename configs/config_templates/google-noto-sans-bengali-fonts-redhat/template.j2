@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Google Noto Sans Bengali Font Configuration for RedHat Systems.
+  
+  This XML configuration file instructs Fontconfig to:
+  1. Substitute 'Noto Sans Bengali' when rendering text in Bengali ('bn')
+     that is requested as a generic 'sans-serif' family.
+  2. Register an alias so that applications requesting 'sans-serif'
+     may also find 'Noto Sans Bengali' available.
+  
+  Variables:
+    lang_code     : ISO 639-1 language code for substitution matching.
+    target_family : Generic font family alias (e.g., sans-serif).
+    font_family   : The specific font family name to inject.
+    font_hint_bool: Enable/disable font hinting (true/false).
+-->
+<fontconfig>
+  <!--
+    Rule: Substitution for Bengali language text.
+    When an application requests a font for Bengali text
+    and accepts the generic sans-serif family, prepend
+    Noto Sans Bengali to the candidate list.
+  -->
+  <match>
+    <test name="lang" compare="contains">
+      <!-- Language code to match for font substitution. Default: 'bn' -->
+      <string>{{ lang_code | default('bn') }}</string>
+    </test>
+    <test name="family">
+      <!-- Generic font family alias being modified. Default: 'sans-serif' -->
+      <string>{{ target_family | default('sans-serif') }}</string>
+    </test>
+    <edit name="family" mode="prepend">
+      <!-- Specific font family name to inject. Default: 'Noto Sans Bengali' -->
+      <string>{{ font_family | default('Noto Sans Bengali') }}</string>
+    </edit>
+    <edit name="fonthashint" mode="append">
+      <!-- Boolean flag for font hinting setting. Default: false -->
+      <bool>{{ font_hint_bool | default(false) }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Rule: Alias definition.
+    Maps the specific font family to the generic family alias,
+    making the font discoverable via the generic name.
+  -->
+  <alias>
+    <!-- Specific font family name to inject. Default: 'Noto Sans Bengali' -->
+    <family>{{ font_family | default('Noto Sans Bengali') }}</family>
+    <default>
+      <!-- Generic font family alias being modified. Default: 'sans-serif' -->
+      <family>{{ target_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

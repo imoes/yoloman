@@ -1,0 +1,130 @@
+# GPM (General Purpose Mouse) Configuration File
+# This file configures the GPM daemon running in root mode.
+# It defines the menus and actions triggered by mouse buttons.
+
+# =============================================================================
+# Button 1 Configuration
+# =============================================================================
+
+button 1 {
+  # The label for Button 1 menu.
+  name "{{ gpm_button1_name | default('ttys') }}"
+
+  # Static menu entries for TTY switching and navigation
+  ""        f.nop
+  "login on a new tty" f.mktty
+  ""        f.nop
+  "tty  1"  f.jptty  "1"
+  "tty  2"  f.jptty  "2"
+  "tty  3"  f.jptty  "3"
+  "tty  4"  f.jptty  "4"
+  ""         f.nop
+  "tty  5"  f.jptty   "5"
+  "tty  6"  f.jptty   "6"
+  "tty  7"  f.jptty   "7"
+  "tty  8"  f.jptty   "8"
+  ""        f.nop
+  
+  # Sub-menu for additional TTYs
+  "more of them..." {
+    
+    "tty  9"  f.jptty  "9"
+    "tty 10"  f.jptty  "10"
+    "tty 11"  f.jptty  "11"
+    "tty 12"  f.jptty  "12"
+    ""         f.nop
+    "tty 13"  f.jptty   "13"
+    "tty 14"  f.jptty   "14"
+    "tty 15"  f.jptty   "15"
+    "tty 16"  f.jptty   "16"
+    ""        f.nop
+    
+    # Deep sub-menu for even more TTYs
+    "more of them..." {
+	  "tty 17" f.jptty  "17"
+      }
+  }
+}
+
+# =============================================================================
+# Button 2 Configuration
+# =============================================================================
+
+button 2 {
+  # The label for Button 2 menu.
+  name "{{ gpm_button2_name | default('system status') }}"
+  
+  # Foreground color for Button 2 menu.
+  foreground {{ gpm_button2_foreground | default('red') }}
+  
+  # Background color for Button 2 menu.
+  background {{ gpm_button2_background | default('black') }}
+  
+  # Border color for Button 2 menu.
+  border {{ gpm_button2_border | default('yellow') }}
+  
+  # Header color for Button 2 menu.
+  head {{ gpm_button2_head | default('bright yellow') }}
+
+  # Status display entries
+  ""          f.nop
+  # Displays current date
+  "%b %d %Y"  f.time
+  # Displays current time
+  "%H:%M"     f.time
+  ""          f.nop
+  # Displays system load average
+  "load: "    f.load 
+  # Displays memory usage
+  "free:"     f.free
+  "" f.nop
+  
+  # Runs a background command
+  "report disk usage to ~/du" f.bgcmd  "du ~ | sort -rn > ~/du"
+  
+  # Runs a background command with arguments
+  "print mail headers to tty" f.bgcmd
+	 "grep '^From ' /var/spool/mail/$USER | tail"
+}
+
+# =============================================================================
+# Button 3 Configuration
+# =============================================================================
+
+button 3 {
+  # The label for Button 3 menu.
+  name "{{ gpm_button3_name | default('far ttys') }}"
+
+  # Foreground color for Button 3 menu.
+  foreground {{ gpm_button3_foreground | default('black') }}
+  
+  # Background color for Button 3 menu.
+  background {{ gpm_button3_background | default('red') }}
+  
+  # Border color for Button 3 menu.
+  border {{ gpm_button3_border | default('bright yellow') }}
+  
+  # Header color for Button 3 menu.
+  head {{ gpm_button3_head | default('bright yellow') }}
+
+  # TTY switching entries
+  "tty  9"  f.jptty   "9"
+  "tty 10"  f.jptty  "10"
+  "tty 11"  f.jptty  "11"
+  "tty 12"  f.jptty "12"
+  ""         f.nop
+
+  "tty 13" f.jptty "13"
+  "tty 14" f.jptty "14"
+  "tty 15" f.jptty "15"
+  "tty 16" f.jptty "16"
+  ""         f.nop
+
+  # I use this to halt and reboot the system, but it isn't wise to put it
+  # in widely accessible boxes.
+  #
+  #  "----"     f.nop
+  #  ""         f.nop
+  #  "halt"   f.bgcmd "/sbin/shutdown -h now"
+  #  "reboot" f.bgcmd "/sbin/shutdown -r now"
+}

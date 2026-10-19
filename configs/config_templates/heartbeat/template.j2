@@ -1,5 +1,6 @@
 #!/bin/sh
 #
+#
 # heartbeat     Start high-availability services
 #
 # Author:       Alan Robertson	<alanr@unix.sh>
@@ -9,7 +10,7 @@
 #		Conectiva, Red Hat and a few others.  Please let me know if it
 #		doesn't work under your distribution, and we'll fix it.
 #		We don't hate anyone, and like for everyone to use
-#		our software, no matter what OS or distribution you're using.
+#		our software, no matter what OS or distribution you are using.
 #
 # chkconfig: - 75 05
 # description: Startup script high-availability services.
@@ -36,36 +37,29 @@
 # Short-Description: High-availability services.
 # Provides:		heartbeat HA
 # Required-Start:	$remote_fs $network $time $syslog
-# Should-Start:		o penhpid drbd
+# Should-Start:		ohopenpid drbd
 # Required-Stop:	$remote_fs $network $time $syslog
-# Should-Stop:		o penhpid drbd
+# Should-Stop:		ohopenpid drbd
 # Default-Start:	2 3 4 5
 # Default-Stop:		0 1 6
 ### END INIT INFO
 
 test -r /lib/lsb/init-functions && . /lib/lsb/init-functions
 
-{# HEARTBEAT: Path to the heartbeat daemon executable #}
 HEARTBEAT=/usr/libexec/heartbeat/heartbeat
 
 [ -r /etc/default/heartbeat ] && . /etc/default/heartbeat
 [ -r /etc/default/pacemaker ] && . /etc/default/pacemaker
 [ -r /etc/default/sbd ] && . /etc/default/sbd
 
-{# HA_DIR: Directory containing Heartbeat configuration files #}
 HA_DIR=/etc/ha.d; export HA_DIR
-{# CONFIG: Path to the main configuration file (ha.cf) #}
 CONFIG=$HA_DIR/ha.cf
 . $HA_DIR/shellfuncs
 
-{# LOCKDIR: Directory for lock files to prevent concurrent execution #}
 LOCKDIR=/var/lock/subsys
-{# RUNDIR: Directory for runtime files like PID files #}
 RUNDIR=/var/run
 
-{# LRMADMIN: Path to the LRM admin utility #}
 LRMADMIN=/usr/sbin/lrmadmin
-{# SBD_BIN: Path to the STONITH daemon binary #}
 SBD_BIN=/usr/sbin/sbd
 
 StartSBD() {
@@ -140,13 +134,9 @@ fi
 #	because RH has moved it from time to time...
 #	and I suspect Conectiva and Mandrake also supply it.
 
-{# DISTFUNCS: Path to distribution-specific init functions #}
 DISTFUNCS=/etc/rc.d/init.d/functions
-{# SUBSYS: Subsystem name for status tracking #}
 SUBSYS=heartbeat
-{# MODPROBE: Path to the module loading command #}
 MODPROBE=/sbin/modprobe
-{# US: The current hostname #}
 US=`uname -n`
 
 # Set this to a 1 if you want to automatically load kernel modules
@@ -480,7 +470,7 @@ case "$1" in
 	if
 	  [ $RC -eq 0 ]
 	then
-	  [ ! -d $LOCKDIR ] && mkdir -d $LOCKDIR
+	  [ ! -d $LOCKDIR ] && mkdir -p $LOCKDIR
 	  touch $LOCKDIR/$SUBSYS
 	fi
 	RunStartStop post-start $RC

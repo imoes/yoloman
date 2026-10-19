@@ -1,0 +1,41 @@
+{#
+  lei-redhat: Bash completion support for lei (Local Email Interface).
+  This is a pure shell script snippet, not a network service configuration.
+  It provides no ports, sockets, or network dependencies.
+#}
+
+# Copyright (C) 2020-2021 all contributors <meta@public-inbox.org>
+# License: AGPL-3.0+ <https://www.gnu.org/licenses/agpl-3.0.txt>
+
+# preliminary bash completion support for lei (Local Email Interface)
+# Needs a lot of work, see `lei__complete' in lib/PublicInbox::LEI.pm
+_lei() {
+	# Generate word list for completion using the lei binary.
+	# The `lei _complete` command introspects the index/state.
+	local wordlist="$(lei _complete ${COMP_WORDS[@]})"
+	
+	# Determine if completions should have a trailing space.
+	# Commands/paths usually need space; options/flags usually do not.
+	case $wordlist in
+	*':'* | *'='* | '//'*) 
+		# No space after colon, equals, or comment delimiters
+		compopt -o nospace ;;
+	*) 
+		# Default: add space
+		compopt +o nospace ;;
+	esac
+	
+	# Escape semicolons in the wordlist to prevent shell interpretation
+	# issues during completion, specifically for UIDVALIDITY strings.
+	wordlist="${wordlist//;/\\\\;}"
+	
+	# Assign completions to COMPREPLY array
+	COMPREPLY=($(compgen -W "$wordlist" -- "${COMP_WORDS[COMP_CWORD]}"))
+	return 0
+}
+
+# Register the completion function for the `lei` command.
+# -o default: Use default bash completion behavior for unknown options
+# -o bashdefault: Use bash default completion
+# -F _lei: Call the _lei function for specific completion logic
+complete -o default -o bashdefault -F _lei lei

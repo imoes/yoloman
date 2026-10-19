@@ -434,31 +434,17 @@ pattern = \.zip$
 # A list of the protocols to consider for each request.
 # The protocols are tried in the order listed.
 
-{% if http_enabled %}protocols.append('http.HTTPProtocol')
-{% endif %}
-{% if http_enabled and tls_enabled %}protocols.append('http.HTTPSProtocol')
-{% endif %}
-{% if gopher_enabled %}protocols.append('rfc1436.GopherProtocol')
-{% if tls_enabled %}protocols.append('rfc1436.SecureGopherProtocol')
-{% endif %}
-protocols.append('gopherp.GopherPlusProtocol')
-{% if tls_enabled %}protocols.append('gopherp.SecureGopherPlusProtocol')
-{% endif %}
-{% endif %}
-{% if wap_enabled %}protocols.append('wap.WAPProtocol')
-{% endif %}
-protocols.append('gemini.GeminiProtocol')
-protocols.append('spartan.SpartanProtocol')
-
-{% if not http_enabled %}
-protocols = [gopherp.GopherPlusProtocol,
-             rfc1436.GopherProtocol,
-             gopherp.SecureGopherPlusProtocol,
-             rfc1436.SecureGopherProtocol,
-             wap.WAPProtocol,
-             gemini.GeminiProtocol,
-             spartan.SpartanProtocol]
-{% endif %}
+{# One Python list, as in the shipped file (pygopherd evaluates it); the earlier template wrote protocols.append(...)
+   lines, which configparser refused ("Source contains parsing errors"). Order as shipped; a protocol whose switch is
+   off is left out. Gopher (the point of the daemon) is on unless gopher_enabled is false. #}
+protocols = [{% for name, on in [('wap.WAPProtocol', wap_enabled | default(true)), ('gemini.GeminiProtocol', true),
+                                  ('http.HTTPProtocol', http_enabled | default(true)),
+                                  ('http.HTTPSProtocol', (http_enabled | default(true)) and (tls_enabled | default(true))),
+                                  ('spartan.SpartanProtocol', true),
+                                  ('gopherp.GopherPlusProtocol', gopher_enabled is not sameas false),
+                                  ('gopherp.SecureGopherPlusProtocol', (gopher_enabled is not sameas false) and (tls_enabled | default(true))),
+                                  ('rfc1436.GopherProtocol', gopher_enabled is not sameas false),
+                                  ('rfc1436.SecureGopherProtocol', (gopher_enabled is not sameas false) and (tls_enabled | default(true)))] %}{% if on %}{{ name }}, {% endif %}{% endfor %}]
 
 ##################################################
 # Gopher+ Protocol

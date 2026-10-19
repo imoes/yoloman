@@ -1,33 +1,37 @@
-{#
-  clamav-milter.conf.j2
-  =====================
-  Configuration file for ClamAV Milter.
-  
-  This template generates a self-documenting configuration file for the
-  clamav-milter service, which acts as a Sendmail/Postfix milter interface
-  for the Clam AntiVirus engine.
-  
-  Variables are sourced from the Ansible inventory or role defaults.
-  Every setting includes a comment derived from the schema description.
-#}
+#
+# ClamAV Milter configuration
+#
+# This file is generated from clamav-milter package.
+#
+# NOTE: The 'Example' directive is a legacy lock. If set to 'yes',
+# ClamAV ignores all other settings. Ensure it is disabled ('no')
+# when providing actual configuration values.
 
-{# User under which the milter runs #}
-User {{ User | default('clamav') }}
+# [Example] Internal flag indicating example config is still active.
+# enum: [true, yes, 1, false, no, 0]
+# If 'yes', this config is ignored by ClamAV. Set to 'no' to use below settings.
+Example {{Example | default('yes')}}
 
-{# Path to PID file #}
-PidFile {{ PidFile | default('/var/run/clamav/clamav-milter.pid') }}
+# [Foreground] Whether to run in foreground mode (useful for debugging).
+# enum: [true, yes, 1, false, no, 0]
+Foreground {{Foreground | default('no')}}
 
-{# Socket specification (e.g., 'local:/path/to/socket' or 'inet:port@host') #}
-MilterSocket {{ MilterSocket | default('local:/var/run/clamav/clamav-milter.sock') }}
+# [User] User under which the milter runs.
+User {{User | default('clamav')}}
 
-{# Directory where virus database files are stored #}
-DataBaseDirectory {{ DataBaseDirectory | default('/var/run/clamav') }}
+# [PidFile] Path to PID file.
+PidFile {{PidFile | default('/var/run/clamav/clamav-milter.pid')}}
 
-{# Whether to run in foreground mode (must be 'true'/'yes'/'1' to enable) #}
-{# enum: [true, yes, 1, false, no, 0] #}
-Foreground {{ Foreground | default('no') }}
+# [MilterSocket] Socket specification for the milter connection.
+# Format: 'local:/path/to/socket' for Unix sockets or 'inet:port@host' for TCP.
+MilterSocket {{MilterSocket | default('local:/var/run/clamav/clamav-milter.sock')}}
 
-{# Internal flag indicating example config is still active #}
-{# enum: [true, yes, 1, false, no, 0] #}
-{# If this remains 'true' or 'yes', it usually indicates the user has not customized the config #}
-Example {{ Example | default('') }}
+# [DataBaseDirectory] Directory where virus database files are stored.
+# The milter expects freshclam to have updated the DB here.
+DatabaseDirectory {{DataBaseDirectory | default('/var/run/clamav')}}
+
+# Additional options can be added below.
+# For example, to enable logging:
+# LogSyslog yes
+# LogVerbose yes
+# LogClean yes

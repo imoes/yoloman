@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font configuration for Google Noto Serif Khmer on Red Hat systems.
+  This template generates a fontconfig XML snippet that maps the generic
+  'serif' family to 'Noto Serif Khmer' for the Khmer (km) language,
+  and enables font hinting.
+-->
+<fontconfig>
+  <!-- Match block: applies when the requested font family is the default family AND the language matches -->
+  <match>
+    <!-- Test if the requested language matches the specified language code -->
+    <test name="lang" compare="contains">
+      <!-- Language code for font matching. Default: km (Khmer) -->
+      <string>{{ lang_code | default('km') }}</string>
+    </test>
+    <!-- Test if the requested font family matches the default family -->
+    <test name="family">
+      <!-- Default font family to match. Default: serif -->
+      <string>{{ default_family | default('serif') }}</string>
+    </test>
+    <!-- Edit: Prepend the target font family to the candidate list -->
+    <edit name="family" mode="prepend">
+      <!-- Target font family to insert. Default: Noto Serif Khmer -->
+      <string>{{ target_family | default('Noto Serif Khmer') }}</string>
+    </edit>
+    <!-- Edit: Append hinting preference -->
+    <edit name="fonthashint" mode="append">
+      <!-- Whether font hinting is enabled. Default: false -->
+      <bool>{{ hint_enabled | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!-- Alias block: defines the default font alias for the target family -->
+  <alias>
+    <!-- The font family being aliased -->
+    <family>{{ target_family | default('Noto Serif Khmer') }}</family>
+    <default>
+      <!-- The default fallback family -->
+      <family>{{ default_family | default('serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

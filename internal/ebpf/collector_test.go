@@ -287,3 +287,40 @@ func TestCollector_TopTalkers_LimitN(t *testing.T) {
 		t.Fatalf("expected top talkers limited to 2, got %d", len(top))
 	}
 }
+
+func TestSnapshotEventCounters(t *testing.T) {
+	c := &Collector{maxEvents: 100}
+	c.appendOOMKill(OOMKillEvent{PID: 1})
+	c.appendOOMKill(OOMKillEvent{PID: 2})
+	c.appendSignal(SignalEvent{Signal: "SIGKILL"})
+	c.appendSignal(SignalEvent{Signal: "SIGKILL"})
+	c.appendSignal(SignalEvent{Signal: "SIGSEGV"})
+
+	oom, sig := c.SnapshotEventCounters()
+	if oom != 2 || sig["SIGKILL"] != 2 || sig["SIGSEGV"] != 1 || len(sig) != 2 {
+		t.Errorf("got oom=%d signals=%v", oom, sig)
+	}
+	if oom, sig := c.SnapshotEventCounters(); oom != 0 || len(sig) != 0 {
+		t.Errorf("not reset: oom=%d signals=%v", oom, sig)
+	}
+	// The ring buffer is untouched by the counter snapshot.
+	if n := len(c.RecentOOMKills(0)); n != 2 {
+		t.Errorf("ring has %d OOM kills, want 2", n)
+	}
+}
+
+func TestRunqDelta(t *testing.T) {
+	d, next := runqDelta(nil, []RunqBucket{{LatencyUs: 1, Count: 10}, {LatencyUs: 8, Count: 3}})
+	if d["1"] != 10 || d["8"] != 3 {
+		t.Errorf("first delta = %v", d)
+	}
+	d, next = runqDelta(next, []RunqBucket{{LatencyUs: 1, Count: 15}, {LatencyUs: 8, Count: 3}, {LatencyUs: 64, Count: 1}})
+	if d["1"] != 5 || d["64"] != 1 || len(d) != 2 {
+		t.Errorf("second delta = %v (an unchanged bucket must be absent)", d)
+	}
+	// The map was recreated: counts went down, the current value is the interval.
+	d, _ = runqDelta(next, []RunqBucket{{LatencyUs: 1, Count: 4}})
+	if d["1"] != 4 {
+		t.Errorf("after reset delta = %v", d)
+	}
+}

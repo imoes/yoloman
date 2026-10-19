@@ -1,23 +1,27 @@
 ;; -*-emacs-lisp-*-
 ;;
-;; Emacs startup file, e.g.  /etc/emacs/site-start.d/50{{ package_name | default('emacs-mozc') }}.el
-;; for the Debian {{ package_name | default('emacs-mozc') }} package
+;; =============================================================================
+;; Emacs Startup Configuration for Debian Package
+;; =============================================================================
+;; This file is part of the Debian package '{{ package_name | default("emacs-mozc") }}'.
+;; It follows the Debian/GNU Linux 'emacsen' policy, byte-compiling elisp files
+;; for each Emacs flavor and adding the package's site-lisp directory to the
+;; load-path.
 ;;
 ;; Originally contributed by Nils Naumann <naumann@unileoben.ac.at>
 ;; Modified by Dirk Eddelbuettel <edd@debian.org>
 ;; Adapted for dh-make by Jim Van Zandt <jrv@debian.org>
-;;
-;; This script configures the Emacs load-path to include the Mozc input
-;; method package files. It follows the Debian/GNU Linux 'emacsen' policy
-;; and byte-compiles its elisp files for each 'emacs flavor' (emacs19,
-;; xemacs19, emacs20, xemacs20...). The compiled code is then installed
-;; in a subdirectory of the respective site-lisp directory.
-;; We have to add this to the load-path:
+;; =============================================================================
 
+;; Path to the package's site-lisp directory for the current Emacs flavor.
+;; The 'flavor' variable is provided by the emacsen-common infrastructure
+;; during package installation/maintenance scripts.
 (let ((package-dir (concat "/usr/share/"
                            (symbol-name flavor)
-                           "/site-lisp/{{ package_name | default('emacs-mozc') }}")))
-  ;; If package-dir does not exist, the {{ package_name | default('emacs-mozc') }} package must have
-  ;; been removed but not purged, and we should skip the setup.
+                           "/site-lisp/{{ package_name | default("emacs-mozc") }}")))
+  ;; If package-dir does not exist, the package must have been removed
+  ;; but not purged; in this case, we should skip the setup to avoid errors.
   (when (file-directory-p package-dir)
+    ;; Add the package-specific directory to the front of the load-path
+    ;; so its elisp files are found before system defaults.
     (setq load-path (cons package-dir load-path))))

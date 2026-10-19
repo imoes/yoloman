@@ -1,91 +1,113 @@
-#!/bin/sh
+# Unbound DNS Resolver Configuration
+#
+# This configuration is managed by Ansible. Do not edit manually.
+# See unbound.conf(5) for full documentation.
 
-### BEGIN INIT INFO
-# Provides:          unbound
-# Required-Start:    $network $remote_fs $syslog
-# Required-Stop:     $network $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Validating, recursive, and caching DNS resolver
-### END INIT INFO
-# pidfile: /run/unbound.pid
+# Include additional configuration snippets from the conf.d directory.
+# These files can override or extend the settings defined below.
+include-toplevel: "/etc/unbound/unbound.conf.d/*.conf"
 
-NAME="unbound"
-DESC="DNS server"
-DAEMON="/usr/sbin/unbound"
-PIDFILE="/run/unbound.pid"
+server:
+    # List of IP addresses to bind the DNS resolver interface(s).
+    # Use 127.0.0.1 for localhost, 0.0.0.0 for all IPv4, :: for all IPv6.
+{% for addr in interfaces | default(['127.0.0.1']) %}
+    interface: {{ addr }}
+{% endfor %}
 
-HELPER="/usr/libexec/unbound-helper"
+    # Local port on which the resolver listens for DNS queries.
+    port: {{ server_port | default(53) }}
 
-test -x $DAEMON || exit 0
+    # Enable IPv4 support for DNS queries and responses.
+{% if do_ip4 | default('') %}
+    do-ip4: yes
+{% endif %}
 
-export PATH=/bin:/usr/bin:/sbin:/usr/sbin
+    # Enable IPv6 support for DNS queries and responses.
+{% if do_ip6 | default('') %}
+    do-ip6: yes
+{% endif %}
 
-. /lib/lsb/init-functions
+    # Enable UDP transport for DNS queries and responses.
+{% if do_udp | default('') %}
+    do-udp: yes
+{% endif %}
 
-# Override this variable by editing or creating /etc/default/unbound.
-DAEMON_OPTS=""
+    # Enable TCP transport for DNS queries (required for large DNSSEC responses).
+{% if do_tcp | default('') %}
+    do-tcp: yes
+{% endif %}
 
-if [ -f /etc/default/unbound ]; then
-    . /etc/default/unbound
-fi
+    # Maximum number of TCP connections allowed per upstream server.
+    tcp-upstream: {{ tcp_upstream | default(10) }}
 
-case "$1" in
-    start)
-        log_daemon_msg "Starting $DESC" "$NAME"
-        $HELPER chroot_setup
-        $HELPER root_trust_anchor_update 2>&1 | tee /dev/fd/2 | logger -p daemon.info -t unbound
-        if start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --name $NAME --startas $DAEMON -- $DAEMON_OPTS; then
-            $HELPER resolvconf_start
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+    # Maximum number of TCP connections allowed per local interface.
+    tcp-downstream: {{ tcp_downstream | default(100) }}
 
-    stop)
-        log_daemon_msg "Stopping $DESC" "$NAME"
-        if start-stop-daemon --stop --quiet --oknodo --remove-pidfile --pidfile $PIDFILE --name $NAME --retry 5; then
-            $HELPER resolvconf_stop
-            $HELPER chroot_teardown
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+    # Number of worker threads. Set to 0 to auto-detect CPU count.
+{% if num_threads | default(0) > 0 %}
+    num-threads: {{ num_threads | default(0) }}
+{% endif %}
 
-    restart|force-reload)
-        log_daemon_msg "Restarting $DESC" "$NAME"
-        start-stop-daemon --stop --quiet --remove-pidfile --pidfile $PIDFILE --name $NAME --retry 5
-        $HELPER resolvconf_stop
-        if start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --name $NAME --startas $DAEMON -- $DAEMON_OPTS; then
-            $HELPER chroot_setup
-            $HELPER resolvconf_start
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+    # EDNS buffer size in bytes (must be ≥ 512 and ≤ 4096 for best compatibility).
+    edns-buffer-size: {{ edns_buffer_size | default(1232) }}
 
-    reload)
-        log_daemon_msg "Reloading $DESC" "$NAME"
-        if start-stop-daemon --stop --pidfile $PIDFILE --name $NAME --signal 1; then
-            $HELPER chroot_setup
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
-        ;;
+    # Size of the message cache. Supports suffixes like 'kb', 'mb', 'gb'.
+    msg-cache-size: {{ msg_cache_size | default('4mb') }}
 
-    status)
-        status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
-        ;;
+    # Number of slabs in the message cache (power of two recommended for performance).
+    msg-cache-slabs: {{ msg_cache_slabs | default(1) }}
 
-    *)
-        N=/etc/init.d/$NAME
-        echo "Usage: $N {start|stop|restart|status|reload|force-reload}" >&2
-        exit 1
-        ;;
-esac
+    # Size of the DNSSEC key cache.
+    key-cache-size: {{ key_cache_size | default('4mb') }}
 
-exit 0
+    # Number of slabs in the key cache.
+    key-cache-slabs: {{ key_cache_slabs | default(1) }}
+
+    # Size of the RRSET (resource record set) cache.
+    rrset-cache-size: {{ rrset_cache_size | default('8mb') }}
+
+    # Number of slabs in the RRSET cache.
+    rrset-cache-slabs: {{ rrset_cache_slabs | default(1) }}
+
+    # TTL for infrastructure cache entries (e.g., RTT info, hints), in seconds.
+    infra-cache-ttl: {{ infra_cache_ttl | default(900) }}
+
+    # Number of slabs in the infrastructure cache.
+    infra-cache-slabs: {{ infra_cache_slabs | default(1) }}
+
+    # Log every incoming query (debugging use only; can generate large logs).
+{% if log_queries | default('') %}
+    log-queries: yes
+{% endif %}
+
+    # Log every outgoing reply (debugging use only).
+{% if log_replies | default('') %}
+    log-replies: yes
+{% endif %}
+
+    # Prefix log lines with thread number and time in ISO 8601 format.
+{% if log_tag | default('') %}
+    log-tag: yes
+{% endif %}
+
+    # Use human-readable ASCII timestamp in logs (instead of Unix epoch).
+{% if log_time_ascii | default('') %}
+    log-time-ascii: yes
+{% endif %}
+
+    # Access control list entries in format: `<subnet> <action>` (e.g., '192.168.1.0/24 allow_sld').
+    # Default allows localhost and denies all others.
+{% for acl in access_control | default(['127.0.0.0/8 allow', '::1/128 allow', '0.0.0.0/0 deny']) %}
+    access-control: {{ acl }}
+{% endfor %}
+
+    # List of forwarding zones. Each zone forwards queries for a domain suffix
+    # to upstream resolvers.
+{% for fwd in forward_upstream | default([]) %}
+{% set parts = fwd.split(' ') %}
+{% set domain = parts[0] %}
+{% set servers = parts[1:] | join(' ') %}
+    forward-zone:
+        name: "{{ domain }}"
+        forward-addr: {{ servers }}
+{% endfor %}

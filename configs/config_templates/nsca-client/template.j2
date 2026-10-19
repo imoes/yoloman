@@ -14,7 +14,7 @@
 # to read the password you specify here, so make sure to set
 # restrictive permissions on this config file!
 # Schema field: nsca_password (string, default='')
-password={{ nsca_password | default('') }}
+{% if nsca_password is defined and nsca_password is not none and (nsca_password is number or nsca_password is boolean or nsca_password | length > 0) %}password={{ nsca_password | default('') }}{% else %}#password={% endif %}
 
 
 # ENCRYPTION METHOD
@@ -29,39 +29,39 @@ password={{ nsca_password | default('') }}
 #       decryption method the nsca daemon uses (as specified in
 #       the nsca.cfg file)!!
 # Values:
-#     0 = None    (Do NOT use this option)
+# 	0 = None	(Do NOT use this option)
 #       1 = Simple XOR  (No security, just obfuscation, but very fast)
 #
 #       2 = DES
 #       3 = 3DES (Triple DES)
-#    4 = CAST-128
-#    5 = CAST-256
-#    6 = xTEA
-#    7 = 3WAY
-#    8 = BLOWFISH
-#    9 = TWOFISH
-#    10 = LOKI97
-#    11 = RC2
-#    12 = ARCFOUR
+#	4 = CAST-128
+#	5 = CAST-256
+#	6 = xTEA
+#	7 = 3WAY
+#	8 = BLOWFISH
+#	9 = TWOFISH
+#	10 = LOKI97
+#	11 = RC2
+#	12 = ARCFOUR
 #
-#    14 = RIJNDAEL-128
-#    15 = RIJNDAEL-192
-#    16 = RIJNDAEL-256
+#	14 = RIJNDAEL-128
+#	15 = RIJNDAEL-192
+#	16 = RIJNDAEL-256
 #
-#    19 = WAKE
-#    20 = SERPENT
+#	19 = WAKE
+#	20 = SERPENT
 #
-#    22 = ENIGMA (Unix crypt)
-#    23 = GOST
-#    24 = SAFER64
-#    25 = SAFER128
-#    26 = SAFER+
+#	22 = ENIGMA (Unix crypt)
+#	23 = GOST
+#	24 = SAFER64
+#	25 = SAFER128
+#	26 = SAFER+
 # Schema field: nsca_encryption_method (int, default=1)
 encryption_method={{ nsca_encryption_method | default(1) }}
 
-# Run in version 2.7 backward compatibility mode
+# Run in version 2.7  backward compatibility mode
 # Sent packets are limited to 512 bytes
 # This can also be set as a command-line option, but the config file option
 # takes precedence.
 # Schema field: nsca_legacy_2_7_mode (bool, default=False)
-legacy_2_7_mode={{ nsca_legacy_2_7_mode | default(false) | ternary('true', 'false') }}
+{% if nsca_legacy_2_7_mode is defined and nsca_legacy_2_7_mode is not none and (nsca_legacy_2_7_mode is number or nsca_legacy_2_7_mode is boolean or nsca_legacy_2_7_mode | length > 0) %}legacy_2_7_mode={{ nsca_legacy_2_7_mode | default(false) | ternary('true', 'false') }}{% else %}# legacy_2_7_mode=true{% endif %}

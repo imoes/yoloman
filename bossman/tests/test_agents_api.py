@@ -507,3 +507,34 @@ async def test_service_control_no_address_409(db_session):
         )
     assert resp.status_code == 409
     await _cleanup(db_session, agent=agent, api_token=api_token)
+
+
+async def test_delete_agent_blocks_a_concurrent_state_change_insert(db_session):
+    """Deleting a host that has just gone away raced the poller: the endpoint cleared service_state_history,
+    the poller committed one more state change (the services turn CRIT on the poll that finds the host
+    gone), and the agent's own delete then hit "violates foreign key constraint
+    service_state_history_agent_id_fkey" — a 500. Measured removing a kept e2e test host right after its pod
+    was deleted. The purge now locks the agent row first, so a referencing insert waits for the delete."""
+    import asyncio
+
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from bossman.api.agents import purge_agent_rows
+
+    agent = await _make_agent(db_session, address="10.0.0.12:8010")
+    engine = db_session.bind
+    async with AsyncSession(engine) as deleter, AsyncSession(engine) as poller:
+        await purge_agent_rows(deleter, agent.id)  # holds the row lock until commit
+        poller.add(ServiceStateHistory(time=datetime.now(timezone.utc), agent_id=agent.id,
+                                       service_name="CPU load", state="CRIT"))
+        late = asyncio.ensure_future(poller.commit())
+        await asyncio.sleep(1.0)
+        assert not late.done(), "the poller's insert went through while the host was being deleted"
+        await deleter.execute(delete(Agent).where(Agent.id == agent.id))
+        await deleter.commit()  # no FK violation: nothing slipped in
+        try:
+            await late
+            raise AssertionError("an insert for a deleted host must fail")
+        except IntegrityError as e:
+            assert "agent_id" in str(e)

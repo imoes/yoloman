@@ -1,0 +1,18 @@
+# x3270 ibm_hosts configuration file
+#
+# The format of each entry is:
+#   name type [prefix]hostname[:port] [actions]
+#
+# Fields:
+#   - connection_type: Type of connection entry (primary or alias). Determines if the host appears on the x3270 Connect menu.
+#   - host_entry: The hostname, IP address, or prefix+host:port to connect to for the localhost entry.
+
+{% set conn_type = connection_type | default('primary') %}
+{% set host = host_entry | default(omit) %}
+
+{% if host is defined and host != None and (host is number or host is boolean or host | length > 0) %}
+localhost {{ conn_type }} {{ host }}
+{% else %}
+# Default localhost entry: primary connection to 127.0.0.1
+localhost {{ conn_type }} 127.0.0.1
+{% endif %}

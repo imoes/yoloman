@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!--
+  Font substitution and aliasing configuration for Noto Sans Gurmukhi.
+  This configuration matches fonts by language (Punjabi/Gurmukhi) and family,
+  then prepends the specific Noto font to the stack. It also sets up an
+  alias so that applications requesting the specific font fall back to a
+  generic sans-serif family.
+-->
+<fontconfig>
+  <!--
+    Rule 1: Font Prepending for Matching Family
+    When a font request matches the specified language code and generic family,
+    prepend the specific Noto Sans Gurmukhi font to the front of the stack.
+  -->
+  <match>
+    <!-- Match against the language code (e.g., 'pa' for Punjabi) -->
+    <test name="lang" compare="contains">
+      <string>{{ lang_code | default('pa') }}</string>
+    </test>
+
+    <!-- Match against the generic font family (e.g., 'sans-serif') -->
+    <test name="family">
+      <string>{{ family | default('sans-serif') }}</string>
+    </test>
+
+    <!-- Prepend the specific font name to the list of available fonts -->
+    <edit name="family" mode="prepend">
+      <string>{{ font_name | default('Noto Sans Gurmukhi') }}</string>
+    </edit>
+
+    <!--
+      Append hinting information to the font hash.
+      This helps fontconfig distinguish fonts with similar names but different
+      hinting settings. Set to 'false' to disable.
+    -->
+    <edit name="fonthashint" mode="append">
+      <bool>{{ fonthashint | default('false') }}</bool>
+    </edit>
+  </match>
+
+  <!--
+    Rule 2: Font Alias / Fallback
+    If an application explicitly requests 'Noto Sans Gurmukhi' but it is
+    unavailable or should be treated as a generic family, redirect it to
+    the specified fallback family.
+  -->
+  <alias>
+    <!-- The font name being aliased -->
+    <family>{{ font_name | default('Noto Sans Gurmukhi') }}</family>
+
+    <!-- The default fallback family -->
+    <default>
+      <family>{{ alias_family | default('sans-serif') }}</family>
+    </default>
+  </alias>
+</fontconfig>

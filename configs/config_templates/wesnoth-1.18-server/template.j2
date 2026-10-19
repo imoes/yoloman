@@ -1,0 +1,25 @@
+# Defaults for wesnoth-1.18-server initscript
+# sourced by /etc/init.d/wesnoth-1.18-server
+# installed at /etc/default/wesnoth-1.18-server
+#
+# This is a POSIX shell fragment.
+#
+# Self-documenting configuration for the Wesnoth 1.18 multiplayer server daemon.
+# All variables are sourced from the Ansible role's schema defaults to ensure
+# idempotent and safe deployment.
+
+# Path to the Wesnoth server configuration file.
+# If left empty or unset, the daemon falls back to its built-in defaults or
+# the path commented out below.
+# See wesnothd-1.18(6) for the full syntax of this configuration file.
+{% set _cfg_path = config_file_path | default('/etc/wesnothd-1.18.cfg') %}
+{% if _cfg_path and _cfg_path | length > 0 %}
+# A custom configuration file path has been specified.
+# This path will be passed to the daemon via DAEMON_OPTS.
+DAEMON_OPTS="-c {{ _cfg_path | string | trim }}"
+{% else %}
+# No custom configuration file path was specified (or it was empty).
+# The default fallback path is commented out. Uncomment and modify if needed,
+# or set 'config_file_path' in the Ansible role to enable it.
+#DAEMON_OPTS="-c /etc/wesnothd-1.18.cfg"
+{% endif %}

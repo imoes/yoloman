@@ -1,17 +1,39 @@
-# options to use when starting oidentd as daemon:
-# -m	lookup masquaraded connections in /etc/oidentd_masq.users
-# -f	forward requests for masquaraded connections to real host
-# -q	don't log connections to oidentd
-# -l <number> Limit the number of simultaneous connections to <number>
-# see oidentd(8) for detailed list
-OIDENT_OPTIONS="-mf -l {{ oidentd_limit_connections }}"
+# =============================================================================
+# oidentd Configuration Template
+# =============================================================================
+# This file provides system-wide defaults and per-user identd rules for oidentd.
+# oidentd is an IOD (Identity) daemon that maps TCP connections to user accounts
+# for IRC and other services.
+#
+# See oidentd.conf(5) for detailed syntax and semantics.
+# =============================================================================
 
-# user / group
-OIDENT_USER={{ oidentd_user }}
-OIDENT_GROUP={{ oidentd_group }}
+# The default block for every user and every connection: the inner `default` covers all ports (oidentd.conf(5)).
+# A rule is `deny|allow|force <capability>` — e.g. deny spoof, allow hide, force reply "name".
+default {
+	default {
+{% for rule in global_rules | default(['deny spoof', 'deny spoof_all', 'deny spoof_privport', 'deny random', 'deny random_numeric', 'deny numeric', 'deny hide', 'deny forward']) %}
+		{{ rule }}
+{% endfor %}
+	}
+}
 
-# Allow the default router to act as an oidentd proxy? (yes/no)
-# this is needed behind a masquarading router that runs oidentd -f
-# if your identd proxy is not the default router, you have to
-# manually specify it via -P
-OIDENT_BEHIND_PROXY={{ oidentd_behind_proxy }}
+# -----------------------------------------------------------------
+# Per-User Configuration
+# -----------------------------------------------------------------
+# Defines specific rules and options for individual users.
+# Schema default: [{'username': 'root', 'rules': ['force hide'], 'options': {}}]
+{% for user in users | default([{'username': 'root', 'rules': ['force hide'], 'options': {}}]) %}
+user {{ user.username }} {
+	default {
+{% for rule in user.rules | default(['force hide']) %}
+		{{ rule }}
+{% endfor %}
+{% if user.options is defined and user.options is mapping %}
+{% for key, value in user.options | default({}) | dictsort %}
+		{{ key.key }} {{ key.value }}
+{% endfor %}
+{% endif %}
+	}
+}
+{% endfor %}

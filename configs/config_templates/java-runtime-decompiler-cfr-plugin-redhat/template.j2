@@ -1,0 +1,243 @@
+// CFR Decompiler Wrapper Plugin for Java Runtime
+// This template generates a Java source file that wraps the CFR decompiler library.
+// It allows other services to decompile .class files into readable Java source code.
+//
+// Since the schema is empty, this is a static plugin configuration with no external
+// variables. The logic is hardcoded in the wrapper.
+
+package org.benf.cfr.reader.plugin;
+
+import org.benf.cfr.reader.Main;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
+public class CfrDecompilerWrapper {
+
+    /**
+     * Converts a Java class name (dot-separated) to a file path (slash-separated) with .class extension.
+     * @param s the fully qualified class name
+     * @return the class file path string
+     */
+    public String classToStub(String s) {
+        return s.replace(".", "/") + ".class";
+    }
+
+    /**
+     * Resolves the full file path for a class within a base directory.
+     * @param f the base directory
+     * @param clazz the class name
+     * @return the File object representing the class file
+     */
+    public File classToFile(File f, String clazz) {
+        return new File(f.getAbsolutePath() + "/" + classToStub(clazz));
+    }
+
+    /**
+     * Main decompile method. Writes input bytecode to temp files, invokes CFR,
+     * and reads the resulting Java source string.
+     *
+     * @param name identifier for the temp directory/files
+     * @param bytecode the raw .class bytes
+     * @param innerClasses map of inner class names to their bytecode
+     * @param options array of CFR command-line options (e.g., "--skipbatchinnerclasses false")
+     * @return the decompiled Java source string, or error message on failure
+     * @throws IOException if file operations fail
+     */
+    public String decompile(
+            String name, byte[] bytecode, Map<String, byte[]> innerClasses, String[] options
+    ) throws IOException {
+        // Create temporary directory for input class files
+        File base = File.createTempFile("crf-" + name, ".class");
+        base.delete();
+        base.mkdir();
+        base.deleteOnExit();
+
+        // Create temporary directory for output Java source files
+        File out = File.createTempFile("crf-" + name, ".java");
+        out.delete();
+        out.mkdir();
+        out.deleteOnExit();
+
+        // Write the main class bytecode to a temp file
+        File mainFile = bytesToFile(classToFile(base, name), bytecode);
+        
+        // Build arguments array for CFR
+        // Size: 1 (main class) + N (inner classes) + 4 (fixed options: --outputpath, --skipbatchinnerclasses, false, + gap for dynamic count)
+        // Note: The original logic calculated size as entrySet.size() + 5. 
+        // Arguments: [0] mainFile, [1..N] innerFiles, [N+1] "--outputpath", [N+2] outPath, [N+3] "--skipbatchinnerclasses", [N+4] "false"
+        // Total items: 1 + N + 4 = N + 5.
+        String[] args = new String[innerClasses.entrySet().size() + 5];
+        int i = 0;
+        
+        // 1. Main class file
+        args[i] = mainFile.getAbsolutePath();
+        i++;
+        
+        // 2. Inner class files
+        for (Map.Entry<String, byte[]> item : innerClasses.entrySet()) {
+            File ff = bytesToFile(classToFile(base, item.getKey()), item.getValue());
+            args[i] = ff.getAbsolutePath();
+            i++;
+        }
+        
+        // 3. Fixed options
+        args[i] = "--outputpath";
+        i++;
+        args[i] = out.getAbsolutePath();
+        i++;
+        args[i] = "--skipbatchinnerclasses";
+        i++;
+        args[i] = "false";
+
+        File decompiledFile = null;
+        String decompiledString;
+        try {
+            // Execute CFR and retrieve results
+            Object[] o = cfr(name, out, args);
+            decompiledFile = (File) o[0];
+            decompiledString = (String) o[1];
+        } catch (IOException e) {
+            e.printStackTrace();
+            return e.toString();
+        } finally {
+            // Cleanup temp files
+            if (mainFile != null && mainFile.exists()) {
+                mainFile.delete();
+            }
+            if (decompiledFile != null && decompiledFile.exists()) {
+                decompiledFile.delete();
+            }
+        }
+
+        return decompiledString;
+    }
+
+    /**
+     * Convenience wrapper for decompiling a single class file without inner classes.
+     * @param bytecode the raw .class bytes
+     * @param options CFR options
+     * @return decompiled source
+     */
+    public String decompile(byte[] bytecode, String[] options) throws IOException {
+        return decompile("unknow.cfr.class" + bytecode.length, bytecode, new HashMap<String, byte[]>(), options);
+    }
+
+    /**
+     * Internal helper to invoke CFR's main method and capture output.
+     * Redirects System.out to System.err to capture CFR's verbose output into the result stream.
+     */
+    private Object[] cfr(String mainFile, File decompiledDir, String... args) throws IOException {
+        PrintStream old = System.out;
+        System.setOut(System.err);
+        try {
+            Main.main(args);
+            File mainDeciledFile = getFileFrom(decompiledDir, mainFile);
+            String decompiledString = readStringFromFile(mainDeciledFile);
+            return new Object[]{mainDeciledFile, decompiledString};
+        } finally {
+            System.setOut(old);
+        }
+    }
+
+    /**
+     * Locates the decompiled Java file corresponding to the main class in the output directory.
+     */
+    private File getFileFrom(File dir, String fqn) {
+        File properFile = new File(dir.getAbsolutePath() + File.separator + fqn.replace('.', File.separatorChar) + ".java");
+        if (properFile.exists()) {
+            return properFile;
+        } else {
+            List<File> files = null;
+            try {
+                files = findFile(dir);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            if (files == null || files.size() == 0) {
+                throw new RuntimeException("No output found in " + dir);
+            } else if (files.size() == 1) {
+                return files.get(0);
+            } else {
+                System.err.println("To much resutled from decompilation! Returning first");
+                return files.get(0);
+            }
+        }
+    }
+
+    /**
+     * Recursively finds all files in a directory.
+     */
+    List<File> findFile(File start) throws IOException {
+        File[] files = start.listFiles();
+        List<File> r = new ArrayList<>(files.length);
+        for (File f : files) {
+            if (f.isFile()) {
+                r.add(f);
+            } else if (f.isDirectory()) {
+                r.addAll(findFile(f));
+            }
+        }
+        return r;
+    }
+
+    /**
+     * Reads the content of a file as a UTF-8 string.
+     */
+    private String readStringFromFile(File filePath) throws IOException {
+        String fileContent = new String(Files.readAllBytes(filePath.toPath()));
+        return fileContent;
+    }
+
+    /**
+     * Writes a byte array to a temporary file.
+     */
+    private File bytesToFile(byte[] bytes) throws IOException {
+        File tempFile = File.createTempFile("temporary-byte-file", ".class");
+        tempFile.deleteOnExit();
+        return bytesToFile(tempFile, bytes);
+    }
+
+    /**
+     * Writes a byte array to a specific file path.
+     */
+    private File bytesToFile(File tempFile, byte[] bytes) throws IOException {
+        tempFile.getParentFile().mkdirs();
+        FileOutputStream fos = new FileOutputStream(tempFile.getCanonicalPath());
+        fos.write(bytes);
+        fos.flush();
+        fos.close();
+        return tempFile;
+    }
+
+    /**
+     * Retrieves the help output from CFR.
+     */
+    public String decompilerHelp() throws IOException {
+        PrintStream oldo = System.out;
+        PrintStream olde = System.err;
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(bos));
+        System.setErr(new PrintStream(bos));
+        try {
+            Main.main(new String[]{"--help"});
+            return bos.toString("utf-8");
+        } finally {
+            System.setOut(oldo);
+            System.setErr(olde);
+        }
+    }
+
+}

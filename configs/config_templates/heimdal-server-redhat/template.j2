@@ -1,0 +1,88 @@
+# Heimdal KDC/KADM Config Template
+# See man heimdal-kadmind(8) for full documentation of these directives.
+
+[realms]
+{% for realm, settings in realms | default({}) | dictsort %}
+  {{ realm }} = {
+    # The database backend type for the realm (e.g., ktkt, ldbm).
+    # If not specified in the list item, uses the global default or schema default.
+    database_backend = {{ settings.database_backend | default(database_backend | default('ktkt')) }}
+
+    # Path to the admin keytab file used by kadmind for authentication.
+    admin_keytab = /var/heimdal/kadm.keytab
+
+    # Path to the ACL (Access Control List) file defining administrative permissions.
+    acl_file = /var/heimdal/kadmind.acl
+
+    # Path to the key stash file, used if the master key password is needed and not in a keytab.
+    # Note: The realm name is substituted here to ensure uniqueness per realm.
+    key_stash_file = /var/heimdal/.k5.{{ realm }}
+
+    # The port number for the kadmind service (admin server).
+    # Used for remote administration of the Kerberos realm.
+    kadmind_port = {{ settings.kadmind_port | default(kadmind_port | default(749)) }}
+
+    # The port number for the KDC (Key Distribution Center).
+    # This is typically used for UDP (and TCP for large packets) authentication requests.
+    kdc_port = {{ settings.kdc_port | default(kdc_port | default(88)) }}
+
+    # The TCP port number for the KDC.
+    # Often the same as kdc_port, but can be separated for specific network configurations.
+    kdc_tcp_port = {{ settings.kdc_tcp_port | default(kdc_tcp_port | default(88)) }}
+
+    # Maximum ticket lifetime.
+    # Defines how long a ticket is valid before it must be renewed.
+    # Format: 1d, 10h, 30m, etc.
+    max_life = {{ settings.max_life | default(max_life | default('1d')) }}
+
+    # Maximum renewable ticket lifetime.
+    # Defines the maximum total duration a ticket can be renewed for.
+    # Format: 1d, 10h, 30m, etc.
+    max_renewable_life = {{ settings.max_renewable_life | default(max_renewable_life | default('7d')) }}
+
+    # The encryption type for the master key.
+    # Determines the strength of the encryption used to store the realm's master key.
+    master_key_type = {{ settings.master_key_type | default(master_key_type | default('aes256-cts-hmac-sha1-96')) }}
+
+    # List of supported encryption types for the realm.
+    # These are the ciphers allowed for ticket encryption and communication.
+    # Ordered by preference (strongest first).
+    supported_enctypes = {{ settings.supported_enctypes | default(supported_enctypes | default(['aes256-cts-hmac-sha1-96', 'aes128-cts-hmac-sha1-96', 'des3-cbc-sha1', 'arcfour-hmac', 'camellia256-cts-cmac', 'camellia128-cts-cmac'])) | join(', ') }}
+  }
+{% else %}
+  # Default realm configuration if no realms list is provided in variables.
+  {{ realm_name | default('EXAMPLE.COM') }} = {
+    # The database backend type for the realm (e.g., ktkt, ldbm).
+    database_backend = {{ database_backend | default('ktkt') }}
+
+    # Path to the admin keytab file used by kadmind for authentication.
+    admin_keytab = /var/heimdal/kadm.keytab
+
+    # Path to the ACL (Access Control List) file defining administrative permissions.
+    acl_file = /var/heimdal/kadmind.acl
+
+    # Path to the key stash file, used if the master key password is needed and not in a keytab.
+    key_stash_file = /var/heimdal/.k5.{{ realm_name | default('EXAMPLE.COM') }}
+
+    # The port number for the kadmind service (admin server).
+    kadmind_port = {{ kadmind_port | default(749) }}
+
+    # The port number for the KDC (Key Distribution Center).
+    kdc_port = {{ kdc_port | default(88) }}
+
+    # The TCP port number for the KDC.
+    kdc_tcp_port = {{ kdc_tcp_port | default(88) }}
+
+    # Maximum ticket lifetime.
+    max_life = {{ max_life | default('1d') }}
+
+    # Maximum renewable ticket lifetime.
+    max_renewable_life = {{ max_renewable_life | default('7d') }}
+
+    # The encryption type for the master key.
+    master_key_type = {{ master_key_type | default('aes256-cts-hmac-sha1-96') }}
+
+    # List of supported encryption types for the realm.
+    supported_enctypes = {{ supported_enctypes | default(['aes256-cts-hmac-sha1-96', 'aes128-cts-hmac-sha1-96', 'des3-cbc-sha1', 'arcfour-hmac', 'camellia256-cts-cmac', 'camellia128-cts-cmac']) | join(', ') }}
+  }
+{% endfor %}

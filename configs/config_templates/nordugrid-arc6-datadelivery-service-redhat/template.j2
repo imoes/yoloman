@@ -1,0 +1,14 @@
+# Log file for the ARC Data Delivery Service
+{{ log_file | default('/var/log/arc/datadelivery-service.log') }}
+{
+  missingok
+  compress
+  delaycompress
+  daily
+  rotate {{ log_rotate_count | default('14') }}
+  create
+  postrotate
+  # Send SIGHUP to the service process to reload logs or rotate internal buffers
+  kill -HUP `cat {{ pid_file | default('/run/arched-datadelivery-service.pid') }} 2> /dev/null` 2> /dev/null || true
+  endscript
+}

@@ -6,6 +6,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { environment } from '../../../environments/environment';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 interface KnowledgeStats { model: string; total: number; by_kind: Record<string, number>; last_indexed: string | null; }
 interface Source { doc_id: string; kind: string; title: string; host_id: string | null; similarity: number; }
@@ -21,7 +22,7 @@ interface AskResult { question: string; answer: string; sources: Source[]; retri
 @Component({
   selector: 'app-infra-knowledge',
   standalone: true,
-  imports: [FormsModule, DatePipe, DecimalPipe, MatCardModule, MatButtonModule, MatIconModule],
+  imports: [BlockedReasonDirective, FormsModule, DatePipe, DecimalPipe, MatCardModule, MatButtonModule, MatIconModule],
   template: `
     <mat-card class="bm-ik-card">
       <mat-card-header>
@@ -44,12 +45,12 @@ interface AskResult { question: string; answer: string; sources: Source[]; retri
         }
 
         <div class="bm-ik-ask">
-          <textarea class="bm-ik-q" rows="2" [(ngModel)]="question"
+          <textarea class="bm-ik-q" rows="2" [(ngModel)]="question" aria-label="Question about the infrastructure"
                     placeholder="Ask the infrastructure — e.g. 'Which hosts are CRIT and what do they depend on?'"
                     (keydown.enter)="onEnter($event)"></textarea>
-          <button mat-flat-button color="primary" (click)="ask()" [disabled]="busy() || !question.trim()">
+          <span class="bm-why"><button mat-flat-button color="primary" (click)="ask()" [bmBlocked]="askBlocked()">
             <mat-icon>psychology</mat-icon> {{ asking() ? 'Thinking…' : 'Ask' }}
-          </button>
+          </button></span>
         </div>
 
         @if (result(); as r) {
@@ -101,6 +102,14 @@ export class InfraKnowledgeComponent implements OnInit {
   reindexing = signal(false);
   busy = signal(false);
 
+  /** Why Ask is refused ('' = allowed): read by the button's [disabled], its tooltip and ask() itself. */
+  askBlocked(): string {
+    if (this.asking()) return 'Answering the previous question…';
+    if (this.reindexing()) return 'Reindexing — ask again when it finishes';
+    if (this.busy()) return 'Busy…';
+    return this.question.trim() ? '' : 'Type a question first';
+  }
+
   kinds(s: KnowledgeStats): [string, number][] { return Object.entries(s.by_kind); }
 
   ngOnInit(): void { this.loadStats(); }
@@ -112,7 +121,7 @@ export class InfraKnowledgeComponent implements OnInit {
     if (!e.shiftKey) { e.preventDefault(); this.ask(); }
   }
   ask(): void {
-    if (!this.question.trim() || this.busy()) return;
+    if (this.askBlocked()) return;
     this.busy.set(true); this.asking.set(true); this.error.set(''); this.result.set(null);
     this.http.post<AskResult>(`${this.base}/ask`, { question: this.question }).subscribe({
       next: (r) => { this.result.set(r); this.busy.set(false); this.asking.set(false); },

@@ -1,0 +1,32 @@
+---
+# Hiera configuration file for Red Hat systems.
+# This file defines the backend data storage engine and the lookup hierarchy.
+
+# Specify the data backends Hiera should use.
+# 'yaml' indicates that Hiera will read data from YAML files.
+:backends:
+  - yaml
+
+# Define the order in which Hiera looks up data.
+# Hiera searches through this list from top to bottom.
+# The first match wins.
+:hierarchy:
+  # Node-specific data: Uses the Puppet agent's certificate name (FQDN)
+  # to allow unique configuration per host.
+  # Example: If certname is 'web01.example.com', it looks for
+  # 'nodes/web01.example.yaml' (or .yml) in the datadir.
+  - "nodes/%{::trusted.certname}"
+  
+  # Fallback hierarchy level.
+  # Uses the value from the schema field 'hierarchy_default'.
+  # If not set, defaults to 'common'.
+  - {{ hierarchy_default | default('common') }}
+
+# Configuration specific to the YAML backend.
+:yaml:
+  # Directory path where YAML data files are stored.
+  # If left empty (the default), Hiera uses its standard default paths:
+  #   *nix:   /etc/puppetlabs/code/environments/%{environment}/hieradata
+  #   Windows: %CommonAppData%\PuppetLabs\code\environments\%{environment}\hieradata
+  # Ensure this directory exists on the filesystem if you specify a custom path.
+  :datadir: {{ datadir | default('') }}

@@ -75,8 +75,11 @@ def test_the_catalogs_path_wins_across_sources(tmp_path):
     idx = build_template_index(cat, cod, tpl, "", ver)
     assert "/etc/nginx/nginx.conf" in idx["paths"]
     assert "/etc/logrotate.d/nginx" not in idx["paths"]
-    reason = next(w["reason"] for w in idx["withdrawn"] if w["path"] == "/etc/logrotate.d/nginx")
-    assert "/etc/nginx/nginx.conf" in reason and "shares that name" in reason
+    # Refused as soon as it is offered (the catalog records nginx.conf as this template's file) — named in
+    # `conflicts`; before, the cross-source sweep withdrew it afterwards. Either way it must carry the reason.
+    reasons = [w.get("reason") or "" for w in idx["withdrawn"] + idx["conflicts"]
+               if w["path"] == "/etc/logrotate.d/nginx"]
+    assert any("/etc/nginx/nginx.conf" in r for r in reasons), reasons
 
 
 def test_with_nothing_to_prefer_the_bindings_stay(tmp_path):
@@ -106,3 +109,70 @@ def test_the_real_corpus_no_longer_offers_a_foreign_renderer(path):
     idx = build_template_index(root / "package_catalog.json", root / "config_codecs.json",
                                root / "config_templates", "", root / "config_path_verdicts.json")
     assert path not in idx["paths"], f"{path} is still bound to another file's template"
+
+
+def test_a_role_template_is_not_bound_to_a_file_that_only_shares_its_name(tmp_path):
+    """The catalog says which file a role's template renders. A codec binding by NAME to another file of the
+    package (/etc/sysconfig/haproxy for the haproxy.cfg template) is refused, even when — as on RedHat — a
+    family template holds the catalog path and only the name bindings are left."""
+    cat, cod, tpl, ver = _fixture(
+        tmp_path,
+        {"haproxy": {"template": "haproxy", "families": {
+            "debian": {"config_path": "/etc/haproxy/haproxy.cfg"},
+            "redhat": {"config_path": "/etc/haproxy/haproxy.cfg"}}}},
+        {"/etc/sysconfig/haproxy": {"codec": "keyvalue", "paths": ["/etc/sysconfig/haproxy"]},
+         "/usr/local/etc/haproxy/haproxy.cfg": {"codec": "none", "paths": ["/usr/local/etc/haproxy/haproxy.cfg"]}},
+        {"haproxy": "global\\n    maxconn {{ x }}\\n"})
+    idx = build_template_index(cat, cod, tpl, "", ver)
+    assert "/etc/sysconfig/haproxy" not in idx["paths"]
+    refused = [c for c in idx["conflicts"] if c["path"] == "/etc/sysconfig/haproxy"]
+    assert refused and "/etc/haproxy/haproxy.cfg" in refused[0]["reason"]
+
+
+@pytest.mark.parametrize("family,path", [("redhat", "/etc/sysconfig/haproxy"), ("redhat", "/etc/logrotate.d/haproxy"),
+                                         ("", "/etc/pam.d/cron"), ("", "/etc/default/cron"),
+                                         ("redhat", "/etc/raddb/mods-available/redis")])
+def test_the_real_corpus_binds_no_role_template_to_a_namesake(family, path):
+    """Against the shipped catalogs, per family: each of these was bound to a role template of another file."""
+    from bossman.tools._paths import configs_dir
+
+    root = configs_dir(__file__)
+    idx = build_template_index(root / "package_catalog.json", root / "config_codecs.json",
+                               root / "config_templates", family, root / "config_path_verdicts.json")
+    entry = idx["paths"].get(path)
+    assert entry is None or entry["template"] not in ("haproxy", "cron", "redis"), \
+        f"{path} is bound to the role template {entry['template']!r}"
+
+
+def test_a_family_template_is_not_offered_to_another_family(tmp_path):
+    """A `-redhat` template records the RPM's file. The Debian index must not offer it — named in `withdrawn`;
+    an index built without a family keeps it, as before."""
+    cat, cod, tpl, ver = _fixture(tmp_path, {}, {}, {"grep-redhat": "COLOR={{ x }}\n"})
+    (tpl / "grep-redhat" / "meta.json").write_text(json.dumps(
+        {"target_path": "/etc/GREP_COLORS", "family": "redhat", "witness": "rpm"}))
+    deb = build_template_index(cat, cod, tpl, "debian", ver)
+    assert "/etc/GREP_COLORS" not in deb["paths"]
+    w = [x for x in deb["withdrawn"] if x["path"] == "/etc/GREP_COLORS"]
+    assert w and w[0]["verdict"] == "other-family" and "redhat" in w[0]["reason"]
+    assert build_template_index(cat, cod, tpl, "redhat", ver)["paths"]["/etc/GREP_COLORS"]["template"] == "grep-redhat"
+    assert "/etc/GREP_COLORS" in build_template_index(cat, cod, tpl, "", ver)["paths"]
+
+
+def test_the_real_debian_index_offers_no_redhat_template():
+    from bossman.tools._paths import configs_dir
+
+    root = configs_dir(__file__)
+    idx = build_template_index(root / "package_catalog.json", root / "config_codecs.json",
+                               root / "config_templates", "debian", root / "config_path_verdicts.json")
+    foreign = [(p, e["template"]) for p, e in idx["paths"].items() if e.get("family") not in (None, "debian")]
+    assert not foreign, foreign[:5]
+
+
+def test_a_template_the_gate_refuses_is_named_not_dropped(tmp_path):
+    cat, cod, tpl, ver = _fixture(tmp_path, {}, {}, {"x-redhat": "COLOR={{ x }}\n"})
+    (tpl / "x-redhat" / "template.j2").write_text("")          # empty body: the gate refuses it
+    (tpl / "x-redhat" / "meta.json").write_text(json.dumps({"target_path": "/etc/x.conf", "family": "redhat"}))
+    idx = build_template_index(cat, cod, tpl, "redhat", ver)
+    w = [x for x in idx["withdrawn"] if x["template"] == "x-redhat"]
+    assert w and w[0]["verdict"] == "not-configurable" and w[0]["path"] == "/etc/x.conf"
+    assert not [x for x in build_template_index(cat, cod, tpl, "debian", ver)["withdrawn"] if x["template"] == "x-redhat"]

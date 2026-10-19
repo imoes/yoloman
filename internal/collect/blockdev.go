@@ -86,7 +86,7 @@ func guestOfVolume(guests map[string]string, volume string) string {
 // Cluster-wide on purpose: DRBD replicates, so a node carries devices for guests
 // that RUN elsewhere, and their replica writes are real local disk load. Reading
 // only pveRoot/qemu-server (this node's guests) left 5 of 9 DRBD devices on
-// vpp0221 without an id — exactly the ones whose load an operator would otherwise
+// pve1 without an id — exactly the ones whose load an operator would otherwise
 // be unable to attribute at all.
 //
 // Empty (and cheap) on any host that isn't a Proxmox node.
@@ -272,7 +272,7 @@ func vmIDFromVolume(name string) string {
 //
 // Without this, `_00000` was read as the guest id — and because the id was then non-empty,
 // ResolveDeviceOwners skipped the guest-config join that would have found the real one. Measured on
-// vpp0222: five unrelated zvols (pm-121314d1, pm-4eec6e95, pm-573e2517, pm-bb2a3396 …) all reported
+// pve2: five unrelated zvols (pm-121314d1, pm-4eec6e95, pm-573e2517, pm-bb2a3396 …) all reported
 // `vm=00000`, a guest that does not exist, collapsed into one. "Which VM saturates nvme0n1" answered
 // with a fabricated VM is worse than leaving it unanswered.
 func isPaddedIndex(s string) bool {

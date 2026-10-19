@@ -9,13 +9,15 @@ authoritative, what each pass does, how to restart, and what is redundant.
 
 | | `agentic-qualify-packages` (**authoritative**) | `agentic-config-batch` (legacy + partial) |
 |---|---|---|
-| script | `bossman/scripts/qualify_packages.py` (v6) | `bossman/scripts/config-batch-supervisor.sh` (many scripts) |
-| model | **qwen35b** (`Qwen3.6-35B`) | qwen79b via **`/laguna` — DEAD (502)** for the template/enum passes |
+| script | `bossman/bossman/tools/qualify_packages.py` (v6), `--family debian|redhat` | `bossman/scripts/config-batch-supervisor.sh` (many scripts) |
+| model | **qwen35b** (`Qwen3.6-35B`) — chosen by measurement, see below | qwen79b via **`/laguna` — DEAD (502)** for the template/enum passes |
 | grounding | the package's **real shipped config**, extracted from its `.deb` (+ section-5 man page) | LLM **reconstructs** the config from scratch (hallucination-prone) |
 | does | **Qualify → Codec → Template → Enum → Enrich**, per package, over all 9559 packages | separate passes, several now superseded |
 | log | `~/.local/state/agentic-batches/qualify.log` | `~/.local/state/agentic-batches/{codec,templates,directives,universe,docaudit}.log` |
 
-**`qualify_packages.py` is the current pipeline.** It does codec + template + enum + enrich in one
+**`qualify_packages.py` is the current pipeline** (`bossman/bossman/tools/`, run as
+`python -m bossman.tools.qualify_packages`). Unit and supervisor are versioned in `deploy/systemd/`; install with
+`cp deploy/systemd/agentic-qualify-packages.service ~/.config/systemd/user/ && systemctl --user daemon-reload`. It does codec + template + enum + enrich in one
 grounded pass. The template it emits IS the real shipped config with only site-values turned into
 `{{ vars }}` — complete and valid by construction. Prefer it for anything touching templates/enums.
 
@@ -137,3 +139,25 @@ Every defect the judge found became a mechanical repair, and these run **in the 
 
 **The acceptance is the codec round-trip's shape:** rendered with its OWN defaults, a template must reproduce
 the file the package ships.
+
+## The LLM queue (2026-10-09) — one service, one process, in this order
+
+`deploy/systemd/qualify-supervisor.sh` owns every LLM batch of the configuration pipeline, one after the other, so the
+shared endpoint sees a single client:
+
+1. `qualify_packages --family debian`, then `--family redhat` (the RPM source: `tools/rpm_source.py`, a long-lived
+   EL9 container `agentic-rh-fetch`; templates `<pkg>-redhat`, meta `family: redhat`). Every parametrized template
+   gets the mechanical repair chain (`tools/template_repair_chain.py`) BEFORE enum/enrich.
+2. `package_e2e_worklist` (no LLM) — rebuilds the route of every package.
+3. `qualify_packages --family debian --from-worklist` — the packages that ship a config file no route reaches, against
+   the exact file the archive's Contents index names.
+4. `mine_package_validators` — `check_cmd` / `daemon_cmd` per package, grounded in the package's own man1/man8 pages.
+
+The environment is checked once at start (proxy, LLM URL/model); a missing variable stops the unit with its name
+instead of the 17 054 restarts it caused from 2026-09-02.
+
+**Model choice, measured** (`tools/benchmark_qualify_models.py`, `configs/model_benchmark_qualify.json`): same
+RedHat packages, same code, metasearch off, paired on the 12 packages both finished — qwen35b vs qwen27b:
+invariants+gates 14.3 % vs 14.3 %, enum values without a source 8.7 % vs 73.2 %, directive coverage 19/31 vs 10/31,
+2.25× faster. qwen35b. (The low invariant rate is the pipeline's, not the model's — it is what the repair chain
+addresses.)

@@ -1,0 +1,105 @@
+{#
+  GDM D-Bus Service Policy Configuration
+  ======================================
+  This template generates the D-Bus system bus configuration for GDM
+  (GNOME Display Manager). It defines access control policies for
+  the `org.gnome.DisplayManager` D-Bus service.
+
+  The configuration is split into three main parts:
+  1. Root policy: Allows the root user to own the service and interact
+     with all its interfaces.
+  2. Default policy: Denies most interactions by default but allows
+     specific read-only operations (introspection, properties) and
+     specific methods on Display objects (GetId, GetRemoteHostname, etc.)
+     and LocalDisplayFactory (CreateTransientDisplay).
+  3. GDM Service User policy: Allows the dedicated GDM user to interact
+     with the Manager and Display interfaces required for its operation.
+#}
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  {# The user allowed to own the GDM D-Bus service. #}
+  <policy user="{{ gdm_service_owner | default('root') }}">
+    <allow own="org.gnome.DisplayManager"/>
+
+    {# Allow the owner to send messages on various GDM interfaces. #}
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Manager"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.LocalDisplayFactory"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Settings"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.freedesktop.DBus.Properties" />
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+
+  </policy>
+
+  {# Default policy: Deny everything by default, then explicitly allow specific actions. #}
+  <policy context="default">
+    {# Deny direct interaction with specific interfaces unless explicitly allowed below. #}
+    <deny send_destination="org.gnome.DisplayManager"
+          send_interface="org.gnome.DisplayManager.Display"/>
+    <deny send_destination="org.gnome.DisplayManager"
+          send_interface="org.gnome.DisplayManager.LocalDisplayFactory"/>
+    <deny send_destination="org.gnome.DisplayManager"
+          send_interface="org.gnome.DisplayManager.Settings"/>
+    <deny send_destination="org.gnome.DisplayManager"
+          send_interface="org.gnome.DisplayManager.Session"/>
+
+    {# Allow introspection and property access for all clients. #}
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.freedesktop.DBus.ObjectManager"/>
+    <allow send_destination="org.gnome.DisplayManager"
+	   send_interface="org.freedesktop.DBus.Properties"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Manager"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"
+           send_member="GetId"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"
+           send_member="GetRemoteHostname"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"
+           send_member="GetSeatId"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"
+           send_member="GetX11DisplayName"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"
+           send_member="GetX11DisplayNumber"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"
+           send_member="IsLocal"/>
+
+    {# Allow creation of transient displays by authorized clients. #}
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.LocalDisplayFactory"
+           send_member="CreateTransientDisplay"/>
+  </policy>
+
+  {# The user allowed to communicate with the GDM D-Bus service. #}
+  <policy user="{{ gdm_service_user | default('gdm') }}">
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Manager"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Display"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.LocalDisplayFactory"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.gnome.DisplayManager.Settings"/>
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.freedesktop.DBus.Properties" />
+    <allow send_destination="org.gnome.DisplayManager"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+  </policy>
+
+</busconfig>

@@ -1,0 +1,97 @@
+# ==============================================================================
+# PCP PMDA Open vSwitch Rule Configuration
+#
+# This file defines the monitoring rule for Open vSwitch interface errors via
+# the Performance Co-Pilot (PCP) infrastructure.
+#
+# DO NOT MODIFY this file manually if managed by Ansible.
+# See pmieconf(1) for details on the configuration syntax.
+# ==============================================================================
+
+rule openvswitch.errors
+    # --- Summary text for the rule. ---
+    summary = "{{ summary | default('$rule$') }}"
+    
+    # Enumerate hosts for this rule context
+    enumerate = hosts
+    
+    # --- Predicate definition ---
+    # Detects instantaneous errors on Open vSwitch interfaces.
+    # Logic: Checks if any interface (`some_inst`) has an error count greater than 0.
+    # The `@0` and `@1` refer to PMDA instance indexes for openvswitch.interface.error.
+    predicate =
+    "some_host (
+        some_inst (
+            instant ( openvswitch.interface.error @0 ) -
+            instant ( openvswitch.interface.error @1 ) > 0
+        )
+    )"
+
+    # --- Whether the rule is enabled. ---
+    enabled = {{ enabled | default('no') }}
+    
+    # Rule version identifier
+    version = 1
+    
+    # --- Help text describing the rule's purpose. ---
+    help =
+    "Detect any errors on each individual Open vSwitch interface.
+    If this rule is enabled, the Open vSwitch metrics will be used;
+    see pmdaopenvswitch(1).";
+
+# --- String variable: rule (default description) ---
+string rule
+    # --- Default description for the rule. ---
+    default = "{{ rule_default | default('Open vSwitch interface errors') }}"
+    
+    # --- Whether the rule definition can be modified. ---
+    modify  = {{ rule_modify | default('no') }}
+    
+    # --- Whether the rule definition is displayed. ---
+    display = {{ rule_display | default('no') }};
+
+# --- String variable: action_expand (action expansion format) ---
+string action_expand
+    # Static default format: %verrs (error count) [%i] (interface) @%h (host)
+    default = "%verrs [%i]@%h"
+    
+    # --- Whether the action expansion is displayed. ---
+    display = {{ action_expand_display | default('no') }}
+    
+    # --- Whether the action expansion can be modified. ---
+    modify  = {{ action_expand_modify | default('no') }};
+
+# --- String variable: email_expand (email expansion format) ---
+string email_expand
+    # Static default format: host: %h iface: %i %verrors (error count)
+    default = "host: %h iface: %i %verrors"
+    
+    # --- Whether the email expansion is displayed. ---
+    display = {{ email_expand_display | default('no') }}
+    
+    # --- Whether the email expansion can be modified. ---
+    modify  = {{ email_expand_modify | default('no') }};
+
+# --- String variable: delta (evaluation interval) ---
+string delta
+    # --- Sample interval between evaluations of this rule. ---
+    default = "{{ delta_default | default('10 sec') }}"
+    
+    # Help text for delta
+    help =
+    "Sample interval between evaluations of this rule.";
+
+# --- String variable: holdoff (suppression interval) ---
+string holdoff
+    # --- Holdoff interval for further action execution. ---
+    default = "{{ holdoff_default | default('1 min') }}"
+    
+    # Help text for holdoff
+    help =
+    "Once the predicate is true and the action is executed, this
+    variable allows suppression of further action execution until the
+    specified interval has elapsed.";
+
+# ==============================================================================
+# --- END OF CONFIGURATION ---
+# ==============================================================================

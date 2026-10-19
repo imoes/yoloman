@@ -23,7 +23,7 @@ export interface ParamSpec {
   items?: Record<string, ParamSpec>; // element schema for a list-of-objects
   hidden?: boolean;
   required?: boolean;
-  widget?: 'file';                    // render a remote file-picker (needs agentId)
+  widget?: 'file' | 'text';           // 'file': a remote file-picker (needs agentId); 'text': a whole file's content
   pattern?: string;                   // file-picker glob filter, e.g. "*.pem *.crt *.key"
 }
 

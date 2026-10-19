@@ -1,13 +1,17 @@
-# Pacemaker CLI Utilities global configuration.
-# This file sets default options applied to all pacemaker command-line utilities
-# (crmsh, pcs, cibadmin, etc.) via the OPTIONS environment variable.
 #
-# See `man crmsh` or `man pcs` for a full list of available flags.
-# For example, '-d' enables debug output.
+# Configuration file for pacemaker-cli-utils.
 #
-# The variable 'options' should contain a string of whitespace-separated flags.
-# Example: options = '-d -f'
+# This file allows setting default command-line options for all
+# pacemaker command-line tools (pcs, crmsh, etc.).
+# Refer to the manual page (`man pcs` or `man crmsh`) for detailed options.
+#
 
-# Default: -d
-# Description: Command-line options for pacemaker-cli-utils commands.
-OPTIONS="{{ options | default('-d') | string }}"
+# Global options variable.
+# Default value defined in schema: ''
+# If empty, the tool may use its own internal defaults or none.
+#
+{% if (options | default('')) | length > 0 %}
+OPTIONS="{{ options | default('') }}"
+{% else %}
+#OPTIONS="-d"
+{% endif %}

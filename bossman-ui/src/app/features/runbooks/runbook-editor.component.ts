@@ -31,6 +31,8 @@ import { SEARCH_SCOPES, SeqNode, SearchScope, TreeFilters, filterTree, findNode,
          removeNode, searchTree, tasksToTree, treeToTasks } from './sequence/sequence-model';
 import { jsonSchemaToParamSchema, optionsToParamSchema } from './sequence/module-schema';
 import { importTasksYaml } from './blockly/playbookImporter';
+import { APP_IS_DARK } from '../../shared/bm-colors';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
 // own language workers aren't needed — a no-op worker keeps the editor from
@@ -96,7 +98,7 @@ const MAGIC_VAR_GROUPS = (() => {
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent, SequenceTreeComponent, VariablesPanelComponent, CdkDropListGroup],
+  imports: [BlockedReasonDirective, DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent, SequenceTreeComponent, VariablesPanelComponent, CdkDropListGroup],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -179,11 +181,11 @@ const MAGIC_VAR_GROUPS = (() => {
             <div class="bm-seq-bar">
               <button mat-stroked-button (click)="addGroup()"><mat-icon>create_new_folder</mat-icon> Group</button>
               <button mat-stroked-button (click)="addStep()"><mat-icon>add</mat-icon> Step</button>
-              <button mat-icon-button (click)="moveSel(-1)" [disabled]="!seqSelected()"
+              <button mat-icon-button (click)="moveSel(-1)" [bmBlocked]="!seqSelected() ? 'Select a step first' : ''"
                       title="Move up"><mat-icon>arrow_upward</mat-icon></button>
-              <button mat-icon-button (click)="moveSel(1)" [disabled]="!seqSelected()"
+              <button mat-icon-button (click)="moveSel(1)" [bmBlocked]="!seqSelected() ? 'Select a step first' : ''"
                       title="Move down"><mat-icon>arrow_downward</mat-icon></button>
-              <button mat-icon-button (click)="removeSeqNode(seqSelected()!)" [disabled]="!seqSelected()"
+              <button mat-icon-button (click)="removeSeqNode(seqSelected()!)" [bmBlocked]="!seqSelected() ? 'Select a step first' : ''"
                       title="Remove"><mat-icon>delete_outline</mat-icon></button>
               <span class="bm-spacer"></span>
               <input class="bm-seq-search" type="search" [ngModel]="seqQuery()"
@@ -353,9 +355,9 @@ const MAGIC_VAR_GROUPS = (() => {
             <input class="bm-nl-input" [(ngModel)]="nlPrompt" [disabled]="nlBusy()"
                    (keyup.enter)="generateFromNl()"
                    placeholder="Describe what to do in plain language — e.g. 'install nginx and start it'" />
-            <button mat-stroked-button (click)="generateFromNl()" [disabled]="nlBusy() || !nlPrompt.trim()">
+            <span class="bm-why"><button mat-stroked-button (click)="generateFromNl()" [bmBlocked]="generateBlocked()">
               <mat-icon>auto_awesome</mat-icon> {{ nlBusy() ? 'Generating…' : 'Generate' }}
-            </button>
+            </button></span>
             @if (nlError()) { <span class="bm-nl-err">{{ nlError() }}</span> }
           </div>
 
@@ -367,12 +369,12 @@ const MAGIC_VAR_GROUPS = (() => {
                 @for (h of hosts(); track h.id) { <mat-option [value]="h.id">{{ h.name }}</mat-option> }
               </mat-select>
             </mat-form-field>
-            <button mat-stroked-button [disabled]="!hostId() || running()" (click)="run(true)">
+            <span class="bm-why"><button mat-stroked-button [bmBlocked]="runBlocked()" bmBlockedMode="tip" (click)="run(true)">
               <mat-icon>preview</mat-icon> Dry run
-            </button>
-            <button mat-raised-button color="primary" [disabled]="!hostId() || running()" (click)="apply()">
+            </button></span>
+            <span class="bm-why"><button mat-raised-button color="primary" [bmBlocked]="runBlocked()" (click)="apply()">
               <mat-icon>play_arrow</mat-icon> Apply
-            </button>
+            </button></span>
           </div>
 
           @if (lint(); as l) {
@@ -444,7 +446,7 @@ const MAGIC_VAR_GROUPS = (() => {
   styles: [
     `
       .bm-page { padding: 24px; }
-      .bm-vg { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; opacity: .5;
+      .bm-vg { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; opacity: .62;
         margin: 10px 0 2px; }
       .bm-header-row { display: flex; align-items: baseline; gap: 14px; }
       .bm-subtitle { opacity: 0.7; }
@@ -579,6 +581,16 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   // human confirms — same preview→apply flow, nothing runs automatically).
   nlPrompt = '';
   nlBusy = signal(false);
+  // Why Generate / Dry run / Apply are refused ('' = allowed) — the one condition [disabled] and the tooltip read.
+  // Methods: nlPrompt is a plain ngModel field, so a computed() would never see it change.
+  generateBlocked(): string {
+    if (this.nlBusy()) return 'Generating…';
+    return this.nlPrompt.trim() ? '' : 'Describe what to do first';
+  }
+  runBlocked(): string {
+    if (this.running()) return 'A run is in progress';
+    return this.hostId() ? '' : 'Select a host';
+  }
   nlError = signal('');
   magicVarGroups = MAGIC_VAR_GROUPS;
   // Library folder tree (mirrors Plan library): runbooks grouped by `folder`.
@@ -1199,17 +1211,23 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     const playbook = this.source();
     const id = this.currentId();
     const folder = this.moveFolder.trim().replace(/^\/+|\/+$/g, '');
+    type Saved = { id: string; name: string; folder: string; kind?: string; artifact?: { name: string; version: number } };
     const req = id
-      ? this.http.put<{ id: string; name: string; folder: string }>(`${this.base}/runbooks/${id}`, { playbook, folder })
-      : this.http.post<{ id: string; name: string; folder: string }>(`${this.base}/runbooks`, { playbook, folder });
+      ? this.http.put<Saved>(`${this.base}/runbooks/${id}`, { playbook, folder })
+      : this.http.post<Saved>(`${this.base}/runbooks`, { playbook, folder });
     req.subscribe({
-      next: (r) => { this.currentId.set(r.id); this.saveMsg.set('saved: ' + r.name); this.reloadList(); },
+      next: (r) => {
+        this.currentId.set(r.id);
+        // A role's save publishes a deployable artifact version; unchanged text publishes none — say which.
+        this.saveMsg.set('saved: ' + r.name + (r.artifact ? ` · role artifact v${r.artifact.version} (Deploy → Roles & Features)` : ''));
+        this.reloadList();
+      },
       error: (e) => this.saveMsg.set('save failed: ' + (e?.error?.detail ?? 'error')),
     });
   }
 
   ngAfterViewInit(): void {
-    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const dark = APP_IS_DARK;
     this.ed = monaco.editor.create(this.editorEl.nativeElement, {
       value: STARTER,
       language: 'yaml', // Ansible task syntax IS YAML; validation is server-side

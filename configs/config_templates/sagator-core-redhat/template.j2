@@ -1,0 +1,375 @@
+## Sagator configuration file.
+## (c) 2003-2010 Jan ONDREJ (SAL) <ondrejj|a|salstar.sk>
+##
+## This configuration is managed by Ansible. Do not edit manually.
+## Lines beginning with double # (##) are comments. Lines beginning
+## with single # are commented examples. In default configuration
+## there is one antivir scanner and one spam scanner uncomented,
+## other scanner are commented out.
+
+## Debugging level, 0=errors only, 1=return status, init messages,
+##   2=smtp server communication, 3=detailed smtp server communication,
+##   4=tracebacks, 5=smtp client communication
+##   Do not use debug level higher than 9!
+## Value: Integer between 0 and 9.
+DEBUG_LEVEL = {{ DEBUG_LEVEL | default('3') }}
+
+## Language used by web access
+##   You can define a locale language for which there are translations.
+## Value: List of locale strings (e.g. ['en_US', 'de_DE']).
+LANG = {{ LANG | default(["en_US"]) }}
+
+## Where is new root path. For example '/var/spool/vscan'
+## Comment out this line, if you don't need to run sagator in chroot.
+## Value: String path to the chroot directory.
+CHROOT = '{{ CHROOT | default("/var/spool/vscan") }}'
+
+## Logfile (use logfile in chroot to allow rotating)
+## Value: Path to the log file, constructed using CHROOT.
+LOGFILE = CHROOT + '/var/log/sagator/sagator.log'
+
+## User and group, under which this program runs.
+## Value: OS user and group names for process isolation.
+USER, GROUP = '{{ USER | default("vscan") }}', '{{ GROUP | default("vscan") }}'
+
+## SMTP server host and port. You must define this smtp server
+## in postfix without filtering.
+## This is the upstream SMTP server used to relay clean email messages.
+## Value: Tuple of (Host, Port).
+SMTP_SERVER = ('{{ SMTP_SERVER_HOST | default("127.0.0.1") }}', {{ SMTP_SERVER_PORT | default(26) }})
+
+## Scanners and services
+from scanners import *
+from srv import *
+
+## Database engine definitions
+## Sagator can use a database for logging, statistics, and policy data.
+## Uncomment the appropriate backend (SQLite, MySQL, or PostgreSQL).
+## Note: If using an external database, you must also configure the
+## 'requires' capabilities to provide the host, port, name, user, and password.
+#DB_ENGINE = db.sqlite(dbname='/var/lib/sagator/sqlitedb')
+#DB_ENGINE = db.pymysql(host='127.0.0.1', port=3306, dbname='sagator',
+#                       dbuser='sagator', dbpasswd='your_pass')
+#DB_ENGINE = db.pgdb(host='127.0.0.1', port=5432, dbname='sagator',
+#                    dbuser='sagator', dbpasswd='your_pass')
+
+## Local IPs
+## Regular expression defining local IP networks for internal traffic.
+## Used by scanners to determine if an email source is "local".
+LOCAL_IPS = '^(192\.168|172\.(1[6789]|2[0-9]|3[01])|10|127)\.'
+
+## If you are using libclam() scanner, it's better to define one instance
+## here and then use it later.
+CLAMAV = libclam()
+
+## Now we are defining SCANNERS array. This array contains definitions
+## for all scanners used in sagator and it's scripts.
+## You can define other array names for different services.
+## SCANNERS array for sgscan must have this name.
+SCANNERS = [
+
+  ## We are defining an logger scanner. This scanner will log some
+  ## special data into logfile. See log() scanner documentation
+  ## for more information. You can comment out this line, if you don't
+  ## need extra information in your logs.
+  log(1, log.SUMMARY_REPORT,
+
+  ## Also you can use SQL logger. If you uncomment a scanner here,
+  ## do not forget to uncomment it's parenthesis below!
+  #log_sql(DB_ENGINE, log_sql.FORMAT,
+
+    ## Next scanner defines a status line for statistics collector.
+    ## This line stores "Virus" count in collector.
+    ## You don't need it if you don't need MRTG statistics.
+    status("Virus",
+      ## If you need to send some virus reports to adminstrator,
+      ## you can use following line. For of message template (MSG_TMPL)
+      ## syntax read scanner documentation and/or source.
+      ## You can comment out this, if you don't need reports.
+      ## .ifscan() extra parameter at end of this scanner is used to
+      ## send these reports only for local IP addresses.
+      ## Email address for virus report notifications.
+      report(['{{ VIRUS_ADMIN_EMAIL | default("root@localhost") }}'], report.MSG_TMPL,
+        ## Following scanner defines, if you are need to reject, drop
+        ## or deliver messages with viruses. By default viruses are
+        ## rejected (and sent back to sender). Some viruses fakes
+        ## it's sender and it is better do drop these emails.
+        ## You can define virus names, which you want to drop.
+        drop(drop.DEFAULT,
+          ## Following scanner can quarantine all infected emails into
+          ## files on server. This example quarantines files into a directory
+          ## named /var/spool/sagator/quarantine/... in sagator's chroot.
+          ## In this directory there will be each subdirectory for each
+          ## year/month/day (for example 2007/01/30).
+          ## Path uses CHROOT variable.
+          quarantine('{{ CHROOT | default("/var/spool/vscan") }}/var/spool/sagator/quarantine/%Y/%m/%d', '',
+
+            ## Antivirus scanners follows here.
+
+            ## Simple scanners
+            ## Following scanner reports as virus all email larger than 10kB.
+            #max_file_size(10*1024),
+            ## Following scanner parses email for attachments and if
+            ## one of them is executable, virus will be identified.
+            #parsemail(file_type({'exe': 'Executable'})),
+            ## Next scanner scans for viruses, if you can define a pattern,
+            ## which is contained in each virus of this type.
+            ## You can use it for it's own purposes to stop delivering
+            ## of any king of emails.
+            #string_scan(VIR_PATTERNS),
+            ## This scanner is similiar to previous. It scans for regular
+            ## expressions.
+            #regexp_scan({'virname': ['___PATTERN___']}),
+            ## Exec any program
+            ## You can use this scanner for unsuported antivirus,
+            ## if you can define, which exit statuses are returned
+            ## for viruses and for clean emails.
+            #b2f(exec_any(['/bin/grep', '-q', '^TVqQ'], [1], [0])),
+
+            ## ClamAV - clam antivirus
+            ## Uncoment one or more following lines.
+            #alternatives(
+              ## Next scanner uses clamav's library directly in sagator.
+              ## This scanner is the best scanner from all clamav scanners.
+              ## It's performance and stability is very high.
+              buffer2mbox(CLAMAV),
+              ## If you need to parse emails mime attachments, you
+              ## can use parsemail() interscanner before calling clamav.
+              ## Uncomment following line if you need this.
+              ## Don't forget to comment out previous scanner, because
+              ## it is useless to define two scanner for one antivirus.
+              #parsemail(CLAMAV),
+              ## Next scanner adds sagator's own decompression for clamav.
+              ## It is only an example. You can use it for antivirs,
+              ## which hasn't this feature implemented.
+              #parsemail(buffer2file(decompress(CLAMAV))),
+              ## Next scanner calls clamav scan over clamav's daemon.
+              ## This daemon is waiting on local port 3310/tcp.
+              #clamd(['127.0.0.1', 3310]),
+              ## Next scanner calls clamav scan over clamav's daemon.
+              ## This daemon is waiting on socket /var/run/clamav/clamd.sock.
+              #clamd('/var/run/clamav/clamd.sock'),
+              ## Following scanner is obsolete. It calls clamscan binary
+              ## to scan for viruses. This scanner is very slow.
+              #buffer2mbox(clamscan(['/usr/bin/clamscan', '--stdout',
+              #                      '--infected', '--disable-summary',
+              #                      '-r', '--mbox'])),
+            #),
+
+            ## AVG7 for linux
+            ## This scanner can be used with AVG antivirus for linux.
+            ## Uncomment next line, if you have it.
+            #b2f(avgd(chroot=CHROOT)),
+
+            ## Bitdefender bdc
+            ## This scanner can be used with bitdefender antivirus.
+            ## Uncomment next line, if you have it.
+            #b2f(bdc()),
+
+            ## NOD32 (by ESET)
+            ## There are three ways to use this antivirus.
+            ## Following scanner uses nod32pac (preload library) over scand().
+            #scanc(),
+            ## Next scanner uses nod32 version 2 as command line scanner.
+            #buffer2mbox(nod2()),
+            ## Next scanner uses nod32lfs's dazuko support.
+            #nod2dazuko('/tmp/dazuko/mb-', '/var/log/nod32fac.log'),
+
+            ## Sophie (sophos libsavi)
+            ## Following scanner can be used with Sophie. Sophie
+            ## is a daemon which uses libsavi library from Sophos antivirus.
+            #parsemail(b2f(decompress(sophie('/tmp/sophie', CHROOT)))),
+
+            ## Kaspersky antivirus
+            ## You can use following scanner for Kaspersky antivurus
+            ## command line scanner.
+            #b2f(kav()),
+
+            ## Symantec antivirus scan engine.
+            ## You can use following scanner for Symantec antivurus
+            ## scan engine. Do not forget to configure ICAP protocol
+            ## on port 1344.
+            #savse('127.0.0.1', 1344),
+          )
+        )
+      ## This extra parameter is used to send reports only if virus is
+      ## comming from LOCAL_IPS (defined abowe).
+      ).ifscan(sender_regexp({'LOCAL_IP': [LOCAL_IPS]}))
+    ),
+    ## Now we are defining status for "Spam",
+    status("Spam",
+      # and dropping of all spams.
+      drop('.', # drop all spams
+        ## quarantine for spams,
+        ## Path uses CHROOT variable.
+        quarantine('{{ CHROOT | default("/var/spool/vscan") }}/var/spool/sagator/quarantine/%Y/%m/%d', '',
+
+          ## Antispam scanners follows here.
+          ## SpamAssassin
+          ## This scanner using default configuration for spamd
+          ## (spamassassin daemon) on local port 783/tcp.
+          ## It is using spamassassin's default configuration.
+          spamassassind(['127.0.0.1', 783], sa_user='{{ USER | default("vscan") }}'),
+
+          ## Bogofilter
+          #bogofilter(['/usr/bin/bogofilter', '-v']),
+
+          ## QuickSpamFilter
+          #qsf(['/usr/bin/qsf', '-r']),
+
+          ## Anomy Sanitizer
+          #filter(['/usr/local/bin/sanitizer.pl'])
+        )
+      )
+    )
+  #)
+  )
+]
+
+## LMTP scanner dictionary example:
+## This definition is very simple. Use SCANNERS konfiguration for more
+## examples and read sagator's documentation.
+#LMTP_SCANNERS = {
+#  'antivir_only:
+#      log(1, log.SUMMARY_REPORT,
+#        quarantine('/var/spool/sagator/quarantine/%Y%m', '',
+#          drop(drop.DEFAULT,
+#            buffer2mbox(CLAMAV)
+#          )
+#        )
+#      )
+#  'DEFAULT': # 'DEFAULT' string is hardcoded
+#      SCANNERS[0], # define this as first scanner from SCANNERS,
+#}
+
+## smtpd_policy scanners:
+POLICY_SCANNERS = [
+  ## check SPF records
+  #spf_check(),
+  ## check if sender IP is resolvable
+  #dns_check(),
+  ## standard blacklist, users with "BA","BS" or "BR" are blacklisted
+  status('Blacklist', listed('B')),
+  ## Fast greylist
+  status('Greylist',
+    ## check for whitelist ("WA", "WS", "WR" flags),
+    ## if user is not in whitelist, try to greylist them
+    not_listed('W') &
+      ## Greylist only IP from RBL
+      #rbl_check(
+      #  'bl.spamcop.net.',
+      #  'zen.spamhaus.org.',
+      #) &
+        greylist(600) # greylist for 5 minutes
+  ),
+  ## return "dunno" to leave postfix's other restriction to effect
+  set_action('dunno')
+]
+
+POLICY_DATA_SCANNERS = [
+  status('Quota',
+    policy_quota_auth_limit(interval=[300], max_conn=[30], max_rcpt=[300]),
+  ),
+  ## return "dunno" to leave postfix's other restriction to effect
+  set_action('dunno')
+]
+
+CLEANUP = {
+  #DB_ENGINE: [
+    ## clean obsolete greylist records first
+    #list_cleanup(),
+    ## autogenerate some whitelist records
+    ## POLICY_SCANNER
+    #auto_whitelist(),
+    #policy_quota_cleanup(),
+    ## clean old logs from database
+    #log_cleanup()
+  #]
+}
+
+## In this section you need to define services, which will be started
+## by SAGATOR. You need at least one service to start. An SMTP gateway
+## or a command can communicate with SAGATOR over this/these services.
+SRV = [
+  ## External daemons used by SAGATOR
+  ## Uncomment following line, if you want to use clamd in chroot.
+  #chroot_execvp('/usr/sbin/clamd', ['-c', '/etc/clamav.conf']),
+  ## Uncomment following line, if you want to use AVG daemon in chroot.
+  #chroot_execvpe('/opt/grisoft/avg7/bin/avgscan', ['-d'],
+  #               {'LANG':'C'}, pgrp_file='/var/run/avgd.pgrp'),
+  ## Uncomment following line, if you want to use KAV daemon in chroot.
+  #chroot_execvp('/opt/kav/5.5/kav4mailservers/bin/aveserver'),
+  ## Line below is required by nod2pac() scanner.
+  #scand(nod2pac(), '/usr/lib/libnod32pac.so'),
+  ## Line below is required for esetspac() scanner.
+  #scand(esetspac(), '/usr/lib/libesets_pac.so'),
+
+  ## Resource limits (like ulimit)
+  ## You can define resource limits for sagator processes.
+  ## In this example address space is limited to 400 MB.
+  ## Aprox. 100 MB address space is required only for libclamav database.
+  #rlimit(AS=4096*MB),
+
+  ## Statistics collector
+  ## This service can be used to collect statistics data and an program
+  ## (like RRDTOOL or MRTG) can use these data to show nice graphs.
+  ## By default leave this service running, because there is a script
+  ## in sagator, which using this service.
+  collector(),
+
+  ## SMTP daemon policy (can be used as postfix policy scanner)
+  #smtpd_policy(POLICY_SCANNERS, DB_ENGINE, '127.0.0.1', 29),
+  #smtpd_policy(POCLIY_DATA_SCANNERS, DB_ENGINE, '127.0.0.1', 30),
+
+  ## Following scanner can be used to scan for policies in smtpd() or milter()
+  ## services. It must be defined before them.
+  #recipient_policy(POLICY_SCANNERS, DB_ENGINE),
+
+  ## SMTP daemon (for postfix, ...)
+  ## This service can be used by postfix or any other SMTP daemon.
+  ## You need to configure your SMTPd to send all viruses over
+  ## this SMTPd. It sends clean emails back to SMTPd defined above
+  ## (by SMTP_SERVER variable).
+  ## Port for the sagator SMTP daemon service.
+  smtpd(SCANNERS, '127.0.0.1', {{ SMTPD_PORT | default("27") }}, core_count()),
+
+  ## LMTP daemon (for postfix, ...)
+  ## This service can be used to scan each email recipient with different
+  ## scanner. Configure postfix to use lmtp protocol (lmtp:IP:port).
+  #lmtpd(SCANNERS, '0.0.0.0', 27),
+
+  ## Milter daemon
+  ## This service can be used by sendmail's milter. Leave it commented,
+  ## if you don't use sendmail SMTP.
+  #milter(SCANNERS, "sagator", "inet:3333@127.0.0.1"),
+
+  ## sgfilter daemon (use sgfilter command as client)
+  #sgfilterd(SCANNERS),
+
+  ## Standard input filter
+  ## Over this service you can use sagator as STDIN -> STDOUT filter.
+  ## Configure avfilter service and run sagator:
+  ##   sagator --nodaemon < email
+  ## and you will obtain modified email on standard output.
+  #avfilter(SCANNERS),
+
+  ## HTTP proxy filter
+  ## This service can be used to scan HTTP connection for viruses.
+  ## Please read proxy() service documentation for client configuration.
+  ## WARNING: This service is in beta stage. USE WITH CAUTION!
+  #http_proxy(SCANNERS, '127.0.0.1', 3129),
+
+  ## FUSE daemon (to create a scanner filesystem)
+  ## Please use only "quick" scanners, not command line scanners!
+  #fusefs(SCANNERS, '/home', '/realhome'),
+
+  ## Reporter virtual service
+  #reporter(include = '@mydomain.com'),
+
+  ## Web quarantine access
+  #webq_jinja(
+  #  db=DB_ENGINE,
+  #  scanner=b2f(CLAMAV),
+  #  userconv=['^(.*)$','"\\1"@mydomain.com'] # not required
+  #),
+]

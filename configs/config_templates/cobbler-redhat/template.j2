@@ -1,0 +1,122 @@
+# =============================================================================
+# Cobbler RedHat VirtualHost Configuration
+# =============================================================================
+# This template configures Apache (httpd) to serve Cobbler's web interface,
+# static boot files (TFTP/HTTP), and proxy API requests.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Module Loading
+# -----------------------------------------------------------------------------
+# Load necessary Apache modules if not already loaded.
+# Note: Paths may vary by distribution; these are common RHEL/CentOS defaults.
+<IfModule !wsgi_module>
+    # Load the WSGI module for Python application integration.
+    LoadModule wsgi_module /usr/lib64/apache2/mod_wsgi.so
+</IfModule>
+
+<IfModule !proxy_module>
+    # Load the base proxy module.
+    LoadModule proxy_module /usr/lib64/apache2-prefork/mod_proxy.so
+</IfModule>
+
+<IfModule !proxy_http_module>
+    # Load the HTTP proxy module to forward requests.
+    LoadModule proxy_http_module /usr/lib64/apache2-prefork/mod_proxy_http.so
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Static Content Aliases
+# -----------------------------------------------------------------------------
+# Map URLs to the file system for Cobbler's web content and boot files.
+
+# Alias for Cobbler Boot Log Reader (/cblr)
+# Maps /cblr/* to the document root, excluding /cblr/svc/ (handled by WSGI).
+AliasMatch ^/cblr(?!/svc/)(.*)?$ "{{ cobbler_document_root | default('/var/www/cobbler') }}$1"
+
+# Alias for Cobbler Tracker
+AliasMatch ^/cobbler_track(.*)?$ "{{ cobbler_document_root | default('/var/www/cobbler') }}$1"
+
+# Alias for main Cobbler interface
+# If cobbler_document_root is defined, use it; otherwise fall back to default.
+{% if cobbler_document_root is defined %}
+AliasMatch ^/cobbler(.*)?$ "{{ cobbler_document_root }}$1"
+{% else %}
+AliasMatch ^/cobbler(.*)?$ "/var/www/cobbler$1"
+{% endif %}
+
+# Direct alias for /cobbler root
+Alias /cobbler "{{ cobbler_document_root | default('/var/www/cobbler') }}"
+
+# Alias for HTTP-based PXE Boot Files (GRUB)
+Alias /httpboot "{{ tftpboot_grub_dir | default('/var/lib/tftpboot/grub') }}"
+
+# Alias for GRUB Images
+Alias /images "{{ tftpboot_grub_images_dir | default('/var/lib/tftpboot/grub/images') }}"
+
+# -----------------------------------------------------------------------------
+# WSGI Application
+# -----------------------------------------------------------------------------
+# Route Cobbler service API calls (/cblr/svc/) to the Python backend.
+WSGIScriptAliasMatch ^/cblr/svc/([^/]*) /var/www/cobbler/svc/services.py
+
+# -----------------------------------------------------------------------------
+# VirtualHost Definition
+# -----------------------------------------------------------------------------
+# Cobbler listens on the specified HTTP port.
+<VirtualHost *:{{ cobbler_http_port | default('80') }}>
+
+    # -----------------------------------------------------------------
+    # Document Root Directory Configuration
+    # -----------------------------------------------------------------
+    # Settings for the main Cobbler web content directory.
+    <Directory "{{ cobbler_document_root | default('/var/www/cobbler') }}">
+        # Specify the Python virtualenv if Cobbler is installed in one.
+        SetEnv VIRTUALENV
+        # Allow directory listing and symlinks.
+        Options Indexes FollowSymLinks
+        # Grant access to everyone.
+        Require all granted
+    </Directory>
+
+    # -----------------------------------------------------------------
+    # TFTP/HTTP Boot Directory Configuration
+    # -----------------------------------------------------------------
+    # Settings for the GRUB boot files directory.
+    <Directory "{{ tftpboot_grub_dir | default('/var/lib/tftpboot/grub') }}">
+        # Allow directory listing and symlinks.
+        Options Indexes FollowSymLinks
+        # Prevent .htaccess overrides for security.
+        AllowOverride None
+        # No authentication required.
+        AuthType None
+        # Grant access to everyone.
+        Require all granted
+    </Directory>
+
+    # -----------------------------------------------------------------
+    # Proxy Settings
+    # -----------------------------------------------------------------
+    # Disable forward proxying; this server only acts as a reverse proxy.
+    ProxyRequests off
+
+    # Proxy Cobbler API requests to the local Cobbler API service.
+    # The API listens on the configured port (default 25151).
+    ProxyPass /cobbler_api http://127.0.0.1:{{ cobbler_api_port | default(25151) }}/
+    ProxyPassReverse /cobbler_api http://127.0.0.1:{{ cobbler_api_port | default(25151) }}/
+
+    # -----------------------------------------------------------------
+    # Compatibility & Miscellaneous
+    # -----------------------------------------------------------------
+    # Fix for MSIE query string parsing issues with Digest Auth.
+    BrowserMatch "MSIE" AuthDigestEnableQueryStringHack=On
+
+    # -----------------------------------------------------------------
+    # CBLR Location Access
+    # -----------------------------------------------------------------
+    # Ensure the /cblr location is accessible.
+    <Location /cblr>
+        Require all granted
+    </Location>
+
+</VirtualHost>

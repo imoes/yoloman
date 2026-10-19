@@ -33,7 +33,7 @@ BrowseRemoteProtocols {{ browse_remote_protocols | default(['cups', 'ipp']) | jo
 
 # [browse_local_protocols]
 # List of local discovery protocols. Use 'dnssd' for mDNS/Bonjour support.
-BrowseLocalProtocols {{ browse_local_protocols | default(['dnssd', 'cups']) | join(' ') }}
+{% if browse_local_protocols is defined and browse_local_protocols is not none and (browse_local_protocols is number or browse_local_protocols is boolean or browse_local_protocols | length > 0) %}BrowseLocalProtocols {{ browse_local_protocols | default(['dnssd', 'cups']) | join(' ') }}{% else %}# BrowseLocalProtocols none{% endif %}
 
 # [create_remote_ppds]
 # If true, automatically generate local PPD files for discovered remote printers.
@@ -43,7 +43,7 @@ CreateRemotePPDs {{ create_remote_ppds | default(True) | lower }}
 # [default_options]
 # List of default job options applied to all remote printers unless overridden.
 # Output is quoted to handle spaces in option strings safely.
-DefaultOptions "{{ default_options | default([]) | join(' ') }}"
+{% if default_options is defined and default_options is not none and (default_options is number or default_options is boolean or default_options | length > 0) %}DefaultOptions "{{ default_options | default([]) | join(' ') }}"{% else %}# DefaultOptions Option1=Value1 Option2=Value2 Option3 noOption4{% endif %}
 
 # [printers]
 # List of custom static printer configurations (override automatic discovery or predefine queues).

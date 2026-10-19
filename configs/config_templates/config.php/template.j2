@@ -23,7 +23,7 @@ openssl_conf = {{ openssl_conf | default('openssl_init') }}
 
 # Default values for environment variable fallbacks (e.g., for paths)
 # Default: {} (empty map)
-{% for varname, value in (env_defaults | default({}) | dict2items) %}
+{% for varname, value in (env_defaults | default({}) | dictsort) %}
 # Default value for environment variable {{ varname }}
 {{ varname }} = {{ value }}
 {% endfor %}
@@ -72,7 +72,7 @@ random = {{ random | default('') }}
 # --- Custom OIDs section (if defined) ---
 {% if oid_section | default('') %}
 [{{ oid_section | default('') }}]
-{% for oid_name, oid_value in (oids | default({}) | dict2items) %}
+{% for oid_name, oid_value in (oids | default({}) | dictsort) %}
 # ASN.1 Object Identifier: short name {{ oid_name }} maps to value {{ oid_value }}
 {{ oid_name }} = {{ oid_value }}
 {% endfor %}
@@ -81,13 +81,13 @@ random = {{ random | default('') }}
 # --- Providers section (if defined) ---
 {% if providers | default('') %}
 [{{ providers | default('') }}]
-{% for provider_name, provider_section in (providers_config | default({}) | dict2items) %}
+{% for provider_name, provider_section in (providers_config | default({}) | dictsort) %}
 # Declares provider {{ provider_name }} and points to its configuration section
 {{ provider_name }} = {{ provider_section }}
 {% endfor %}
 
 # Provider-specific configuration blocks
-{% for provider_name, provider_section in (providers_config | default({}) | dict2items) %}
+{% for provider_name, provider_section in (providers_config | default({}) | dictsort) %}
 [{{ provider_section }}]
 
 {% set p_id = provider_identities | default({}) %}
@@ -111,7 +111,7 @@ activate = {{ p_act[provider_name] | lower if p_act[provider_name] is string els
 {% set p_ext = provider_extra | default({}) %}
 {% if p_ext.get(provider_name) is mapping and p_ext.get(provider_name) %}
 # Additional provider-specific parameters
-{% for key, value in (p_ext[provider_name] | default({}) | dict2items) %}
+{% for key, value in (p_ext[provider_name] | default({}) | dictsort) %}
 {{ key }} = {{ value }}
 {% endfor %}
 {% endif %}
@@ -131,13 +131,13 @@ default_properties = {{ evp_default_properties | default('') }}
 {% if ssl_conf | default('') %}
 [{{ ssl_conf | default('') }}]
 
-{% for conf_name, conf_section in (ssl_configs | default({}) | dict2items) %}
+{% for conf_name, conf_section in (ssl_configs | default({}) | dictsort) %}
 # Named SSL/TLS configuration: {{ conf_name }} maps to section {{ conf_section }}
 {{ conf_name }} = {{ conf_section }}
 {% endfor %}
 
 # Per-configuration blocks (e.g., [server_tls_config], [client_tls_config], [tls_system_default])
-{% for conf_name, conf_section in (ssl_configs | default({}) | dict2items) %}
+{% for conf_name, conf_section in (ssl_configs | default({}) | dictsort) %}
 [{{ conf_section }}]
 
 {% if conf_section == 'tls_system_default' and ((min_proto_tls | default('')) or (min_proto_dtls | default(''))) %}
@@ -153,7 +153,7 @@ MinProtocol = DTLSv{{ min_proto_dtls | default('') }}
 {% set sc = server_certs | default({}) %}
 {% if sc.get(conf_name) is mapping and sc.get(conf_name) %}
 # Server certificate loading (multiple key types supported)
-{% for cert_type, cert_file in (sc[conf_name] | default({}) | dict2items) %}
+{% for cert_type, cert_file in (sc[conf_name] | default({}) | dictsort) %}
 # Load {{ cert_type }} certificate from {{ cert_file }}
 {{ cert_type }}.Certificate = {{ cert_file }}
 {% endfor %}
@@ -162,7 +162,7 @@ MinProtocol = DTLSv{{ min_proto_dtls | default('') }}
 {% set exo = extra_ssl_opts | default({}) %}
 {% if exo.get(conf_section) is mapping and exo.get(conf_section) %}
 # Additional SSL_CONF_cmd directives
-{% for cmd, val in (exo[conf_section] | default({}) | dict2items) %}
+{% for cmd, val in (exo[conf_section] | default({}) | dictsort) %}
 {{ cmd }} = {{ val }}
 {% endfor %}
 {% endif %}
@@ -173,13 +173,13 @@ MinProtocol = DTLSv{{ min_proto_dtls | default('') }}
 {% if engines | default('') %}
 [{{ engines | default('') }}]
 
-{% for engine_name, engine_section in (engines_config | default({}) | dict2items) %}
+{% for engine_name, engine_section in (engines_config | default({}) | dictsort) %}
 # Declares engine {{ engine_name }} and points to its config section
 {{ engine_name }} = {{ engine_section }}
 {% endfor %}
 
 # Engine-specific configuration blocks
-{% for engine_name, engine_section in (engines_config | default({}) | dict2items) %}
+{% for engine_name, engine_section in (engines_config | default({}) | dictsort) %}
 [{{ engine_section }}]
 
 {% set eid = engine_ids | default({}) %}
@@ -214,7 +214,7 @@ default_algorithms = {{ eda[engine_name] }}
 {% set ectr = engine_ctrls | default({}) %}
 {% if ectr.get(engine_name) is mapping and ectr.get(engine_name) %}
 # Additional ENGINE ctrl commands
-{% for cmd, val in (ectr[engine_name] | default({}) | dict2items) %}
+{% for cmd, val in (ectr[engine_name] | default({}) | dictsort) %}
 # Send ctrl command {{ cmd }} with value {{ val }}
 {{ cmd }} = {{ val }}
 {% endfor %}

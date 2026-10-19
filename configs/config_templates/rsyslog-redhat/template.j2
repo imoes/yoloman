@@ -1,0 +1,88 @@
+# rsyslog configuration file
+
+# For more information see /usr/share/doc/rsyslog-*/rsyslog_conf.html
+# or latest version online at http://www.rsyslog.com/doc/rsyslog_conf.html 
+# If you experience problems, see http://www.rsyslog.com/doc/troubleshoot.html
+
+#### GLOBAL DIRECTIVES ####
+
+# Where to place auxiliary files
+global(workDirectory="/var/lib/rsyslog")
+
+#### MODULES ####
+
+# Use default timestamp format
+module(load="builtin:omfile" Template="RSYSLOG_TraditionalFileFormat")
+
+module(load="imuxsock"    # provides support for local system logging (e.g. via logger command)
+       SysSock.Use={{ sys_sock_use | default('"off") # Turn off message reception via local log socket;') }}
+                          # local messages are retrieved through imjournal now.
+module(load="imjournal"             # provides access to the systemd journal
+       UsePid={{ use_pid | default('"system" # PID nummber is retrieved as the ID of the process the journal entry originates from') }}
+       FileCreateMode={{ file_create_mode | default('"0644" # Set the access permissions for the state file') }}
+       StateFile={{ state_file | default('"imjournal.state") # File to store the position in the journal') }}
+
+# Include all config files in /etc/rsyslog.d/
+include(file="/etc/rsyslog.d/*.conf" mode="optional")
+
+#module(load="imklog") # reads kernel messages (the same are read from journald)
+#module(load="immark") # provides --MARK-- message capability
+
+# Provides UDP syslog reception
+# for parameters see http://www.rsyslog.com/doc/imudp.html
+#module(load="imudp") # needs to be done just once
+#input(type="imudp" port="514")
+
+# Provides TCP syslog reception
+# for parameters see http://www.rsyslog.com/doc/imtcp.html
+#module(load="imtcp") # needs to be done just once
+#input(type="imtcp" port="514")
+
+#### RULES ####
+
+# Log all kernel messages to the console.
+# Logging much else clutters up the screen.
+#kern.* action(type="omfile" file="/dev/console")
+
+# Log anything (except mail) of level info or higher.
+# Don't log private authentication messages!
+*.info;mail.none;authpriv.none;cron.none action(type="omfile" file="/var/log/messages")
+
+# The authpriv file has restricted access.
+authpriv.* action(type="omfile" file="/var/log/secure")
+
+# Log all the mail messages in one place.
+mail.* action(type="omfile" file="/var/log/maillog" sync="on")
+
+# Log cron stuff
+cron.* action(type="omfile" file="/var/log/cron")
+
+# Everybody gets emergency messages
+*.emerg action(type="omusrmsg" users="*")
+
+# Save news errors of level crit and higher in a special file.
+uucp,news.crit action(type="omfile" file="/var/log/spooler")
+
+# Save boot messages also to boot.log
+local7.* action(type="omfile" file="/var/log/boot.log")
+
+
+# ### sample forwarding rule ###
+#action(type="omfwd"  
+# # An on-disk queue is created for this action. If the remote host is
+# # down, messages are spooled to disk and sent when it is up again.
+{% if queue_filename is defined and queue_filename is not none and (queue_filename is number or queue_filename is boolean or queue_filename | length > 0) %}queue.filename={{ queue_filename }}
+{% else %}#queue.filename="fwdRule1"       # unique name prefix for spool files
+{% endif %}{% if queue_maxdiskspace is defined and queue_maxdiskspace is not none and (queue_maxdiskspace is number or queue_maxdiskspace is boolean or queue_maxdiskspace | length > 0) %}queue.maxdiskspace={{ queue_maxdiskspace }}
+{% else %}#queue.maxdiskspace="1g"         # 1gb space limit (use as much as possible)
+{% endif %}{% if queue_saveonshutdown is defined and queue_saveonshutdown is not none and (queue_saveonshutdown is number or queue_saveonshutdown is boolean or queue_saveonshutdown | length > 0) %}queue.saveonshutdown={{ queue_saveonshutdown }}
+{% else %}#queue.saveonshutdown="on"       # save messages to disk on shutdown
+{% endif %}{% if queue_type is defined and queue_type is not none and (queue_type is number or queue_type is boolean or queue_type | length > 0) %}queue.type={{ queue_type }}
+{% else %}#queue.type="LinkedList"         # run asynchronously
+{% endif %}{% if action_resume_retry_count is defined and action_resume_retry_count is not none and (action_resume_retry_count is number or action_resume_retry_count is boolean or action_resume_retry_count | length > 0) %}action.resumeRetryCount={{ action_resume_retry_count }}
+{% else %}#action.resumeRetryCount="-1"    # infinite retries if host is down
+{% endif %}# # Remote Logging (we use TCP for reliable delivery)
+# # remote_host is: name/ip, e.g. 192.168.0.1, port optional e.g. 10514
+{% if target is defined and target is not none and (target is number or target is boolean or target | length > 0) %}Target={{ target }}
+{% else %}#Target="remote_host" Port="XXX" Protocol="tcp")
+{% endif %}

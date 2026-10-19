@@ -1,0 +1,184 @@
+#
+# /etc/bash_completion.d/drbdadm
+#
+# Bash completion for the DRBD top-level management application, drbdadm.
+#
+# If you have bash completion enabled, this module will
+#
+# - provide tab completion for drbdadm sub-commands (up, down, primary,
+#   secondary etc.);
+#
+# - try to detect your current resource state and provide appropriate
+#   command completion for the sub-command you provided. For example,
+#   when if you have entered the "primary" sub-command, it will list
+#   only those resources that are currently in the Secondary role;
+#
+# - differentiate between stacked and unstacked resources.
+#
+# This module does NOT guarantee that the DRBD state engine will in
+# fact agree to do what you ask it to. For example, resources that are
+# currently Primary and not connected are not excluded from the
+# completion list for the "detach" sub-command.
+#
+# Finally, this module is only capable of parsing resources correctly
+# if you are using the default location for your DRBD configuration
+# file. The path is configurable via the drbd_conf_path variable.
+# Default: /etc/drbd.conf
+
+__drbdadm_all_resources() {
+	# Detects all resources currently listed in drbd.conf
+	# Uses the configured DRBD configuration file path for reference
+	local resources="$(env DRBD_DONT_WARN_ON_VERSION_MISMATCH=1 ${COMP_WORDS[0]} sh-resources) all"
+	COMPREPLY=( $(compgen -W "$resources" -- "$current") )
+}
+
+__drbdadm_resources_by_status() {
+	# Detects only those resources that match a particular status
+	# Args: status_type (role|dstate|cstate) and list of valid status values
+	local status_type="$1"
+	shift 1
+	local status_filter="$*"
+	local resources="$(env DRBD_DONT_WARN_ON_VERSION_MISMATCH=1 ${COMP_WORDS[0]} sh-resources)"
+	local filtered_resources
+	local res
+	for res in $resources; do
+		local resource_status="$(env DRBD_DONT_WARN_ON_VERSION_MISMATCH=1 ${COMP_WORDS[0]} $status_type $res 2>/dev/null)"
+		# In case of multiple volumes, consider only the first line
+		set -- $resource_status
+		resource_status=$1
+		local i
+		for i in $status_filter; do
+			if [ "${resource_status%%/*}" = $i ]; then
+				filtered_resources="$filtered_resources $res"
+			fi
+		done
+	done
+	COMPREPLY=( $(compgen -W "$filtered_resources" -- "$current") )
+}
+
+__drbdadm_commands() {
+	# Lists drbdadm sub-commands
+	COMPREPLY=( $(compgen -W "$drbdadm_command_list" -- "$current") )
+}
+
+__drbdadm_options() {
+	# Lists global drbdadm options
+	local options='-d --dry-run -v --verbose -S --stacked -t --config-to-test'
+	COMPREPLY=( $(compgen -W "$options" -- "$current") )
+}
+
+__drbdadm_subcmd_options() {
+	# Lists sub-command specific options by parsing drbdadm help output
+	local subcmd="$1"
+	# Parse options from the help text, stripping description and stopping at empty line
+	local options=($(env DRBD_DONT_WARN_ON_VERSION_MISMATCH=1 ${COMP_WORDS[0]} help $subcmd | sed -e '1,/OPTIONS FOR/ d;/^$/,$ d;s/  \(--[a-z-]*\).*/\1/'))
+	local filtered
+	local o have
+	for o in ${options[@]}; do
+		for have in ${COMP_WORDS[@]}; do
+			[[ $o = "$have" ]] && continue 2
+		done
+		filtered="$filtered $o"
+	done
+	COMPREPLY=( $(compgen -W "$filtered" -- "$current") )
+}
+
+_drbdadm() {
+	# Main completion function for drbdadm
+	# Configures the command wrapper with environment variables and potential stacked mode
+	
+	# Base command with environment variable to suppress version mismatch warnings
+	local DRBDADM="env DRBD_DONT_WARN_ON_VERSION_MISMATCH=1 ${COMP_WORDS[0]}"
+	local drbdadm_command_list=' attach disk-options detach connect net-options disconnect up resource-options down primary secondary invalidate invalidate-remote outdate verify pause-sync resume-sync resize adjust wait-connect role cstate dstate dump wait-connect wait-con-int create-md dump-md wipe-md get-gi show-gi help apply-al repair-md hidden-commands '
+
+	# Redefine the drbdadm we use in __drbdadm_all_resources and
+	# __drbdadm_resources_by_status, if running in stacked mode
+	case "$COMP_LINE " in
+	*" -S "*|*" --stacked "*)
+		DRBDADM="$DRBDADM --stacked"
+		;;
+	esac
+
+	local current previous
+	# The word currently being evaluated for completion
+	current=${COMP_WORDS[COMP_CWORD]}
+	# The word that precedes the currently-evaluated one
+	previous=${COMP_WORDS[COMP_CWORD-1]}
+
+	# Determine completion behavior based on the previous command word
+	case "$previous" in
+		drbdadm)
+			# If user typed 'drbdadm', complete next word: flags or sub-commands
+			case "$current" in
+				-*)
+					__drbdadm_options
+					;;
+				*)
+					__drbdadm_commands
+					;;
+			esac
+			;;
+		primary)
+			# 'primary' sub-command only allows resources currently in Secondary state
+			__drbdadm_resources_by_status "role" "Secondary"
+			;;
+		secondary)
+			# 'secondary' sub-command only allows resources currently in Primary state
+			__drbdadm_resources_by_status "role" "Primary"
+			;;
+		detach|disk-options)
+			# 'detach' and 'disk-options' operate on resources with specific disk states
+			__drbdadm_resources_by_status "dstate" "UpToDate" "Inconsistent" "Outdated"
+			;;
+		outdate)
+			# 'outdate' operates only on UpToDate disks
+			__drbdadm_resources_by_status "dstate" "UpToDate"
+			;;
+		attach|apply-al|repair-md)
+			# 'attach', 'apply-al', 'repair-md' operate on Diskless or Unconfigured disks
+			__drbdadm_resources_by_status "dstate" "Diskless" "Unconfigured"
+			;;
+		connect)
+			# 'connect' operates on StandAlone or Unconfigured network states
+			__drbdadm_resources_by_status "cstate" "StandAlone" "Unconfigured"
+			;;
+		invalidate-remote)
+			# 'invalidate-remote' operates on Connected states
+			__drbdadm_resources_by_status "cstate" "Connected"
+			;;
+		disconnect|net-options)
+			# 'disconnect' and 'net-options' operate on various connection states
+			__drbdadm_resources_by_status "cstate" "Connected" "WFConnection" "VerifyT" "VerifyS"
+			;;
+		verify)
+			# 'verify' operates on Connected states
+			__drbdadm_resources_by_status "cstate" "Connected"
+			;;
+		pause-sync)
+			# 'pause-sync' operates on active sync states
+			__drbdadm_resources_by_status "cstate" "SyncSource" "SyncTarget"
+			;;
+		resume-sync)
+			# 'resume-sync' operates on paused sync states
+			__drbdadm_resources_by_status "cstate" "PausedSyncS" "PausedSyncT"
+			;;
+		*)
+			# Fallback: if not a specific sub-command, check for sub-command options
+			if (( COMP_CWORD > 2 )); then
+				local subcmd
+				subcmd=${COMP_WORDS[1]}
+				# Check if the word after 'drbdadm' is a known command
+				case "$drbdadm_command_list" in
+				    *" $subcmd "*)
+					__drbdadm_subcmd_options $subcmd
+					;;
+				esac
+			else
+				# If no sub-command given, list all resources
+				__drbdadm_all_resources
+			fi
+			;;
+	esac
+}
+
+complete -o default -F _drbdadm drbdadm

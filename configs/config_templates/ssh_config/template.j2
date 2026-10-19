@@ -12,11 +12,11 @@
 Host *
   # Maximum time (in seconds) to wait for connection establishment before giving up.
   # Schema field: connect_timeout (default: 120)
-  ConnectTimeout {{ connect_timeout | default(120) }}
+{% if connect_timeout is defined and connect_timeout is not none and (connect_timeout is number or connect_timeout is boolean or connect_timeout | length > 0) %}  ConnectTimeout {{ connect_timeout | default(120) }}{% else %}#   ConnectTimeout 0{% endif %}
 
   # Whether to permit password authentication (yes/no).
   # Schema field: password_authentication (default: True)
-  PasswordAuthentication {{ password_authentication | default(True) | lower }}
+{% if password_authentication is defined and password_authentication is not none and (password_authentication is number or password_authentication is boolean or password_authentication | length > 0) %}  PasswordAuthentication {{ password_authentication | default(True) | lower }}{% else %}#   PasswordAuthentication yes{% endif %}
 
   # Whether to enable GSSAPI-based authentication (e.g., Kerberos).
   # Schema field: gssapi_authentication (default: False)
@@ -29,11 +29,11 @@ Host *
 
   # Ordered list of symmetric encryption algorithms to use, in preference order.
   # Schema field: ciphers (default: chacha20 and aes-ctr/gcm variants)
-  Ciphers {{ ciphers | default(['chacha20-poly1305@openssh.com', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com']) | join(' ') }}
+{% if ciphers is defined and ciphers is not none and (ciphers is number or ciphers is boolean or ciphers | length > 0) %}  Ciphers {{ ciphers | default(['chacha20-poly1305@openssh.com', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com']) | join(' ') }}{% else %}#   Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc{% endif %}
 
   # Ordered list of message authentication code algorithms, in preference order.
   # Schema field: macs (default: umac-64/128-etm, hmac-sha2-256/512-etm, hmac-sha1)
-  MACs {{ macs | default(['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1']) | join(' ') }}
+{% if macs is defined and macs is not none and (macs is number or macs is boolean or macs | length > 0) %}  MACs {{ macs | default(['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1']) | join(' ') }}{% else %}#   MACs hmac-md5,hmac-sha1,umac-64@openssh.com{% endif %}
 
   # Compression mode: 'yes' (zlib) or 'no' (default).
   # Schema field: compression (default: 'no')
@@ -41,11 +41,11 @@ Host *
 
   # Enable X11 forwarding (for GUI applications over SSH).
   # Schema field: forward_x11 (default: False)
-  ForwardX11 {{ forward_x11 | default(False) | lower }}
+{% if forward_x11 is defined and forward_x11 is not none and (forward_x11 is number or forward_x11 is boolean or forward_x11 | length > 0) %}  ForwardX11 {{ forward_x11 | default(False) | lower }}{% else %}#   ForwardX11 no{% endif %}
 
   # Forward SSH authentication agent connection to the remote host.
   # Schema field: forward_agent (default: False)
-  ForwardAgent {{ forward_agent | default(False) | lower }}
+{% if forward_agent is defined and forward_agent is not none and (forward_agent is number or forward_agent is boolean or forward_agent | length > 0) %}  ForwardAgent {{ forward_agent | default(False) | lower }}{% else %}#   ForwardAgent no{% endif %}
 
   # List of identity (private key) files to try when authenticating.
   # Schema field: identity_files (default: common RSA, ECDSA, Ed25519, DSA paths)
@@ -67,7 +67,7 @@ Host *
   # Host key verification policy: 'yes' (reject unknown), 'no' (accept any),
   # or 'ask' (prompt). Also supports 'accept-new'.
   # Schema field: strict_host_key_checking (default: 'ask')
-  StrictHostKeyChecking {{ strict_host_key_checking | default('ask') }}
+{% if strict_host_key_checking is defined and strict_host_key_checking is not none and (strict_host_key_checking is number or strict_host_key_checking is boolean or strict_host_key_checking | length > 0) %}  StrictHostKeyChecking {{ strict_host_key_checking | default('ask') }}{% else %}#   StrictHostKeyChecking ask{% endif %}
 
   # How to handle host key updates: 'yes', 'no', or 'ask'.
   # Use 'ask' to preserve security while allowing operator review.

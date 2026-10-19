@@ -149,7 +149,7 @@ $wgEnableMaintenanceScript = {{ enable_maintenance_script | default(False) | low
 {# Extensions                                                                 #}
 {# extensions: Map of extension names to configuration objects #}
 {# -------------------------------------------------------------------------- #}
-{% for ext_name, ext_config in (extensions | default({})) | dict2items %}
+{% for ext_name, ext_config in (extensions | default({})) | dictsort %}
 /**
  * Load extension: {{ ext_name }}
  */
@@ -160,7 +160,7 @@ wfLoadExtension("{{ ext_name }}");
 {% endif %}
 
 {% if ext_config.value.options is mapping and ext_config.value.options %}
-{% for opt_key, opt_val in ext_config.value.options | dict2items %}
+{% for opt_key, opt_val in ext_config.value.options | dictsort %}
 $wg{{ ext_name | replace("-", "") | replace("_", "") }}{{ opt_key.value | replace("_", "") | replace("-", "") }} = {{ opt_val.value | tojson }};
 {% endfor %}
 {% endif %}

@@ -5,7 +5,7 @@
 # ==============================================================================
 
 # Name of the external network interface (e.g., eth0, ppp0) connected to the internet.
-ext_ifname={{ ext_ifname | default('eth0') }}
+{% if ext_ifname is defined and ext_ifname is not none and (ext_ifname is number or ext_ifname is boolean or ext_ifname | length > 0) %}ext_ifname={{ ext_ifname | default('eth0') }}{% else %}#ext_ifname=eth1{% endif %}
 
 # IP address of the internal interface. If empty, auto-detected from the interface's primary address.
 # If set, miniupnpd binds specifically to this address on the internal side.
@@ -17,7 +17,7 @@ enable_natpmp={{ enable_natpmp | default(true) | lower }}
 
 # Enable UPnP-IGD (Internet Gateway Device) service.
 # Set to false to disable UPnP entirely (NAT-PMP may still work if enabled).
-enable_upnp={{ enable_upnp | default(true) | lower }}
+{% if enable_upnp is defined and enable_upnp is not none and (enable_upnp is number or enable_upnp is boolean or enable_upnp | length > 0) %}enable_upnp={{ enable_upnp | default(true) | lower }}{% else %}#enable_upnp=no{% endif %}
 
 # Verbosity of logging: 0 (quiet) to 4 (debug).
 # Higher levels increase disk and memory usage and may expose sensitive network details.
@@ -28,19 +28,19 @@ log_level={{ log_level | default(2) }}
 ssdp_broadcast_interval={{ ssdp_broadcast_interval | default(30) }}
 
 # Human-readable name of the device shown to UPnP clients (e.g., in network tools).
-friendly_name={{ friendly_name | default('MiniUPnP daemon') }}
+{% if friendly_name is defined and friendly_name is not none and (friendly_name is number or friendly_name is boolean or friendly_name | length > 0) %}friendly_name={{ friendly_name | default('MiniUPnP daemon') }}{% else %}#friendly_name=MiniUPnPd router{% endif %}
 
 # Model name of the UPnP device (e.g., 'Home Router').
-model_name={{ model_name | default('MiniUPnPd') }}
+{% if model_name is defined and model_name is not none and (model_name is number or model_name is boolean or model_name | length > 0) %}model_name={{ model_name | default('MiniUPnPd') }}{% else %}#model_name=Router Model{% endif %}
 
 # URL to product information or documentation.
-model_url={{ model_url | default('https://github.com/miniupnp/miniupnp') }}
+{% if model_url is defined and model_url is not none and (model_url is number or model_url is boolean or model_url | length > 0) %}model_url={{ model_url | default('https://github.com/miniupnp/miniupnp') }}{% else %}#model_url=https://miniupnp.tuxfamily.org/{% endif %}
 
 # Name of the manufacturer (e.g., 'Home Network Vendor').
 manufacturer={{ manufacturer | default('MiniUPnP Project') }}
 
 # Manufacturer’s website URL.
-manufacturer_url={{ manufacturer_url | default('https://miniupnp.tuxfamily.org/') }}
+{% if manufacturer_url is defined and manufacturer_url is not none and (manufacturer_url is number or manufacturer_url is boolean or manufacturer_url | length > 0) %}manufacturer_url={{ manufacturer_url | default('https://miniupnp.tuxfamily.org/') }}{% else %}#manufacturer_url=https://miniupnp.tuxfamily.org/{% endif %}
 
 # Device serial number — typically set once and never changed.
 serial_number={{ serial_number | default('12345678') }}

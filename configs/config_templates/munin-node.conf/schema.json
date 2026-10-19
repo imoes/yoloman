@@ -1,138 +1,101 @@
 {
-  "main": {
-    "type": "object",
-    "description": "Core daemon settings",
-    "properties": {
-      "logfile": {
-        "type": "string",
-        "default": "/var/log/munin/munin-node.log",
-        "description": "Path to the munin-node log file"
-      },
-      "pid_file": {
-        "type": "string",
-        "default": "/var/run/munin/munin-node.pid",
-        "description": "Path to the PID file"
-      },
-      "port": {
-        "type": "number",
-        "default": 4949,
-        "description": "TCP port the munin-node listens on"
-      },
-      "host_name": {
-        "type": "string",
-        "default": "{{ ansible_fqdn | default('localhost') }}",
-        "description": "Hostname this node identifies itself as to the munin-master"
-      },
-      "timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Connection timeout in seconds"
-      },
-      "allow": {
-        "type": "list",
-        "default": [
-          "127\\.0\\.0\\.1",
-          "^192\\.168\\.1\\."
-        ],
-        "description": "List of allowed client IP patterns (regex, anchors: ^...$)",
-        "items": {
-          "type": "string"
-        }
-      },
-      "deny": {
-        "type": "list",
-        "default": [],
-        "description": "Optional list of denied IP patterns (regex, anchors: ^...$)",
-        "items": {
-          "type": "string"
-        }
-      }
-    }
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Verbosity of the node's log (0\u20134)."
   },
-  "plugins": {
-    "type": "list",
-    "default": [
-      {
-        "name": "df",
-        "env": {
-          "mount": "/var,/tmp,/home,/srv,/boot"
-        }
-      },
-      {
-        "name": "memory",
-        "env": {}
-      },
-      {
-        "name": "cpu",
-        "env": {}
-      }
-    ],
-    "description": "List of standard plugins with optional environment variables"
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/munin/munin-node.log",
+    "description": "Log file."
   },
-  "plugin_groups": {
-    "type": "list",
-    "default": [
-      {
-        "name": "processes",
-        "description": "Per-user process counts",
-        "env": {
-          "user": "root, munin"
-        }
-      }
-    ],
-    "description": "Groups of plugins (e.g., multi-instance plugins like processes)"
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/munin/munin-node.pid",
+    "description": "PID file."
   },
-  "plugin_rules": {
-    "type": "list",
-    "default": [],
-    "description": "Optional per-plugin-instance overrides"
-  },
-  "tls": {
-    "type": "object",
-    "description": "TLS/SSL configuration for encrypted communication (optional)",
-    "properties": {
-      "enabled": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable TLS encryption"
-      },
-      "key_file": {
-        "type": "string",
-        "default": "/etc/munin/munin-node.key",
-        "description": "Path to private key file"
-      },
-      "cert_file": {
-        "type": "string",
-        "default": "/etc/munin/munin-node.crt",
-        "description": "Path to certificate file"
-      },
-      "ca_file": {
-        "type": "string",
-        "default": "",
-        "description": "Optional path to CA bundle for client cert verification (empty = no verification)"
-      }
-    },
+  "background": {
+    "type": "number",
+    "default": 1,
     "enum": [
-      "paranoid",
-      "enabled",
-      "auto",
-      "disabled"
+      0,
+      1
     ],
-    "default": "disabled"
+    "description": "Detach from the terminal (1) or not (0)."
+  },
+  "setsid": {
+    "type": "number",
+    "default": 1,
+    "enum": [
+      0,
+      1
+    ],
+    "description": "Start a new session (1) or not (0)."
   },
   "user": {
     "type": "string",
-    "default": "munin",
-    "description": "User under which the munin-node daemon runs"
+    "default": "root",
+    "description": "User the node runs as."
   },
   "group": {
     "type": "string",
-    "default": "munin",
-    "description": "Group under which the munin-node daemon runs"
+    "default": "root",
+    "description": "Group the node runs as."
   },
-  "plugins_dir": {
+  "global_timeout": {
+    "type": "number",
+    "default": null,
+    "description": "Timeout for the whole transaction in seconds (unset: munin's 900)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": null,
+    "description": "Timeout per plugin in seconds (unset: munin's 60)."
+  },
+  "ignore_files": {
+    "type": "list",
+    "default": [
+      "[\\#~]$",
+      "DEADJOE$",
+      "\\.bak$",
+      "%$",
+      "\\.dpkg-(tmp|new|old|dist)$",
+      "\\.rpm(save|new)$",
+      "\\.pod$"
+    ],
+    "description": "Regular expressions of plugin file names to ignore."
+  },
+  "host_name": {
     "type": "string",
-    "default": "/usr/share/munin/plugins",
-    "description": "Directory containing munin plugins"
+    "default": null,
+    "description": "Host name the node reports (unset: the system's)."
+  },
+  "allow": {
+    "type": "list",
+    "default": [
+      "^127\\.0\\.0\\.1$",
+      "^::1$"
+    ],
+    "description": "Regular expressions of client addresses allowed to connect."
+  },
+  "cidr_allow": {
+    "type": "list",
+    "default": [],
+    "description": "CIDR networks allowed (needs Net::CIDR), e.g. 192.0.2.0/24."
+  },
+  "cidr_deny": {
+    "type": "list",
+    "default": [],
+    "description": "CIDR networks denied (needs Net::CIDR), e.g. 192.0.2.42/32."
+  },
+  "host": {
+    "type": "string",
+    "default": "*",
+    "description": "Address to bind to (* = all)."
+  },
+  "port": {
+    "type": "number",
+    "default": 4949,
+    "description": "TCP port."
   }
 }

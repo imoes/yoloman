@@ -1,77 +1,151 @@
-# =============================================================================
-# Burp Client Configuration Template
-# This file configures the Burp backup client to connect to a Burp server.
-# It manages connection details, SSL/TLS settings, and backup inclusion rules.
-# =============================================================================
+# This is an example config file for the burp client.
 
-# Mode of operation for this Burp instance.
-# Set to 'client' to run the Burp backup client.
-mode = client
-
-# =============================================================================
-# Connection Settings
-# =============================================================================
-
-# Burp server host and port in the form host:port.
-# This is the primary address the client uses to reach the backup server.
+mode = {{ mode | default('client') }}
 server = {{ server | default('localhost:4971') }}
-
-# Port for client status queries.
-# Allows external tools or the server to query the client's current status.
-status_port = {{ status_port | default(4972) }}
-
-# Password for client authentication.
-# Used to authenticate the client to the Burp server.
+status_port = {{ status_port | default('4972') }}
 password = {{ password | default('abcdefgh') }}
-
-# Client name (common name) used in backups.
-# This identifier helps distinguish this client in the server's logs and database.
 cname = {{ cname | default('testclient') }}
+# A different port to use for restores - see the man page for more options.
+{% if port_restore is defined and port_restore is not none and (port_restore is number or port_restore is boolean or port_restore | length > 0) %}port_restore = {{ port_restore }}
+{% else %}#port_restore = 5971
+{% endif %}pidfile = {{ pidfile | default('/run/burp.client.pid') }}
+syslog = {{ syslog | default('0') }}
+stdout = {{ stdout | default('1') }}
+progress_counter = {{ progress_counter | default('1') }}
+# Ratelimit throttles the send speed. Specified in Megabits per second (Mb/s).
+# ratelimit = 1.5
+# Network timeout defaults to 7200 seconds (2 hours).
+# network_timeout = 7200
+# The directory to which autoupgrade files will be downloaded.
+# To never autoupgrade, leave it commented out.
+# autoupgrade_dir=/etc/burp/autoupgrade/client
+# OS path component for the autoupgrade directory on the server.
+# autoupgrade_os=test_os
+# Wait a random number of seconds between 0 and the given number before
+# contacting the server on a timed backup.
+# randomise = 1200
 
-# =============================================================================
-# Restore Settings
-# =============================================================================
+# Set server_can_restore to 0 if you do not want the server to be able to
+# initiate a restore (setting it to 1 also requires 'restoreprefix').
+server_can_restore = {{ server_can_restore | default('0') }}
+# This option is prefixed to the path of all restores, and is overridden by
+# '-d' on the command line.
+# restoreprefix = /my/restore/directory
 
-# Allow the server to initiate restores (0=off, 1=on).
-# If set to 1, the server can trigger backups/restore operations for this client.
-server_can_restore = {{ server_can_restore | default(0) }}
+# Set server_can_override_includes to 0 if you do not want the server to be
+# able to override the local include/exclude list. The default is 1.
+# server_can_override_includes = 1
 
-# =============================================================================
-# Filesystem & Backup Scope
-# =============================================================================
+# Set an encryption password if you do not trust the server with your data.
+# Note that this will mean that network deltas will not be possible. Each time
+# a file changes, the whole file will be transferred on the next backup.
+# On restoration, take care when copying and pasting special characters between
+# client conf files, as the encoding of the config file matters.
+# encryption_password = My^$pAsswIrD%@
 
-# Mount point(s) across which file system boundaries should be crossed during backup.
-# Comma-separated list of paths where crossing filesystem boundaries is allowed.
-cross_filesystem = {{ cross_filesystem | default('/home') }}
+# More configuration files can be read, using syntax like the following
+# (without the leading '# ').
+# . path/to/more/conf
 
-# Whether to cross all filesystem boundaries (0=no, 1=yes).
-# If 1, ignores filesystem boundaries entirely; if 0, respects cross_filesystem list.
-cross_all_filesystems = {{ cross_all_filesystems | default(0) }}
+# Run as different user/group.
+# user=graham
+# group=nogroup
+# Set to 1 to keep 'readall' capability (linux only) when dropping privileges
+# (default is 0, do not keep capability). Readall capability allows process
+# to read all files (even not owned by user) without requiring root privileges.
+# When using readall=1 if user= is not set it's assumed nobody.
+# readall=1
 
-# =============================================================================
-# SSL/TLS Configuration
-# =============================================================================
+cross_filesystem={{ cross_filesystem | default('/home') }}
+cross_all_filesystems={{ cross_all_filesystems | default('0') }}
 
-# Path to SSL CA certificate file.
-# Used to verify the server's identity. Must match the CA used by the server.
+# Uncomment the following lines to automatically generate a certificate signing
+# request and send it to the server.
+ca_burp_ca = {{ ca_burp_ca | default('/usr/sbin/burp_ca') }}
+ca_csr_dir = {{ ca_csr_dir | default('/etc/burp/CA-client') }}
+
+# SSL certificate authority - same file on both server and client
 ssl_cert_ca = {{ ssl_cert_ca | default('/etc/burp/ssl_cert_ca.pem') }}
 
-# Path to client SSL certificate file.
-# The client's public certificate presented during TLS handshake.
+# Client SSL certificate
 ssl_cert = {{ ssl_cert | default('/etc/burp/ssl_cert-client.pem') }}
 
-# Path to client SSL private key file.
-# The client's private key corresponding to ssl_cert. Keep this secure.
+# Client SSL key
 ssl_key = {{ ssl_key | default('/etc/burp/ssl_cert-client.key') }}
 
-# Common name expected in the server's certificate.
-# The client will verify that the server's certificate CN matches this value.
+# Client SSL ciphers
+{% if ssl_ciphers is defined and ssl_ciphers is not none and (ssl_ciphers is number or ssl_ciphers is boolean or ssl_ciphers | length > 0) %}ssl_ciphers {{ ssl_ciphers }}
+{% else %}#ssl_ciphers = 
+{% endif %}
+# Client SSL compression. Default is zlib5. Set to zlib0 to turn it off.
+{% if ssl_compression is defined and ssl_compression is not none and (ssl_compression is number or ssl_compression is boolean or ssl_compression | length > 0) %}ssl_compression = {{ ssl_compression }}
+{% else %}#ssl_compression = zlib5
+{% endif %}
+# SSL key password, for loading a certificate with encryption.
+{% if ssl_key_password is defined and ssl_key_password is not none and (ssl_key_password is number or ssl_key_password is boolean or ssl_key_password | length > 0) %}ssl_key_password = {{ ssl_key_password }}
+{% else %}#ssl_key_password = password
+{% endif %}
+# Common name in the certificate that the server gives us
 ssl_peer_cn = {{ ssl_peer_cn | default('burpserver') }}
 
-# =============================================================================
-# Backup Include/Exclude Rules
-# =============================================================================
-
-# Top-level directory or file to include in backups.
-# Specifies the root path for the backup job.
+# Example syntax for pre/post scripts
+{% if backup_script_pre is defined and backup_script_pre is not none and (backup_script_pre is number or backup_script_pre is boolean or backup_script_pre | length > 0) %}backup_script_pre={{ backup_script_pre }}
+{% else %}#backup_script_pre=/path/to/a/script
+{% endif %}{% if backup_script_post is defined and backup_script_post is not none and (backup_script_post is number or backup_script_post is boolean or backup_script_post | length > 0) %}backup_script_post={{ backup_script_post }}
+{% else %}#backup_script_post=/path/to/a/script
+{% endif %}{% if restore_script_pre is defined and restore_script_pre is not none and (restore_script_pre is number or restore_script_pre is boolean or restore_script_pre | length > 0) %}restore_script_pre={{ restore_script_pre }}
+{% else %}#restore_script_pre=/path/to/a/script
+{% endif %}{% if restore_script_post is defined and restore_script_post is not none and (restore_script_post is number or restore_script_post is boolean or restore_script_post | length > 0) %}restore_script_post={{ restore_script_post }}
+{% else %}#restore_script_post=/path/to/a/script
+{% endif %}
+# The following options specify exactly what to backup.
+# The server will override them if there is at least one 'include=' line on
+# the server side and 'server_can_override_includes=1'.
 include = {{ include_path | default('/home') }}
+#exclude = /home/graham/testdir/librsync-0.9.7/testsuite
+#include = /home/graham/testdir/librsync-0.9.7/testsuite/deep
+#include = /home/graham/xdir
+#exclude = /home/graham/testdir/libr
+# Exclude file names ending in '.vdi' or '.vmdk' (case insensitive)
+#exclude_ext = vdi
+#exclude_ext = vmd
+# Exlude file path matching a regular expression
+# (note that 'include_regex' is not yet implemented)
+{% if exclude_regex is defined and exclude_regex is not none and (exclude_regex is number or exclude_regex is boolean or exclude_regex | length > 0) %}exclude_regex = {{ exclude_regex }}
+{% else %}#exclude_regex = \.cache
+{% endif %}# Exclude various temporary file systems. You may want to add devfs, devpts,
+# proc, ramfs, etc.
+exclude_fs = sysfs
+exclude_fs = tmpfs
+# Exclude files based on size. Defaults are 0, which means no limit.
+{% if min_file_size is defined and min_file_size is not none and (min_file_size is number or min_file_size is boolean or min_file_size | length > 0) %}min_file_size = {{ min_file_size }}
+{% else %}#min_file_size = 0 Mb
+{% endif %}{% if max_file_size is defined and max_file_size is not none and (max_file_size is number or max_file_size is boolean or max_file_size | length > 0) %}max_file_size = {{ max_file_size }}
+{% else %}#max_file_size = 0 Mb
+{% endif %}# The content of directories containing a filesystem entry named like this
+# will not be backed up.
+nobackup = {{ nobackup | default('.nobackup') }}
+# By default, burp backups up the fifos themselves, rather than reading from
+# them. These two options let you choose a particular fifo to read, or read
+# from all fifos.
+{% if read_fifo is defined and read_fifo is not none and (read_fifo is number or read_fifo is boolean or read_fifo | length > 0) %}read_fifo={{ read_fifo }}
+{% else %}#read_fifo=/path/to/a/fifo
+{% endif %}{% if read_all_fifos is defined and read_all_fifos is not none and (read_all_fifos is number or read_all_fifos is boolean or read_all_fifos | length > 0) %}read_all_fifos={{ read_all_fifos }}
+{% else %}#read_all_fifos=0
+{% endif %}# The same for block device nodes.
+{% if read_blockdev is defined and read_blockdev is not none and (read_blockdev is number or read_blockdev is boolean or read_blockdev | length > 0) %}read_blockdev={{ read_blockdev }}
+{% else %}#read_blockdev=/path/to/a/blockdev
+{% endif %}{% if read_all_blockdevs is defined and read_all_blockdevs is not none and (read_all_blockdevs is number or read_all_blockdevs is boolean or read_all_blockdevs | length > 0) %}read_all_blockdevs={{ read_all_blockdevs }}
+{% else %}#read_all_blockdevs=0
+{% endif %}# Exclude files from compression by extension.
+exclude_comp=bz2
+exclude_comp=gz
+# When backing up, whether to enable O_NOATIME when opening files and
+# directories. The default is atime=0, which enables O_NOATIME.
+{% if atime is defined and atime is not none and (atime is number or atime is boolean or atime | length > 0) %}atime={{ atime }}
+{% else %}#atime=1
+{% endif %}# When enabled, this causes problems in the phase1 scan (such as an 'include'
+# being missing) to be treated as fatal errors. The default is 0.
+{% if scan_problem_raises_error is defined and scan_problem_raises_error is not none and (scan_problem_raises_error is number or scan_problem_raises_error is boolean or scan_problem_raises_error | length > 0) %}scan_problem_raises_error={{ scan_problem_raises_error }}
+{% else %}#scan_problem_raises_error=1
+{% endif %}

@@ -1,0 +1,46 @@
+# Modulefile for MVAPICH2-PSM2
+# This module configures the environment for using MVAPICH2 with the PSM2 (Polaris Shmem
+# Substrate 2) network interface. It sets standard MPI environment variables and paths
+# so that compilers and runtimes can find libraries, headers, and tools.
+
+conflict mpi
+
+# Add MVAPICH2-PSM2 binaries to the user's PATH
+prepend-path PATH {{ mpi_bin_dir | default('/usr/lib64/mvapich2-psm2/bin') }}
+
+# Add MVAPICH2-PSM2 libraries to the dynamic linker path
+prepend-path LD_LIBRARY_PATH {{ mpi_lib_dir | default('/usr/lib64/mvapich2-psm2/lib') }}
+
+# Add MVAPICH2-PSM2 pkg-config files location
+prepend-path PKG_CONFIG_PATH {{ mpi_lib_dir | default('/usr/lib64/mvapich2-psm2/lib') }}/pkgconfig
+
+# Add MVAPICH2-PSM2 Python site-packages to PYTHONPATH
+prepend-path PYTHONPATH {{ python_site_packages_dir | default('/usr/lib64/python3.9/site-packages/mvapich2-psm2') }}
+
+# Add MVAPICH2-PSM2 manual pages to MANPATH
+prepend-path MANPATH {{ mpi_man_dir | default('/usr/share/man/mvapich2-psm2-x86_64') }}
+
+# Set environment variables for build scripts and tools
+setenv MPI_BIN {{ mpi_bin_dir | default('/usr/lib64/mvapich2-psm2/bin') }}
+
+setenv MPI_SYSCONFIG {{ mpi_sysconfig_dir | default('/etc/mvapich2-psm2-x86_64') }}
+
+setenv MPI_FORTRAN_MOD_DIR {{ mpi_fortran_mod_dir | default('/usr/lib64/gfortran/modules/mvapich2-psm2') }}
+
+setenv MPI_INCLUDE {{ mpi_include_dir | default('/usr/include/mvapich2-psm2-x86_64') }}
+
+setenv MPI_LIB {{ mpi_lib_dir | default('/usr/lib64/mvapich2-psm2/lib') }}
+
+setenv MPI_MAN {{ mpi_man_dir | default('/usr/share/man/mvapich2-psm2-x86_64') }}
+
+setenv MPI_PYTHON_SITEARCH {{ mpi_python_sitearch_dir | default('/usr/lib64/python3.9/site-packages/mvapich2-psm2') }}
+
+setenv MPI_PYTHON2_SITEARCH {{ mpi_python2_sitearch_dir | default('/usr/lib64/python3.9/site-packages/mvapich2-psm2') }}
+
+setenv MPI_PYTHON3_SITEARCH {{ mpi_python3_sitearch_dir | default('/usr/lib64/python3.9/site-packages/mvapich2-psm2') }}
+
+setenv MPI_COMPILER {{ mpi_compiler_suffix | default('mvapich2-psm2-x86_64') }}
+
+setenv MPI_SUFFIX {{ mpi_suffix | default('_mvapich2-psm2') }}
+
+setenv MPI_HOME {{ mpi_home_dir | default('/usr/lib64/mvapich2-psm2') }}

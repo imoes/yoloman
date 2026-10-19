@@ -1,39 +1,35 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          ipip
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: IP over IP encapsulation daemon
-### END INIT INFO
+; ==============================================================================
+; ipip Daemon Configuration Template
+; ==============================================================================
+; This template configures the ipip daemon. ipip (IPIP) is an IPIP tunnel driver
+; for Amprnet/AMPR networks. It handles tunneling IP packets over IPIP tunnels.
+;
+; The configuration is split into two parts:
+; 1. Global flags passed to the daemon at startup.
+; 2. Specific arguments passed only when the daemon starts (start_flags).
+;
+; NOTE: The actual network interfaces (tunnels) are typically defined by
+;       external scripts or systemd service arguments, as this specific
+;       daemon format is quite legacy and interface-heavy. However, the
+;       flags below control general behavior.
 
-. /lib/lsb/init-functions
+; --------------------------------------------------------------------------
+; Global Flags
+; --------------------------------------------------------------------------
+; Default flags passed to the ipip daemon (e.g., 'defaults 50').
+; These flags apply to the daemon process as a whole.
+; Example: "defaults 50" sets default parameters for new tunnels.
+; See the ipip man page for available global flags.
+{{ flags | default('defaults 50') }}
 
-PATH=/bin:/usr/bin:/sbin:/usr/sbin
-DAEMON=/usr/sbin/ipip
-
-# flags: Default flags passed to the ipip daemon (e.g., 'defaults 50').
-FLAGS="{{ flags | default('defaults 50') }}"
-
-test -f $DAEMON || exit 0
-
-case "$1" in
-  start)
-    # start_flags: Additional arguments passed specifically when starting the daemon.
-    start-stop-daemon --start --verbose --exec $DAEMON {{ start_flags | default('') }}
-    ;;
-  stop)
-    start-stop-daemon --stop --verbose --exec $DAEMON
-    ;;
-  restart|force-reload)
-    start-stop-daemon --stop --verbose --exec $DAEMON
-    start-stop-daemon --start --verbose --exec $DAEMON {{ start_flags | default('') }}
-    ;;
-  *)
-    echo "Usage: /etc/init.d/ipip {start|stop|restart|force-reload}"
-    exit 1
-    ;;
-esac
-
-exit 0
+; --------------------------------------------------------------------------
+; Start Flags
+; --------------------------------------------------------------------------
+; Additional arguments passed specifically when starting the daemon.
+; These are appended to the command line invocation of the ipip daemon.
+; Use this to pass specific startup options not covered by global flags.
+; Example: "--verbose" or "--pidfile /run/ipip.pid"
+; Leave empty if no additional startup arguments are needed.
+{% if start_flags is defined and start_flags != "" %}
+{{ start_flags }}
+{% endif %}
